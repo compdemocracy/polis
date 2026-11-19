@@ -1207,3 +1207,39 @@ async fn copies_decided_without_a_read_and_copies_that_are_not_identity_copies()
 #[cfg(feature = "db-tests")]
 #[path = "post_votes_identity_database_tests.rs"]
 pub(crate) mod database;
+
+/// Where identity is observed, a vote copy still in flight when the stop's
+/// bound came (`shadow::stop`) gets the line with the identity keys after the
+/// vote observer's, each null, as on a shed line.
+#[test]
+fn a_copy_stopped_in_flight_carries_the_identity_keys_each_null() {
+    use crate::shadow::stop::{Entry, Kind, Stage};
+    let keys = signing();
+    let app = shadow_app(observer_on(closed, None, &keys.public));
+    let id = format!("{:032x}", 0x5709_1000);
+    crate::shadow::print_stopped(
+        &app,
+        &Entry {
+            kind: Kind::Votes {
+                facts: (false, false),
+                identity: true,
+            },
+            request_id: Some(id.clone()),
+            stage: Stage::Retry,
+        },
+    );
+    let marker = format!("\"request_id\":\"{id}\"");
+    let line = recorded()
+        .into_iter()
+        .find(|line| line.contains(&marker))
+        .expect("the stopped line");
+    let mut expected: Vec<&str> = VOTE_KEYS.to_vec();
+    expected.extend(LINE_KEYS);
+    assert_eq!(printed_keys(&line), expected, "{line}");
+    let value: Value = serde_json::from_str(&line).unwrap();
+    assert_eq!(value["outcome"], "stopped", "{line}");
+    assert_eq!(value["reason"], "before_retry", "{line}");
+    for key in LINE_KEYS {
+        assert!(value[key].is_null(), "{key}: {line}");
+    }
+}

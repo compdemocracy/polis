@@ -126,11 +126,27 @@ fn keys() -> Keys {
     }
 }
 
-/// The real binary, with its stderr collected line by line.
+/// The real binary, with its stderr and its stdout collected line by line.
 struct Api {
     child: Child,
     lines: Arc<Mutex<Vec<String>>>,
+    /// What it printed on stdout: the shadow role's observation lines.
+    out: Arc<Mutex<Vec<String>>>,
     address: SocketAddr,
+}
+
+/// Collects a child's output stream line by line on a thread of its own, so
+/// that the stream never fills and blocks the process.
+fn collect(stream: impl Read + Send + 'static) -> Arc<Mutex<Vec<String>>> {
+    let lines = Arc::new(Mutex::new(Vec::new()));
+    let collected = lines.clone();
+    std::thread::spawn(move || {
+        for line in BufReader::new(stream).lines() {
+            let Ok(line) = line else { break };
+            collected.lock().unwrap().push(line);
+        }
+    });
+    lines
 }
 
 impl Api {
@@ -140,22 +156,16 @@ impl Api {
         let mut child = Command::new(env!("CARGO_BIN_EXE_polis-api"))
             .env_clear()
             .envs(settings.iter().map(|(k, v)| (*k, v.as_str())))
-            .stdout(Stdio::null())
+            .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .unwrap();
-        let lines = Arc::new(Mutex::new(Vec::new()));
-        let stderr = child.stderr.take().unwrap();
-        let collected = lines.clone();
-        std::thread::spawn(move || {
-            for line in BufReader::new(stderr).lines() {
-                let Ok(line) = line else { break };
-                collected.lock().unwrap().push(line);
-            }
-        });
+        let lines = collect(child.stderr.take().unwrap());
+        let out = collect(child.stdout.take().unwrap());
         let mut api = Self {
             child,
             lines,
+            out,
             address: "127.0.0.1:1".parse().unwrap(),
         };
         let line = api.line(event);
@@ -216,6 +226,27 @@ impl Api {
 
     fn printed(&self) -> String {
         self.lines.lock().unwrap().join("\n")
+    }
+
+    /// Every `shadow_observation` line printed for the copy `id`.
+    fn observations(&self, id: &str) -> Vec<serde_json::Value> {
+        self.out
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|line| line.contains("\"message\":\"shadow_observation\""))
+            .map(|line| serde_json::from_str::<serde_json::Value>(line).unwrap())
+            .filter(|line| line["request_id"] == id)
+            .collect()
+    }
+
+    /// Everything it printed, both streams, for a failure's message.
+    fn everything(&self) -> String {
+        format!(
+            "stderr:\n{}\nstdout:\n{}",
+            self.printed(),
+            self.out.lock().unwrap().join("\n")
+        )
     }
 
     /// True once a new connection is refused: the listener is closed.
@@ -560,4 +591,344 @@ fn both_roles_exit_at_once_when_idle() {
     assert!(exit.success(), "shadow: {exit}\n{}", api.printed());
     assert!(took < Duration::from_secs(1), "shadow: {took:?}");
     assert_eq!(api.line("shadow_stopping")["signal"], "SIGTERM");
+}
+
+fn kill(name: &str, pid: u32) {
+    let status = Command::new("kill")
+        .args([format!("-{name}"), pid.to_string()])
+        .status()
+        .unwrap();
+    assert!(status.success());
+}
+
+/// Connections queued in the kernel's backlog when the stop arrives: the
+/// process is stopped (SIGSTOP) so it cannot accept, 30 votes and 10 pca2
+/// reads are connected and sent, SIGTERM is sent, and the process resumes.
+/// Every one of the 40 is answered: each vote with the marked 502 (none
+/// dispatched, none written), each read with a status line; and the process
+/// exits zero. (The independent review's test of the accept loop's sweep.)
+#[test]
+fn sigterm_answers_every_connection_queued_in_the_backlog() {
+    let db = Database::new("backlog");
+    let keys = keys();
+    let mut api = Api::start(
+        &writer_settings(&db, db.url.as_str(), &keys),
+        "polis_api_listening",
+        "addr",
+    );
+    warm(&api, &keys.token);
+    let pid = api.child.id();
+    kill("STOP", pid);
+    std::thread::sleep(Duration::from_millis(200));
+    let votes: Vec<TcpStream> = (100..130)
+        .map(|tid| {
+            let mut s = TcpStream::connect(api.address).unwrap();
+            s.write_all(&vote(&keys.token, tid)).unwrap();
+            s
+        })
+        .collect();
+    let reads: Vec<TcpStream> = (0..10)
+        .map(|_| {
+            let mut s = TcpStream::connect(api.address).unwrap();
+            s.write_all(
+                b"GET /api/v3/math/pca2?conversation_id=2fixture HTTP/1.0\r\nHost: localhost\r\nX-Forwarded-Proto: https\r\nConnection: close\r\n\r\n",
+            )
+            .unwrap();
+            s
+        })
+        .collect();
+    let sent = api.signal("TERM");
+    std::thread::sleep(Duration::from_millis(100));
+    kill("CONT", pid);
+    let votes: Vec<String> = votes
+        .into_iter()
+        .map(read_answer)
+        .map(|h| h.join().unwrap())
+        .collect();
+    let reads: Vec<String> = reads
+        .into_iter()
+        .map(read_answer)
+        .map(|h| h.join().unwrap())
+        .collect();
+    let (exit, took) = api.exit(sent);
+    settle();
+    let stopped = stop_line(&mut api);
+    eprintln!("backlog: stopped {took:?} after SIGTERM: {stopped}");
+    for answer in &votes {
+        assert_eq!(status(answer), 502, "{answer}\n{}", api.printed());
+        assert!(
+            answer.contains("\r\nX-Polis-Vote-Dispatch: not-started\r\n"),
+            "{answer}"
+        );
+    }
+    for answer in &reads {
+        assert!(
+            !answer.is_empty(),
+            "a read got no answer\n{}",
+            api.printed()
+        );
+        status(answer);
+    }
+    let written: i64 = (100..130).map(|tid| db.votes_on(tid)).sum();
+    assert_eq!(written, 0, "no vote handed back is written");
+    assert!(exit.success(), "{exit}\n{}", api.printed());
+}
+
+// ---------------------------------------------------------------------------
+// The shadow role: the observations in flight when the stop comes.
+// ---------------------------------------------------------------------------
+
+/// The most the shadow role's stop may take: its bound, the runtime's half
+/// second for blocking work, and the lines it prints, inside the window with
+/// margin.
+const SHADOW_STOP_MOST: Duration = Duration::from_millis(8500);
+
+/// The shadow role as production runs `polis-api-shadow` (docker-compose.yml):
+/// the vote observer and the comment observer, each with its own cap.
+fn shadow_settings(db: &Database, keys: &Keys) -> Vec<(&'static str, String)> {
+    vec![
+        ("POLIS_API_ROLE", "shadow".to_owned()),
+        ("POLIS_API_SHADOW_LISTEN", "127.0.0.1:0".into()),
+        ("POLIS_API_SHADOW_MAX_PER_SECOND", "8".into()),
+        ("POLIS_API_POST_VOTES", "observe".into()),
+        ("POLIS_API_POST_VOTES_DATABASE_URL", db.url.to_string()),
+        ("POLIS_API_POST_COMMENTS", "observe".into()),
+        ("POLIS_API_SHADOW_COMMENTS_MAX_PER_SECOND", "5".into()),
+        ("POLIS_API_POST_COMMENTS_DATABASE_URL", db.url.to_string()),
+        ("POLIS_API_DB_TRANSPORT", "loopback".into()),
+        ("POLIS_API_DATABASE_URL", db.url.to_string()),
+        ("DATABASE_URL", db.url.to_string()),
+        ("MATH_ENV", "test".into()),
+        ("NODE_ENV", "production".into()),
+        ("TZ", "UTC".into()),
+        ("TOPICAL_COMMENT_RATIO", "0".into()),
+        ("SHOULD_USE_TRANSLATION_API", "false".into()),
+        ("JWT_PUBLIC_KEY", keys.public.clone()),
+        ("POLIS_JWT_ISSUER", "fixture".into()),
+        ("POLIS_JWT_AUDIENCE", "fixture".into()),
+    ]
+}
+
+/// A copy as nginx's mirror sends one to the shadow: the request id, the
+/// shadow's selector name, the scheme the client used.
+fn copy(path: &str, shadow: &str, token: &str, id: &str, body: &str) -> Vec<u8> {
+    format!(
+        "POST {path} HTTP/1.0\r\nHost: localhost\r\nConnection: close\r\nX-Forwarded-Proto: https\r\nX-Request-Id: {id}\r\nX-Polis-Shadow: {shadow}\r\nContent-Type: application/json\r\nAuthorization: Bearer {token}\r\nContent-Length: {}\r\n\r\n{body}",
+        body.len()
+    )
+    .into_bytes()
+}
+
+/// A copy of a vote (a pass: the tests ask only what was printed).
+fn vote_copy(token: &str, tid: i32, id: &str) -> Vec<u8> {
+    let body = format!(r#"{{"conversation_id":"2fixture","tid":{tid},"vote":0}}"#);
+    copy("/api/v3/votes", "votesShadow", token, id, &body)
+}
+
+/// A copy of a comment that carries no vote.
+fn comment_copy(token: &str, txt: &str, id: &str) -> Vec<u8> {
+    let body = format!(r#"{{"conversation_id":"2fixture","txt":"{txt}"}}"#);
+    copy("/api/v3/comments", "commentsShadow", token, id, &body)
+}
+
+/// nginx's request id: 32 lower-case hex digits.
+fn request_id(n: u32) -> String {
+    format!("{n:032x}")
+}
+
+/// Sends a copy; the shadow answers every copy 204 at once.
+fn send_copy(api: &Api, request: Vec<u8>) {
+    let answer = send(api.address, request).join().unwrap();
+    assert_eq!(status(&answer), 204, "{answer}");
+}
+
+/// Node's vote on `tid`, written as Node's vote is: through the vote writer,
+/// so the stored value goes through the storage convention.
+fn node_vote(writer: &Api, token: &str, tid: i32) {
+    let deadline = Instant::now() + WATCHDOG;
+    loop {
+        let answer = send(writer.address, vote(token, tid)).join().unwrap();
+        if status(&answer) == 200 {
+            return;
+        }
+        // A cold admission can miss its 250 ms deadline and hand back.
+        assert_eq!(status(&answer), 502, "{answer}");
+        assert!(
+            Instant::now() < deadline,
+            "the vote on {tid} was never written"
+        );
+    }
+}
+
+/// Node's row for a comment the copy carries: this participant's, created
+/// now. A comment holds no vote.
+fn node_comment(db: &Database, txt: &str) {
+    db.connect()
+        .execute(
+            "INSERT INTO comments(zid,pid,uid,txt) VALUES (1,0,1,$1)",
+            &[&txt],
+        )
+        .unwrap();
+}
+
+/// Gives the threads that read an exited process's two output streams the
+/// moment they need to reach the streams' end.
+fn settle() {
+    std::thread::sleep(Duration::from_millis(300));
+}
+
+fn keys_of(line: &serde_json::Value) -> Vec<String> {
+    let mut keys: Vec<String> = line.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    keys
+}
+
+/// SIGTERM while the shadow observes copies whose Node row is there at the
+/// first look, two seconds after each copy arrived: three votes and two
+/// comments. The listener closes at once; the process waits for the five
+/// observations, each prints its own line (Node's vote the same, Node's
+/// comment its own), and it exits zero as soon as the last one has. Before
+/// this, the shadow exited at once and every line was lost; inside its
+/// container (PID 1, SIGTERM ignored) they were printed during the ten
+/// seconds before SIGKILL.
+#[test]
+fn sigterm_the_shadow_prints_the_lines_read_back_at_two_seconds() {
+    let db = Database::new("shadowkept");
+    let keys = keys();
+    let writer = Api::start(
+        &writer_settings(&db, db.url.as_str(), &keys),
+        "polis_api_listening",
+        "addr",
+    );
+    let votes = [9, 10, 11];
+    for tid in votes {
+        node_vote(&writer, &keys.token, tid);
+    }
+    drop(writer);
+    let comments = ["kept one", "kept two"];
+    for txt in comments {
+        node_comment(&db, txt);
+    }
+    let mut api = Api::start(&shadow_settings(&db, &keys), "shadow_listening", "address");
+    let mut ids = vec![];
+    for (n, tid) in votes.into_iter().enumerate() {
+        let id = request_id(100 + n as u32);
+        send_copy(&api, vote_copy(&keys.token, tid, &id));
+        ids.push((id, "votesShadow"));
+    }
+    for (n, txt) in comments.into_iter().enumerate() {
+        let id = request_id(200 + n as u32);
+        send_copy(&api, comment_copy(&keys.token, txt, &id));
+        ids.push((id, "commentsShadow"));
+    }
+    std::thread::sleep(Duration::from_millis(500));
+    let sent = api.signal("TERM");
+    let (exit, took) = api.exit(sent);
+    settle();
+    for (id, shadow) in &ids {
+        let lines = api.observations(id);
+        assert_eq!(lines.len(), 1, "{id}: one line\n{}", api.everything());
+        let line = &lines[0];
+        assert_eq!(line["shadow"], *shadow, "{line}");
+        assert_eq!(line["outcome"], "would_serve", "{line}");
+        assert_eq!(line["readback_s"], 2, "{line}");
+        if *shadow == "votesShadow" {
+            assert_eq!(line["node_vote"], "same", "{line}");
+        } else {
+            assert_eq!(line["node_comment"], "own", "{line}");
+        }
+    }
+    assert!(exit.success(), "{exit}\n{}", api.everything());
+    assert!(
+        took < Duration::from_secs(3),
+        "{took:?}\n{}",
+        api.everything()
+    );
+    let stopped = api.line("shadow_stopped");
+    eprintln!("shadow stopped {took:?} after SIGTERM: {stopped}");
+    assert_eq!(stopped["drained"], true, "{stopped}");
+    assert_eq!(stopped["kept"], 5, "{stopped}");
+    assert_eq!(stopped["stopped"], 0, "{stopped}");
+    assert_eq!(api.line("shadow_stopping")["signal"], "SIGTERM");
+}
+
+/// SIGTERM while the shadow waits for Node's row: none is there at the first
+/// look, so each copy waits for its second, ten seconds after it arrived.
+/// One vote and one comment arrived three seconds before the signal: their
+/// second look falls inside the bound and they print their own lines (Node's
+/// row absent). Two votes and a comment arrived half a second before it:
+/// their second look would fall after the bound, so at the bound each gets
+/// one line saying it was stopped, before its second look, with nothing it
+/// had not finished, and the process says how many it kept and how many it
+/// stopped, and exits zero inside the window. None is lost.
+#[test]
+fn sigterm_the_shadow_prints_a_stopped_line_for_each_copy_still_waiting_at_its_bound() {
+    let db = Database::new("shadowbound");
+    let keys = keys();
+    let mut api = Api::start(&shadow_settings(&db, &keys), "shadow_listening", "address");
+    let early_vote = request_id(300);
+    let early_comment = request_id(301);
+    send_copy(&api, vote_copy(&keys.token, 22, &early_vote));
+    send_copy(
+        &api,
+        comment_copy(&keys.token, "early absent", &early_comment),
+    );
+    std::thread::sleep(Duration::from_secs(3));
+    let late_votes = [request_id(310), request_id(311)];
+    let late_comment = request_id(312);
+    send_copy(&api, vote_copy(&keys.token, 20, &late_votes[0]));
+    send_copy(&api, vote_copy(&keys.token, 21, &late_votes[1]));
+    send_copy(
+        &api,
+        comment_copy(&keys.token, "late absent", &late_comment),
+    );
+    std::thread::sleep(Duration::from_millis(500));
+    let sent = api.signal("TERM");
+    let (exit, took) = api.exit(sent);
+    settle();
+    let one = |id: &str| {
+        let lines = api.observations(id);
+        assert_eq!(lines.len(), 1, "{id}: one line\n{}", api.everything());
+        lines.into_iter().next().unwrap()
+    };
+    // Kept: their second look came inside the bound.
+    let kept_vote = one(&early_vote);
+    assert_eq!(kept_vote["outcome"], "would_serve", "{kept_vote}");
+    assert_eq!(kept_vote["node_vote"], "absent", "{kept_vote}");
+    assert_eq!(kept_vote["readback_s"], 10, "{kept_vote}");
+    let kept_comment = one(&early_comment);
+    assert_eq!(kept_comment["outcome"], "would_serve", "{kept_comment}");
+    assert_eq!(kept_comment["node_comment"], "absent", "{kept_comment}");
+    assert_eq!(kept_comment["readback_s"], 10, "{kept_comment}");
+    // Stopped: one line each, the route's own keys, marked stopped and why;
+    // no would-be answer, no admission, no conversation, nothing read back.
+    for (id, kept) in [
+        (&late_votes[0], &kept_vote),
+        (&late_votes[1], &kept_vote),
+        (&late_comment, &kept_comment),
+    ] {
+        let line = one(id);
+        assert_eq!(keys_of(&line), keys_of(kept), "{line}");
+        assert_eq!(line["shadow"], kept["shadow"], "{line}");
+        assert_eq!(line["outcome"], "stopped", "{line}");
+        assert_eq!(line["reason"], "before_retry", "{line}");
+        assert_eq!(line["admitted"], 0, "{line}");
+        for key in ["status", "zid", "readback_s", "queue_ms", "total_ms"] {
+            assert!(line[key].is_null(), "{key}: {line}");
+        }
+        assert_eq!(line["node_vote"], "not_checked", "{line}");
+    }
+    assert!(exit.success(), "{exit}\n{}", api.everything());
+    let stopped = api.line("shadow_stopped");
+    eprintln!("shadow stopped {took:?} after SIGTERM: {stopped}");
+    let bound = Duration::from_millis(stopped["boundMs"].as_u64().unwrap());
+    assert!(took >= bound, "it waited its bound: {took:?}");
+    assert!(took < SHADOW_STOP_MOST, "{took:?}\n{}", api.everything());
+    assert!(SHADOW_STOP_MOST < STOP_WINDOW);
+    assert_eq!(stopped["drained"], false, "{stopped}");
+    assert_eq!(stopped["kept"], 2, "{stopped}");
+    assert_eq!(stopped["stopped"], 3, "{stopped}");
+    assert_eq!(stopped["beforeRetry"], 3, "{stopped}");
+    assert_eq!(stopped["beforeReadback"], 0, "{stopped}");
+    assert_eq!(stopped["inHandler"], 0, "{stopped}");
 }

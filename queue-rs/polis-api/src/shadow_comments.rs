@@ -28,7 +28,7 @@
     clippy::unwrap_used,
     clippy::expect_used
 )]
-use super::{event, ms, no_content, num, request_id, text};
+use super::{event, ms, no_content, num, request_id, stop, text};
 use crate::{
     http::{Outgoing, Request},
     js::{self, Js, Obj},
@@ -228,6 +228,30 @@ impl<'a> Line<'a> {
         }
     }
 
+    /// A copy still in flight when the stop's bound came (`super::stop`): the
+    /// keys of every line, marked `stopped` and where it was, with only what
+    /// the copy's unobserved line carries.
+    fn stopped(entry: &'a stop::Entry, facts: (bool, bool), body_class: &'static str) -> Self {
+        Self {
+            request_id: entry.request_id.as_deref(),
+            outcome: stop::OUTCOME,
+            admitted: false,
+            status: None,
+            reason: Some(entry.stage.as_str()),
+            queue: None,
+            admission: None,
+            total: None,
+            readback_s: None,
+            zid: None,
+            strict: None,
+            after_insert: None,
+            facts,
+            body_class,
+            text_row: None,
+            stored: Stored::of(NodeComment::NotChecked),
+        }
+    }
+
     fn print(&self, app: &App) {
         let (vote_present, seed_present) = self.facts;
         let word = |value: Option<&'static str>| text(value);
@@ -350,7 +374,21 @@ pub(crate) async fn accept(app: Arc<App>, req: Request) -> Outgoing {
     );
     match decision {
         Decision::Observe(permit) => {
-            tokio::spawn(observe(app, req, received, permit));
+            let kind = stop::Kind::Comments {
+                facts: post_comments::copy_facts(&req),
+                body_class: body_class(req.body.len()),
+            };
+            match stop::OBSERVATIONS.begin(kind, request_id(&req)) {
+                Ok(observation) => {
+                    let current = observation.current();
+                    tokio::spawn(stop::scope(
+                        current,
+                        observe(app, req, received, permit, observation),
+                    ));
+                }
+                // The stop has printed its lines: this copy's is printed now.
+                Err(entry) => super::print_stopped(&app, &entry),
+            }
         }
         Decision::Shed(reason) => {
             lane.counters.shed.fetch_add(1, Ordering::Relaxed);
@@ -370,12 +408,14 @@ pub(crate) async fn accept(app: Arc<App>, req: Request) -> Outgoing {
     no_content()
 }
 
-/// One observation, after its 204 has been returned.
+/// One observation, after its 204 has been returned. Its line is printed
+/// unless the stop has printed its stopped line first (`super::stop`).
 async fn observe(
     app: Arc<App>,
     req: Request,
     received: tokio::time::Instant,
     permit: tokio::sync::OwnedSemaphorePermit,
+    observation: stop::Observation,
 ) {
     let Some(observer) = app.post_comments_observe.as_ref() else {
         return;
@@ -406,6 +446,7 @@ async fn observe(
     let total = received.elapsed();
     // The lane slot covers admission only.
     drop(permit);
+    observation.stage(stop::Stage::Readback);
     let mut taken = std::mem::take(&mut *record.lock().unwrap_or_else(|e| e.into_inner()));
     let (outcome, status) = if taken.unknown {
         taken.reason = Some("no_anchor");
@@ -478,6 +519,9 @@ async fn observe(
         AuthorVote::NotSent | AuthorVote::Unavailable | AuthorVote::NotChecked => None,
     }
     .map(|counter| counter.fetch_add(1, Ordering::Relaxed));
+    if !observation.finish() {
+        return;
+    }
     Line {
         request_id: request_id.as_deref(),
         outcome,
@@ -497,6 +541,16 @@ async fn observe(
         stored,
     }
     .print(&app);
+}
+
+/// The line of a comment copy still in flight when the stop's bound came.
+pub(crate) fn print_stopped(
+    app: &App,
+    entry: &stop::Entry,
+    facts: (bool, bool),
+    body_class: &'static str,
+) {
+    Line::stopped(entry, facts, body_class).print(app);
 }
 
 /// The comment observer's part of `GET /health` on the shadow listener.

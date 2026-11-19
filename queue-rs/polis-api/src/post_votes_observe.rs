@@ -212,7 +212,14 @@ impl Observer {
         received: tokio::time::Instant,
     ) -> (NodeVote, Option<f64>) {
         let mut decided = None;
-        for delay in [self.timing.first, self.timing.retry] {
+        for (attempt, delay) in [self.timing.first, self.timing.retry]
+            .into_iter()
+            .enumerate()
+        {
+            if attempt > 0 {
+                // A process that stops now says this copy waited for it.
+                crate::shadow::stop::waiting_for_second_look();
+            }
             tokio::time::sleep_until(received + delay).await;
             decided = Some(delay.as_secs_f64());
             let (zid, pid) = key;

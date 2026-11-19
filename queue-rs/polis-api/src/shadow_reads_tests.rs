@@ -51,6 +51,7 @@ const OUTCOMES: &[&str] = &[
     "would_hand_back",
     "would_fail",
     "shed",
+    "stopped",
 ];
 
 /// Every reason a line of any read lane can carry.
@@ -125,6 +126,8 @@ const REASONS: &[&str] = &[
     "token_refused",
     "account_token",
     "initial_voted",
+    // The stop: a copy still in its handler at the stop's bound.
+    "in_handler",
 ];
 
 /// A conversation code, a participant number, an external id and a cookie
@@ -2058,3 +2061,46 @@ fn a_live_hand_back_is_the_bad_gateway_answer_in_every_field() {
 #[cfg(feature = "db-tests")]
 #[path = "shadow_reads_database_tests.rs"]
 mod database;
+
+/// A read's copy still in flight when the stop's bound came (`shadow::stop`)
+/// gets its lane's line, every key in its order, marked `stopped`, and
+/// nothing else, as on a shed line. A read's observation has no read-back:
+/// it can only be stopped in its handler.
+#[test]
+fn a_read_stopped_in_flight_gets_the_lane_line_with_nothing_else() {
+    use crate::shadow::stop::{Entry, Kind, Stage};
+    for (n, route) in Route::ALL.into_iter().enumerate() {
+        let app = lanes_app(closed, &[route], 1, None);
+        let id = format!("{:032x}", 0x5709_3000 + n);
+        crate::shadow::print_stopped(
+            &app,
+            &Entry {
+                kind: Kind::Read(route),
+                request_id: Some(id.clone()),
+                stage: Stage::Handler,
+            },
+        );
+        let printed = printed_line(&id).expect("the stopped line");
+        assert_line_shape(&printed);
+        let line: Value = serde_json::from_str(&printed).unwrap();
+        assert_eq!(line["shadow"], route.selector(), "{printed}");
+        assert_eq!(line["outcome"], "stopped", "{printed}");
+        assert_eq!(line["reason"], "in_handler", "{printed}");
+        for key in LINE_KEYS.iter().filter(|key| {
+            ![
+                "message",
+                "listener",
+                "service",
+                "env",
+                "shadow",
+                "route",
+                "request_id",
+                "outcome",
+                "reason",
+            ]
+            .contains(key)
+        }) {
+            assert!(line[*key].is_null(), "{key}: {printed}");
+        }
+    }
+}

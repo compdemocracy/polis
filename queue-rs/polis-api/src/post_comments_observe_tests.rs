@@ -75,6 +75,7 @@ const OUTCOMES: &[&str] = &[
     "unknown",
     "shed",
     "not_observed",
+    "stopped",
 ];
 
 /// Every reason a line can carry.
@@ -129,6 +130,10 @@ const REASONS: &[&str] = &[
     "duplicate",
     "closed",
     "no_anchor",
+    // The stop: where a copy still in flight at its bound was.
+    "in_handler",
+    "before_readback",
+    "before_retry",
 ];
 
 /// Set in a child process to make the observation panic while it holds a
@@ -1407,4 +1412,57 @@ fn the_classes_the_observer_keeps_format_as_words_and_numbers() {
         text
     );
     assert!(!leaks(&printed), "{printed}");
+}
+
+/// A copy still in flight when the stop's bound came (`shadow::stop`) gets
+/// this route's line, every key in its order, marked `stopped` with where it
+/// was, and nothing the observation had found: no would-be answer, admission,
+/// conversation, duration or read-back. The copy's own facts and size class
+/// stay, as on a shed line.
+#[test]
+fn a_copy_stopped_in_flight_gets_the_line_with_nothing_the_observation_found() {
+    use crate::shadow::stop::{Entry, Kind, Stage};
+    let app = shadow_app(None);
+    for (n, stage) in Stage::ALL.into_iter().enumerate() {
+        let id = format!("{:032x}", 0x5709_2000 + n);
+        crate::shadow::print_stopped(
+            &app,
+            &Entry {
+                kind: Kind::Comments {
+                    facts: (true, false),
+                    body_class: "le_4k",
+                },
+                request_id: Some(id.clone()),
+                stage,
+            },
+        );
+        let printed = printed_line(&id).expect("the stopped line");
+        assert_line_shape(&printed);
+        let line: Value = serde_json::from_str(&printed).unwrap();
+        assert_eq!(line["outcome"], "stopped", "{printed}");
+        assert_eq!(line["reason"], stage.as_str(), "{printed}");
+        assert_eq!(line["admitted"], 0, "{printed}");
+        assert_eq!(line["vote_present"], true, "{printed}");
+        assert_eq!(line["seed_present"], false, "{printed}");
+        assert_eq!(line["body_class"], "le_4k", "{printed}");
+        assert_eq!(line["node_comment"], "not_checked", "{printed}");
+        assert_eq!(line["node_vote"], "not_checked", "{printed}");
+        for key in [
+            "status",
+            "queue_ms",
+            "admission_ms",
+            "total_ms",
+            "readback_s",
+            "zid",
+            "strict",
+            "after_insert",
+            "text_row",
+            "node_txt",
+            "node_author",
+            "node_row",
+            "node_lang",
+        ] {
+            assert!(line[key].is_null(), "{key}: {printed}");
+        }
+    }
 }

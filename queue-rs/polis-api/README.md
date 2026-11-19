@@ -1549,9 +1549,19 @@ already completed, and hands back (502, marked on `POST /api/v3/votes` and
 as no request is being read or answered, no dispatched write is running and no
 notification is queued, or after 5 s, printing `polis_api_stopping` and then
 `polis_api_stopped` (whether it drained, and what it left). The shadow role
-stops at once and prints `shadow_stopping`. Blocking work still running is not
-waited for more than 0.5 s after that, so a stop ends well inside Compose's
-10 s window before SIGKILL.
+prints `shadow_stopping`, stops accepting copies, and waits at most 7.5 s for
+the observations it has begun to print their lines: a copy's line follows its
+read-back of what Node stored, 2 s after the copy arrived, or 10 s after when
+Node's row is not there at the first look. Each observation still in flight at
+7.5 s gets one line of its route with `outcome: "stopped"` and where it was in
+`reason` (`in_handler`, `before_readback`, `before_retry`), carrying nothing
+the observation had found; then `shadow_stopped` gives the counts (`kept`,
+`stopped` by where, connections still being read). A copy whose row Node has
+stored by the first look is always kept, and of those waiting for the second
+look, the ones that arrived at least 2.5 s before the stop: three in four, with
+copies arriving evenly. Blocking work still running is not waited for more
+than 0.5 s after that, so a stop ends inside Compose's 10 s window before
+SIGKILL.
 
 Before rolling back to a release at or before 2.42.2, stop the service explicitly
 on each web host, using the current Compose files and project:

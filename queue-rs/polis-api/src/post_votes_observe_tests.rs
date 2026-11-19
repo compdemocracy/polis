@@ -2021,3 +2021,53 @@ mod database_tests {
         });
     }
 }
+
+/// A copy still in flight when the stop's bound came (`shadow::stop`) gets
+/// this route's line, every key in its order, marked `stopped` with where it
+/// was, and nothing the observation had found: no would-be answer, admission,
+/// conversation, duration, selection or read-back. The copy's own facts stay,
+/// as on a shed line.
+#[test]
+fn a_copy_stopped_in_flight_gets_the_line_with_nothing_the_observation_found() {
+    use crate::shadow::stop::{Entry, Kind, Stage};
+    let app = shadow_app(closed, None);
+    for (n, stage) in Stage::ALL.into_iter().enumerate() {
+        let id = format!("{:032x}", 0x5709_0000 + n);
+        crate::shadow::print_stopped(
+            &app,
+            &Entry {
+                kind: Kind::Votes {
+                    facts: (true, false),
+                    identity: false,
+                },
+                request_id: Some(id.clone()),
+                stage,
+            },
+        );
+        let line = observation_line(&id).expect("the stopped line");
+        assert_line_shape(&line);
+        assert_eq!(line["outcome"], "stopped", "{line}");
+        assert_eq!(line["reason"], stage.as_str(), "{line}");
+        assert_eq!(line["admitted"], 0, "{line}");
+        assert_eq!(line["starred_present"], true, "{line}");
+        assert_eq!(line["lang_present"], false, "{line}");
+        assert_eq!(line["node_vote"], "not_checked", "{line}");
+        for key in [
+            "status",
+            "queue_ms",
+            "admission_ms",
+            "selection_ms",
+            "total_ms",
+            "readback_s",
+            "zid",
+            "follow_on",
+            "remaining",
+            "total",
+            "candidates",
+            "weights_tick",
+            "prev",
+        ] {
+            assert!(line[key].is_null(), "{key}: {line}");
+        }
+    }
+}

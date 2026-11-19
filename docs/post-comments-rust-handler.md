@@ -203,6 +203,7 @@ and says what the live handler would do:
 | `would_fail` | answer a 5xx before the write; nothing in the handler does |
 | `unknown` | not known (`reason: no_anchor`, below) |
 | `shed`, `not_observed` | the copy was not observed: over the lane's rate (`rate_cap`) or its room (`lane_full`), or the process also holds a live handler |
+| `stopped` | not known: the shadow was stopped (SIGTERM) while it observed the copy, and the copy had not printed its line by the stop's bound, 7.5 s after the signal. `reason` says where it was: `in_handler`, `before_readback` (its first look at what Node stored), `before_retry` (the first look found nothing; the second, ten seconds after the copy arrived, would have come after the bound). The line has the keys of every line and nothing the observation found: `admitted` 0, no `zid`, `status` or durations, `node_comment` and `node_vote` `not_checked`. A copy whose comment Node has stored by the first look is never stopped |
 
 Node may have stored the comment before the copy's admission reads, so the
 row admission finds with the same text is classified (`text_row`): `none`;
