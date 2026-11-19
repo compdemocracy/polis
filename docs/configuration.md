@@ -544,6 +544,34 @@ for both ceilings. Each daemon has a 2-CPU cap by default; the graph executor's
 setting is `DELPHI_SHADOW_GRAPH_CONTAINER_CPUS`. CPU weight and OOM priority make
 this optional work yield first; they do not reserve capacity for participation.
 
+One small machine (a laptop running everything under Compose) must hold
+whatever runs at once. The ceilings are ceilings, not reservations, but
+together with the database, the math engine, the web services and the
+operating system they should fit the machine: the full-pipeline daemon's is
+`DELPHI_SHADOW_CONTAINER_MEMORY` (`delphi-shadow`, default `16g`), the graph
+executor's `DELPHI_SHADOW_GRAPH_CONTAINER_MEMORY` (`delphi-shadow-graph`,
+default `6g`), and the scheduler's a fixed 256 MiB. The graph executor is
+optional: with `DELPHI_SHADOW_GRAPH_ENABLED` unset on a deployment, or the
+`delphi-shadow-graph` profile off under local Compose, and
+`DELPHI_SHADOW_GRAPH_CONVERSATIONS` empty, it does not run and its ceiling
+does not apply; leave it off unless both ceilings fit. On macOS (Docker
+Desktop, Colima) there is no `/etc/machine-id` for its host identity: create
+a persistent, unique file once and name its absolute path in
+`DELPHI_SHADOW_GRAPH_HOST_ID_FILE`, or the executor does not start. Measured
+with `delphi/tests/shadow/graph_stage_memory.py`: the four graph stages on
+the public biodiversity conversation in `delphi/real_data` (316 comments),
+each in a fresh container of the Delphi test image under the executor's
+2-CPU limit and thread settings, with the embeddings table on, on linux/arm64
+under Colima on an Apple M4 Pro, peaked at 2.24 GiB resident for
+`graph_embed` (17 s), 0.85 GiB for `graph_cluster` (28 s), 0.18 GiB for
+`graph_topics` and 23 MiB for `graph_narrative`, the same under a 6 GiB and
+a 3 GiB ceiling. So `DELPHI_SHADOW_GRAPH_CONTAINER_MEMORY=3g` holds a
+conversation of that size; the executor's own daemon is not in those
+figures, and larger conversations (admission allows up to 2,000 comments)
+were not measured. The full-pipeline daemon's peak was not measured there:
+size `DELPHI_SHADOW_CONTAINER_MEMORY` by measuring it on the conversations it
+will run.
+
 State written by the previous release loads with empty recovery fields. When no
 graph has been enabled, state serialization and full-pipeline behavior are
 unchanged. Before rolling back, drain every graph, including deferred graphs,
