@@ -2431,6 +2431,85 @@
       ]
     },
     {
+      "table": "delphi_entitlements",
+      "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:34",
+      "columns": [
+        {
+          "table": "delphi_entitlements",
+          "name": "uid",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 1,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:35"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "granted_at",
+          "sql_type": "bigint",
+          "udt": "int8",
+          "nullable": "NO",
+          "default": "now_as_millis()",
+          "ordinal": 2,
+          "definition_type": "bigint",
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:36"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "granted_by",
+          "sql_type": "integer",
+          "udt": "int4",
+          "nullable": "YES",
+          "default": null,
+          "ordinal": 3,
+          "definition_type": "integer",
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:37"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "source",
+          "sql_type": "text",
+          "udt": "text",
+          "nullable": "NO",
+          "default": null,
+          "ordinal": 4,
+          "definition_type": "text",
+          "introduced": "server/postgres/migrations/000048_create_delphi_entitlements.sql:38"
+        }
+      ],
+      "indexes": [
+        {
+          "table": "delphi_entitlements",
+          "name": "delphi_entitlements_pkey",
+          "definition": "CREATE UNIQUE INDEX delphi_entitlements_pkey ON public.delphi_entitlements USING btree (uid)"
+        }
+      ],
+      "constraints": [
+        {
+          "table": "delphi_entitlements",
+          "name": "delphi_entitlements_granted_by_fkey",
+          "definition": "FOREIGN KEY (granted_by) REFERENCES users(uid) ON DELETE SET NULL"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "delphi_entitlements_pkey",
+          "definition": "PRIMARY KEY (uid)"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "delphi_entitlements_source_check",
+          "definition": "CHECK ((source = ANY (ARRAY['auth0_role'::text, 'site_admin'::text])))"
+        },
+        {
+          "table": "delphi_entitlements",
+          "name": "delphi_entitlements_uid_fkey",
+          "definition": "FOREIGN KEY (uid) REFERENCES users(uid) ON DELETE CASCADE"
+        }
+      ]
+    },
+    {
       "table": "delphi_foundation_install",
       "introduced": "server/postgres/migrations/000023_create_delphi_foundation.sql:819",
       "columns": [
@@ -12830,6 +12909,10 @@
     {
       "path": "server/postgres/migrations/000047_extend_graph_embedding_and_labels.sql",
       "sha256": "18e807a6e2fcbd7eaf25101bd55de945b99899c3c5041c521dc92aed0cf5e22a"
+    },
+    {
+      "path": "server/postgres/migrations/000048_create_delphi_entitlements.sql",
+      "sha256": "ce23c6323461541aedd8e1891d906301c0025c71beb00c250f728c3162159d8e"
     }
   ]
 }
