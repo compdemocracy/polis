@@ -45,6 +45,8 @@ pub enum E {
     Field(&'static str),
     Str(&'static str),
     Num(i64),
+    /// A number with a fraction, as a duration in seconds is compared with.
+    Decimal(f64),
     Param(Param),
     Cmp(Box<E>, Op, Box<E>),
     And(Vec<E>),
@@ -217,6 +219,7 @@ fn render(e: &E, bounds: Bounds, out: &mut String) {
         E::Field(name) => out.push_str(name),
         E::Str(text) => out.push_str(&quote(text)),
         E::Num(value) => out.push_str(&value.to_string()),
+        E::Decimal(value) => out.push_str(&value.to_string()),
         E::Param(param) => match (bounds, param) {
             (Bounds::Placeholders, Param::FromMs) => out.push_str("<from_ms>"),
             (Bounds::Placeholders, Param::ToMs) => out.push_str("<to_ms>"),
@@ -645,7 +648,7 @@ pub fn names(e: &E) -> Vec<&'static str> {
                 walk(b, out);
             }
             E::And(parts) | E::Or(parts) => parts.iter().for_each(|p| walk(p, out)),
-            E::Str(_) | E::Num(_) | E::Param(_) | E::TimestampMs => {}
+            E::Str(_) | E::Num(_) | E::Decimal(_) | E::Param(_) | E::TimestampMs => {}
         }
     }
     walk(e, &mut out);

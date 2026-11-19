@@ -56,11 +56,14 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    queue p99 0.4 ms; admission p50 4.0 ms, p99 4.0 ms, largest 4.0 ms; selection p50 6.0 ms, p99 6.0 ms; total p50 20.0 ms, p99 20.0 ms, largest 20.0 ms; readback p99 2.0 s
 
 7. The stop rule
+   read over 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z; rules 3, 4 and 5 against the same span a week earlier, 2026-11-02T00:00:00Z to 2026-11-03T00:00:00Z
    1. database CPU: largest 5-minute average 20.0 %; two consecutive above 60 %: no
-   2. the copy's hold: largest hourly p99 30.0 ms, largest 30.0 ms: above the rule
+   2. the copy's hold: no hour of at least 100 copies to judge a p99 by, largest copy 30.0 ms, copies above 10 ms in the window 1: within it
+      1 hours of fewer than 100 copies, too few for a p99 (it is the hour's slowest copy): reported, not judged; the slowest of them 30.0 ms (34 copies, 2026-11-09T00:00:00Z)
    3. load balancer p99, all routes: 0 of 24 hours more than 20 % and 100 ms above the same hour a week earlier, longest run 0; stops at 3 in a row
    4. vote errors (Node's 5xx on POST /api/v3/votes): 1 of 34 (2.94 %) against 1 of 34 (2.94 %) a week earlier: within it
-   5. vote p99 (Node's duration_ms): 0 of 1 comparable hours more than 20 % and 50 ms above a week earlier, longest run 0; stops at 3 in a row
+   5. vote p99 (Node's duration_ms), each hour against the week before's hours of as many votes (the median of their p99s): 0 of 1 hours more than 20 % and 50 ms above, longest run 0; stops at 3 in a row
+      20 to 99 votes: 1 hours against the median 12.5 ms of 1 hours, 0 above
    target 5xx, all routes (context, not a stop): 3 in the window, 5 the same span a week earlier
 
 8. Criteria for the week
@@ -77,7 +80,7 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    exhaustion and presence    pass                 100.00 % of 23
    remaining and total        MISS                 remaining 95.24 %, total 100.00 % of 21
    writer latency             pass                 admission p99 4.0 ms, total p99 20.0 ms
-   stop rule                  STOP                 fired: the copy's hold
+   stop rule                  pass                 never fired; copies held above 10 ms in the window 1
 
 What this cannot compare:
    - The drawn statement, and how the draws are weighted: the shadow's line names no statement (a statement number beside a conversation number and a time picks out a participant's public vote), so neither the picks nor their distribution are compared. Whether a statement was served, the two counts and membership are.
@@ -89,4 +92,4 @@ What this cannot compare:
    - Not copied: requests that miss the exact location (case, trailing slash), bodies outside 1 to 9999 bytes; a copy carries no query string.
    - CORS refusals are reported on their own and are not counted as would-be failures.
 
-VERDICT: STOP
+VERDICT: TOO LITTLE EVIDENCE

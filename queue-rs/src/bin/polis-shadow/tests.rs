@@ -956,7 +956,7 @@ fn the_votes_queries_render_as_reviewed() {
     assert_eq!(
         text("mirror_hours"),
         format!(
-            "{mirror}\n| stats count(*) as n, pct(mirror_s, 99) as p99_s, max(mirror_s) as max_s by bin(1h) as hour\n| limit 10000"
+            "{mirror}\n| stats count(*) as n, pct(mirror_s, 99) as p99_s, max(mirror_s) as max_s, sum(mirror_s > 0.01) as over by bin(1h) as hour\n| limit 10000"
         )
     );
     assert_eq!(
@@ -1201,9 +1201,11 @@ fn the_join_classes_on_fixture_lines() {
         window().from_s,
         window().to_s,
     );
+    // A count none of whose requests had a value is left out of its row, as
+    // Logs Insights leaves it out: none.
     let total = |key: &str| {
         join.iter()
-            .map(|r| r[key].parse::<u64>().unwrap())
+            .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
             .sum::<u64>()
     };
     let cell = |edge: &str, rust: &str, key: &str| {
@@ -1212,7 +1214,7 @@ fn the_join_classes_on_fixture_lines() {
                 r.get("edge_st").map(String::as_str) == Some(edge)
                     && r.get("rust_st").map(String::as_str) == Some(rust)
             })
-            .map(|r| r[key].parse::<u64>().unwrap())
+            .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
             .sum::<u64>()
     };
     // 35 ids: 33 votes in the window once each, one repeated, one Node-only.
@@ -1224,7 +1226,8 @@ fn the_join_classes_on_fixture_lines() {
     // The copy: every vote but the not-copied one; the timed-out one was not
     // observed.
     assert_eq!(total("copied"), 32);
-    assert_eq!(total("not_copied"), 1);
+    // Not copied: the copies nginx logged 204 less the copied ones.
+    assert_eq!(total("mirrored_204") - total("copied_204"), 1);
     assert_eq!(total("answered"), 31);
     assert_eq!(total("covered"), 31);
     assert_eq!(total("shed"), 1);
@@ -1282,11 +1285,23 @@ fn the_join_classes_on_fixture_lines() {
     assert!(report.text.contains("observed lines for copied votes 31"));
     assert_eq!(report.mark("coverage"), Some(Mark::Miss));
     assert_eq!(report.mark("evidence volume"), Some(Mark::Short));
-    // At this volume the one copy that timed out (30 ms) is the hour's p99:
-    // the copy's cost misses and the stop rule's hold limit fires.
+    // At this volume (35 copies in the hour) the one copy that timed out
+    // (30 ms) is the hour's p99, which is then its slowest copy: too few to
+    // judge a p99 by. The copy's cost misses; the stop rule's hold does not
+    // fire, and the copy held above 10 ms is counted beside its verdict.
     assert_eq!(report.mark("the copy's cost"), Some(Mark::Miss));
-    assert_eq!(report.mark("stop rule"), Some(Mark::Stop));
-    assert_eq!(report.verdict, Verdict::Stop);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    assert!(
+        report
+            .text
+            .contains("never fired; copies held above 10 ms in the window 1")
+    );
+    assert_eq!(report.verdict, Verdict::TooLittle);
 }
 
 #[test]
@@ -1455,6 +1470,348 @@ fn verdict_stop_on_the_stop_rule() {
     let at = held.at;
     held.lines.push(mirror(&id(1), at, 504, "504", 0.070));
     assert_eq!(stop(&FakeAws::new(&held)), Some(Mark::Stop));
+}
+
+/// What Logs Insights in the production account does with a field a line
+/// does not carry, as measured there on 2026-11-19 (README, "A field a line
+/// does not carry"), and so what the evaluator does.
+#[test]
+fn the_evaluator_reads_an_absent_field_as_the_account_does() {
+    let q = |filter: E, aggs: Vec<(&'static str, Agg)>, by: Vec<Key>| Query {
+        name: "probe",
+        about: "",
+        filter,
+        fields: vec![],
+        stages: vec![Stats { aggs, by }],
+        pad_s: 0,
+        previous_week: false,
+        recent: false,
+        chunk_s: 0,
+        sliced: false,
+    };
+    let (from, to) = (window().from_s, window().to_s);
+    let at = from * 1000 + 1_000;
+    // An empty string is no field: production's mirror row for the copies
+    // nginx answered itself came back with no upstream status.
+    assert!(!eval::line(at, r#"{"a":"","b":"x"}"#).contains_key("a"));
+    // Inside a sum, `true or <absent>` is absent and `false or true` is
+    // true; a sum with no value on any line is left out of its row, and a
+    // sum of falses is 0. The production probe: 275 would-serve lines with no
+    // reason, and 20 strict hand-backs.
+    let lines: Vec<Line> = (0..275)
+        .map(|_| eval::line(at, r#"{"m":"o","outcome":"would_serve"}"#))
+        .chain((0..20).map(|_| {
+            eval::line(
+                at,
+                r#"{"m":"o","outcome":"would_hand_back","reason":"strict_moderation"}"#,
+            )
+        }))
+        .collect();
+    let either = query::or(vec![
+        query::is("outcome", "would_serve"),
+        query::is("reason", "strict_moderation"),
+    ]);
+    let rows = eval::run(
+        &q(
+            query::is("m", "o"),
+            vec![
+                ("s_or", Agg::Sum(either)),
+                ("s_plain", Agg::Sum(query::is("outcome", "would_serve"))),
+            ],
+            vec![Key::Field("outcome")],
+        ),
+        &lines,
+        from,
+        to,
+    );
+    let row = |outcome: &str| rows.iter().find(|r| r["outcome"] == outcome).unwrap();
+    assert_eq!(row("would_serve").get("s_or"), None);
+    assert_eq!(row("would_serve")["s_plain"], "275");
+    assert_eq!(row("would_hand_back")["s_or"], "20");
+    assert_eq!(row("would_hand_back")["s_plain"], "0");
+    // `false and <absent>` is absent too: a request's lines none of which
+    // carries an upstream status give no value for the copy's sum.
+    let copy = [
+        eval::line(at, r#"{"message":"shadow_edge"}"#),
+        eval::line(
+            at,
+            r#"{"message":"shadow_mirror","mirror_upstream_status":""}"#,
+        ),
+    ];
+    let rows = eval::run(
+        &q(
+            E::Present("message"),
+            vec![
+                ("n", Agg::Count),
+                (
+                    "n_copied",
+                    Agg::Sum(query::and(vec![
+                        query::is("message", "shadow_mirror"),
+                        E::HasDigit("mirror_upstream_status"),
+                    ])),
+                ),
+            ],
+            vec![],
+        ),
+        &copy,
+        from,
+        to,
+    );
+    assert_eq!(rows[0]["n"], "2");
+    assert_eq!(rows[0].get("n_copied"), None);
+    // In a filter, an `or` with a true part keeps the line though another
+    // part tests a field it does not carry: every Node access line is read.
+    let node = [eval::line(
+        at,
+        r#"{"message":"http_request http_request","service":"server"}"#,
+    )];
+    let rows = eval::run(
+        &q(
+            query::or(vec![
+                query::and(vec![
+                    query::is("listener", "shadow"),
+                    query::is("message", "shadow_edge"),
+                ]),
+                query::is("service", "server"),
+            ]),
+            vec![("n", Agg::Count)],
+            vec![],
+        ),
+        &node,
+        from,
+        to,
+    );
+    assert_eq!(rows[0]["n"], "1");
+}
+
+/// The week of 2026-11-12 had two copies nginx answered itself (the shadow's
+/// host absent). The join counts them where coverage is reckoned, as the
+/// one-stage count does, so a down shadow counts against coverage. Read as a
+/// test that the copy's upstream-status sum is 0, it counted none: in this
+/// account an empty upstream status is no field, so that sum has no value.
+#[test]
+fn copies_the_shadow_never_received_are_counted_in_the_join() {
+    let mut fx = passing_fixture();
+    fx.vote(73_002, Case::HostAbsent);
+    fx.vote(73_002, Case::HostAbsent);
+    let report = run(&FakeAws::new(&fx));
+    for said in [
+        "not copied: the shadow's host absent             2",
+        "the shadow's host absent 2, outside the body bound 1,",
+        "observed lines for copied votes 6008 (99.97 % of copied and host-absent)",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+}
+
+/// Votes added inside one hour of the window: `n` of them, the first `slow`
+/// held `s` seconds by the copy.
+fn votes_in_hour(fx: &mut Fixture, hour: i64, n: usize, slow: usize, s: f64) {
+    fx.at = (window().from_s + hour * 3600) * 1000;
+    for i in 0..n {
+        let id = fx.vote(73_004, Case::Agree);
+        if i < slow {
+            for (at, json) in fx.lines.iter_mut() {
+                if json.contains(r#""message":"shadow_mirror""#)
+                    && json.contains(&format!(r#""request_id":"{id}""#))
+                {
+                    *json = mirror(&id, *at, 204, "204", s).1;
+                }
+            }
+        }
+    }
+}
+
+/// The week of 2026-11-12 said STOP for one copy held 20 ms in an hour of 41
+/// copies. In an hour of fewer than 100 copies the p99 is the hour's slowest
+/// copy, so such an hour is reported, as too few to judge, and cannot stop;
+/// the copies held above 10 ms are counted beside the verdict, and the
+/// copy's cost, which reads every hour, still misses.
+#[test]
+fn one_slow_copy_in_a_quiet_hour_is_reported_and_does_not_stop() {
+    let mut fx = passing_fixture();
+    votes_in_hour(&mut fx, 20, 41, 1, 0.020);
+    let report = run(&FakeAws::new(&fx));
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    for said in [
+        "2. the copy's hold: largest hourly p99 1.0 ms in the 12 hours of at least 100 copies, largest copy 20.0 ms, copies above 10 ms in the window 1: within it",
+        "1 hours of fewer than 100 copies, too few for a p99 (it is the hour's slowest copy): reported, not judged; the slowest of them 20.0 ms (41 copies, 2026-11-09T20:00:00Z)",
+        "never fired; copies held above 10 ms in the window 1",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+    assert_eq!(report.mark("the copy's cost"), Some(Mark::Miss));
+    assert_eq!(report.verdict, Verdict::Examine);
+}
+
+/// The hold's p99 is judged from 100 copies in the hour: at 99 one slow copy
+/// is the p99 and is not judged; at 100 two slow copies set the p99 above
+/// 10 ms and stop, as does a busy hour held slower. A copy above 60 ms stops
+/// in any hour.
+#[test]
+fn the_hold_is_judged_from_an_hour_of_100_copies_and_still_stops() {
+    let stop = |n: usize, slow: usize, s: f64| {
+        let mut fx = passing_fixture();
+        votes_in_hour(&mut fx, 20, n, slow, s);
+        run(&FakeAws::new(&fx))
+    };
+    let report = stop(99, 1, 0.020);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    let report = stop(100, 2, 0.020);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(
+        report
+            .text
+            .contains("largest hourly p99 20.0 ms in the 13 hours of at least 100 copies"),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: the copy's hold"));
+    assert_eq!(stop(400, 40, 0.012).mark("stop rule"), Some(Mark::Stop));
+    let report = stop(41, 1, 0.070);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+}
+
+/// An hour's Node access lines for votes, none of them shadowed: `n` of them
+/// taking `ms` each, in the window's hour `hour` (`week` 0) or the same hour
+/// a week earlier (`week` -1).
+fn node_votes(fake: &mut FakeAws, hour: i64, week: i64, n: i64, ms: f64) {
+    let start = (window().from_s + hour * 3600 + week * WEEK_S) * 1000;
+    for i in 0..n {
+        let (at, json) = access_taking(None, start + 60_000 + i * 2_000, 200, ms);
+        fake.lines.push(eval::line(at, &json));
+    }
+}
+
+/// The week before the window: a surge of 1,500 votes an hour at 142 ms in
+/// hours 12 to 14, and quiet hours of 150 at 205 ms in hours 15 to 20. At
+/// the same number of votes an hour Node's p99 is the same in both weeks
+/// (the week of 2026-11-12: about 205 ms under 300 votes an hour, 142 to
+/// 153 ms above 1,000).
+fn surge_week_before(fx: &Fixture) -> FakeAws {
+    let mut fake = FakeAws::new(fx);
+    for hour in 12..=14 {
+        node_votes(&mut fake, hour, -1, 1_500, 142.0);
+    }
+    for hour in 15..=20 {
+        node_votes(&mut fake, hour, -1, 150, 205.0);
+    }
+    fake
+}
+
+/// Quiet hours after a surge week are compared with the quiet hours of that
+/// week, not with its surge: the week of 2026-11-12 said STOP for three
+/// quiet hours set beside three surge hours a week earlier. And a busy hour
+/// with the busy ones.
+#[test]
+fn quiet_hours_after_a_surge_are_compared_with_quiet_hours() {
+    let fx = passing_fixture();
+    let mut fake = surge_week_before(&fx);
+    for hour in 12..=14 {
+        node_votes(&mut fake, hour, 0, 150, 205.0);
+    }
+    node_votes(&mut fake, 16, 0, 1_200, 153.0);
+    let report = run(&fake);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    for said in [
+        "100 to 299 votes: 3 hours against the median 205.0 ms of 6 hours, 0 above",
+        "1,000 or more votes: 1 hours against the median 142.0 ms of 3 hours, 0 above",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+}
+
+/// Node's votes slower at the same volume still stop: three quiet hours at
+/// 300 ms against the quiet hours of the week before at 205 ms.
+#[test]
+fn votes_slower_at_the_same_volume_still_stop() {
+    let fx = passing_fixture();
+    let mut fake = surge_week_before(&fx);
+    for hour in 12..=14 {
+        node_votes(&mut fake, hour, 0, 150, 300.0);
+    }
+    let report = run(&fake);
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: vote p99, sustained"));
+    assert!(
+        report
+            .text
+            .contains("100 to 299 votes: 3 hours against the median 205.0 ms of 6 hours, 3 above"),
+        "{}",
+        report.text
+    );
+    // Two such hours are not three in a row.
+    let mut fake = surge_week_before(&fx);
+    for hour in [12, 13] {
+        node_votes(&mut fake, hour, 0, 150, 300.0);
+    }
+    assert_eq!(run(&fake).mark("stop rule"), Some(Mark::Pass));
+}
+
+/// Hours of a volume the week before never had are not compared with hours
+/// of another volume: "no comparable baseline", which is neither a pass nor
+/// a stop.
+#[test]
+fn an_hour_with_no_comparable_baseline_is_not_judged_and_never_a_pass() {
+    let fx = passing_fixture();
+    let mut fake = FakeAws::new(&fx);
+    for hour in 15..=20 {
+        node_votes(&mut fake, hour, -1, 150, 205.0);
+    }
+    node_votes(&mut fake, 16, 0, 1_200, 153.0);
+    let report = run(&fake);
+    assert!(
+        report.text.contains(
+            "1,000 or more votes: 1 hours; no comparable baseline (no hour of the week before in the band): not judged"
+        ),
+        "{}",
+        report.text
+    );
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::NotEvaluated),
+        "{}",
+        report.text
+    );
+    assert!(
+        report
+            .text
+            .contains("not read: vote p99 for 1,000 or more votes (no comparable baseline)"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::TooLittle);
 }
 
 #[test]
@@ -1993,6 +2350,16 @@ pub(crate) fn golden_fixtures() -> Vec<(&'static str, Fixture)> {
 /// lines, on purpose: over an empty log the stop rule's two rules on Node's
 /// vote lines used to read "0 of 0 ... within it" and the stop rule "never
 /// fired"; with no line of Node's read they are now "not evaluated".
+///
+/// The stop rule section of all six then changed on purpose, and nothing
+/// else in them. It names the span it is read over; rule 2 judges an hour's
+/// p99 only from 100 copies, reports the hours of fewer, and counts the
+/// copies held above 10 ms beside the stop rule's verdict; rule 5 compares
+/// each hour with the hours of the week before of as many votes. The
+/// `classes` fixture's 34 copies in one hour, one held 30 ms, used to stop
+/// on that one copy; that hour is now too few to judge, and the verdict is
+/// what its evidence gives, too little. The joined counts, the copies not
+/// sent among them, are byte for byte what they were.
 #[test]
 fn the_vote_report_is_byte_for_byte_what_it_was() {
     let saved: BTreeMap<&str, &str> = BTreeMap::from([

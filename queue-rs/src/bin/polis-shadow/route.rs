@@ -218,13 +218,22 @@ impl Route {
     pub(crate) fn mirror_hours(&self) -> Query {
         Self::one(
             "mirror_hours",
-            "The copy's hold by hour (stop rule 2).",
+            "The copy's hold by hour, and the copies held above the stop rule's bound (stop rule 2).",
             self.mirror(),
             Stats {
                 aggs: vec![
                     ("n", Agg::Count),
                     ("p99_s", Agg::Pct("mirror_s", 99)),
                     ("max_s", Agg::Max("mirror_s")),
+                    // Every copy's line carries its `mirror_s`, so this sum
+                    // has a value in every hour.
+                    (
+                        "over",
+                        Agg::Sum(gt(
+                            f("mirror_s"),
+                            E::Decimal(crate::report::bar::STOP_MIRROR_P99_MS / 1000.0),
+                        )),
+                    ),
                 ],
                 by: vec![Key::Hour],
             },
@@ -458,24 +467,31 @@ impl Route {
                     "no_mirror",
                     Agg::Sum(with(vote(), vec![num_is("n_mirror", 0)])),
                 ),
+                // The copies nginx logged, by its status for the copy, and
+                // the copied ones with status 204 (`copied` less these are
+                // the others): the report takes the copied from the logged
+                // for the copies not sent, outside the body bound (204) and
+                // the shadow's host absent (any other status: nginx answered
+                // the copy itself, a shadow that is down, copied as far as
+                // coverage goes). Never `n_copied = 0`: an empty upstream
+                // status is no field in Logs Insights, so `n_copied` has no
+                // value for such a copy and the test is never true.
                 (
-                    "not_copied",
+                    "mirrored_204",
+                    Agg::Sum(with(vote(), vec![one("n_mirror"), one("n_mirror_204")])),
+                ),
+                (
+                    "copied_204",
                     Agg::Sum(with(
                         vote(),
-                        vec![one("n_mirror"), num_is("n_copied", 0), one("n_mirror_204")],
+                        vec![one("n_mirror"), one("n_copied"), one("n_mirror_204")],
                     )),
                 ),
-                // nginx answered the copy itself (the shadow's host absent, a
-                // shadow that is down): copied as far as coverage goes.
                 (
-                    "host_absent",
+                    "mirrored_other",
                     Agg::Sum(with(
                         vote(),
-                        vec![
-                            one("n_mirror"),
-                            num_is("n_copied", 0),
-                            num_is("n_mirror_204", 0),
-                        ],
+                        vec![one("n_mirror"), num_is("n_mirror_204", 0)],
                     )),
                 ),
                 (

@@ -215,17 +215,46 @@ criterion missed: examine before the flip).
    reported as refused.
 6. **The shadow's latency** on admitted copies: queue, admission, selection,
    total and readback, append excluded.
-7. **The stop rule** (any one is a stop):
+7. **The stop rule** (any one is a stop), read over the span it names, and
+   rules 3 to 5 against the same span a week earlier, which it also names:
    1. database CPU above 60 % in two consecutive 5-minute periods;
-   2. the copy's hold above 10 ms p99 in an hour, or any copy above 60 ms;
+   2. the copy's hold above 10 ms p99 in an hour of at least 100 copies, or
+      any copy above 60 ms in any hour. A p99 says how long the slowest one
+      copy in a hundred was held. In an hour of fewer than 100 copies that is
+      less than one copy, and the hour's p99 is its slowest copy (of 99, the
+      99th; of 100, the 99th of 100 is the second slowest), so one slow copy
+      in a quiet hour would stop the week: the week of 2026-11-12 said STOP
+      for one 20 ms copy in an hour of 41, with every one of its 31,413
+      compared votes in agreement. Such an hour is printed, as too few to
+      judge, with its slowest p99, its copies and its hour, and cannot stop;
+      its slowest copy is still held to the 60 ms bound. Beside the stop
+      rule's verdict the report counts the copies held above 10 ms in the
+      window, every hour's included, so a slowdown confined to quiet hours
+      shows there (and in the copy's cost, which still reads every hour)
+      though it does not stop;
    3. the load balancer's p99 (all routes) more than 20 % **and** more than
       100 ms above the same hour a week earlier, in three hours in a row;
    4. vote errors: at least 10 of Node's 5xx on `POST /api/v3/votes` in the
       window, a share more than three times the same span's a week earlier
       **and** more than half a percentage point above it;
-   5. vote latency: Node's `duration_ms` p99 for votes more than 20 % **and**
-      more than 50 ms above the same hour a week earlier, in three hours in a
-      row, counting only hours with at least 20 votes in both weeks.
+   5. vote latency: Node's `duration_ms` p99 for votes in an hour more than
+      20 % **and** more than 50 ms above the median p99 of the hours of the
+      week before with as many votes, in three hours in a row. "As many" is a
+      band: 20 to 99 votes an hour, 100 to 299, 300 to 999, 1,000 or more;
+      an hour of fewer than 20 is not judged. Node's vote p99 falls as an
+      hour gets busier, and at the same volume it was the same in the weeks
+      of 2026-11-05 and 2026-11-12 (medians of 216 and 206 ms under 100 votes
+      an hour, 209 and 203 from 100, 186 and 194 from 300, 142 and 153 from
+      1,000). Set beside the same hour a week earlier, quiet hours after a
+      surge read as a slowdown with nothing slower: that week said STOP on
+      it. The bands keep an ordinary week's hours in each, and the median
+      of a band's hours is the week before's typical hour at that volume,
+      which no single slow or fast hour sets once the band has three. An
+      hour in a band the week before has no hour in has **no comparable
+      baseline**: it is printed as such and not judged, which is neither a
+      pass nor a stop, so the rule reads "not evaluated" for that band and
+      the verdict cannot be PASS. Votes slower at the same volume still
+      stop.
 
    Target 5xx over all routes are printed as context and are not a stop:
    they are non-zero on nearly every day and swing from 15 to 1,999 a day
@@ -373,8 +402,13 @@ from them.
 7. **The shadow's latency** on admitted copies.
 8. **The stop rule**, as for votes, with Node's 5xx and p99 on
    `POST /api/v3/comments` in rules 4 and 5, and two differences. Rule 5
-   compares Node's p99 by day, not by hour: it needs 20 requests in the span
-   in both weeks, and comments come at about eight an hour. And the rule is
+   compares Node's p99 by day, not by hour, and with the same day a week
+   earlier, not within bands of volume: it needs 20 requests in the span in
+   both weeks, comments come at about eight an hour, and a week has too few
+   days for bands. Rule 2 applies as for votes; at about eight copies an
+   hour no comment hour holds the 100 copies a p99 is judged from, so for
+   comments rule 2 is each copy's 60 ms bound, the copies held above 10 ms
+   counted beside the verdict. And the rule is
    read over the last eight days of the window at most, however long the
    window is: it is about what the copy is doing to production now, not
    about the evidence, and over months it would report any three slow hours
@@ -514,6 +548,50 @@ to wait for, and their count is printed.
   judged. Only where nginx's status for one is not what the handler would
   answer does the report say so (EXAMINE).
 
+## A field a line does not carry
+
+Most of a join's lines lack most of its fields: nginx's lines carry no
+`outcome`, the shadow's no `http.status_code`, a would-serve observation no
+`reason`, an observation of a row that is not Node's own no `node_txt`. What
+Logs Insights does with a condition on such a field was measured in the
+production account on 2026-11-19, against counts taken by hand:
+
+- **An empty string is no field.** nginx writes an empty upstream status as
+  `""`; the mirror query's row for those copies came back with no
+  `mirror_upstream_status` at all.
+- **In `fields` and inside a `stats` aggregate, an `and` or `or` with an
+  absent operand is absent**, whatever its other operands are.
+  `outcome = "would_serve" or reason = "strict_moderation"` was absent on
+  each of 275 would-serve lines (true or absent) and true on the 20 lines
+  carrying both. The join counted none of the two copies nginx answered
+  itself, whose upstream-status sum `message = "shadow_mirror" and
+  mirror_upstream_status like /[0-9]/` can have no value only if `false and
+  <absent>` is absent too.
+- **A `sum()` none of whose lines has a value is no value**, left out of the
+  row, not 0; a sum of falses is 0.
+- **In a `filter`, an `or` with a true operand keeps the line** though
+  another operand tests a field it lacks: every Node access line the filters
+  name is read.
+
+The tests' evaluator (`eval.rs`) reads lines the same way, so a query that
+depends on a field some lines lack fails its tests. The queries follow from
+it. A sum's condition is an `and` of tests (true only where every field it
+tests is there), or an `or` only where every operand's field is on every
+line that can make it true. A first-stage count is tested against 0 only
+where it tests fields every line of the request carries (the line counts,
+by `message`), or a field on a line the request is known to have (a
+mirror line's status beside `n_mirror = 1`). What would need an `or` across
+fields some lines lack is counted as separate terms that cannot overlap and
+added in the report. In particular:
+
+- the stored comments read back (`rb`) are named by `outcome` and
+  `admitted`, which every observation line carries;
+- a stored comment that differs is two counts, no row of Node's own
+  (`b_gone`) and Node's own row stored otherwise (`b_ownd`, whose five
+  fields every line naming Node's own row carries);
+- the copies not sent are the copies nginx logged with a status less the
+  copied ones, never `n_copied = 0`.
+
 ## Unproven in a given account
 
 The comment route's join also uses `min()` and an `or` of conditions inside
@@ -524,14 +602,15 @@ make it not matter.
 The queries use two `stats` stages, `sum()` of conditions, `in [...]` inside a
 `sum()`, `like` inside a `sum()`, `toMillis(@timestamp)`, `count_distinct`, and
 percentiles of a quoted number (`edge_upstream_s`). The tests run the same
-queries through an evaluator with Logs Insights' documented semantics (`eval.rs`:
-JSON fields flattened with dots, a JSON `null` treated as absent). Where an
-account behaves differently, the tool is built to report the query as
-refused or to withhold the join (each slice's total against `edge_bins`).
-That has not been shown against the service: a difference in how a condition
-on an absent field is summed, or in how a boolean is returned, would pass
-both checks, so the first run in an account is to be checked against counts
-taken by hand.
+queries through an evaluator with Logs Insights' semantics (`eval.rs`:
+JSON fields flattened with dots, a JSON `null` and an empty string treated
+as absent, and an absent field read as above). Where an account behaves
+differently, the tool is built to report the query as refused or to
+withhold the join (each slice's total against `edge_bins`). A difference in
+how a condition on an absent field is summed, or in how a boolean is
+returned, would pass both checks: one did, until it was measured (above).
+So the first run in another account is to be checked against counts taken
+by hand.
 
 ## Adding a route
 

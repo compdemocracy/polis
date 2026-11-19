@@ -5,6 +5,14 @@
 //! semantics the compiled queries assume; where Logs Insights in the account
 //! differs (README, "Unproven"), `run` reports the query as refused or the
 //! join's totals as inconsistent rather than printing a wrong number.
+//!
+//! A field a line does not carry is read as the production account's Logs
+//! Insights reads it (README, "A field a line does not carry"): an empty
+//! string is no field at all; in a `filter` a condition on an absent field
+//! is unknown and an `or` with a true part keeps the line; in `fields` and
+//! in `stats` an `and` or an `or` with any absent operand is absent, true
+//! parts or not, and a `sum()` none of whose lines has a value is absent
+//! from the row, not 0.
 use crate::aws::Row;
 use crate::query::{Agg, Bounds, E, Key, Op, Param, Query, Stats};
 use crate::route::ROW_LIMIT;
@@ -41,6 +49,10 @@ fn flatten(prefix: &str, value: &serde_json::Value, out: &mut Line) {
         serde_json::Value::Number(n) => {
             out.insert(prefix.to_owned(), V::Num(n.as_f64().unwrap_or(f64::NAN)));
         }
+        // An empty string is not discovered as a field: production's mirror
+        // row for a copy nginx answered itself, whose upstream status nginx
+        // writes as "", came back with no `mirror_upstream_status` at all.
+        serde_json::Value::String(s) if s.is_empty() => {}
         serde_json::Value::String(s) => {
             out.insert(prefix.to_owned(), V::Str(s.clone()));
         }
@@ -67,11 +79,33 @@ fn number(v: &V) -> Option<f64> {
     }
 }
 
-fn eval(e: &E, row: &Line, bounds: Bounds) -> V {
+/// Where an expression is read: Logs Insights reads an absent operand of
+/// `and` and `or` one way in a `filter` and another in `fields` and `stats`.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Ctx {
+    /// A `filter`: an absent operand is unknown; `or` with a true part is
+    /// true and `and` with a false part false (the account keeps every Node
+    /// access line its filters name, though the `or` beside it tests a
+    /// field those lines do not carry).
+    Filter,
+    /// `fields` and `stats`: an `and` or `or` with an absent operand is
+    /// absent whatever its other parts are. Measured in production: inside
+    /// `fields` and inside a sum, `outcome = "would_serve" or reason =
+    /// "strict_moderation"` was absent on every would-serve line (they carry
+    /// no `reason`), and true on the 20 lines that carry both. And the join
+    /// counted none of the copies nginx answered itself, whose sum of
+    /// `message = "shadow_mirror" and mirror_upstream_status like /[0-9]/`
+    /// can be absent only if `false and <absent>` is absent too.
+    Value,
+}
+
+fn eval(e: &E, row: &Line, bounds: Bounds, ctx: Ctx) -> V {
+    let eval = |e: &E| eval(e, row, bounds, ctx);
     match e {
         E::Field(name) => row.get(*name).cloned().unwrap_or(V::Null),
         E::Str(text) => V::Str((*text).to_owned()),
         E::Num(value) => V::Num(*value as f64),
+        E::Decimal(value) => V::Num(*value),
         E::Param(param) => match (bounds, param) {
             (Bounds::Window { from_ms, .. }, Param::FromMs) => V::Num(from_ms as f64),
             (Bounds::Window { to_ms, .. }, Param::ToMs) => V::Num(to_ms as f64),
@@ -79,7 +113,7 @@ fn eval(e: &E, row: &Line, bounds: Bounds) -> V {
         },
         E::TimestampMs => row.get("@timestamp").cloned().unwrap_or(V::Null),
         E::Cmp(a, op, b) => {
-            let (a, b) = (eval(a, row, bounds), eval(b, row, bounds));
+            let (a, b) = (eval(a), eval(b));
             let ordering = match (&a, &b) {
                 (V::Null, _) | (_, V::Null) => return V::Null,
                 (V::Str(x), V::Str(y)) => x.partial_cmp(y),
@@ -99,27 +133,22 @@ fn eval(e: &E, row: &Line, bounds: Bounds) -> V {
                 Op::Gt => ordering.is_gt(),
             })
         }
-        E::And(parts) => {
-            let mut unknown = false;
-            for part in parts {
-                match eval(part, row, bounds) {
-                    V::Bool(false) => return V::Bool(false),
-                    V::Bool(true) => {}
-                    _ => unknown = true,
-                }
+        E::And(parts) | E::Or(parts) => {
+            let and = matches!(e, E::And(_));
+            let values: Vec<V> = parts.iter().map(eval).collect();
+            let unknown = values.iter().any(|v| !matches!(v, V::Bool(_)));
+            if unknown && ctx == Ctx::Value {
+                return V::Null;
             }
-            if unknown { V::Null } else { V::Bool(true) }
-        }
-        E::Or(parts) => {
-            let mut unknown = false;
-            for part in parts {
-                match eval(part, row, bounds) {
-                    V::Bool(true) => return V::Bool(true),
-                    V::Bool(false) => {}
-                    _ => unknown = true,
-                }
+            // In a filter, a deciding part decides; otherwise an unknown part
+            // leaves the whole unknown.
+            if values.contains(&V::Bool(!and)) {
+                V::Bool(!and)
+            } else if unknown {
+                V::Null
+            } else {
+                V::Bool(and)
             }
-            if unknown { V::Null } else { V::Bool(false) }
         }
         E::In(field, values) => match row.get(*field) {
             Some(V::Str(s)) => V::Bool(values.contains(&s.as_str())),
@@ -137,16 +166,32 @@ fn eval(e: &E, row: &Line, bounds: Bounds) -> V {
 fn aggregate(agg: &Agg, rows: &[&Line], bounds: Bounds) -> V {
     match agg {
         Agg::Count => V::Num(rows.len() as f64),
-        Agg::Sum(e) => V::Num(
-            rows.iter()
-                .filter(|row| eval(e, row, bounds) == V::Bool(true))
-                .count() as f64,
-        ),
-        Agg::Total(field) => V::Num(
-            rows.iter()
+        // A sum with no value on any of its lines is no value: production's
+        // `sum()` of a condition that was absent on all 275 of a group's
+        // lines came back with no field, where one false on all 20 of
+        // another group's came back 0.
+        Agg::Sum(e) => {
+            let values: Vec<V> = rows
+                .iter()
+                .map(|row| eval(e, row, bounds, Ctx::Value))
+                .collect();
+            if values.iter().all(|v| *v == V::Null) {
+                V::Null
+            } else {
+                V::Num(values.iter().filter(|v| **v == V::Bool(true)).count() as f64)
+            }
+        }
+        Agg::Total(field) => {
+            let values: Vec<f64> = rows
+                .iter()
                 .filter_map(|row| row.get(*field).and_then(number))
-                .sum(),
-        ),
+                .collect();
+            if values.is_empty() {
+                V::Null
+            } else {
+                V::Num(values.iter().sum())
+            }
+        }
         Agg::Max(field) => rows
             .iter()
             .filter_map(|row| row.get(*field).and_then(number))
@@ -272,12 +317,12 @@ pub fn run_capped(
                 .and_then(number)
                 .is_some_and(|t| t >= start as f64 && t <= end as f64)
         })
-        .filter(|line| eval(&q.filter, line, bounds) == V::Bool(true))
+        .filter(|line| eval(&q.filter, line, bounds, Ctx::Filter) == V::Bool(true))
         .cloned()
         .collect();
     for row in &mut rows {
         for (name, e) in &q.fields {
-            let value = eval(e, row, bounds);
+            let value = eval(e, row, bounds, Ctx::Value);
             row.insert((*name).to_owned(), value);
         }
     }
