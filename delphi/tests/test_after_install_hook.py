@@ -34,6 +34,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -75,7 +76,7 @@ FAKES = {
     # this project (on the Delphi box, after `down`: the profile-gated ones).
     # The fake exits with its last line's status (a failed Rust start), so
     # that line stays last.
-    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n'
+    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"shadow-graph-off.yml --profile delphi-shadow config"*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __compose_fail__ ] || exit 1;; esac\n'
                       + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
@@ -89,7 +90,12 @@ FAKES = {
     # shadow service's two read-backs: its lanes' switches and its settings.
     # The Delphi shadow's read-back prints the names of its wrong settings:
     # none, unless a test says which (or __fail__: jq itself fails).
-    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *delphi-shadow-scheduler.DELPHI_SHADOW_ENV*) [ "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}";; *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *) echo value;; esac\n',
+    # The scheduler's graph list, read back after a refused graph executor,
+    # is answered as Compose would compose it: blank when the hook wrote the
+    # file that blanks it, unless a test says what the composed list holds.
+    # (__fail__: jq itself fails; __compose_fail__: the docker-compose fake
+    # fails to render the files for that read-back.)
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *delphi-shadow-scheduler.DELPHI_SHADOW_ENV*) [ "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}";; *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *environment.DELPHI_SHADOW_GRAPH_CONVERSATIONS*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __fail__ ] || exit 3; if [ -n "${FAKE_GRAPH_LIST_COMPOSED+set}" ]; then printf "%s\\n" "$FAKE_GRAPH_LIST_COMPOSED"; elif grep -qx "      - DELPHI_SHADOW_GRAPH_CONVERSATIONS=" docker-compose.shadow-graph-off.yml 2>/dev/null; then echo; else echo zzgraphlist9; fi;; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -205,10 +211,12 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
             reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None,
             env_extra=None, delphi_shadow_settings_wrong=None, delphi_shadow_start_failure=False,
-            compose_ps="math-python", compose_ps_failure=False, hook_rules=(), **kw):
+            compose_ps="math-python", compose_ps_failure=False, hook_rules=(), graph_list_composed=None, **kw):
     root, env = _box(tmp_path, service_type, **kw)
     if env_extra is not None:
         env["FAKE_ENV_EXTRA"] = env_extra
+    if graph_list_composed is not None:
+        env["FAKE_GRAPH_LIST_COMPOSED"] = graph_list_composed
     if delphi_shadow_settings_wrong is not None:
         env["FAKE_DELPHI_SHADOW_SETTINGS_WRONG"] = delphi_shadow_settings_wrong
     env["FAKE_DELPHI_SHADOW_START_FAILURE"] = "1" if delphi_shadow_start_failure else "0"
@@ -1294,6 +1302,137 @@ def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
     proc, log = _deploy(tmp_path, service_type, env_extra="DELPHI_SHADOW_ENABLED=1")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert DELPHI_SHADOW_UP not in _compose(log)
+
+
+# The optional graph executor (DELPHI_SHADOW_GRAPH_ENABLED=1 beside the
+# shadow's switch) is checked by scripts/check-shadow-graph.py against the
+# composed configuration, after the shadow's own read-back. Its refusal is
+# about the executor alone: the full-pipeline shadow, already accepted, still
+# starts. Here the check is a stand-in that reads the composed configuration
+# and accepts or refuses it.
+DELPHI_SHADOW_GRAPH_UP = "up -d delphi-shadow-graph --no-build --force-recreate"
+DELPHI_SHADOW_GRAPH_CONFIG = COMPOSE_FILES + "--profile delphi-shadow --profile delphi-shadow-graph config --format json"
+GRAPH_SWITCHES = "DELPHI_SHADOW_ENABLED=1\nDELPHI_SHADOW_GRAPH_ENABLED=1"
+
+
+def _graph_check(tmp_path, accepts):
+    # Run by this interpreter: the hook's PATH here holds the fakes and
+    # /usr/bin:/bin, which need not hold a python3 (the test image's is in
+    # /usr/local/bin).
+    check = tmp_path / "graph-check.py"
+    check.write_text("import sys\nsys.stdin.read()\n" + ("" if accepts else (
+        "print('graph shadow settings: QUEUE_ENV/DELPHI_RESULT_ENV', file=sys.stderr)\nsys.exit(1)\n")))
+    return [("python3 scripts/check-shadow-graph.py", f"{sys.executable} {check}", 1)]
+
+
+def test_valid_graph_settings_start_the_graph_executor_before_the_shadow(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES, hook_rules=_graph_check(tmp_path, True))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose").count(DELPHI_SHADOW_GRAPH_CONFIG) == 1
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    assert ups == UNCHANGED["delphi"] + [DELPHI_SHADOW_GRAPH_UP, DELPHI_SHADOW_UP]
+    # The scheduler keeps its conversation list: no file blanks it.
+    assert not (tmp_path / "root/opt/polis/polis" / GRAPH_OFF).exists()
+    assert not [c for c in _calls(log, "docker-compose") if GRAPH_OFF in c]
+
+
+# Refused, the executor is not started and the scheduler does no graph work
+# for the deploy: its start is given one more Compose file that composes its
+# conversation list blank, so it admits no graph that nothing could claim.
+# The hook reads the composed list back before starting it, and says so in
+# one line naming the setting, never a value.
+GRAPH_OFF = "docker-compose.shadow-graph-off.yml"
+GRAPH_OFF_TEXT = "services:\n  delphi-shadow-scheduler:\n    environment:\n      - DELPHI_SHADOW_GRAPH_CONVERSATIONS=\n"
+GRAPH_OFF_FILES = COMPOSE_FILES + f"-f {GRAPH_OFF} "
+GRAPH_REFUSED_LINE = (
+    "Error: the graph executor's composed settings are invalid (QUEUE_ENV/DELPHI_RESULT_ENV): not starting it, "
+    "and the scheduler starts with DELPHI_SHADOW_GRAPH_CONVERSATIONS blank, so no conversation's graph is "
+    "admitted until a deploy whose graph settings are valid (the full-pipeline shadow still starts)")
+
+
+def test_invalid_graph_settings_refuse_the_graph_executor_only(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES + "\nDELPHI_SHADOW_GRAPH_CONVERSATIONS=zzgraphlist9",
+                        compose_ps=SHADOW_LEFT_RUNNING, hook_rules=_graph_check(tmp_path, False))
+    # The Delphi box's deploy is not failed, and the full-pipeline shadow
+    # starts, its scheduler with no graph list.
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "not starting either shadow" not in proc.stderr
+    # One loud line, naming the refused settings and the blanked list by key.
+    graph_lines = [line for line in proc.stderr.splitlines() if "graph" in line]
+    assert graph_lines == [GRAPH_REFUSED_LINE], proc.stderr
+    off = tmp_path / "root/opt/polis/polis" / GRAPH_OFF
+    assert off.read_text() == GRAPH_OFF_TEXT
+    calls = _calls(log, "docker-compose")
+    assert GRAPH_OFF_FILES + "--profile delphi-shadow config --format json" in calls
+    assert '-r .services["delphi-shadow-scheduler"].environment.DELPHI_SHADOW_GRAPH_CONVERSATIONS // ""' in _calls(log, "jq")
+    ups = [c for c in calls if " up " in f" {c} "]
+    assert ups == [COMPOSE_FILES + u for u in UNCHANGED["delphi"]] + [GRAPH_OFF_FILES + DELPHI_SHADOW_UP]
+    assert DELPHI_SHADOW_GRAPH_UP not in _compose(log)
+    # Only the shadow's start carries the file: the engine's `up` and `down`
+    # are as before.
+    assert [c for c in calls if GRAPH_OFF in c] == [GRAPH_OFF_FILES + "--profile delphi-shadow config --format json",
+                                                    GRAPH_OFF_FILES + DELPHI_SHADOW_UP]
+    # The validator names settings only; nothing of the environment document
+    # reaches the deploy's output.
+    for text in ("PUBLIC_SERVICE_URL", "example.invalid", "zzgraphlist9"):
+        assert text not in proc.stdout + proc.stderr
+
+
+def test_a_graph_list_that_cannot_be_composed_blank_refuses_the_shadow(tmp_path):
+    # Should Compose not let the file's empty value stand, the scheduler
+    # would admit graphs nothing claims: the shadow is not started, as when
+    # its own settings are refused, and the deploy goes on.
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES, compose_ps=SHADOW_LEFT_RUNNING,
+                        hook_rules=_graph_check(tmp_path, False), graph_list_composed="zzgraphlist9")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    graph_lines = [line for line in proc.stderr.splitlines() if "graph" in line]
+    assert graph_lines == [
+        "Error: the graph executor's composed settings are invalid (QUEUE_ENV/DELPHI_RESULT_ENV) and the "
+        "scheduler's DELPHI_SHADOW_GRAPH_CONVERSATIONS is not composed blank; not starting the Delphi shadow"], proc.stderr
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"]
+    assert not [c for c in _calls(log, "docker-compose") if c.endswith(DELPHI_SHADOW_UP)]
+    assert "zzgraphlist9" not in proc.stdout + proc.stderr
+
+
+@pytest.mark.parametrize("failure", ["__fail__", "__compose_fail__"])
+def test_a_graph_list_whose_read_back_fails_refuses_the_shadow(tmp_path, failure):
+    # Should the read-back itself fail (Compose cannot render the files with
+    # the one that blanks the list, or jq cannot read what it rendered), the
+    # list is not known to be blank: the shadow is not started, as when the
+    # list is not composed blank, and the deploy goes on.
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES, compose_ps=SHADOW_LEFT_RUNNING,
+                        hook_rules=_graph_check(tmp_path, False), graph_list_composed=failure)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    graph_lines = [line for line in proc.stderr.splitlines() if "graph" in line]
+    assert graph_lines == [
+        "Error: the graph executor's composed settings are invalid (QUEUE_ENV/DELPHI_RESULT_ENV) and the "
+        "scheduler's DELPHI_SHADOW_GRAPH_CONVERSATIONS is not composed blank; not starting the Delphi shadow"], proc.stderr
+    calls = _calls(log, "docker-compose")
+    assert GRAPH_OFF_FILES + "--profile delphi-shadow config --format json" in calls
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"]
+    assert not [c for c in calls if c.endswith(DELPHI_SHADOW_UP)]
+
+
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+@pytest.mark.parametrize("environment,printed", [
+    ({"DELPHI_SHADOW_GRAPH_CONVERSATIONS": ""}, ""),
+    ({}, ""),
+    ({"DELPHI_SHADOW_GRAPH_CONVERSATIONS": "c1 c2"}, "c1 c2"),
+    (None, ""),
+])
+def test_the_real_jq_reads_the_schedulers_composed_graph_list(environment, printed):
+    (line,) = [line for line in HOOK_PATH.read_text().splitlines()
+               if line.lstrip().startswith("DELPHI_SHADOW_GRAPH_LIST=$(")]
+    command, program, closing = line.split("'")
+    assert command.lstrip() == ('DELPHI_SHADOW_GRAPH_LIST=$("${DELPHI_SHADOW_COMPOSE[@]}" --profile delphi-shadow '
+                                'config --format json | jq -r ')
+    assert closing.startswith(")")
+    document = {"services": {"delphi-shadow-scheduler": {"environment": environment}}}
+    if environment is None:
+        del document["services"]["delphi-shadow-scheduler"]
+    proc = subprocess.run(["jq", "-r", program], input=json.dumps(document), text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == printed + "\n"
 
 
 # The Delphi box's `down` (with -f files named) leaves a profile-gated
