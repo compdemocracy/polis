@@ -34,6 +34,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -1294,6 +1295,52 @@ def test_other_roles_never_start_the_delphi_shadow(tmp_path, service_type):
     proc, log = _deploy(tmp_path, service_type, env_extra="DELPHI_SHADOW_ENABLED=1")
     assert proc.returncode == 0, proc.stdout + proc.stderr
     assert DELPHI_SHADOW_UP not in _compose(log)
+
+
+# The optional graph executor (DELPHI_SHADOW_GRAPH_ENABLED=1 beside the
+# shadow's switch) is checked by scripts/check-shadow-graph.py against the
+# composed configuration, after the shadow's own read-back. Its refusal is
+# about the executor alone: the full-pipeline shadow, already accepted, still
+# starts. Here the check is a stand-in that reads the composed configuration
+# and accepts or refuses it.
+DELPHI_SHADOW_GRAPH_UP = "up -d delphi-shadow-graph --no-build --force-recreate"
+DELPHI_SHADOW_GRAPH_CONFIG = COMPOSE_FILES + "--profile delphi-shadow --profile delphi-shadow-graph config --format json"
+GRAPH_SWITCHES = "DELPHI_SHADOW_ENABLED=1\nDELPHI_SHADOW_GRAPH_ENABLED=1"
+
+
+def _graph_check(tmp_path, accepts):
+    # Run by this interpreter: the hook's PATH here holds the fakes and
+    # /usr/bin:/bin, which need not hold a python3 (the test image's is in
+    # /usr/local/bin).
+    check = tmp_path / "graph-check.py"
+    check.write_text("import sys\nsys.stdin.read()\n" + ("" if accepts else (
+        "print('graph shadow settings: QUEUE_ENV/DELPHI_RESULT_ENV', file=sys.stderr)\nsys.exit(1)\n")))
+    return [("python3 scripts/check-shadow-graph.py", f"{sys.executable} {check}", 1)]
+
+
+def test_valid_graph_settings_start_the_graph_executor_before_the_shadow(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES, hook_rules=_graph_check(tmp_path, True))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose").count(DELPHI_SHADOW_GRAPH_CONFIG) == 1
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    assert ups == UNCHANGED["delphi"] + [DELPHI_SHADOW_GRAPH_UP, DELPHI_SHADOW_UP]
+
+
+def test_invalid_graph_settings_refuse_the_graph_executor_only(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=GRAPH_SWITCHES, compose_ps=SHADOW_LEFT_RUNNING,
+                        hook_rules=_graph_check(tmp_path, False))
+    # The Delphi box's deploy is not failed, and the full-pipeline shadow
+    # starts as it would with the executor switched off.
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert ("The graph executor's composed settings are invalid; not starting it "
+            "(the full-pipeline shadow still starts)") in proc.stderr
+    assert "not starting either shadow" not in proc.stderr
+    compose = _compose(log)
+    assert [c for c in compose if c.startswith("up")] == UNCHANGED["delphi"] + [DELPHI_SHADOW_UP]
+    assert DELPHI_SHADOW_GRAPH_UP not in compose
+    # The validator names settings only; nothing of the environment document
+    # reaches the deploy's output.
+    assert "PUBLIC_SERVICE_URL" not in proc.stdout + proc.stderr
 
 
 # The Delphi box's `down` (with -f files named) leaves a profile-gated

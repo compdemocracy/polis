@@ -428,10 +428,12 @@ fi
 
 # A graph executor has its own profile, local journal and resource ceiling.
 # Validate only composed settings; never print the environment document.
+# Refused, only the executor is not started: the full-pipeline shadow, whose
+# own settings were read back above, still starts (a listed conversation's
+# graph that nothing claims is let go by the scheduler after a short wait).
 if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
   if ! sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-shadow-graph config --format json | python3 scripts/check-shadow-graph.py; then
-    echo "The graph shadow's composed settings are invalid; not starting either shadow" >&2
-    DELPHI_SHADOW_SELECTED=0
+    echo "The graph executor's composed settings are invalid; not starting it (the full-pipeline shadow still starts)" >&2
     DELPHI_SHADOW_GRAPH_SELECTED=0
   fi
 fi
