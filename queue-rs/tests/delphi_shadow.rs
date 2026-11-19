@@ -3072,6 +3072,16 @@ fn lose_state_file(cfg: &config::Config) {
     std::fs::remove_file(&cfg.state_path).unwrap();
 }
 
+/// Change the text of a conversation's first comment, and so its snapshot.
+fn edit_first_comment(f: &Fixture, zid: i32, txt: &str) {
+    f.superuser()
+        .execute(
+            "UPDATE comments SET txt=$2, modified=modified+1 WHERE zid=$1 AND tid=0",
+            &[&zid, &txt],
+        )
+        .unwrap();
+}
+
 /// The binary's environment for a graph run, as `graph_config` sets it up.
 fn graph_binary_env<'a>(f: &Fixture, list: (&'a str, &'a str)) -> Vec<(String, String)> {
     vec![
@@ -3176,4 +3186,191 @@ fn a_let_go_whose_cancel_raced_a_claim_then_a_lost_state_file_is_an_error_line_a
     assert_eq!(again.digest, flight.digest);
     assert_eq!(graph_states(&f, &again), ["queued"; 4]);
     assert_eq!(graphs_of(&f, &flight.env, 1101), 2);
+}
+
+#[test]
+fn a_let_go_chain_is_learned_from_the_database_when_the_state_file_is_lost() {
+    // Two let-gos in a row of one unchanged snapshot, then the state file is
+    // lost. The first admission after it must be a new graph at once, named
+    // after the chain's last link, not each cancelled graph of the chain
+    // answered again and let go again with one hold per link; and the hold
+    // after the next let-go must follow the true count of let-gos in a row:
+    // since the last claim in the env, not counting a let-go before it.
+    let f = Fixture::new();
+    f.quiet(1111, 25, 1);
+    f.quiet(1112, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1111,c1112")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    // The first conversation is let go once, then claimed and published.
+    s.cycle().unwrap();
+    let before = let_go_unclaimed(&f, &mut s);
+    assert_eq!(before.zid, 1111);
+    age_hold(&mut s, &before.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let claimed = s.state.graph_flight.clone().unwrap();
+    assert_eq!(claimed.zid, 1111);
+    finish_graph(&f, &claimed);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(unclaimed(&s, &before.env)["count"], 0);
+    // Then the second is let go twice in a row.
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    assert_eq!(first.zid, 1112);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let second = let_go_unclaimed(&f, &mut s);
+    assert_eq!(second.zid, 1112);
+    assert_ne!(second.graph_id, first.graph_id);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 2);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    lose_state_file(&cfg);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let third = s.state.graph_flight.clone().expect("admitted at once");
+    assert_eq!(
+        third.zid, 1112,
+        "the published conversation is seen, not admitted"
+    );
+    assert!(
+        third.graph_id != first.graph_id && third.graph_id != second.graph_id,
+        "a new graph, not a cancelled one of the chain"
+    );
+    assert_eq!(third.digest, first.digest, "of the same snapshot");
+    assert_eq!(graph_states(&f, &third), ["queued"; 4]);
+    let learned = unclaimed(&s, &first.env);
+    assert_eq!(
+        learned["count"], 2,
+        "the chain's count, from the database: {learned}"
+    );
+    assert_eq!(
+        learned["graphs"]["1112"]["graph_id"],
+        second.graph_id.as_str()
+    );
+    let keys = [&first, &second, &third].map(|g| graph_request(&f, g).0);
+    assert!(keys[2] != keys[0] && keys[2] != keys[1]);
+    // Nothing claims it either: the third let-go in a row holds four hours.
+    let third = let_go_unclaimed(&f, &mut s);
+    assert_eq!(unclaimed(&s, &first.env)["count"], 3);
+    age_hold(&mut s, &first.env, 4 * 3_600_000 - 60_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none(), "four hours, not one");
+    age_hold(&mut s, &first.env, 61_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let fourth = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted after the hold");
+    assert_eq!(fourth.zid, 1112);
+    assert_ne!(fourth.graph_id, third.graph_id);
+    assert_eq!(graphs_of(&f, &first.env, 1112), 4);
+}
+
+#[test]
+fn a_let_go_dropped_from_the_bounded_record_is_learned_from_the_database() {
+    // The record keeps at most 256 conversations per env; one dropped from
+    // it (here: its entry removed from the state file, as the bound removes
+    // it) must not walk its chain again when its hold ends.
+    let f = Fixture::new();
+    f.quiet(1121, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1121")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let second = let_go_unclaimed(&f, &mut s);
+    let mut v = serde_json::to_value(&s.state).unwrap();
+    v["graph_unclaimed"][&first.env]["graphs"]
+        .as_object_mut()
+        .unwrap()
+        .remove("1121");
+    s.state = serde_json::from_value(v).unwrap();
+    // The env's hold stands (the record itself is kept): two hours.
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert!(
+        s.state.graph_flight.is_none(),
+        "two hours after a second in a row"
+    );
+    age_hold(&mut s, &first.env, 3_600_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let third = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted when the hold ends");
+    assert!(
+        third.graph_id != first.graph_id && third.graph_id != second.graph_id,
+        "a new graph, not a cancelled one of the chain"
+    );
+    let learned = unclaimed(&s, &first.env);
+    assert_eq!(learned["count"], 2, "the record's count stands: {learned}");
+    assert_eq!(
+        learned["graphs"]["1121"]["graph_id"],
+        second.graph_id.as_str()
+    );
+    finish_graph(&f, &third);
+    s.cycle().unwrap();
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(served(&f, &third)["generation"], 1);
+    assert_eq!(graphs_of(&f, &first.env, 1121), 3);
+}
+
+#[test]
+fn a_snapshot_let_go_that_changes_is_let_go_again_and_comes_back_is_a_new_graph_at_once() {
+    // The record holds one let-go graph per conversation, so the later
+    // snapshot's let-go replaces the earlier one's. When the earlier
+    // snapshot comes back, its chain's end is read from the database.
+    let f = Fixture::new();
+    f.quiet(1131, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1131")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    edit_first_comment(&f, 1131, "generated comment 0 of conversation 1131, edited");
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let changed = let_go_unclaimed(&f, &mut s);
+    assert_ne!(changed.digest, first.digest, "another snapshot");
+    let held = unclaimed(&s, &first.env);
+    assert_eq!(
+        held["graphs"]["1131"]["graph_id"],
+        changed.graph_id.as_str()
+    );
+    // The earlier snapshot comes back.
+    edit_first_comment(&f, 1131, "generated comment 0 of conversation 1131");
+    age_hold(&mut s, &first.env, 7_201_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let back = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("admitted when the hold ends");
+    assert_eq!(back.digest, first.digest, "the earlier snapshot");
+    assert!(
+        back.graph_id != first.graph_id && back.graph_id != changed.graph_id,
+        "a new graph, not the earlier snapshot's cancelled one"
+    );
+    assert_eq!(graph_states(&f, &back), ["queued"; 4]);
+    assert_eq!(
+        unclaimed(&s, &first.env)["graphs"]["1131"]["graph_id"],
+        first.graph_id.as_str()
+    );
+    assert_eq!(graphs_of(&f, &first.env, 1131), 3);
 }

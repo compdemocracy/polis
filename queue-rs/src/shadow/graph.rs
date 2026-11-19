@@ -38,8 +38,14 @@ pub const UNCLAIMED_DEADLINE: Duration = Duration::from_secs(600);
 pub const UNCLAIMED_HOLD: Duration = Duration::from_secs(3600);
 pub const UNCLAIMED_HOLD_MAX: Duration = Duration::from_secs(86_400);
 /// How many let-go conversations an env's record keeps (the bound of the
-/// state file; one entry per conversation ever let go there).
+/// state file; one entry per conversation ever let go there). A conversation
+/// whose entry is dropped loses nothing: its admission reads its snapshot's
+/// last let-go graph from the database (`chain_end`).
 const LET_GO_KEPT: usize = 256;
+/// How many of an env's newest graphs a scheduler with no record of the env
+/// reads to learn how many were let go in a row: from six on the hold is a
+/// day, so more would change nothing.
+const LET_GO_RUN_READ: i64 = 32;
 
 /// The hold after the `count`th graph let go in a row in an env.
 pub fn unclaimed_hold(count: u32) -> Duration {
@@ -56,7 +62,9 @@ pub struct Unclaimed {
     /// sets the hold, and a claim seen there resets it.
     pub count: u32,
     /// When the last was let go (ms since the epoch), and the admission rule
-    /// (its build) then: the hold ends at the next code version.
+    /// (its build) then: the hold ends at the next code version. Both are
+    /// empty (no hold) when a scheduler with no record of the env read the
+    /// count from the database (`learn_let_go`).
     pub at_ms: i64,
     pub rule: String,
     /// Per conversation, the last graph let go and its snapshot's digest.
@@ -64,6 +72,20 @@ pub struct Unclaimed {
     /// so it is a new graph (and the same one again, should its reply be
     /// lost or its publication be retried).
     pub graphs: BTreeMap<i32, LetGo>,
+}
+
+impl Unclaimed {
+    /// Remember `zid`'s last let-go graph. Bounded: another conversation's
+    /// entry is dropped to make room, never this one's.
+    fn remember(&mut self, zid: i32, graph: LetGo) {
+        self.graphs.insert(zid, graph);
+        while self.graphs.len() > LET_GO_KEPT {
+            let Some(other) = self.graphs.keys().find(|z| **z != zid).copied() else {
+                break;
+            };
+            self.graphs.remove(&other);
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -100,6 +122,24 @@ fn chain_end(db: &Db<'_>, env: &str, zid: i32, digest: &str) -> Result<Option<Ch
             })
         })
         .transpose()
+    })
+}
+
+/// How many graphs were let go in a row in `env`, as the database records
+/// them: of its newest graphs (at most `LET_GO_RUN_READ`), newest first,
+/// those with every node cancelled and none ever claimed, up to the first
+/// that is not so (a claim, or a graph that ran). One read, booleans only.
+fn let_go_run(db: &Db<'_>, env: &str) -> Result<u32> {
+    db.read(|tx| {
+        let rows = tx.query("SELECT NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'cancelled') AND NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_attempts a USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id) FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text ORDER BY g.created_at DESC, g.graph_id DESC LIMIT $2", &[&env, &LET_GO_RUN_READ])?;
+        let mut run = 0u32;
+        for r in rows {
+            if !r.try_get::<_, bool>(0)? {
+                break;
+            }
+            run += 1;
+        }
+        Ok(run)
     })
 }
 
@@ -682,21 +722,13 @@ impl Scheduler<'_> {
         u.count = u.count.saturating_add(1);
         u.at_ms = now;
         u.rule = rule;
-        u.graphs.insert(
+        u.remember(
             zid,
             LetGo {
                 graph_id: graph_id.to_owned(),
                 digest: digest.to_owned(),
             },
         );
-        // Bounded. A conversation dropped here whose snapshot comes back
-        // finds the cancelled graph, which is let go again when it finishes.
-        while u.graphs.len() > LET_GO_KEPT {
-            let Some(other) = u.graphs.keys().find(|z| **z != zid).copied() else {
-                break;
-            };
-            u.graphs.remove(&other);
-        }
         let (count, hold) = (u.count, unclaimed_hold(u.count));
         log(
             "graph_unclaimed",
@@ -745,6 +777,43 @@ impl Scheduler<'_> {
         );
     }
 
+    /// The end of a snapshot's let-go chain, read from the database because
+    /// the record does not name it (the state file was lost, the entry was
+    /// dropped from the bounded record, or the snapshot changed and came
+    /// back): remembered, so this admission names it in its key and is a
+    /// new graph at once, instead of each cancelled graph of the chain being
+    /// answered and let go again, one hold per link. With no record of the
+    /// env at all (a lost state file), the count of let-gos in a row is the
+    /// database's, and no hold is in force until the next let-go: the build
+    /// that let the last one go is not known, as after a new code version.
+    fn learn_let_go(&mut self, env: &str, zid: i32, graph_id: &str, digest: &str) -> Result<()> {
+        let counted = if self.state.graph_unclaimed.contains_key(env) {
+            None
+        } else {
+            Some(let_go_run(&self.db, env)?)
+        };
+        let u = self
+            .state
+            .graph_unclaimed
+            .entry(env.to_owned())
+            .or_default();
+        if let Some(n) = counted {
+            u.count = n;
+        }
+        u.remember(
+            zid,
+            LetGo {
+                graph_id: graph_id.to_owned(),
+                digest: digest.to_owned(),
+            },
+        );
+        log(
+            "graph_let_go_recovered",
+            json!({"graph_id":graph_id,"let_go":u.count,"count_from":if counted.is_some() {"database"} else {"state"}}),
+        );
+        Ok(())
+    }
+
     /// A node of a graph in the env left the queue: an executor claims
     /// there again, and the count starts over. (While the env is held no
     /// graph is admitted there, so this is a graph admitted after the hold.)
@@ -785,17 +854,20 @@ impl Scheduler<'_> {
             .map(|g| g.graph_id.clone());
         // The database holds every graph of the snapshot; the record only
         // the last one this scheduler let go. When the database's newest
-        // fully cancelled graph of it was claimed and is not the one the
-        // record names, the record was lost or does not hold it.
+        // fully cancelled graph of it is not the one the record names, the
+        // record was lost or does not hold it.
         let end = chain_end(&self.db, &cfg.env, candidate.zid, &s.digest)?;
-        if let Some(e) = end
-            && e.claimed
-            && recorded.as_deref() != Some(e.graph_id.as_str())
-        {
-            self.found_cancelled_after_claim(cfg, candidate.zid, &s.digest, &e, now);
-            return Ok(false);
-        }
-        let after = recorded;
+        let after = match end {
+            Some(e) if recorded.as_deref() != Some(e.graph_id.as_str()) => {
+                if e.claimed {
+                    self.found_cancelled_after_claim(cfg, candidate.zid, &s.digest, &e, now);
+                    return Ok(false);
+                }
+                self.learn_let_go(&cfg.env, candidate.zid, &e.graph_id, &s.digest)?;
+                Some(e.graph_id)
+            }
+            _ => recorded,
+        };
         // Four jobs plus all three inline copies per node. Charge the
         // conservative request bound before admission, not after it grows.
         let comments = s.ids.len() as i64;
