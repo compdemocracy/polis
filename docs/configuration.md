@@ -434,22 +434,64 @@ child process group gone. A missing process-group record is not exit proof.
 An entry written under another boot is confirmed only once its attempt's lease
 has expired by database time (`graph_recovery` reason
 `another_boot_lease_live` while it waits, `another_boot_lease_expired` when it
-is confirmed). A copied identity file therefore never confirms an attempt whose
-original still renews its lease; an honest reboot waits at most one lease
-(`POLIS_JOBS_LEASE_SECONDS`, default 120).
+is confirmed). A copied identity file therefore does not confirm an attempt
+whose original still renews its lease. It does confirm one whose original is
+alive but has stopped renewing for longer than a lease (a paused container, a
+stopped daemon, a frozen machine): writes stay fenced, so the cost is a false
+exit record and the step computed twice. An honest reboot waits about one
+lease with the defaults (`POLIS_JOBS_LEASE_SECONDS`, default 120), up to one
+lease plus one reaper interval (`POLIS_JOBS_REAP_SECONDS`) when that is set
+longer.
 
 The deploy check of the executor's composed settings refuses the executor
-alone: with an invalid setting the full-pipeline shadow still starts. A graph
-none of whose nodes is claimed within ten minutes (no executor running,
-unstartable, or refused) is cancelled and let go (`graph_unclaimed`), so the
-full-pipeline shadow waits minutes per listed conversation, not the job
-deadline. Publication of a finished graph is tried once per poll, up to three
-times, the count kept in the scheduler state; a transient failure keeps the
-graph (`graph_publish_retry`). A graph whose publication is given up
-(`graph_publish_failed`) is not taken up again by recovery, and its snapshot is
-not remembered as seen: when a later build or a change reconsiders the
-conversation, the same snapshot's admission answers with that graph and only
-its publication runs again.
+alone: with an invalid setting the executor is not started, and the scheduler
+is started with `DELPHI_SHADOW_GRAPH_CONVERSATIONS` composed blank (one more
+Compose file, `docker-compose.shadow-graph-off.yml`, given to the shadow's
+start only), so it admits no graph that nothing could claim; the
+full-pipeline shadow still starts. The deploy says so in one line beginning
+`Error:` that names the refused settings and that list, never a value. A
+graph already in flight from an earlier deploy is still watched, as when the
+list is cleared. The next deploy with valid settings admits graphs again.
+
+A graph none of whose nodes is claimed within ten minutes (no executor
+running, unstartable, crash-looping before its first claim) is cancelled and
+let go (`graph_unclaimed`, with the reason, the count of graphs let go in a
+row in that env and the hold that follows), so the full-pipeline shadow waits
+minutes, not the job deadline. A graph found cancelled with no node ever
+claimed, or past the job deadline with none claimed, is let go the same way
+(reason `cancelled_unclaimed`). The ten minutes are a constant
+(`UNCLAIMED_DEADLINE` in `queue-rs/src/shadow/graph.rs`), not a setting: a
+running executor claims within one of its polls (`POLIS_JOBS_POLL_SECONDS`,
+default 5), and the deploy pulls every image before starting anything and
+starts the executor before the shadow, so on a deploy the executor is never
+still being pulled when a graph is admitted. Where it is slower than ten
+minutes to start (an image still being pulled or built by a local
+`docker compose up`, a slow host, a scheduler restarted with an old graph in
+flight), that graph is let go and admitted again, as below; nothing is lost.
+
+After a let-go no graph is admitted in that env for an hour, doubling with
+each let-go in a row up to a day (`UNCLAIMED_HOLD`, `UNCLAIMED_HOLD_MAX`),
+or until the next code version, whichever is first; the scheduler says so
+once per hold (`graph_admission_held`, reason `graph_unclaimed`, with the
+count, the seconds until it resumes and the let-go graphs' ids). The
+full-pipeline shadow goes on throughout. When the hold ends, the conversation
+let go is admitted again, though nothing about it changed, as a new graph:
+its admission key names the let-go graph (`graph_admitted` with
+`after_let_go`). A claim on a graph admitted after the let-go resets the
+count (`graph_unclaimed_cleared`). The hold, the count and the let-go graphs
+are kept in the scheduler state (`graph_unclaimed`), so a restart keeps them.
+Each graph admitted again adds its rows to the database, as any graph does,
+and counts against the shadow's storage budget.
+
+Publication of a finished graph is tried once per poll, up to three times,
+the count kept in the scheduler state; a transient failure keeps the graph
+(`graph_publish_retry`). A graph whose publication is given up
+(`graph_publish_failed`) is not taken up again by recovery, and its snapshot
+is not remembered as seen: when a later build or a change reconsiders the
+conversation, the same snapshot's admission answers with that graph if the
+graph's specification is unchanged (the same stage code, runtime, models and
+expected generation), and then only its publication runs again. A build that
+changes any of those admits a new graph, and all its steps run again.
 
 The scheduler cancels overdue graphs at `DELPHI_SHADOW_JOB_DEADLINE_SECONDS`
 (default 14400). It keeps their scopes held and polls recovery in the background;
@@ -476,5 +518,7 @@ unchanged. Before rolling back, drain every graph, including deferred graphs,
 and verify its scope was released. Older schedulers ignore the new deferred
 fields and cannot enforce those exclusions. They also ignore the publication
 count and the given-up publications, so they may try a given-up graph's
-publication again. Do not remove scheduler state or a
+publication again, and they ignore the graphs let go as unclaimed, so they
+neither hold admission after one nor admit its unchanged conversation again.
+Do not remove scheduler state or a
 journal to force progress.
