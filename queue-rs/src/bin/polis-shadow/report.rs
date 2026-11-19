@@ -3,7 +3,7 @@
 //! duration or a test statistic: never a request id, a conversation or
 //! statement number, a participant or text.
 use crate::aws::{Row, Window};
-use crate::route::{Kind, ROW_LIMIT, Route};
+use crate::route::{Kind, ROW_LIMIT, Route, STOPPED};
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
@@ -459,6 +459,22 @@ fn build_votes(inputs: &Inputs, node_line: &'static str) -> Report {
                 let n = sum(obs, "n", |row| outcome(row) == o);
                 let _ = writeln!(out, "   {o:<20} {n}");
             }
+            // Copies the shadow was still observing when it was stopped:
+            // no would-be answer, so in no class below; printed when any.
+            let stopped = sum(obs, "n", |row| outcome(row) == STOPPED);
+            if stopped > 0 {
+                let _ = writeln!(
+                    out,
+                    "   {STOPPED:<20} {stopped} (cut when the shadow stopped; not observed)"
+                );
+                let mut stages: BTreeMap<String, u64> = BTreeMap::new();
+                for row in obs.iter().filter(|row| outcome(row) == STOPPED) {
+                    *stages.entry(text(row, "reason").to_owned()).or_default() += count(row, "n");
+                }
+                for (stage, n) in stages {
+                    let _ = writeln!(out, "   stopped ({}): {n}", class_word(&stage));
+                }
+            }
             let _ = writeln!(
                 out,
                 "   admitted {admitted} of {observed} observed ({})",
@@ -843,6 +859,13 @@ fn join_section(
         all("no_mirror"),
         pct(share(covered, expected))
     );
+    let stopped = all("stopped");
+    if stopped > 0 {
+        let _ = writeln!(
+            out,
+            "   copied votes whose observation was cut when the shadow stopped {stopped} (a stopped line; not counted as observed)"
+        );
+    }
     let coverage = share(covered, expected);
     add(
         "coverage",

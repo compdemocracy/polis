@@ -383,6 +383,41 @@ impl Obs {
     }
 }
 
+/// The line the shadow prints for a copy it was still observing when it was
+/// stopped (`queue-rs/polis-api/src/shadow_stop.rs`): the 34 keys in their
+/// order, `outcome` stopped, `reason` where it was, and nothing it had found.
+fn stopped_line(id: &str, at: i64, stage: &str) -> (i64, String) {
+    let printed = format!(
+        "{{{}}}",
+        COMMENT_KEYS
+            .iter()
+            .map(|key| {
+                let value = match *key {
+                    "message" => json!("shadow_observation"),
+                    "listener" => json!("shadow"),
+                    "service" => json!("polis-api-shadow"),
+                    "env" => json!("prod"),
+                    "shadow" => json!("commentsShadow"),
+                    "route" => json!(COMMENT_ROUTE),
+                    "request_id" => json!(id),
+                    "outcome" => json!("stopped"),
+                    "admitted" => json!(0),
+                    "reason" => json!(stage),
+                    "vote_present" => json!(true),
+                    "seed_present" => json!(false),
+                    "body_class" => json!("le_1k"),
+                    "write" => json!("not_modelled"),
+                    "node_comment" | "node_vote" => json!("not_checked"),
+                    _ => Value::Null,
+                };
+                format!("{}:{value}", json!(key))
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    (at, printed)
+}
+
 fn observation_line(id: &str, at: i64, o: &Obs) -> (i64, String) {
     let word = |v: Option<&str>| v.map_or(Value::Null, |v| json!(v));
     let different = o.node_txt == Some("different");
@@ -589,6 +624,9 @@ enum C {
     StrictServeModerated,
     /// The same outside strict moderation.
     ServeModerated,
+    /// The shadow was stopped while it observed the copy, past its bound:
+    /// its line says `stopped`, and where it was.
+    Stopped(&'static str),
 }
 
 /// One copied comment's lines. The ids come from the fixture's own counter,
@@ -767,6 +805,13 @@ fn comment(fx: &mut Fixture, case: C) -> String {
             lines.push(edge_of(COMMENT_ROUTE, &id, t, 200));
             lines.push(mirror_of("commentsShadow", &id, t, 504, "504"));
             lines.push(access_of("POST", Some(COMMENT_PATH), Some(&id), t, 200));
+            return id;
+        }
+        C::Stopped(stage) => {
+            lines.push(edge_of(COMMENT_ROUTE, &id, t, 200));
+            lines.push(mirror_of("commentsShadow", &id, t, 204, "204"));
+            lines.push(access_of("POST", Some(COMMENT_PATH), Some(&id), t, 200));
+            lines.push(stopped_line(&id, t + 7_500, stage));
             return id;
         }
         C::NoNodeLine => {
@@ -3536,4 +3581,78 @@ fn slow_days_around_a_day_that_could_not_be_compared_are_not_in_a_row() {
     // The same three slow days with the quiet day elsewhere: in a row.
     let row = report(0, &[3, 4, 5]);
     assert_eq!(row.mark("stop rule"), Some(Mark::Stop), "{}", row.text);
+}
+
+/// A comment copy whose observation was cut when the shadow stopped prints a
+/// line saying `stopped`, and where it was: a word this tool knows, so the
+/// verdict is not withheld for it. It is counted in a bucket of its own and
+/// in no class: not observed, not paired against Node in any judged class,
+/// not read back, not covered, never an agreement or a disagreement. The
+/// passing fixture's criteria read as they did, coverage aside.
+#[test]
+fn a_stopped_comment_line_is_counted_apart_and_judged_in_no_class() {
+    let before = passing_comments();
+    let report_before = run(&comments(&before));
+    let mut after = passing_comments();
+    for stage in ["before_retry", "in_handler"] {
+        comment(&mut after, C::Stopped(stage));
+    }
+    let report = run(&comments(&after));
+    assert!(!report.text.contains("(unrecognised)"), "{}", report.text);
+    for said in [
+        "   stopped              2",
+        "   cut when the shadow stopped, by where they were:",
+        "     before_retry               1",
+        "     in_handler                 1",
+        "copied comments whose observation was cut when the shadow stopped 2",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+    let join = |fx: &Fixture| {
+        let rows = eval::run(
+            &COMMENTS
+                .queries()
+                .into_iter()
+                .find(|q| q.name == "join")
+                .unwrap(),
+            &fx.eval_lines(),
+            window().from_s,
+            window().to_s,
+        );
+        move |key: &str| {
+            rows.iter()
+                .map(|r| r[key].parse::<u64>().unwrap())
+                .sum::<u64>()
+        }
+    };
+    let (b, a) = (join(&before), join(&after));
+    assert_eq!(a("stopped"), 2);
+    assert_eq!(b("stopped"), 0);
+    assert_eq!(a("copied"), b("copied") + 2);
+    assert_eq!(a("covered"), b("covered"));
+    for key in [
+        "serve",
+        "serve_clean",
+        "serve_diff",
+        "answer",
+        "hand",
+        "unknown",
+        "unobserved",
+        "failed",
+        "read",
+        "read_diff",
+        "read_unread",
+        "no_node",
+        "no_node_serve",
+        "no_node_answer",
+    ] {
+        assert_eq!(a(key), b(key), "{key}");
+    }
+    for c in &report_before.criteria {
+        if c.name == "coverage" || c.name == "copied share" {
+            continue;
+        }
+        assert_eq!(report.mark(c.name), Some(c.mark), "{}", c.name);
+    }
+    assert_eq!(report.verdict, report_before.verdict, "{}", report.text);
 }

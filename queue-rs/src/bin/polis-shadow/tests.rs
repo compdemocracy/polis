@@ -247,6 +247,34 @@ fn observation(id: &str, at: i64, o: &Obs) -> (i64, String) {
     (at, Value::Object(line).to_string())
 }
 
+/// The line the shadow prints for a copy it was still observing when it was
+/// stopped (`queue-rs/polis-api/src/shadow_stop.rs`): the keys of every line,
+/// `outcome` stopped, `reason` where it was, and nothing it had found.
+fn stopped_observation(id: &str, at: i64, stage: &str) -> (i64, String) {
+    let mut line = serde_json::Map::new();
+    for key in OBSERVATION_KEYS {
+        let value = match key {
+            "message" => json!("shadow_observation"),
+            "listener" => json!("shadow"),
+            "service" => json!("polis-api-shadow"),
+            "env" => json!("prod"),
+            "shadow" => json!("votesShadow"),
+            "route" => json!("POST /api/v3/votes"),
+            "request_id" => json!(id),
+            "outcome" => json!("stopped"),
+            "admitted" => json!(0),
+            "reason" => json!(stage),
+            "starred_present" => json!(false),
+            "lang_present" => json!(true),
+            "append" => json!("not_modelled"),
+            "node_vote" => json!("not_checked"),
+            _ => Value::Null,
+        };
+        line.insert(key.into(), value);
+    }
+    (at, Value::Object(line).to_string())
+}
+
 // ---------------------------------------------------------------- scenarios
 
 #[derive(Clone, Copy)]
@@ -286,6 +314,9 @@ pub(crate) enum Case {
     HostAbsent,
     /// Served, with a readback that never ran.
     NotReadBack,
+    /// The shadow was stopped while it observed the copy, past its bound:
+    /// its line says `stopped`, and where it was.
+    Stopped(&'static str),
 }
 
 pub(crate) struct Fixture {
@@ -446,6 +477,13 @@ impl Fixture {
                 push(mirror(&id, t, 504, "504", 0.030));
                 push(reply(&id, t, zid, 200, Some(statement())));
                 push(access(&id, t, 200));
+            }
+            Case::Stopped(stage) => {
+                push(edge(&id, t, 200, "0.012"));
+                push(mirror(&id, t, 204, "204", 0.001));
+                push(reply(&id, t, zid, 200, Some(statement())));
+                push(access(&id, t, 200));
+                push(stopped_observation(&id, t + 7_500, stage));
             }
         }
         id
@@ -2007,4 +2045,88 @@ fn the_vote_report_is_byte_for_byte_what_it_was() {
         let report = run(&FakeAws::new(&fx));
         assert_eq!(report.text, saved[name], "{name}");
     }
+}
+
+/// A copy whose observation was cut when the shadow stopped prints a line
+/// saying `stopped`, and where it was. The report counts it in a bucket of
+/// its own and in no class: not an observation and not admitted, not a
+/// would-serve, not a hand-back, not covered, and nothing about it is
+/// compared with Node, so it neither stops the verdict nor counts as
+/// evidence. The passing week stays a pass, its coverage short by exactly the
+/// stopped copies.
+#[test]
+fn a_stopped_line_is_counted_apart_and_judged_in_no_class() {
+    let join = |fx: &Fixture| {
+        let rows = eval::run(
+            &VOTES
+                .queries()
+                .into_iter()
+                .find(|q| q.name == "join")
+                .unwrap(),
+            &fx.eval_lines(),
+            window().from_s,
+            window().to_s,
+        );
+        move |key: &str| {
+            rows.iter()
+                .map(|r| r[key].parse::<u64>().unwrap())
+                .sum::<u64>()
+        }
+    };
+    let before = passing_fixture();
+    let report_before = run(&FakeAws::new(&before));
+    assert_eq!(
+        report_before.verdict,
+        Verdict::Pass,
+        "{}",
+        report_before.text
+    );
+    assert!(
+        !report_before.text.contains("stopped"),
+        "{}",
+        report_before.text
+    );
+    let mut after = passing_fixture();
+    for stage in ["before_retry", "before_retry", "in_handler"] {
+        after.vote(73_001, Case::Stopped(stage));
+    }
+    let report = run(&FakeAws::new(&after));
+    let (b, a) = (join(&before), join(&after));
+    assert_eq!(a("stopped"), 3);
+    assert_eq!(b("stopped"), 0);
+    // Copied, and neither covered nor observed nor admitted.
+    assert_eq!(a("copied"), b("copied") + 3);
+    assert_eq!(a("covered"), b("covered"));
+    for key in [
+        "observed",
+        "admitted_n",
+        "shed",
+        "not_observed",
+        "same",
+        "different",
+        "absent",
+        "unavailable",
+        "cors",
+    ] {
+        assert_eq!(a(key), b(key), "{key}");
+    }
+    // Section 4 says so, by where they were.
+    for said in [
+        "   stopped              3 (cut when the shadow stopped; not observed)",
+        "   stopped (before_retry): 2",
+        "   stopped (in_handler): 1",
+        "copied votes whose observation was cut when the shadow stopped 3",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+    // Every criterion is marked as it was, coverage aside, which falls by
+    // the three copies and still passes.
+    for c in &report_before.criteria {
+        if c.name == "coverage" || c.name == "copied share" {
+            continue;
+        }
+        assert_eq!(report.mark(c.name), Some(c.mark), "{}", c.name);
+    }
+    assert_eq!(report.mark("coverage"), Some(Mark::Pass), "{}", report.text);
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
 }

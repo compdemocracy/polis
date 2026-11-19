@@ -192,7 +192,9 @@ criterion missed: examine before the flip).
 3. **Node's answers to shadowed votes, as nginx saw them**, by status, and
    Node's time.
 4. **The shadow's observations.** Outcomes (`would_serve`, `would_hand_back`,
-   `would_fail`, `shed`, `not_observed`); the admitted share; hand-back reasons
+   `would_fail`, `shed`, `not_observed`, and, printed when there are any,
+   `stopped`: a copy the shadow was still observing when it was stopped, past
+   its bound, by where it was); the admitted share; hand-back reasons
    by count; would-be statuses; would-be failures (a CORS refusal is the
    prelude's 500 and is reported on its own, never counted as a would-be
    failure); Node's stored vote read back by the shadow (`same`, `ambiguous`: a
@@ -201,7 +203,9 @@ criterion missed: examine before the flip).
    `degraded`); membership (`hit`, `miss`, `new`, `revote`, `none`).
 5. **Joined with Node.** Coverage (copied votes with an observation, where a
    copy nginx answered itself because the shadow's host was absent counts as
-   copied, so a down shadow counts against coverage); Node replies from the
+   copied, so a down shadow counts against coverage, and a `stopped` line is
+   not an observation: such a copy counts against coverage and is printed on
+   its own); Node replies from the
    handler and refusals before it; status agreement on admitted copies the
    shadow would serve, on Node's handler status where it replied (nginx's
    where it refused before the handler), with a Node 500 after the vote was
@@ -350,7 +354,9 @@ from them.
    moderation, `after_insert: moderator_email`, hand it to Node, which stores
    the same row and emails the moderators), `would_answer` (it would answer 409, 403, 401 or 400
    itself), `would_hand_back` (to Node, by reason), `would_fail`, `unknown`
-   (no database-time anchor), `shed`, `not_observed`. The admitted share, how
+   (no database-time anchor), `shed`, `not_observed`, `stopped` (the shadow
+   was stopped while it observed the copy: counted apart, in no class, never
+   judged, never covered). The admitted share, how
    many admitted copies are in conversations with strict moderation, how many
    conversations the admitted copies span (and how many admitted lines name
    none, in a window that reaches back before the line carried the number),
