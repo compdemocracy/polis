@@ -3,9 +3,9 @@
 //!
 //! The database is the record of what ran (every admission is a job with its
 //! run record); this file only says what the scheduler last saw and admitted
-//! per conversation, so an unchanged comment set is not run again, and holds
+//! per conversation, so an unchanged selection is not run again, and holds
 //! the counts of the report. Losing it costs at most one more run per live
-//! conversation: an admission's idempotency key is the comment set's digest,
+//! conversation: an admission's idempotency key is the selection's digest,
 //! and the queue answers `existing` to the same key for a day.
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
@@ -16,9 +16,20 @@ pub const SCHEMA: &str = "polis-delphi-shadow-state/1";
 pub struct Seen {
     /// The newest `comments.modified` of the conversation when last read.
     pub last_modified: i64,
-    /// The comment set's digest (`polis-jobs.comment-set/1`) when last read.
+    /// The selection's digest (`polis-jobs.selection/1`) when last read. An
+    /// entry an earlier build wrote holds the comment set's here
+    /// (`polis-jobs.comment-set/1`), and in `admitted_digest`.
     pub digest: String,
     pub comments: i64,
+    /// The selection `digest` and `admitted_digest` are of
+    /// (`participant_visible/1`); None in an entry an earlier build wrote,
+    /// whose runs laid out every comment: such an entry is read again and
+    /// its conversation admitted once more.
+    #[serde(default)]
+    pub selection: Option<String>,
+    /// The comments the selection kept that have text, when last read.
+    #[serde(default)]
+    pub selected: i64,
     /// The digest of the last admitted run, and when (ms since the epoch).
     pub admitted_digest: Option<String>,
     pub admitted_at_ms: Option<i64>,
@@ -31,7 +42,13 @@ pub struct Seen {
 pub struct InFlight {
     pub zid: i32,
     pub job_id: String,
+    /// The selection's digest it was admitted under (an earlier build's: the
+    /// comment set's).
     pub digest: String,
+    /// The comment set's digest it was admitted under, which its census
+    /// records; None from an earlier build, whose `digest` is that.
+    #[serde(default)]
+    pub comment_set_sha256: Option<String>,
     pub comments: i64,
     pub admitted_at_ms: i64,
     /// Set on a twin run: the job it repeats.
@@ -46,6 +63,7 @@ pub struct InFlight {
 pub struct PendingTwin {
     pub zid: i32,
     pub first_job_id: String,
+    /// The first run's selection digest: the twin runs only on the same one.
     pub digest: String,
     pub comments: i64,
     /// The first run's assignments: comment id → one cluster id per layer.

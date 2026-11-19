@@ -2602,7 +2602,7 @@ mod input_bundle {
         )
         .unwrap();
 
-        let bundle = inputs::read(&mut db, zid, &manifest.inputs.math_env).unwrap();
+        let bundle = inputs::read(&mut db, zid, &manifest.inputs.math_env, false).unwrap();
         drop(db);
         let keep = std::env::var("POLIS_INPUT_BUNDLE_KEEP").ok();
         let dir = match &keep {

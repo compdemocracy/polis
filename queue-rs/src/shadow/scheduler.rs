@@ -439,22 +439,33 @@ impl<'a> Scheduler<'a> {
             }
             let set = self.db.comment_set(candidate.zid)?;
             let seen = self.state.conversations.entry(candidate.zid).or_default();
-            let unchanged = seen.admitted_digest.as_deref() == Some(set.digest.as_str());
+            // Unchanged only when the last run was admitted under this
+            // selection and kept the same comments. An entry an earlier
+            // build wrote names no selection: its run laid out every comment.
+            let unchanged = seen.selection.as_deref() == Some(set.selection)
+                && seen.admitted_digest.as_deref() == Some(set.selection_digest.as_str());
             seen.last_modified = candidate.last_modified;
-            seen.digest = set.digest.clone();
+            seen.digest = set.selection_digest.clone();
             seen.comments = set.comments;
+            seen.selected = set.selected;
+            if seen.selection.as_deref() != Some(set.selection) {
+                seen.selection = Some(set.selection.to_owned());
+                seen.admitted_digest = None;
+            }
             if unchanged {
-                // The set is the one already run: a run now would recompute
-                // what is stored.
+                // The selection is the one already run: a run now would
+                // recompute what is stored.
                 self.state.totals.unchanged += 1;
                 log(
                     "unchanged",
-                    json!({"comments": set.comments, "set": set_name.word(),
-                    "size_class": plan::size_class(set.comments), "digest": set.digest}),
+                    json!({"comments": set.comments, "selected": set.selected, "set": set_name.word(),
+                    "size_class": plan::size_class(set.comments), "digest": set.selection_digest}),
                 );
                 continue;
             }
-            if set.comments < self.cfg.min_comments || set.comments > self.cfg.max_comments {
+            // The floor is of what a run lays out (the selection), the cap of
+            // what it embeds (every comment with text).
+            if set.selected < self.cfg.min_comments || set.comments > self.cfg.max_comments {
                 continue;
             }
             match plan::storage_room(self.cfg, &self.state.storage, set.comments, share) {
@@ -465,13 +476,7 @@ impl<'a> Scheduler<'a> {
                 Some(reason) => return Ok(Some(reason)),
                 None => {}
             }
-            let request = plan::admission(
-                candidate.zid,
-                &set.digest,
-                set.comments,
-                Some(set_name),
-                None,
-            );
+            let request = plan::admission(candidate.zid, &set, Some(set_name), None);
             self.admit(request, set.comments, None, Some(set_name), now)?;
             return Ok(None);
         }
@@ -503,18 +508,23 @@ impl<'a> Scheduler<'a> {
     ) -> Result<()> {
         self.resume();
         let reply = self.db.admit(&request)?;
-        let digest = request.config["shadow"]["comment_set_sha256"]
+        let shadow = &request.config["shadow"];
+        let digest = shadow["selection_sha256"]
             .as_str()
             .unwrap_or_default()
             .to_owned();
+        let selection = shadow["selection"].as_str().map(str::to_owned);
+        let comment_set = shadow["comment_set_sha256"].as_str().map(str::to_owned);
+        let selected = shadow["selected"].as_i64();
         let Some((outcome, job_id)) = plan::admitted_job(&reply) else {
             log(
                 "refused",
                 json!({"outcome": reply.get("outcome"), "comments": comments,
                        "set": set, "twin_of": twin_of}),
             );
-            // Do not try the same set again until its comments change.
+            // Do not try the same selection again until it changes.
             let seen = self.state.conversations.entry(request.zid).or_default();
+            seen.selection = selection;
             seen.admitted_digest = Some(digest);
             seen.admitted_at_ms = Some(now);
             seen.outcome = reply
@@ -524,6 +534,7 @@ impl<'a> Scheduler<'a> {
             return Ok(());
         };
         let seen = self.state.conversations.entry(request.zid).or_default();
+        seen.selection = selection.clone();
         seen.admitted_digest = Some(digest.clone());
         seen.admitted_at_ms = Some(now);
         seen.job_id = Some(job_id.clone());
@@ -543,6 +554,7 @@ impl<'a> Scheduler<'a> {
         log(
             "admitted",
             json!({"job_id": job_id, "outcome": outcome, "comments": comments,
+                   "selection": selection, "selected": selected,
                    "size_class": plan::size_class(comments), "digest": digest, "twin_of": twin_of,
                    "set": set}),
         );
@@ -550,6 +562,7 @@ impl<'a> Scheduler<'a> {
             zid: request.zid,
             job_id,
             digest,
+            comment_set_sha256: comment_set,
             comments,
             admitted_at_ms: now,
             twin_of,
@@ -587,7 +600,9 @@ impl<'a> Scheduler<'a> {
                    "comments": flight.comments, "size_class": plan::size_class(flight.comments),
                    "seconds_since_admission": run_ms as f64 / 1000.0,
                    "attempt": attempt, "families": families,
-                   "census_digest_matches": census.map(|c| c == flight.digest),
+                   "census_digest_matches": census.map(|c| {
+                       c == flight.comment_set_sha256.as_deref().unwrap_or(&flight.digest)
+                   }),
                    "twin_of": flight.twin_of, "set": flight.set}),
         );
         if let Some(seen) = self.state.conversations.get_mut(&flight.zid) {
@@ -618,8 +633,9 @@ impl<'a> Scheduler<'a> {
     }
 
     /// A twin waiting for admission goes before any new set. It is admitted
-    /// only on the same comment set as its first run; a set that changed in
-    /// between drops it (and the next first run on the new set may get one).
+    /// only on the same selection as its first run; a selection that changed
+    /// in between drops it (and the next first run on the new one may get
+    /// one). Its closed reason word stays `comment_set_changed`.
     fn admit_twin(&mut self, now: i64) -> Result<TwinStep> {
         let Some(pending) = self.state.pending_twin.clone() else {
             return Ok(TwinStep::Nothing);
@@ -631,7 +647,7 @@ impl<'a> Scheduler<'a> {
             return Ok(TwinStep::Nothing);
         }
         let set = self.db.comment_set(pending.zid)?;
-        if set.digest != pending.digest {
+        if set.selection_digest != pending.digest {
             log(
                 "twin_dropped",
                 json!({"first_job_id": pending.first_job_id, "reason": "comment_set_changed",
@@ -661,13 +677,7 @@ impl<'a> Scheduler<'a> {
             Some(reason) => return Ok(TwinStep::Held(reason)),
             None => {}
         }
-        let request = plan::admission(
-            pending.zid,
-            &set.digest,
-            set.comments,
-            pending.set,
-            Some(&pending.first_job_id),
-        );
+        let request = plan::admission(pending.zid, &set, pending.set, Some(&pending.first_job_id));
         self.admit(
             request,
             set.comments,

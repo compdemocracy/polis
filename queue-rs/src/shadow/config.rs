@@ -48,7 +48,9 @@ pub struct Config {
     /// The label the math engine writes, for its lag.
     pub math_env: String,
     pub live_days: u64,
+    /// The floor: of the comments a run lays out (the selection's, with text).
     pub min_comments: i64,
+    /// The cap: of the comments a run embeds (every comment with text).
     pub max_comments: i64,
     pub daily_runs: u32,
     pub rerun_after: Duration,
