@@ -25,8 +25,67 @@ const MAX_SPEC_BYTES: usize = 1_048_576;
 /// that is absent, unstartable or refused at deploy never does. Past this
 /// the graph's nodes are cancelled and the graph is let go, so a missing
 /// executor costs the full-pipeline shadow minutes per listed conversation,
-/// not the whole job deadline.
+/// not the whole job deadline. A constant, not a setting
+/// (docs/configuration.md, Same-host graph executor and recovery).
 pub const UNCLAIMED_DEADLINE: Duration = Duration::from_secs(600);
+/// After a graph is let go as unclaimed, no graph is admitted in its env for
+/// this long, or until the next code version: the executor that did not
+/// claim it would not claim the next one either. Each let-go in a row (no
+/// claim seen between) doubles it, up to `UNCLAIMED_HOLD_MAX`. So an absent
+/// executor costs the full-pipeline shadow at most one `UNCLAIMED_DEADLINE`
+/// per hold, never a spin, and a let-go conversation is always admitted
+/// again: at the next deploy at once, otherwise within a day.
+pub const UNCLAIMED_HOLD: Duration = Duration::from_secs(3600);
+pub const UNCLAIMED_HOLD_MAX: Duration = Duration::from_secs(86_400);
+/// How many let-go conversations an env's record keeps (the bound of the
+/// state file; one entry per conversation ever let go there).
+const LET_GO_KEPT: usize = 256;
+
+/// The hold after the `count`th graph let go in a row in an env.
+pub fn unclaimed_hold(count: u32) -> Duration {
+    let doublings = count.saturating_sub(1).min(16);
+    UNCLAIMED_HOLD
+        .saturating_mul(1 << doublings)
+        .min(UNCLAIMED_HOLD_MAX)
+}
+
+/// The graphs an env's executor did not claim (`State::graph_unclaimed`).
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct Unclaimed {
+    /// Graphs let go in a row in this env, with no claim seen between: it
+    /// sets the hold, and a claim seen there resets it.
+    pub count: u32,
+    /// When the last was let go (ms since the epoch), and the admission rule
+    /// (its build) then: the hold ends at the next code version.
+    pub at_ms: i64,
+    pub rule: String,
+    /// Per conversation, the last graph let go and its snapshot's digest.
+    /// Every later admission of that snapshot names that graph in its key,
+    /// so it is a new graph (and the same one again, should its reply be
+    /// lost or its publication be retried).
+    pub graphs: BTreeMap<i32, LetGo>,
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LetGo {
+    pub graph_id: String,
+    pub digest: String,
+}
+
+/// The admission key: the conversation and the specification, and, after a
+/// graph of that snapshot was let go as unclaimed, that graph. Without the
+/// last part, `pd_graph_admit` would answer the same snapshot's admission
+/// with the cancelled graph.
+fn admission_key(zid: i32, specification: &str, after: Option<&str>) -> String {
+    crate::jobs::sha256_hex(
+        match after {
+            None => format!("{zid}:{specification}"),
+            Some(graph) => format!("{zid}:{specification}:after-unclaimed:{graph}"),
+        }
+        .as_bytes(),
+    )
+}
+
 /// Publication attempts per graph, one per poll, the count carried in the
 /// flight (`Flight::publish_attempts`).
 pub const PUBLISH_ATTEMPTS: u32 = 3;
@@ -47,11 +106,16 @@ pub struct Observation {
 impl Observation {
     fn new(c: &Live, build: &str) -> Self {
         Self {
-            rule: format!("graph-admission/2:{build}"),
+            rule: rule(build),
             comments: c.comments,
             last_modified: c.last_modified,
         }
     }
+}
+/// The admission rule of a build: a new code version reconsiders every
+/// listed conversation once, and ends an unclaimed hold.
+fn rule(build: &str) -> String {
+    format!("graph-admission/2:{build}")
 }
 #[derive(Debug)]
 struct Refusal(&'static str);
@@ -384,8 +448,10 @@ impl Scheduler<'_> {
         let unpublished = self.state.graph_unpublished.clone();
         for env in self.state.graph_recovery_envs.clone() {
             let recovered=self.db.read(|tx| {
-            // A snapshot whose publication was given up is not remembered as seen.
-            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text AND NOT (graph_id::text=ANY($2::text[])) ORDER BY zid,created_at DESC", &[&env,&unpublished])?;
+            // A snapshot whose publication was given up is not remembered as
+            // seen, nor one whose graph had every node cancelled (it computed
+            // nothing: a graph let go as unclaimed).
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs g WHERE env=$1 AND scope_key='shadow-graph:'||zid::text AND NOT (graph_id::text=ANY($2::text[])) AND EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'cancelled') ORDER BY zid,created_at DESC", &[&env,&unpublished])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
             let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND NOT (g.graph_id::text=ANY($2::text[])) AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id))) ORDER BY g.created_at,g.graph_id LIMIT 1", &[&env,&deferred])?;
@@ -432,6 +498,35 @@ impl Scheduler<'_> {
                 self.graph_held = Some(key);
             }
             return Ok(false);
+        }
+        // A graph let go as unclaimed holds admission in its env until the
+        // next code version or the hold's end; said once per hold. No query.
+        if let Some(u) = self.state.graph_unclaimed.get(&cfg.env)
+            && u.count > 0
+            && u.rule == rule(&self.cfg.code_version)
+        {
+            let until = u
+                .at_ms
+                .saturating_add(unclaimed_hold(u.count).as_millis() as i64);
+            if now < until {
+                let key = format!("graph_unclaimed:{}:{}", u.count, u.at_ms);
+                if self.graph_held.as_deref() != Some(key.as_str()) {
+                    // The let-go graphs whose conversations wait for it.
+                    let mut ids: Vec<&str> = u
+                        .graphs
+                        .iter()
+                        .filter(|(zid, _)| !self.state.graph_observed.contains_key(zid))
+                        .map(|(_, g)| g.graph_id.as_str())
+                        .collect();
+                    ids.sort_unstable();
+                    log(
+                        "graph_admission_held",
+                        json!({"reason":"graph_unclaimed","let_go":u.count,"resume_seconds":(until - now) / 1000,"graph_ids":ids}),
+                    );
+                    self.graph_held = Some(key);
+                }
+                return Ok(false);
+            }
         }
         self.graph_held = None;
         let cfg = cfg.clone();
@@ -495,6 +590,72 @@ impl Scheduler<'_> {
         );
     }
 
+    /// A graph is let go because nothing claimed it: remember it, and forget
+    /// that its conversation was seen and observed, so that it is admitted
+    /// again (as a new graph) at the next code version or when the hold ends;
+    /// say so with the count. Once per graph (it is decided before its
+    /// cancel and seen again when it finishes).
+    fn let_go(&mut self, flight: &Flight, now: i64, reason: &str) {
+        let rule = rule(&self.cfg.code_version);
+        if self.state.graph_seen.get(&flight.zid) == Some(&flight.digest) {
+            self.state.graph_seen.remove(&flight.zid);
+        }
+        self.state.graph_observed.remove(&flight.zid);
+        let u = self
+            .state
+            .graph_unclaimed
+            .entry(flight.env.clone())
+            .or_default();
+        if u.graphs
+            .get(&flight.zid)
+            .is_some_and(|g| g.graph_id == flight.graph_id)
+        {
+            return;
+        }
+        u.count = u.count.saturating_add(1);
+        u.at_ms = now;
+        u.rule = rule;
+        u.graphs.insert(
+            flight.zid,
+            LetGo {
+                graph_id: flight.graph_id.clone(),
+                digest: flight.digest.clone(),
+            },
+        );
+        // Bounded. A conversation dropped here whose snapshot comes back
+        // finds the cancelled graph, which is let go again when it finishes.
+        while u.graphs.len() > LET_GO_KEPT {
+            let Some(other) = u.graphs.keys().find(|zid| **zid != flight.zid).copied() else {
+                break;
+            };
+            u.graphs.remove(&other);
+        }
+        log(
+            "graph_unclaimed",
+            json!({"graph_id":flight.graph_id,"seconds":(now - flight.admitted_at_ms)/1000,"reason":reason,"let_go":u.count,"hold_seconds":unclaimed_hold(u.count).as_secs()}),
+        );
+    }
+
+    /// A node of a graph in the env left the queue: an executor claims
+    /// there again, and the count starts over. (While the env is held no
+    /// graph is admitted there, so this is a graph admitted after the hold.)
+    fn note_claimed(&mut self, flight: &Flight, states: &BTreeMap<String, (String, f64)>) {
+        let Some(u) = self.state.graph_unclaimed.get_mut(&flight.env) else {
+            return;
+        };
+        if u.count > 0
+            && states
+                .values()
+                .any(|(s, _)| !matches!(s.as_str(), "queued" | "cancelled"))
+        {
+            log(
+                "graph_unclaimed_cleared",
+                json!({"graph_id":flight.graph_id,"reason":"executor_claimed","let_go":u.count}),
+            );
+            u.count = 0;
+        }
+    }
+
     fn admit_graph_candidate(&mut self, cfg: &Config, candidate: &Live, now: i64) -> Result<bool> {
         let s = snapshot(&self.db, candidate.zid)?;
         if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
@@ -504,6 +665,15 @@ impl Scheduler<'_> {
             );
             return Ok(false);
         }
+        // A graph of this very snapshot was let go as unclaimed: the
+        // admission names that graph in its key.
+        let after = self
+            .state
+            .graph_unclaimed
+            .get(&cfg.env)
+            .and_then(|u| u.graphs.get(&candidate.zid))
+            .filter(|g| g.digest == s.digest)
+            .map(|g| g.graph_id.clone());
         // Four jobs plus all three inline copies per node. Charge the
         // conservative request bound before admission, not after it grows.
         let comments = s.ids.len() as i64;
@@ -573,7 +743,7 @@ impl Scheduler<'_> {
         {
             return Ok(false);
         }
-        let key = crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
+        let key = admission_key(candidate.zid, &specification, after.as_deref());
         let image: Image = serde_json::from_value(p.clone())?;
         let reply = crate::jobs::admission::admit(
             &mut client,
@@ -614,10 +784,12 @@ impl Scheduler<'_> {
                     .all(|s| nodes.iter().filter(|n| n.stage == *s).count() == 1),
             "graph_nodes_mismatch"
         );
-        log(
-            "graph_admitted",
-            json!({"graph_id":graph_id,"nodes":nodes,"comments":comments,"env":cfg.env}),
-        );
+        let mut admitted =
+            json!({"graph_id":graph_id,"nodes":nodes,"comments":comments,"env":cfg.env});
+        if let Some(g) = &after {
+            admitted["after_let_go"] = json!(g);
+        }
+        log("graph_admitted", admitted);
         self.state
             .graph_seen
             .insert(candidate.zid, s.digest.clone());
@@ -755,6 +927,14 @@ impl Scheduler<'_> {
         Ok(())
     }
 
+    /// No node of the graph was ever claimed: no attempt at all, whatever
+    /// became of it. One read on the scheduler's read connection.
+    fn never_claimed(&self, flight: &Flight) -> Result<bool> {
+        self.db.read(|tx| Ok(tx.query_one(
+            "SELECT NOT EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid)",
+            &[&flight.env, &flight.graph_id])?.try_get::<_, bool>(0)?))
+    }
+
     pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
         let states=self.db.read(|tx| {
             let mut out=BTreeMap::new();
@@ -774,15 +954,13 @@ impl Scheduler<'_> {
             && !overdue
             && now - flight.admitted_at_ms > UNCLAIMED_DEADLINE.as_millis() as i64
             && states.values().all(|(s, _)| s == "queued")
-            && self.db.read(|tx| Ok(tx.query_one(
-                "SELECT NOT EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid)",
-                &[&flight.env, &flight.graph_id])?.try_get::<_, bool>(0)?))?;
+            && self.never_claimed(&flight)?;
         if unclaimed {
-            log(
-                "graph_unclaimed",
-                json!({"graph_id":flight.graph_id,"seconds":(now - flight.admitted_at_ms)/1000,"reason":"no_executor_claim"}),
-            );
+            // Recorded before the cancel: a claim racing it leaves an
+            // attempt, and the graph was still let go as unclaimed.
+            self.let_go(&flight, now, "no_executor_claim");
         }
+        self.note_claimed(&flight, &states);
         if failed || overdue || unclaimed {
             let mut client = self.db.connect_queue()?;
             for n in &flight.nodes {
@@ -833,6 +1011,12 @@ impl Scheduler<'_> {
         }
         drop(client);
         let success = states.values().all(|(s, _)| s == "succeeded");
+        // Every node cancelled and none ever claimed: let go as unclaimed
+        // here or, if not here (cancelled before this scheduler's state was
+        // saved, by a person, or past the job deadline), now.
+        if states.values().all(|(s, _)| s == "cancelled") && self.never_claimed(&flight)? {
+            self.let_go(&flight, now, "cancelled_unclaimed");
+        }
         let mut published = false;
         if success {
             let leaf = flight
@@ -1102,6 +1286,30 @@ mod recovery_tests {
         assert!(exact_leaf(&served, "requested", 6));
         assert!(!exact_leaf(&served, "requested", 5));
         assert!(!exact_leaf(&Value::Null, "requested", 6));
+    }
+    #[test]
+    fn the_unclaimed_hold_is_an_hour_doubling_to_a_day() {
+        let hours: Vec<u64> = [0, 1, 2, 3, 4, 5, 6, 7, 40, u32::MAX]
+            .iter()
+            .map(|n| unclaimed_hold(*n).as_secs() / 3600)
+            .collect();
+        assert_eq!(hours, [1, 1, 2, 4, 8, 16, 24, 24, 24, 24]);
+    }
+    #[test]
+    fn a_let_go_snapshot_gets_a_new_key_and_every_other_keeps_its_own() {
+        // The key of every admission that follows no let-go is the one the
+        // scheduler always used, so a graph admitted before this code is
+        // still answered (`existing`) and only published.
+        let spec = r#"{"schema":"polis-job-graph/1","nodes":[]}"#;
+        assert_eq!(
+            admission_key(7, spec, None),
+            crate::jobs::sha256_hex(format!("7:{spec}").as_bytes())
+        );
+        let after = admission_key(7, spec, Some("graph-a"));
+        assert_ne!(after, admission_key(7, spec, None));
+        assert_ne!(after, admission_key(7, spec, Some("graph-b")));
+        assert_eq!(after, admission_key(7, spec, Some("graph-a")), "repeatable");
+        assert_eq!(after.len(), 64);
     }
     #[test]
     fn old_refusal_and_new_code_are_reconsidered() -> Result<()> {

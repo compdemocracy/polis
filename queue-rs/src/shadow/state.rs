@@ -129,6 +129,10 @@ pub struct State {
     /// them up again, and their snapshots are not remembered as seen.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub graph_unpublished: Vec<String>,
+    /// Per graph env, the graphs let go there because nothing claimed them
+    /// and the hold on admission that follows (`graph::Unclaimed`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_unclaimed: BTreeMap<String, super::graph::Unclaimed>,
     pub pending_twin: Option<PendingTwin>,
     /// The UTC day (days since the epoch) the daily count is for.
     pub day: i64,
@@ -158,6 +162,7 @@ impl State {
             graph_seen: BTreeMap::new(),
             graph_observed: BTreeMap::new(),
             graph_unpublished: Vec::new(),
+            graph_unclaimed: BTreeMap::new(),
             pending_twin: None,
             day: 0,
             day_runs: 0,
