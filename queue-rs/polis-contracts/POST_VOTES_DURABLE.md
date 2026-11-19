@@ -98,7 +98,8 @@ presenting a saved vote as rejected and avoids inflating history on a lost reply
 The Node source and its current behavior are intentionally unchanged.
 
 Pre-dispatch 502 responses carry `X-Polis-Vote-Dispatch: not-started`, including
-parser-level chunked/oversized hand-backs. nginx's vote write location
+parser-level hand-backs: chunked or oversized bodies, and request heads the
+parser cannot read (never a dropped connection). nginx's vote write location
 (`file-server/nginx/rust-api/postVotes.location.conf.template`) sends a vote to
 Node only with that upstream marker, or when no byte of the request reached
 polis-api (`$upstream_bytes_sent` zero or absent: no such host, connection

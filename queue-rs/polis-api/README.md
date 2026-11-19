@@ -217,6 +217,14 @@ connections are kept.
   `Content-Encoding` or a non-UTF-8 charset is answered 502. nginx sends
   polis-api no request with a body, so none of these is reachable through
   it; the route reads no body field that a client sends in practice.
+- A request head this process cannot parse (a header value that is not
+  UTF-8, more than 128 header lines, a control byte in a value, a header name
+  that is not a token, a `Content-Length` that is not a number or two that
+  differ, an unknown HTTP version, a head over 1 MB) is answered 502 and the
+  connection closed, never dropped; on `POST /api/v3/votes` and
+  `POST /api/v3/comments` the 502 is marked as a hand-back. Node reads some of
+  these (a value with bytes above 127, more than 128 headers) and answers
+  them; through nginx the 502 gives them to Node.
 
 ## Running the checks
 
