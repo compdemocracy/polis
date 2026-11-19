@@ -4,7 +4,8 @@
 //! in `queue-rs/schemas/`; a test keeps them byte-equal to these.
 use crate::delphi_input_bundle::{Role, CONTRACT_VERSION};
 use crate::schema::{
-    array, boolean, integer, literal, nullable, object, required, string, union, Schema,
+    array, boolean, integer, literal, nullable, number, object, optional, required, string, union,
+    Schema,
 };
 
 const SOURCE_NOTE: &str = "Generated from queue-rs/polis-contracts/src/delphi_input_bundle_schema.rs. Do not edit; edit the Rust source and regenerate (POLIS_CONTRACTS_WRITE_SCHEMAS=1 cargo test --test delphi_input_bundle).";
@@ -63,10 +64,11 @@ pub fn conversation_document() -> Schema {
         required("created", nullable(integer())),
         required("modified", nullable(integer())),
         required("owner", nullable(integer())),
+        optional("strict_moderation", boolean()),
     ])
     .strict()
     .title("DelphiInputBundleConversation")
-    .description("The conversation row the stages read.")
+    .description("The conversation row the stages read. strict_moderation is present only in a bundle written for a run that names a selection.")
     .document(Role::Conversation.row_schema(), SOURCE_NOTE)
 }
 
@@ -81,11 +83,12 @@ pub fn comments_document() -> Schema {
             required("created", nullable(integer())),
             required("mod", integer()),
             required("active", boolean()),
+            optional("velocity", number()),
         ])
         .strict(),
     )
     .title("DelphiInputBundleComments")
-    .description("Every comment of the conversation, ordered by tid.")
+    .description("Every comment of the conversation, ordered by tid. velocity is present only in a bundle written for a run that names a selection.")
     .document(Role::Comments.row_schema(), SOURCE_NOTE)
 }
 

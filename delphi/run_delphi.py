@@ -158,6 +158,8 @@ def main():
     parser.add_argument('--include_moderation', type=parse_bool_flag, default=False, help='Whether or not to include moderated comments in reports. If false, moderated comments will appear.')
     parser.add_argument('--exclude_comment_selections', type=parse_bool_flag, default=True, help='Whether to exclude comments with selection=-1 in report_comment_selections table.')
     parser.add_argument('--region', type=str, default='us-east-1', help='AWS region')
+    from polismath.selection import SELECTIONS
+    parser.add_argument('--selection', choices=SELECTIONS, default=None, help='Embed every comment and lay out, cluster and name only those this selection keeps (the Delphi shadow passes participant_visible/1). Absent, the run is what it was.')
 
     args = parser.parse_args()
 
@@ -254,6 +256,10 @@ def run(args):
         f"--exclude_comment_selections={args.exclude_comment_selections}",
         "--name-topics"
     ]
+    # Only a run that names a selection passes one: every other run's
+    # arguments are byte for byte what they were.
+    if args.selection is not None:
+        umap_command.append(f"--selection={args.selection}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 

@@ -41,8 +41,12 @@ const STATEMENT_TIMEOUT: &str = "120s";
 
 /// Read the rows in one read-only snapshot. The casts keep the column types
 /// out of the decoding: every integer is read as bigint. A conversation that
-/// does not exist is refused: the stages could not run on it either.
-pub fn read(client: &mut Client, zid: i64, math_env: &str) -> Result<Bundle> {
+/// does not exist is refused: the stages could not run on it either. With
+/// `selection` (the run's admission names one) the same snapshot also reads
+/// the conversation's `strict_moderation` and every comment's `velocity`, the
+/// columns the selection needs; without it the rows, and so every byte of the
+/// bundle, are what they were.
+pub fn read(client: &mut Client, zid: i64, math_env: &str, selection: bool) -> Result<Bundle> {
     let mut tx = client
         .build_transaction()
         .isolation_level(IsolationLevel::RepeatableRead)
@@ -54,7 +58,8 @@ pub fn read(client: &mut Client, zid: i64, math_env: &str) -> Result<Bundle> {
     let r = tx
         .query_opt(
             "SELECT zid::bigint, topic::text, description::text, created::bigint, \
-             modified::bigint, owner::bigint FROM conversations WHERE zid = $1::bigint",
+             modified::bigint, owner::bigint, coalesce(strict_moderation, false) \
+             FROM conversations WHERE zid = $1::bigint",
             &[&zid],
         )?
         .ok_or_else(|| anyhow!("conversation {zid} does not exist"))?;
@@ -65,11 +70,12 @@ pub fn read(client: &mut Client, zid: i64, math_env: &str) -> Result<Bundle> {
         created: r.try_get(3)?,
         modified: r.try_get(4)?,
         owner: r.try_get(5)?,
+        strict_moderation: if selection { Some(r.try_get(6)?) } else { None },
     };
     let mut comments = Vec::new();
     for r in tx.query(
         "SELECT tid::bigint, zid::bigint, pid::bigint, txt::text, created::bigint, \
-         mod::bigint, active FROM comments WHERE zid = $1::bigint ORDER BY tid",
+         mod::bigint, active, velocity::float8 FROM comments WHERE zid = $1::bigint ORDER BY tid",
         &[&zid],
     )? {
         comments.push(Comment {
@@ -80,6 +86,7 @@ pub fn read(client: &mut Client, zid: i64, math_env: &str) -> Result<Bundle> {
             created: r.try_get(4)?,
             r#mod: r.try_get(5)?,
             active: r.try_get(6)?,
+            velocity: if selection { Some(r.try_get(7)?) } else { None },
         });
     }
     let mut report_comment_selections = Vec::new();
@@ -146,11 +153,12 @@ pub fn prepare(
     attempt_dir: &Path,
     zid: i64,
     math_env: &str,
+    selection: bool,
 ) -> Result<Value> {
     let bundle = {
         let mut client =
             Connector::from_parts(dsn, transport, None, "polis-jobs-inputs/1")?.connect()?;
-        read(&mut client, zid, math_env)?
+        read(&mut client, zid, math_env, selection)?
     };
     write(attempt_dir, &bundle)
 }

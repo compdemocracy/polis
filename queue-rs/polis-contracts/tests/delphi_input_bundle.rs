@@ -8,8 +8,9 @@
 mod support;
 
 use polis_contracts::delphi_input_bundle::{
-    comment_set_sha256, sha256_hex, Bundle, Comment, Conversation, Manifest,
-    ReportCommentSelection, Role, CONTRACT_VERSION, MANIFEST_FILE,
+    comment_set_sha256, participant_visible, select, sha256_hex, Bundle, Comment, Conversation,
+    Manifest, ReportCommentSelection, Role, CONTRACT_VERSION, MANIFEST_FILE, PARTICIPANT_VISIBLE,
+    SELECTIONS, SELECTION_FORMAT,
 };
 use polis_contracts::delphi_input_bundle_schema::{
     comments_document, conversation_document, documents, manifest_document,
@@ -22,6 +23,10 @@ use support::{read, repo, violations};
 /// Shared with the Delphi tests (delphi/tests/test_input_bundle.py) and the
 /// polis-jobs writer's unit test, which read the same files.
 const GOLDEN: &str = "delphi/tests/fixtures/input_bundle/basic";
+/// The selection's rows and what it keeps of them, read by the Python
+/// selection's test (delphi/tests/test_selection.py) so both languages keep
+/// the same comments with the same digest.
+const SELECTION_GOLDEN: &str = "delphi/tests/fixtures/selection/participant_visible.json";
 
 fn writing() -> bool {
     std::env::var("POLIS_CONTRACTS_WRITE_SCHEMAS").as_deref() == Ok("1")
@@ -50,6 +55,7 @@ fn comment(tid: i64, pid: i64, txt: &str, m: i64, active: bool) -> Comment {
         created: Some(1_700_000_000_000 + tid * 1000),
         r#mod: m,
         active,
+        velocity: None,
     }
 }
 
@@ -65,6 +71,7 @@ fn golden() -> Bundle {
             created: Some(1_699_999_000_000),
             modified: Some(1_700_000_500_000),
             owner: Some(17),
+            strict_moderation: None,
         },
         comments: vec![
             comment(0, 1, "Build the north line first.", 1, true),
@@ -292,4 +299,146 @@ fn the_encoder_refuses_rows_out_of_order_or_of_another_conversation() {
     let mut b = golden();
     b.math_env = String::new();
     assert_eq!(b.encode().unwrap_err().0, "inputs.math_env");
+}
+
+/// A comment with its velocity, as a bundle for a run that names a selection
+/// holds it.
+fn moderated(tid: i64, txt: &str, m: i64, active: bool, velocity: f64) -> Comment {
+    Comment {
+        velocity: Some(velocity),
+        ..comment(tid, tid + 1, txt, m, active)
+    }
+}
+
+/// Every moderation state a comment can be in, the muted and inactive ones
+/// among them, out of tid order.
+fn moderation_states() -> Vec<Comment> {
+    vec![
+        moderated(3, "Accepted, and muted", 1, true, 0.0),
+        moderated(0, "Accepted", 1, true, 1.0),
+        moderated(1, "Not yet moderated", 0, true, 1.0),
+        moderated(2, "Rejected", -1, true, 1.0),
+        moderated(4, "Accepted, inactive", 1, false, 1.0),
+        moderated(5, "Unmoderated, slowed but shown", 0, true, 0.25),
+        moderated(6, "Rejected and inactive", -1, false, 1.0),
+        moderated(7, "Accepted — «café» 🚌", 1, true, 1.0),
+        moderated(8, "Unmoderated, below zero", 0, true, -1.0),
+    ]
+}
+
+/// The rule of the comment list participants are served
+/// (`participantVisibleClause`, server/src/comment.ts): active, velocity
+/// above 0, and accepted under strict moderation or not rejected otherwise.
+#[test]
+fn participant_visible_is_the_list_participants_are_served() {
+    for strict in [false, true] {
+        for active in [false, true] {
+            for velocity in [-1.0, 0.0, 0.25, 1.0] {
+                for m in [-1, 0, 1] {
+                    let shown = active && velocity > 0.0 && if strict { m == 1 } else { m != -1 };
+                    assert_eq!(
+                        participant_visible(active, velocity, m, strict),
+                        shown,
+                        "strict {strict} active {active} velocity {velocity} mod {m}"
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[test]
+fn a_selection_keeps_the_participant_visible_comments_under_its_digest() {
+    let rows = moderation_states();
+    let open = select(PARTICIPANT_VISIBLE, &rows, false).unwrap();
+    assert_eq!(open.name, PARTICIPANT_VISIBLE);
+    assert_eq!(
+        open.tids,
+        vec![0, 1, 5, 7],
+        "rejected, inactive and muted drop out"
+    );
+    let strict = select(PARTICIPANT_VISIBLE, &rows, true).unwrap();
+    assert_eq!(
+        strict.tids,
+        vec![0, 7],
+        "under strict moderation only the accepted"
+    );
+    assert_ne!(strict.sha256, open.sha256);
+    // The digest: the header, the name, then tid and the text's sha256.
+    let mut text = format!("{SELECTION_FORMAT}\n{PARTICIPANT_VISIBLE}\n");
+    for tid in &strict.tids {
+        let c = rows.iter().find(|c| c.tid == *tid).unwrap();
+        text.push_str(&format!("{tid}\t{}\n", sha256_hex(c.txt.as_bytes())));
+    }
+    assert_eq!(strict.sha256, sha256_hex(text.as_bytes()));
+    // Moderation that keeps the same comments keeps the digest: an
+    // unmoderated comment accepted, a rejected comment added.
+    let mut same = rows.clone();
+    same.iter_mut().find(|c| c.tid == 1).unwrap().r#mod = 1;
+    same.push(moderated(9, "Another rejected", -1, true, 1.0));
+    assert_eq!(select(PARTICIPANT_VISIBLE, &same, false).unwrap(), open);
+    // One that drops a comment, or keeps another, changes it.
+    let mut fewer = rows.clone();
+    fewer.iter_mut().find(|c| c.tid == 0).unwrap().r#mod = -1;
+    assert_ne!(
+        select(PARTICIPANT_VISIBLE, &fewer, false).unwrap().sha256,
+        open.sha256
+    );
+    let mut unmuted = rows.clone();
+    unmuted.iter_mut().find(|c| c.tid == 3).unwrap().velocity = Some(1.0);
+    assert_ne!(
+        select(PARTICIPANT_VISIBLE, &unmuted, false).unwrap().sha256,
+        open.sha256
+    );
+    // Every comment's set changes in all three; the digests differ in kind.
+    assert_ne!(comment_set_sha256(&same), comment_set_sha256(&rows));
+    assert_ne!(open.sha256, comment_set_sha256(&rows));
+    // Only a named selection, and only with every velocity.
+    assert_eq!(SELECTIONS, [PARTICIPANT_VISIBLE]);
+    assert!(select("all/1", &rows, false).is_err());
+    let mut unknown = rows.clone();
+    unknown[0].velocity = None;
+    assert!(select(PARTICIPANT_VISIBLE, &unknown, false).is_err());
+}
+
+/// The rows above and what the selection keeps of them, open and strict, for
+/// the Python selection to agree with.
+#[test]
+fn the_selection_golden_is_what_the_contract_selects() {
+    let rows = moderation_states();
+    let case = |strict: bool| {
+        let s = select(PARTICIPANT_VISIBLE, &rows, strict).unwrap();
+        serde_json::json!({"strict_moderation": strict, "tids": s.tids, "sha256": s.sha256})
+    };
+    let golden = serde_json::json!({
+        "selection": PARTICIPANT_VISIBLE,
+        "comments": rows,
+        "cases": [case(false), case(true)],
+    });
+    let mut bytes = serde_json::to_vec_pretty(&golden).unwrap();
+    bytes.push(b'\n');
+    compare_or_write(SELECTION_GOLDEN, &bytes);
+}
+
+/// A bundle for a run that names a selection carries the two columns, and
+/// they validate; a bundle without them is byte for byte the golden one.
+#[test]
+fn the_selection_columns_are_only_in_a_bundle_that_names_one() {
+    let plain = golden().encode().unwrap();
+    let mut b = golden();
+    b.conversation.strict_moderation = Some(true);
+    for c in &mut b.comments {
+        c.velocity = Some(1.0);
+    }
+    let with = b.encode().unwrap();
+    assert_eq!(plain.files[2], with.files[2], "report selections unchanged");
+    let value = |bytes: &[u8]| serde_json::from_slice::<Value>(bytes).unwrap();
+    assert_eq!(value(&with.files[1].1)[0]["velocity"], 1.0);
+    let comments = json(&with.files[1].1);
+    assert!(violations(&comments_document().to_json(), &comments).is_empty());
+    assert_eq!(value(&with.files[0].1)["strict_moderation"], true);
+    let conversation = json(&with.files[0].1);
+    assert!(violations(&conversation_document().to_json(), &conversation).is_empty());
+    assert!(value(&plain.files[1].1)[0].get("velocity").is_none());
+    assert!(value(&plain.files[0].1).get("strict_moderation").is_none());
 }

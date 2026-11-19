@@ -1,7 +1,8 @@
 """The Delphi shadow rehearsal's report, read from the database after the runs.
 
 Prints one JSON document: every job of the shadow env with its run record's
-facts (state, attempt times, comment count, size class, twin_of, the census
+facts (state, attempt times, comment count, size class, the selection and
+how many comments it kept, twin_of, the census
 digest against the admitted one, families), every delphi_step/1 line of every
 attempt, which envs hold rows in each queue and result table, the shadow
 env's stored embeddings and sets per embedding model, the published
@@ -43,6 +44,7 @@ def main():
             jobs.append({
                 "job_id": job_id, "state": r.get("state"), "status": r.get("status"),
                 "comments": shadow.get("comments"), "size_class": shadow.get("size_class"),
+                "selection": shadow.get("selection"), "selected": shadow.get("selected"),
                 "twin_of": shadow.get("twin_of"),
                 "census_digest_matches": census == shadow.get("comment_set_sha256") if census else None,
                 "models": (r.get("manifest") or {}).get("models"),
