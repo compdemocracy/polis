@@ -431,12 +431,34 @@ same journal lock. On the same host, replacement of the PID 1 container kills
 its namespace's processes; a host reboot kills the prior boot's processes.
 A daemon restart in the same namespace needs both its recorded daemon and
 child process group gone. A missing process-group record is not exit proof.
+An entry written under another boot is confirmed only once its attempt's lease
+has expired by database time (`graph_recovery` reason
+`another_boot_lease_live` while it waits, `another_boot_lease_expired` when it
+is confirmed). A copied identity file therefore never confirms an attempt whose
+original still renews its lease; an honest reboot waits at most one lease
+(`POLIS_JOBS_LEASE_SECONDS`, default 120).
+
+The deploy check of the executor's composed settings refuses the executor
+alone: with an invalid setting the full-pipeline shadow still starts. A graph
+none of whose nodes is claimed within ten minutes (no executor running,
+unstartable, or refused) is cancelled and let go (`graph_unclaimed`), so the
+full-pipeline shadow waits minutes per listed conversation, not the job
+deadline. Publication of a finished graph is tried once per poll, up to three
+times, the count kept in the scheduler state; a transient failure keeps the
+graph (`graph_publish_retry`). A graph whose publication is given up
+(`graph_publish_failed`) is not taken up again by recovery, and its snapshot is
+not remembered as seen: when a later build or a change reconsiders the
+conversation, the same snapshot's admission answers with that graph and only
+its publication runs again.
 
 The scheduler cancels overdue graphs at `DELPHI_SHADOW_JOB_DEADLINE_SECONDS`
 (default 14400). It keeps their scopes held and polls recovery in the background;
 other conversations may resume full-pipeline work. The same conversation stays
 excluded while its graph scope is held. A lost host or volume cannot supply exit
 proof: `graph_recovery_pending` means just that, never successful recovery.
+While any graph is deferred no new graph is admitted, in any graph env; the
+scheduler says so once, with the deferred graphs' ids
+(`graph_admission_held`, reason `graph_deferred`).
 Database recovery errors stop admissions until the database can be read again.
 
 The default ceilings are 16 GiB for the full-pipeline daemon, 6 GiB for the graph
@@ -452,5 +474,7 @@ State written by the previous release loads with empty recovery fields. When no
 graph has been enabled, state serialization and full-pipeline behavior are
 unchanged. Before rolling back, drain every graph, including deferred graphs,
 and verify its scope was released. Older schedulers ignore the new deferred
-fields and cannot enforce those exclusions. Do not remove scheduler state or a
+fields and cannot enforce those exclusions. They also ignore the publication
+count and the given-up publications, so they may try a given-up graph's
+publication again. Do not remove scheduler state or a
 journal to force progress.
