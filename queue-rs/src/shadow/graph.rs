@@ -20,6 +20,19 @@ use std::{
 };
 
 const MAX_SPEC_BYTES: usize = 1_048_576;
+/// How long a graph may wait with none of its nodes ever claimed. A graph
+/// executor that runs claims the first node within one of its polls; one
+/// that is absent, unstartable or refused at deploy never does. Past this
+/// the graph's nodes are cancelled and the graph is let go, so a missing
+/// executor costs the full-pipeline shadow minutes per listed conversation,
+/// not the whole job deadline.
+pub const UNCLAIMED_DEADLINE: Duration = Duration::from_secs(600);
+/// Publication attempts per graph, one per poll, the count carried in the
+/// flight (`Flight::publish_attempts`).
+pub const PUBLISH_ATTEMPTS: u32 = 3;
+/// How many given-up publications the state file keeps (the newest). Only
+/// an env's newest graph can be recovered, so a short list is enough.
+const UNPUBLISHED_KEPT: usize = 64;
 // Count and snapshot deliberately include invalid/blank texts: these refuse the
 // conversation instead of silently changing its scientific input.
 const INCLUDED: &str = "NOT EXISTS (SELECT 1 FROM report_comment_selections r WHERE r.zid=c.zid AND r.tid=c.tid AND r.selection=-1)";
@@ -160,6 +173,12 @@ pub struct Flight {
     pub admitted_at_ms: i64,
     pub generation: i64,
     pub nodes: Vec<Node>,
+    /// Publication attempts already made, one per poll (absent when none).
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub publish_attempts: u32,
+}
+fn is_zero(n: &u32) -> bool {
+    *n == 0
 }
 #[derive(Debug)]
 pub struct Snapshot {
@@ -353,15 +372,20 @@ impl Scheduler<'_> {
         if self.state.graph_flight.is_some() {
             return Ok(());
         }
+        // Deferred graphs are polled on their own; graphs whose publication
+        // was given up are not taken up again.
         let deferred: Vec<String> = self
             .state
             .graph_deferred
             .iter()
             .map(|f| f.graph_id.clone())
+            .chain(self.state.graph_unpublished.iter().cloned())
             .collect();
+        let unpublished = self.state.graph_unpublished.clone();
         for env in self.state.graph_recovery_envs.clone() {
             let recovered=self.db.read(|tx| {
-            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&env])?;
+            // A snapshot whose publication was given up is not remembered as seen.
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text AND NOT (graph_id::text=ANY($2::text[])) ORDER BY zid,created_at DESC", &[&env,&unpublished])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
             let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND NOT (g.graph_id::text=ANY($2::text[])) AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id))) ORDER BY g.created_at,g.graph_id LIMIT 1", &[&env,&deferred])?;
@@ -372,7 +396,7 @@ impl Scheduler<'_> {
                 nodes.push(Node {job_id:n.try_get(0)?,run_id:n.try_get(1)?,stage:n.try_get(2)?});
             }
             ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
-            Ok((seen,Some(Flight {env:env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
+            Ok((seen,Some(Flight {env:env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes,publish_attempts:0})))
         })?;
             self.state.graph_seen.extend(recovered.0);
             self.state.graph_flight = recovered.1;
@@ -390,8 +414,26 @@ impl Scheduler<'_> {
             return Ok(false);
         };
         if !self.state.graph_deferred.is_empty() {
+            // Said once while the same graphs hold it (they are polled in
+            // rotation, so the line names them sorted), never every poll.
+            let mut held: Vec<&str> = self
+                .state
+                .graph_deferred
+                .iter()
+                .map(|f| f.graph_id.as_str())
+                .collect();
+            held.sort_unstable();
+            let key = held.join(",");
+            if self.graph_held.as_deref() != Some(key.as_str()) {
+                log(
+                    "graph_admission_held",
+                    json!({"reason":"graph_deferred","deferred":held.len(),"graph_ids":held}),
+                );
+                self.graph_held = Some(key);
+            }
             return Ok(false);
         }
+        self.graph_held = None;
         let cfg = cfg.clone();
         let listed = listed(&self.db, &cfg.codes)?;
         let counts = (cfg.codes.len(), listed.len());
@@ -579,6 +621,9 @@ impl Scheduler<'_> {
         self.state
             .graph_seen
             .insert(candidate.zid, s.digest.clone());
+        // The same snapshot's graph, taken up again after its publication
+        // was given up (the admission answers with the existing graph).
+        self.state.graph_unpublished.retain(|g| g != &graph_id);
         self.graph_wait_bucket = None;
         self.state.graph_flight = Some(Flight {
             env: cfg.env.clone(),
@@ -589,6 +634,7 @@ impl Scheduler<'_> {
             admitted_at_ms: now,
             generation,
             nodes,
+            publish_attempts: 0,
         });
         self.state.day_runs += 1;
         self.state.totals.admitted += 1;
@@ -640,6 +686,40 @@ impl Scheduler<'_> {
         }
     }
 
+    /// Record a failed publication attempt in the flight it belongs to (in
+    /// flight or deferred), so the count survives the poll and a restart.
+    fn note_publish_attempt(&mut self, graph_id: &str, attempts: u32) {
+        for flight in self
+            .state
+            .graph_flight
+            .iter_mut()
+            .chain(self.state.graph_deferred.iter_mut())
+        {
+            if flight.graph_id == graph_id {
+                flight.publish_attempts = attempts;
+            }
+        }
+    }
+
+    /// The publication was given up: the snapshot is not remembered as seen,
+    /// so a later build or a change reconsiders the conversation (the same
+    /// snapshot's admission answers with this graph, and only its
+    /// publication runs again), and recovery does not take it up again.
+    fn give_up_publication(&mut self, flight: &Flight) {
+        if self.state.graph_seen.get(&flight.zid) == Some(&flight.digest) {
+            self.state.graph_seen.remove(&flight.zid);
+        }
+        if !self.state.graph_unpublished.contains(&flight.graph_id) {
+            self.state.graph_unpublished.push(flight.graph_id.clone());
+        }
+        let excess = self
+            .state
+            .graph_unpublished
+            .len()
+            .saturating_sub(UNPUBLISHED_KEPT);
+        self.state.graph_unpublished.drain(..excess);
+    }
+
     fn log_graph_wait(
         &mut self,
         flight: &Flight,
@@ -688,7 +768,22 @@ impl Scheduler<'_> {
             .values()
             .any(|(s, _)| matches!(s.as_str(), "dead" | "cancelled"));
         let overdue = now - flight.admitted_at_ms > self.cfg.job_deadline.as_millis() as i64;
-        if failed || overdue {
+        // Past the short deadline with every node still queued, one read says
+        // whether any node was ever claimed (any attempt at all).
+        let unclaimed = !failed
+            && !overdue
+            && now - flight.admitted_at_ms > UNCLAIMED_DEADLINE.as_millis() as i64
+            && states.values().all(|(s, _)| s == "queued")
+            && self.db.read(|tx| Ok(tx.query_one(
+                "SELECT NOT EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid)",
+                &[&flight.env, &flight.graph_id])?.try_get::<_, bool>(0)?))?;
+        if unclaimed {
+            log(
+                "graph_unclaimed",
+                json!({"graph_id":flight.graph_id,"seconds":(now - flight.admitted_at_ms)/1000,"reason":"no_executor_claim"}),
+            );
+        }
+        if failed || overdue || unclaimed {
             let mut client = self.db.connect_queue()?;
             for n in &flight.nodes {
                 // The queue's fenced management call refuses terminal rewrites.
@@ -745,55 +840,57 @@ impl Scheduler<'_> {
                 .iter()
                 .find(|n| n.stage == "graph_narrative")
                 .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
-            // Each retry and every read use a fresh connection, including after
-            // a commit whose reply was lost. No retry follows a definite refusal.
-            for attempt in 0..3 {
-                let result = (|| -> Result<Value> {
-                    let mut client = self.db.connect_queue()?;
-                    let row = client.query_one(
-                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)",
-                        &[
-                            &flight.env,
-                            &flight.graph_id,
-                            &leaf.job_id,
-                            &flight.generation,
-                        ],
-                    )?;
-                    Ok(row.try_get(0)?)
-                })();
-                // A publish reply alone does not establish which root is served.
-                let served = (|| -> Result<Value> {
-                    let mut client = self.db.connect_queue()?;
-                    let row = client.query_one(
-                        "SELECT public.pd_graph_served($1,$2,$3)",
-                        &[&flight.env, &flight.zid, &scope(flight.zid)],
-                    )?;
-                    Ok(row.try_get::<_, Option<Value>>(0)?.unwrap_or(Value::Null))
-                })();
-                match served {
-                    Ok(ref value) if exact_leaf(value, &leaf.job_id, flight.generation) => {
-                        published = true;
-                        break;
-                    }
-                    // The outcome is still unknown. Keep the flight and resolve
-                    // it on a later poll; never count an uncertain commit failed.
-                    Err(error) => return Err(error),
-                    _ => {}
+            // One attempt per poll, on a fresh connection, and every read
+            // too, including after a commit whose reply was lost. A transient
+            // failure keeps the flight, the count carried in it, and is
+            // retried on a later poll; no retry follows a definite refusal.
+            let result = (|| -> Result<Value> {
+                let mut client = self.db.connect_queue()?;
+                let row = client.query_one(
+                    "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)",
+                    &[
+                        &flight.env,
+                        &flight.graph_id,
+                        &leaf.job_id,
+                        &flight.generation,
+                    ],
+                )?;
+                Ok(row.try_get(0)?)
+            })();
+            // A publish reply alone does not establish which root is served.
+            let served = (|| -> Result<Value> {
+                let mut client = self.db.connect_queue()?;
+                let row = client.query_one(
+                    "SELECT public.pd_graph_served($1,$2,$3)",
+                    &[&flight.env, &flight.zid, &scope(flight.zid)],
+                )?;
+                Ok(row.try_get::<_, Option<Value>>(0)?.unwrap_or(Value::Null))
+            })();
+            match served {
+                Ok(ref value) if exact_leaf(value, &leaf.job_id, flight.generation) => {
+                    published = true;
                 }
-                let retry = result.as_ref().err().is_some_and(publish_transient);
-                if !retry || attempt == 2 {
-                    break;
-                }
-                log(
-                    "graph_publish_retry",
-                    json!({"graph_id":flight.graph_id,"attempt":attempt+1}),
-                );
+                // The outcome is still unknown. Keep the flight and resolve
+                // it on a later poll; never count an uncertain commit failed.
+                Err(error) => return Err(error),
+                _ => {}
             }
             if !published {
+                let attempts = flight.publish_attempts.saturating_add(1);
+                let retry = result.as_ref().err().is_some_and(publish_transient);
+                if retry && attempts < PUBLISH_ATTEMPTS {
+                    self.note_publish_attempt(&flight.graph_id, attempts);
+                    log(
+                        "graph_publish_retry",
+                        json!({"graph_id":flight.graph_id,"attempt":attempts}),
+                    );
+                    return Ok(self.cfg.poll);
+                }
                 log(
                     "graph_publish_failed",
                     json!({"graph_id":flight.graph_id,"reason":"publication_not_served"}),
                 );
+                self.give_up_publication(&flight);
             }
         }
         let mut bytes = 0u64;

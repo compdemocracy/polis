@@ -77,6 +77,16 @@ impl Fixture {
     }
 
     fn config(&self, extra: &[(&str, &str)]) -> config::Config {
+        let m = self.environment(extra);
+        match config::load(|k| m.get(k).cloned()).unwrap() {
+            config::Load::Ready(c) => *c,
+            config::Load::Disabled => panic!("disabled"),
+        }
+    }
+
+    /// The scheduler's environment, as `config` loads it (and as the
+    /// scheduler's own process is started with).
+    fn environment(&self, extra: &[(&str, &str)]) -> HashMap<String, String> {
         let mut m: HashMap<String, String> = [
             ("DELPHI_SHADOW_ENABLED", "1".to_owned()),
             ("QUEUE_DATABASE_URL", url_for(&self.name, &self.login)),
@@ -106,10 +116,7 @@ impl Fixture {
         for (k, v) in extra {
             m.insert((*k).to_owned(), (*v).to_owned());
         }
-        match config::load(|k| m.get(k).cloned()).unwrap() {
-            config::Load::Ready(c) => *c,
-            config::Load::Disabled => panic!("disabled"),
-        }
+        m
     }
 
     /// A conversation with `n` comments, its code (`c<zid>`), its math row
@@ -1861,11 +1868,337 @@ fn transient_publish_before_commit_retries_and_keeps_one_generation() {
         BEGIN IF nextval('publish_calls')=1 THEN RAISE EXCEPTION 'retry' USING ERRCODE='40001'; END IF;
         RETURN publish_original($1,$2,$3,$4); END $$;
         GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;").unwrap();
+    // The retry is on the next poll, not within this one: the flight is
+    // kept and nothing is counted until then.
+    scheduler.cycle().unwrap();
+    assert!(scheduler.state.graph_flight.is_some());
+    assert_eq!(
+        (
+            scheduler.state.totals.succeeded,
+            scheduler.state.totals.failed
+        ),
+        (0, 0)
+    );
     scheduler.cycle().unwrap();
     assert_eq!(scheduler.state.totals.succeeded, 1);
+    assert_eq!(scheduler.state.totals.failed, 0);
     let calls: i64 = c
         .query_one("SELECT last_value FROM publish_calls", &[])
         .unwrap()
         .get(0);
     assert_eq!(calls, 2);
+    assert_eq!(served(&f, &flight)["generation"], 1, "one generation");
+}
+
+// ---------------------------------------------------------------------------
+// The graph path before its list is set: an absent executor, publication
+// retries and a held admission.
+
+/// Each node's queue state, in node order.
+fn graph_states(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) -> Vec<String> {
+    f.superuser()
+        .query(
+            "SELECT q.state FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect()
+}
+
+fn served(f: &Fixture, flight: &polis_queue_adapter::shadow::graph::Flight) -> Value {
+    f.superuser()
+        .query_one(
+            "SELECT pd_graph_served($1,$2,$3)",
+            &[
+                &flight.env,
+                &flight.zid,
+                &polis_queue_adapter::shadow::graph::scope(flight.zid),
+            ],
+        )
+        .unwrap()
+        .get::<_, Option<Value>>(0)
+        .unwrap_or(Value::Null)
+}
+
+#[test]
+fn an_unclaimed_graph_is_let_go_after_a_short_deadline_and_the_full_pipeline_goes_on() {
+    // No graph executor runs (absent, unstartable, or refused at deploy), so
+    // nothing ever claims the graph's first node.
+    let f = Fixture::new();
+    f.quiet(1011, 25, 1);
+    f.quiet(1012, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1011"),
+            ("DELPHI_SHADOW_BENCHMARK", "c1012"),
+        ],
+    );
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    assert_eq!(flight.zid, 1011);
+    // Inside the short deadline the graph is waited for, as before.
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone())
+    );
+    assert!(s.state.in_flight.is_none());
+    // Unclaimed for longer than ten minutes, far inside the job deadline.
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert!(
+        graph_states(&f, &flight).iter().all(|st| st == "cancelled"),
+        "{:?}",
+        graph_states(&f, &flight)
+    );
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert!(s.state.graph_deferred.is_empty(), "let go, not deferred");
+    assert_eq!(s.state.totals.failed, 1);
+    let view: Value = f
+        .superuser()
+        .query_one(
+            "SELECT pd_graph_view($1,$2::text::uuid)",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(view["guard_held"], false, "its scope is released");
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(s.state.in_flight.as_ref().unwrap().zid, 1012);
+}
+
+#[test]
+fn a_claimed_graph_is_not_let_go_at_the_short_deadline() {
+    let f = Fixture::new();
+    f.quiet(1016, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1016")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    let (owner, attempt) = (Uuid::new_v4().to_string(), Uuid::new_v4().to_string());
+    let claim: Value = f.superuser().query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')", &[&flight.env, &owner, &attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone())
+    );
+    assert_eq!(s.state.totals.failed, 0);
+    assert!(!graph_states(&f, &flight).iter().any(|st| st == "cancelled"));
+}
+
+/// Replace the disposable database's publication function: its first `fail`
+/// calls refuse with a serialization failure before anything commits; the
+/// rest run the original. `publish_calls` counts the calls.
+fn publication_fails_first(f: &Fixture, fail: i64) {
+    f.superuser().batch_execute(&format!("CREATE SEQUENCE publish_calls; ALTER FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RENAME TO publish_original;
+        CREATE FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+        BEGIN IF nextval('publish_calls')<={fail} THEN RAISE EXCEPTION 'retry' USING ERRCODE='40001'; END IF;
+        RETURN publish_original($1,$2,$3,$4); END $$;
+        GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;")).unwrap();
+}
+
+fn publication_restored(f: &Fixture) {
+    f.superuser()
+        .batch_execute(
+            "DROP FUNCTION pd_graph_publish(text,uuid,uuid,bigint);
+             ALTER FUNCTION publish_original(text,uuid,uuid,bigint) RENAME TO pd_graph_publish;",
+        )
+        .unwrap();
+}
+
+fn publish_calls(f: &Fixture) -> i64 {
+    f.superuser()
+        .query_one(
+            "SELECT CASE WHEN is_called THEN last_value ELSE 0 END FROM publish_calls",
+            &[],
+        )
+        .unwrap()
+        .get(0)
+}
+
+#[test]
+fn a_transient_publication_failure_keeps_the_flight_and_is_retried_on_later_polls() {
+    let f = Fixture::new();
+    f.quiet(1021, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1021")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    publication_fails_first(&f, 2);
+    for attempt in 1..=2i64 {
+        s.cycle().unwrap();
+        assert_eq!(
+            publish_calls(&f),
+            attempt,
+            "one publication attempt per poll"
+        );
+        let kept = s.state.graph_flight.clone().expect("the flight is kept");
+        assert_eq!(kept.graph_id, flight.graph_id);
+        assert_eq!(
+            serde_json::to_value(&kept).unwrap()["publish_attempts"],
+            attempt,
+            "the count is carried in the flight"
+        );
+        assert_eq!((s.state.totals.succeeded, s.state.totals.failed), (0, 0));
+        // And it is carried across a restart of the scheduler.
+        s.state.save(&cfg.state_path).unwrap();
+        s = Scheduler::new(&cfg).unwrap();
+    }
+    s.cycle().unwrap();
+    assert_eq!(publish_calls(&f), 3);
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!((s.state.totals.succeeded, s.state.totals.failed), (1, 0));
+    assert_eq!(served(&f, &flight)["generation"], 1);
+}
+
+#[test]
+fn a_publication_that_keeps_failing_is_counted_once_and_its_snapshot_is_not_remembered_as_seen() {
+    let f = Fixture::new();
+    f.quiet(1031, 25, 1);
+    f.quiet(1032, 25, 1);
+    graph_catalog(&f);
+    let list = ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1031");
+    let benchmark = ("DELPHI_SHADOW_BENCHMARK", "c1032");
+    let cfg = graph_config(&f, &[list, benchmark]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    publication_fails_first(&f, 1_000_000);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert_eq!(publish_calls(&f), 3, "three attempts, one per poll");
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!((s.state.totals.succeeded, s.state.totals.failed), (0, 1));
+    assert!(!s.state.graph_seen.contains_key(&1031));
+    // Given up, the graph is not taken up again: no further attempt, no
+    // second failure, and the full pipeline goes on.
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(publish_calls(&f), 3);
+    assert_eq!(s.state.totals.failed, 1);
+    let run = s.state.in_flight.clone().unwrap();
+    assert_eq!(run.zid, 1032);
+    assert!(
+        !s.state.graph_seen.contains_key(&1031),
+        "nor remembered again from the database"
+    );
+    f.cancel(&run.job_id);
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_none());
+    // The next build reconsiders the conversation. Its snapshot is unchanged
+    // and was never published, so the same graph is taken up again and
+    // published, with nothing computed twice.
+    publication_restored(&f);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    let next = graph_config(
+        &f,
+        &[
+            list,
+            benchmark,
+            (
+                "DELPHI_SHADOW_CODE_VERSION",
+                "fedcba9876543210fedcba9876543210fedcba98",
+            ),
+        ],
+    );
+    let mut s = Scheduler::new(&next).unwrap();
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(flight.graph_id.clone())
+    );
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(s.state.totals.succeeded, 1);
+    assert_eq!(served(&f, &flight)["generation"], 1);
+}
+
+/// The scheduler as its container runs it, for `run_for`, then stopped as
+/// a deploy stops it (SIGTERM): its `delphi_shadow/1` lines.
+fn scheduler_lines(f: &Fixture, extra: &[(&str, &str)], run_for: Duration) -> Vec<Value> {
+    let mut c = std::process::Command::new(env!("CARGO_BIN_EXE_polis-delphi-shadow"));
+    c.env_clear()
+        .env("PATH", std::env::var("PATH").unwrap_or_default())
+        .envs(f.environment(extra))
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null());
+    let child = c.spawn().unwrap();
+    std::thread::sleep(run_for);
+    // SAFETY: a signal to the child this test started.
+    unsafe {
+        libc::kill(child.id() as i32, libc::SIGTERM);
+    }
+    let out = child.wait_with_output().unwrap();
+    String::from_utf8_lossy(&out.stdout)
+        .lines()
+        .filter_map(|l| l.strip_prefix("delphi_shadow/1 "))
+        .filter_map(|l| serde_json::from_str(l).ok())
+        .collect()
+}
+
+#[test]
+fn a_held_graph_admission_says_so_once_with_its_reason() {
+    let f = Fixture::new();
+    f.quiet(1041, 25, 1);
+    f.quiet(1042, 25, 1);
+    graph_catalog(&f);
+    let list = ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1041,c1042");
+    let mut cfg = graph_config(&f, &[list]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    assert_eq!(flight.zid, 1041);
+    // An attempt with no exit proof, as a lost journal leaves it: past the
+    // job deadline the graph is deferred, and graph admission is held.
+    let (owner, attempt) = (Uuid::new_v4().to_string(), Uuid::new_v4().to_string());
+    let claim: Value = f.superuser().query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')", &[&flight.env, &owner, &attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    cfg.job_deadline = Duration::ZERO;
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert_eq!(s.state.graph_deferred.len(), 1);
+    s.state.save(&cfg.state_path).unwrap();
+    drop(s);
+    let app = f.dir.display().to_string();
+    let python = std::env::var("POLIS_JOBS_TEST_PYTHON").unwrap_or_else(|_| "python3".into());
+    let lines = scheduler_lines(
+        &f,
+        &[
+            list,
+            ("DELPHI_SHADOW_POLL_SECONDS", "1"),
+            ("DELPHI_APP_PATH", &app),
+            ("POLIS_JOBS_PYTHON", &python),
+        ],
+        Duration::from_secs(6),
+    );
+    let polls = lines.iter().filter(|l| l["event"] == "idle").count();
+    assert!(polls >= 3, "{lines:?}");
+    let held: Vec<&Value> = lines
+        .iter()
+        .filter(|l| l["event"] == "graph_admission_held")
+        .collect();
+    assert_eq!(held.len(), 1, "once, however many polls hold it: {lines:?}");
+    assert_eq!(held[0]["reason"], "graph_deferred");
+    assert_eq!(held[0]["graph_ids"], serde_json::json!([flight.graph_id]));
+    assert_eq!(held[0]["deferred"], 1);
+    assert!(!lines.iter().any(|l| l["event"] == "graph_admitted"));
 }
