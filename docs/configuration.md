@@ -482,12 +482,16 @@ deployed commit: a deploy of a new commit ends a hold at once, and a restart
 or a deploy of the same commit does not. The full-pipeline shadow goes on
 throughout. When the hold ends, the conversation let go is admitted again,
 though nothing about it changed, as a new graph: its admission key names the
-let-go graph (`graph_admitted` with `after_let_go`). A claim seen on any
-graph the scheduler watches in that env resets the count
-(`graph_unclaimed_cleared`): a graph admitted after the hold, or the let-go
-graph itself when an executor's claim lands before its cancel (the cancel
-then loses and that node runs). Nothing else resets the count; a new code
-version ends the hold but keeps the count. The hold, the count and the
+let-go graph (`graph_admitted` with `after_let_go`). A claim on any graph
+the scheduler watches in that env resets the count
+(`graph_unclaimed_cleared`): one seen while the graph runs (a graph admitted
+after the hold, or the let-go graph itself when an executor's claim lands
+before its cancel, which then loses and that node runs), or one on record
+when the graph ends cancelled (the claim landed and the cancel still won).
+Nothing else resets the count; a new code version ends the hold but keeps
+the count. A let-go graph whose cancel raced a claim either way was cancelled
+after a claim (below): it is not admitted again until its snapshot changes,
+though the hold it started is gone. The hold, the count and the
 let-go graphs are kept in the scheduler state (`graph_unclaimed`), so a
 restart keeps them. Each graph admitted again adds its rows to the database,
 as any graph does, and counts against the shadow's storage budget.
@@ -501,19 +505,33 @@ names it in its key (`graph_let_go_recovered`, with the count): it is a new
 graph at once, not each cancelled graph of the chain answered and let go
 again with one hold per link. With no state for the env at all (a lost state
 file) the count of let-gos in a row is the database's too (the env's newest
-graphs, while each had every node cancelled and none ever claimed), and no
-hold is in force until the next let-go, as after a new code version: the
-build that let the last one go is not known. A graph found that way with
-every node cancelled after an executor had claimed one (a let-go whose cancel
-lost the race with a claim, then a lost state file; or a graph cancelled
-while it ran, whose snapshot comes up again) is let go like an unclaimed one
-(`graph_unclaimed`, reason `cancelled_after_claim`), and the scheduler writes
-one line on standard error beginning `Error:` that names the conversation by
-its code in `DELPHI_SHADOW_GRAPH_CONVERSATIONS`, the graph and the reason;
-the conversation is admitted again, as a new graph, when the hold ends. A
-graph cancelled after a claim while the scheduler watches it (past the job
-deadline, or by a person) is counted failed and not let go, and its
-unchanged snapshot is not admitted again.
+graphs, while each had every node cancelled and none ever claimed, stopping
+at the first claimed one), and no hold is in force until the next let-go, as
+after a new code version: the build that let the last one go is not known.
+
+A graph cancelled after an executor claimed it follows one rule, whether the
+scheduler watched it to its end or finds it in the database (its newest
+fully cancelled graph of the snapshot was claimed, and the state does not
+remember the snapshot: a lost state file, or a snapshot that changed and
+came back). Such a graph is one whose claimed node was then cancelled (by a
+person, or at the job deadline while it ran), or a let-go graph whose cancel
+raced an executor's claim, including one whose claimed node then ended
+before the next poll. The scheduler writes one line on standard error
+beginning `Error:` that names the graph, the conversation's position in
+`DELPHI_SHADOW_GRAPH_CONVERSATIONS` ("entry 2", counting each code once, as
+the list's parser names an entry it refuses) and the reason,
+`cancelled_after_claim`; never the conversation's code, which is its address
+(anyone holding it can open the conversation, and while it is open vote and
+comment in it), and both of the scheduler's output streams go to the same
+log. The graph is counted failed; its snapshot is not admitted again until it
+changes; and no graph env is held, so every other listed conversation goes
+on at once. No hold, because the hold exists for a graph nobody claimed and a
+claim proves an executor exists, and because one conversation must not hold
+up every other; no retry, because a person's cancel should stand and a graph
+cancelled at the job deadline would most likely overrun it again. A graph
+whose node died (`dead`) and whose remaining nodes the scheduler then
+cancelled is an ordinary failure: counted failed, not admitted again until
+its snapshot changes, no hold, and no such line.
 
 Publication of a finished graph is tried once per poll, up to three times,
 the count kept in the scheduler state; a transient failure keeps the graph
@@ -554,23 +572,23 @@ default `6g`), and the scheduler's a fixed 256 MiB. The graph executor is
 optional: with `DELPHI_SHADOW_GRAPH_ENABLED` unset on a deployment, or the
 `delphi-shadow-graph` profile off under local Compose, and
 `DELPHI_SHADOW_GRAPH_CONVERSATIONS` empty, it does not run and its ceiling
-does not apply; leave it off unless both ceilings fit. On macOS (Docker
-Desktop, Colima) there is no `/etc/machine-id` for its host identity: create
-a persistent, unique file once and name its absolute path in
-`DELPHI_SHADOW_GRAPH_HOST_ID_FILE`, or the executor does not start. Measured
-with `delphi/tests/shadow/graph_stage_memory.py`: the four graph stages on
-the public biodiversity conversation in `delphi/real_data` (316 comments),
-each in a fresh container of the Delphi test image under the executor's
-2-CPU limit and thread settings, with the embeddings table on, on linux/arm64
-under Colima on an Apple M4 Pro, peaked at 2.24 GiB resident for
-`graph_embed` (17 s), 0.85 GiB for `graph_cluster` (28 s), 0.18 GiB for
-`graph_topics` and 23 MiB for `graph_narrative`, the same under a 6 GiB and
-a 3 GiB ceiling. So `DELPHI_SHADOW_GRAPH_CONTAINER_MEMORY=3g` holds a
-conversation of that size; the executor's own daemon is not in those
-figures, and larger conversations (admission allows up to 2,000 comments)
-were not measured. The full-pipeline daemon's peak was not measured there:
-size `DELPHI_SHADOW_CONTAINER_MEMORY` by measuring it on the conversations it
-will run.
+does not apply; leave it off unless both ceilings fit. Under Docker Desktop
+on macOS a bind mount resolves on macOS itself, which has no
+`/etc/machine-id` for the executor's host identity: create a persistent,
+unique file once and name its absolute path in
+`DELPHI_SHADOW_GRAPH_HOST_ID_FILE`, or the executor does not start. (Under
+Colima the bind resolves inside its Linux VM, which has one.) What was
+measured, with `delphi/tests/shadow/graph_stage_memory.py`: each graph
+stage's peak resident memory, each stage run alone in a fresh container of
+the Delphi test image, on the 316 comments of the public biodiversity
+conversation in `delphi/real_data`, under 2 CPUs and the executor's thread
+settings, with the embeddings table on (linux/arm64 under Colima on an Apple
+M4 Pro): 2.24 GiB for `graph_embed`, 0.85 GiB for `graph_cluster`, 0.18 GiB
+for `graph_topics` and 23 MiB for `graph_narrative`. The executor's own
+daemon is not in those figures, and larger conversations (admission allows
+up to 2,000 comments) were not measured. The full-pipeline daemon was not
+measured here at all: size `DELPHI_SHADOW_CONTAINER_MEMORY` by measuring it
+on the conversations it will run.
 
 State written by the previous release loads with empty recovery fields. When no
 graph has been enabled, state serialization and full-pipeline behavior are
