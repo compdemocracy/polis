@@ -51,7 +51,10 @@ pub const NODE_COMMENT: [&str; 6] = [
     "not_checked",
 ];
 /// `node_comment` values that say the stored comment was not read: never an
-/// agreement and never a disagreement.
+/// agreement and never a disagreement. The report counts them as what is
+/// left of a read-back once its agreements and differences are taken; the
+/// tests hold the words against the observer's.
+#[cfg(test)]
 pub const NOT_READ: [&str; 3] = ["unknown", "unavailable", "not_checked"];
 pub const NODE_TXT: [&str; 2] = ["same", "different"];
 pub const NODE_TXT_DIFFERENCE: [&str; 5] = ["space", "control", "case", "truncated", "other"];
@@ -353,9 +356,22 @@ impl Route {
                 // back only because the conversation has strict moderation.
                 (
                     "rb",
+                    // Named by `outcome` and `admitted`, which every
+                    // observation line carries, and not by `outcome =
+                    // "would_serve" or reason = STRICT`: a would-serve line
+                    // carries no `reason`, and inside a sum Logs Insights
+                    // reads an `or` with an absent operand as absent, so
+                    // that counted the strict hand-backs alone. The two are
+                    // the same copies: the only copy any observer has
+                    // handed back after admitting it is one with strict
+                    // moderation (`Live::HandBack("strict_moderation")`,
+                    // before such comments were observed as writes; the
+                    // observer since hands back none it admitted), and the
+                    // report withholds the read-back's judgement if a line
+                    // ever says otherwise.
                     Agg::Sum(and(vec![
                         num_is("admitted", 1),
-                        or(vec![is("outcome", "would_serve"), is("reason", STRICT)]),
+                        E::In("outcome", vec!["would_serve", "would_hand_back"]),
                     ])),
                 ),
                 ("tr_own", class("text_row", "own")),
@@ -377,10 +393,6 @@ impl Route {
                 ("b_own", class("node_comment", "own")),
                 ("b_absent", class("node_comment", "absent")),
                 ("b_other", class("node_comment", "other")),
-                (
-                    "b_unread",
-                    Agg::Sum(E::In("node_comment", NOT_READ.to_vec())),
-                ),
                 // Node's own row, stored as the handler would store it.
                 (
                     "b_clean",
@@ -393,16 +405,33 @@ impl Route {
                         E::In("node_vote", vec!["same", "not_sent"]),
                     ])),
                 ),
-                // A definite difference from what the handler would store.
+                // A definite difference from what the handler would store,
+                // as two counts that never overlap. Not one `or` over all
+                // six: a row that is not Node's own has no text, author,
+                // columns or language to compare, the observer prints those
+                // four null, and inside a sum Logs Insights reads an `or`
+                // with an absent operand as absent. The stored comment
+                // missing beside Node's 200 would not be counted.
+                //
+                // No row with the text, or one that is not this request's.
                 (
-                    "b_diff",
-                    Agg::Sum(or(vec![
-                        E::In("node_comment", vec!["absent", "other"]),
-                        is("node_txt", "different"),
-                        is("node_author", "different"),
-                        E::In("node_row", ROW_DIFFERS.to_vec()),
-                        is("node_lang", "set"),
-                        E::In("node_vote", vec!["different", "absent"]),
+                    "b_gone",
+                    Agg::Sum(E::In("node_comment", vec!["absent", "other"])),
+                ),
+                // Node's own row, stored otherwise. On a line naming Node's
+                // own row the observer prints all five of these, so no
+                // operand of this `or` is absent where it can be true.
+                (
+                    "b_ownd",
+                    Agg::Sum(and(vec![
+                        is("node_comment", "own"),
+                        or(vec![
+                            is("node_txt", "different"),
+                            is("node_author", "different"),
+                            E::In("node_row", ROW_DIFFERS.to_vec()),
+                            is("node_lang", "set"),
+                            E::In("node_vote", vec!["different", "absent"]),
+                        ]),
                     ])),
                 ),
                 ("x_diff", class("node_txt", "different")),
@@ -467,22 +496,22 @@ impl Route {
                     with(begins_here(), vec![num_is("n_edge", 0)]),
                 ),
                 ("no_mirror", with(request(), vec![num_is("n_mirror", 0)])),
+                // The copies nginx logged, those of them with its status 204
+                // for the copy, and the copied ones with status 204: the
+                // report takes the copied from the logged for the copies not
+                // sent (outside the body bound, 204; the shadow's host
+                // absent, any other status). Each tests that a count is 1,
+                // never that one is 0 (as for votes, `route.rs`).
+                ("mirrored", with(request(), vec![one("n_mirror")])),
                 (
-                    "not_copied",
-                    with(
-                        request(),
-                        vec![one("n_mirror"), num_is("n_copied", 0), one("n_mirror_204")],
-                    ),
+                    "mirrored_204",
+                    with(request(), vec![one("n_mirror"), one("n_mirror_204")]),
                 ),
                 (
-                    "host_absent",
+                    "copied_204",
                     with(
                         request(),
-                        vec![
-                            one("n_mirror"),
-                            num_is("n_copied", 0),
-                            num_is("n_mirror_204", 0),
-                        ],
+                        vec![one("n_mirror"), one("n_copied"), one("n_mirror_204")],
                     ),
                 ),
                 (
@@ -562,13 +591,15 @@ impl Route {
                 ),
                 ("serve", paired(&["o_serve"])),
                 ("serve_clean", paired(&["o_serve", "b_clean"])),
-                ("serve_diff", paired(&["o_serve", "b_diff"])),
+                ("serve_gone", paired(&["o_serve", "b_gone"])),
+                ("serve_ownd", paired(&["o_serve", "b_ownd"])),
                 ("serve_own", paired(&["o_serve", "b_own"])),
                 ("serve_any_own", paired(&["o_serve", "own_any"])),
-                // The same five, for the strict ones among them.
+                // The same six, for the strict ones among them.
                 ("strict", paired(&["o_strict"])),
                 ("strict_clean", paired(&["o_strict", "b_clean"])),
-                ("strict_diff", paired(&["o_strict", "b_diff"])),
+                ("strict_gone", paired(&["o_strict", "b_gone"])),
+                ("strict_ownd", paired(&["o_strict", "b_ownd"])),
                 ("strict_own", paired(&["o_strict", "b_own"])),
                 ("strict_any_own", paired(&["o_strict", "own_any"])),
                 ("answer", paired(&["o_answer"])),
@@ -580,11 +611,12 @@ impl Route {
                 ("failed", paired(&["o_fail"])),
                 ("read", paired(&["rb"])),
                 ("read_clean", paired(&["rb", "b_clean"])),
-                ("read_diff", paired(&["rb", "b_diff"])),
+                // With `read_absent` and `read_other`, which never overlap
+                // it, the stored comments that differ.
+                ("read_ownd", paired(&["rb", "b_ownd"])),
                 ("read_own", paired(&["rb", "b_own"])),
                 ("read_absent", paired(&["rb", "b_absent"])),
                 ("read_other", paired(&["rb", "b_other"])),
-                ("read_unread", paired(&["rb", "b_unread"])),
                 ("read_x_diff", paired(&["rb", "x_diff"])),
                 ("read_a_diff", paired(&["rb", "a_diff"])),
                 ("read_w_diff", paired(&["rb", "w_diff"])),

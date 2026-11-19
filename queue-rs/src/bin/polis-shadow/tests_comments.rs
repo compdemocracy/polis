@@ -1127,9 +1127,11 @@ fn the_comment_join_classes_every_outcome() {
         w.from_s,
         w.to_s,
     );
+    // A count none of whose requests had a value is left out of its row, as
+    // Logs Insights leaves it out: none.
     let total = |key: &str| {
         join.iter()
-            .map(|r| r[key].parse::<u64>().unwrap())
+            .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
             .sum::<u64>()
     };
     let cell = |node: &str, would: Option<&str>, key: &str| {
@@ -1138,7 +1140,7 @@ fn the_comment_join_classes_every_outcome() {
                 r.get("http_st").map(String::as_str) == Some(node)
                     && r.get("rust_st").map(String::as_str) == would
             })
-            .map(|r| r[key].parse::<u64>().unwrap())
+            .map(|r| r.get(key).map_or(0, |v| v.parse::<u64>().unwrap()))
             .sum::<u64>()
     };
     assert_eq!(total("comments"), 38);
@@ -1147,8 +1149,11 @@ fn the_comment_join_classes_every_outcome() {
     assert_eq!(total("without_edge"), 0);
     // Not copied 1, the host absent 1, copied and timed out 1.
     assert_eq!(total("copied"), 36);
-    assert_eq!(total("not_copied"), 1);
-    assert_eq!(total("host_absent"), 1);
+    assert_eq!(total("mirrored_204") - total("copied_204"), 1);
+    assert_eq!(
+        total("mirrored") - total("mirrored_204") - (total("copied") - total("copied_204")),
+        1
+    );
     assert_eq!(total("covered"), 35);
     // Every request but the one refused before the router has a Node line;
     // three have no observation, one of them copied.
@@ -1163,7 +1168,10 @@ fn the_comment_join_classes_every_outcome() {
     // clean; eight differ; three were not read.
     assert_eq!(cell("200", Some("200"), "serve"), 14);
     assert_eq!(cell("200", Some("200"), "serve_clean"), 3);
-    assert_eq!(cell("200", Some("200"), "serve_diff"), 8);
+    assert_eq!(
+        cell("200", Some("200"), "serve_gone") + cell("200", Some("200"), "serve_ownd"),
+        8
+    );
     // Beside Node's 409: the repeat, and the duplicate the shadow never saw.
     assert_eq!(cell("409", Some("200"), "serve"), 2);
     assert_eq!(cell("409", Some("200"), "serve_any_own"), 1);
@@ -1556,6 +1564,195 @@ fn no_stored_row_beside_nodes_200_is_a_disagreement() {
     );
     assert!(report.text.contains("agree 300, disagree 1, not known 4"));
     assert_eq!(report.verdict, Verdict::Stop);
+}
+
+/// The week of 2026-11-12 had 275 comments the handler would store and 20
+/// strict-moderation hand-backs printed by an older shadow: 295 read back,
+/// all as the handler would store them, each with its author's vote. The
+/// tool counted 20 of each. Its read-back class was an `or` that tests the
+/// line's `reason`, which a would-serve line does not carry, and inside a
+/// sum Logs Insights reads an `or` with an absent operand as absent.
+#[test]
+fn every_stored_comment_is_read_back_though_its_line_carries_no_reason() {
+    let mut fx = comments_fixture();
+    for _ in 0..275 {
+        comment(&mut fx, C::Plain);
+    }
+    for _ in 0..20 {
+        comment(&mut fx, C::Strict);
+    }
+    let report = run(&comments(&fx));
+    for said in [
+        "stored comments read back where Node answered 200 (would store, or handed back for strict moderation) 295: as the handler would store it 295; otherwise 0; not known 0",
+        "the author's vote on those: same 295, different 0, absent 0, not compared 0",
+        "judged 295 of the 600 needed",
+        "compared 295 of the 300 needed",
+    ] {
+        assert!(report.text.contains(said), "{said}\n{}", report.text);
+    }
+    assert_eq!(report.mark("stored comment"), Some(Mark::Short));
+    assert_eq!(report.mark("author's vote"), Some(Mark::Short));
+}
+
+/// The read-back class is every copy the handler admitted and then would
+/// store or hand back. Every observer so far has handed a copy back after
+/// admitting it only for strict moderation. A copy handed back after
+/// admission for any other reason withholds the stored-comment and
+/// author's-vote judgement, rather than counting its read-back as the
+/// handler's.
+#[test]
+fn an_admitted_hand_back_for_another_reason_withholds_the_read_back_judgement() {
+    let mut fx = passing_comments();
+    fx.at += 7_000;
+    let (t, id) = (fx.at, id(77_000_002));
+    fx.lines.push(edge_of(COMMENT_ROUTE, &id, t, 200));
+    fx.lines
+        .push(mirror_of("commentsShadow", &id, t, 204, "204"));
+    fx.lines
+        .push(access_of("POST", Some(COMMENT_PATH), Some(&id), t, 200));
+    fx.lines.push(observation_line(
+        &id,
+        t + 2_500,
+        &Obs {
+            reason: Some("moderator"),
+            ..Obs::strict()
+        },
+    ));
+    let report = run(&comments(&fx));
+    assert!(
+        report
+            .text
+            .contains("admitted and then handed back for a reason other than strict moderation 1"),
+        "{}",
+        report.text
+    );
+    assert_eq!(
+        report.mark("stored comment"),
+        Some(Mark::NotEvaluated),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.mark("author's vote"), Some(Mark::NotEvaluated));
+    assert_eq!(report.verdict, Verdict::TooLittle);
+}
+
+/// The passing comments at 90 copies an hour (production has about eight),
+/// every copy held `s` seconds.
+fn comments_held(s: f64) -> Fixture {
+    let mut fx = comments_fixture();
+    for case in passing_cases() {
+        comment(&mut fx, case);
+        fx.at += 33_000;
+    }
+    for (_, json) in fx.lines.iter_mut() {
+        if json.contains(r#""message":"shadow_mirror""#) {
+            let mut v: Value = serde_json::from_str(json).unwrap();
+            v["mirror_s"] = json!(s);
+            *json = v.to_string();
+        }
+    }
+    fx
+}
+
+/// No comment hour holds the 100 copies an hour's p99 is judged from, so
+/// the comment copies are judged pooled: a comment shadow that holds every
+/// comment 50 ms stops. Held 1 ms, they pass.
+#[test]
+fn a_comment_shadow_that_holds_every_comment_50_ms_stops() {
+    let report = run(&comments(&comments_held(0.050)));
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Stop),
+        "{}",
+        report.text
+    );
+    assert!(report.text.contains("fired: the copy's hold"));
+    assert!(
+        report
+            .text
+            .contains("no hour of at least 100 copies to judge a p99 by, largest copy 50.0 ms"),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::Stop);
+    let report = run(&comments(&comments_held(0.001)));
+    assert_eq!(
+        report.mark("stop rule"),
+        Some(Mark::Pass),
+        "{}",
+        report.text
+    );
+    assert_eq!(report.verdict, Verdict::Pass, "{}", report.text);
+}
+
+/// No count of any query depends on how Logs Insights reads the three rules
+/// no probe has measured (`eval::Reading`): over fixtures holding every
+/// class of both routes, every compiled query gives the same counts under
+/// all eight readings. A count with no value is read as 0, as the report
+/// reads it.
+#[test]
+fn every_query_counts_the_same_under_every_reading() {
+    let mut fixtures: Vec<(String, Route, Vec<Line>)> = golden_fixtures()
+        .into_iter()
+        .map(|(name, fx)| (format!("votes, {name}"), VOTES, FakeAws::new(&fx).lines))
+        .collect();
+    let mut every = comments_fixture();
+    for case in every_case() {
+        comment(&mut every, case);
+    }
+    comment(&mut every, C::StrictVoteDiffers);
+    fixtures.push((
+        "comments, every case".into(),
+        COMMENTS,
+        comments(&every).lines,
+    ));
+    fixtures.push((
+        "comments, passing".into(),
+        COMMENTS,
+        comments(&passing_comments()).lines,
+    ));
+    let w = window();
+    let week = 7 * 86_400;
+    for (name, route, lines) in &fixtures {
+        for q in route.queries() {
+            let names: Vec<&str> = q
+                .stages
+                .last()
+                .unwrap()
+                .aggs
+                .iter()
+                .map(|(n, _)| *n)
+                .collect();
+            let mut spans = vec![(w.from_s, w.to_s)];
+            if q.previous_week {
+                spans.push((w.from_s - week, w.to_s - week));
+            }
+            for (from, to) in spans {
+                let counts = |r: eval::Reading| {
+                    eval::with_reading(r, || {
+                        eval::run(&q, lines, from, to)
+                            .into_iter()
+                            .map(|mut row| {
+                                for n in &names {
+                                    row.entry((*n).to_owned()).or_insert_with(|| "0".into());
+                                }
+                                row
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                };
+                let own = counts(eval::Reading::default());
+                for r in eval::READINGS {
+                    assert!(
+                        counts(r) == own,
+                        "{name}: the query {} counts otherwise under the reading {}",
+                        q.name,
+                        r.words()
+                    );
+                }
+            }
+        }
+    }
 }
 
 /// The reviewer's rule (c): the same text twice within five seconds reads as
