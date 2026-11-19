@@ -489,9 +489,13 @@ after the hold, or the let-go graph itself when an executor's claim lands
 before its cancel, which then loses and that node runs), or one on record
 when the graph ends cancelled (the claim landed and the cancel still won).
 Nothing else resets the count; a new code version ends the hold but keeps
-the count. A let-go graph whose cancel raced a claim either way was cancelled
-after a claim (below): it is not admitted again until its snapshot changes,
-though the hold it started is gone. The hold, the count and the
+the count. A let-go graph whose cancel raced an executor's claim, either way,
+is admitted again at once as a new graph, with no hold: the cancel was the
+scheduler's own and the claim proves an executor exists, so the conversation
+is not skipped (`graph_let_go_raced`, with the graph id and the
+conversation's position in `DELPHI_SHADOW_GRAPH_CONVERSATIONS`, never its
+code). If the node the executor claimed died before the next poll, that is an
+ordinary failure instead (below). The hold, the count and the
 let-go graphs are kept in the scheduler state (`graph_unclaimed`), so a
 restart keeps them. Each graph admitted again adds its rows to the database,
 as any graph does, and counts against the shadow's storage budget.
@@ -509,14 +513,15 @@ graphs, while each had every node cancelled and none ever claimed, stopping
 at the first claimed one), and no hold is in force until the next let-go, as
 after a new code version: the build that let the last one go is not known.
 
-A graph cancelled after an executor claimed it follows one rule, whether the
-scheduler watched it to its end or finds it in the database (its newest
-fully cancelled graph of the snapshot was claimed, and the state does not
-remember the snapshot: a lost state file, or a snapshot that changed and
-came back). Such a graph is one whose claimed node was then cancelled (by a
-person, or at the job deadline while it ran), or a let-go graph whose cancel
-raced an executor's claim, including one whose claimed node then ended
-before the next poll. The scheduler writes one line on standard error
+A graph cancelled after an executor claimed it, when the cancel was not the
+scheduler's own let-go, follows one rule: one whose claimed node was cancelled
+by a person, or at the job deadline while it ran, in a graph the scheduler
+watched. The same rule applies to a fully cancelled graph with a claim on
+record that the scheduler finds only in the database, with no record of it
+in its state (a lost state file, or a snapshot that changed and came back).
+That includes the scheduler's own let-go whose cancel raced a claim, once the
+state that knew it was lost: the database cannot tell it from a person's
+cancel, so it is treated as one. The scheduler writes one line on standard error
 beginning `Error:` that names the graph, the conversation's position in
 `DELPHI_SHADOW_GRAPH_CONVERSATIONS` ("entry 2", counting each code once, as
 the list's parser names an entry it refuses) and the reason,
@@ -530,8 +535,9 @@ claim proves an executor exists, and because one conversation must not hold
 up every other; no retry, because a person's cancel should stand and a graph
 cancelled at the job deadline would most likely overrun it again. A graph
 whose node died (`dead`) and whose remaining nodes the scheduler then
-cancelled is an ordinary failure: counted failed, not admitted again until
-its snapshot changes, no hold, and no such line.
+cancelled, a let-go whose claimed node died included, is an ordinary
+failure: counted failed, not admitted again until its snapshot changes, no
+hold, and no such line (the node's own line says it died).
 
 Publication of a finished graph is tried once per poll, up to three times,
 the count kept in the scheduler state; a transient failure keeps the graph
