@@ -18,6 +18,8 @@ default = []
 # Integration tests that need a throwaway PostgreSQL 17 (see README, "polis-jobs").
 # With the feature on, a missing POLIS_JOBS_TEST_DATABASE_URL fails the run.
 jobs-integration = []
+# Compile the local graph reference adapters only into explicit test binaries.
+graph-test-models = []
 
 [dependencies]
 anyhow = "1"

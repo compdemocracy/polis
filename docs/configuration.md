@@ -388,3 +388,69 @@ translate strings can be found in: `client-participation/js/strings/en_us.js`
 The current sender uses AWS SES ([senders.ts:1](../server/src/email/senders.ts#L1)). `EMAIL_TRANSPORT_TYPES` and Mailgun names still have config reads, but that alone does not mean the current sender selects a Mailgun transport. Follow the sender implementation and the [service inventory](deployment-configuration.md).
 
 Source-only server entry points that skip the build use the root `VERSION` read once at startup. Without generated metadata, `/api/v3/version` reports `<VERSION>+dev.unknown.unknown`, commit `unknown`, distance `null`, channel `development`, and source `unverified-archive`. Normal build, watch, and npm test entry points still generate and embed the build identity first.
+
+### Embedding model selection by result environment
+
+`DELPHI_EMBED_MODEL_BY_ENV` is an optional JSON object mapping each result
+namespace to an exact model identity from `polis-jobs graph-registry`. Unset
+preserves the full pipeline's existing selection and the shadow graph's granite
+default. A setting for one namespace does not change another. In the full
+pipeline an explicit mapping takes precedence over `SENTENCE_TRANSFORMER_MODEL`;
+it must still match the offline directory's verified lock. A graph's model must
+also be reported by its actual image before admission. Unknown names and absent
+models refuse; there is no fallback to a different model. Installing another
+model in an image never selects it. The current image carries one offline
+embedding model; multiple models require a future image and corresponding
+registry implementations before any setting can select them.
+
+The deployment check validates the mapping's shape. The typed admission and
+worker check the implementation and producing artifact schemas. Model selection
+changes no historical result and enables no graph conversation list.
+
+### Same-host graph executor and recovery
+
+`DELPHI_SHADOW_GRAPH_ENABLED=1` selects the `delphi-shadow-graph` service on
+Delphi deployments. For local Compose, enable the `delphi-shadow-graph` profile
+as well as `delphi-shadow`. The conversation list still decides new admissions;
+clearing it stops new graphs but leaves recovery active for retained state.
+The default is disabled. No other service changes when this profile is off.
+
+The graph executor runs as PID 1 in a private namespace, one graph step at a
+time, offline with the same pinned model directory and lock. It receives
+`DELPHI_EMBED_MODEL_BY_ENV` exactly as the scheduler does, which decides each
+graph's model at admission; the deploy check refuses the two differing. Its named local
+volume contains the attempt journal and a binding to `/etc/machine-id` from
+that host. On a host without that file, create a persistent, unique host identity
+file once, and name its absolute path in `DELPHI_SHADOW_GRAPH_HOST_ID_FILE`.
+The file must already exist; never copy the identity together with the journal.
+This is an operator-maintained host identity, not hardware attestation.
+Retain the volume across container replacement. Never copy it to
+another host or share it between hosts. The daemon refuses a journal bound to
+another host, or old entries without that binding. Two daemons cannot hold the
+same journal lock. On the same host, replacement of the PID 1 container kills
+its namespace's processes; a host reboot kills the prior boot's processes.
+A daemon restart in the same namespace needs both its recorded daemon and
+child process group gone. A missing process-group record is not exit proof.
+
+The scheduler cancels overdue graphs at `DELPHI_SHADOW_JOB_DEADLINE_SECONDS`
+(default 14400). It keeps their scopes held and polls recovery in the background;
+other conversations may resume full-pipeline work. The same conversation stays
+excluded while its graph scope is held. A lost host or volume cannot supply exit
+proof: `graph_recovery_pending` means just that, never successful recovery.
+Database recovery errors stop admissions until the database can be read again.
+
+The default ceilings are 16 GiB for the full-pipeline daemon, 6 GiB for the graph
+executor (`DELPHI_SHADOW_GRAPH_CONTAINER_MEMORY`), and 256 MiB for the scheduler:
+22.25 GiB total, plus math, database, web services and the operating system.
+Resident memory in both daemons counts even when admissions are serial. Recovery
+may overlap an unknown old graph with work for another conversation; provision
+for both ceilings. Each daemon has a 2-CPU cap by default; the graph executor's
+setting is `DELPHI_SHADOW_GRAPH_CONTAINER_CPUS`. CPU weight and OOM priority make
+this optional work yield first; they do not reserve capacity for participation.
+
+State written by the previous release loads with empty recovery fields. When no
+graph has been enabled, state serialization and full-pipeline behavior are
+unchanged. Before rolling back, drain every graph, including deferred graphs,
+and verify its scope was released. Older schedulers ignore the new deferred
+fields and cannot enforce those exclusions. Do not remove scheduler state or a
+journal to force progress.

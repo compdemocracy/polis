@@ -7,6 +7,7 @@ use super::{
     scheduler::{Scheduler, log},
     storage,
 };
+use crate::job_graph_contract::{Image, Model};
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -25,12 +26,15 @@ const INCLUDED: &str = "NOT EXISTS (SELECT 1 FROM report_comment_selections r WH
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Observation {
+    #[serde(default)]
+    pub rule: String,
     pub comments: i64,
     pub last_modified: i64,
 }
-impl From<&Live> for Observation {
-    fn from(c: &Live) -> Self {
+impl Observation {
+    fn new(c: &Live, build: &str) -> Self {
         Self {
+            rule: format!("graph-admission/2:{build}"),
             comments: c.comments,
             last_modified: c.last_modified,
         }
@@ -61,7 +65,12 @@ pub fn listed(db: &Db<'_>, codes: &[String]) -> Result<Vec<Live>> {
     })
 }
 
-pub const MODEL: &str = "ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384";
+pub fn default_model() -> Result<&'static str> {
+    Ok(&Model::Granite
+        .definition()
+        .map_err(anyhow::Error::msg)?
+        .model)
+}
 pub fn scope(zid: i32) -> String {
     format!("shadow-graph:{zid}")
 }
@@ -78,6 +87,7 @@ pub struct Config {
     pub env: String,
     pub app: PathBuf,
     pub python: String,
+    pub embedding_model: String,
 }
 impl Config {
     pub fn load(
@@ -102,7 +112,29 @@ impl Config {
                 "DELPHI_SHADOW_GRAPH_ENV must be a distinct shadow env".into(),
             ));
         }
+        let names: BTreeMap<String, String> = serde_json::from_str(
+            &get("DELPHI_EMBED_MODEL_BY_ENV")
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "{}".into()),
+        )
+        .map_err(|_| {
+            ConfigError("DELPHI_EMBED_MODEL_BY_ENV must map environments to model names".into())
+        })?;
+        let embedding_model = names.get(&env).cloned().unwrap_or(
+            default_model()
+                .map_err(|_| ConfigError("embedding registry invalid".into()))?
+                .into(),
+        );
+        let definition = Model::named(&embedding_model)
+            .and_then(|m| m.definition())
+            .map_err(ConfigError)?;
+        if definition.step != crate::job_graph_contract::Step::Embeddings {
+            return Err(ConfigError(
+                "selected model does not produce embeddings".into(),
+            ));
+        }
         Ok(Some(Self {
+            embedding_model,
             codes,
             env,
             app: get("DELPHI_APP_PATH")
@@ -189,6 +221,7 @@ fn provenance_identity(cfg: &Config) -> Result<String> {
         cfg.app.join("scripts"),
         cfg.app.join("umap_narrative"),
         cfg.app.join("polismath/embedding_model.py"),
+        cfg.app.join("polismath/job-models.json"),
     ] {
         if path.exists() {
             visit(&path, &mut rows)?;
@@ -252,6 +285,7 @@ fn provenance(cfg: &Config) -> Result<Value> {
     let mut c = Command::new(&cfg.python);
     c.env_clear()
         .env("PYTHONDONTWRITEBYTECODE", "1")
+        .env("DELPHI_RESULT_ENV", &cfg.env)
         .arg(cfg.app.join("scripts/graph_provenance.py"));
     for key in [
         "PATH",
@@ -259,6 +293,7 @@ fn provenance(cfg: &Config) -> Result<Value> {
         "PYTHONPATH",
         "DELPHI_EMBED_MODEL_PATH",
         "DELPHI_EMBED_MODEL_LOCK",
+        "DELPHI_EMBED_MODEL_BY_ENV",
     ] {
         if let Some(value) = std::env::var_os(key) {
             c.env(key, value);
@@ -267,29 +302,29 @@ fn provenance(cfg: &Config) -> Result<Value> {
     let bytes = bounded_output(c, Duration::from_secs(120))?;
     ensure!(bytes.len() <= 4096, "graph_provenance_output_bound");
     let v: Value = serde_json::from_slice(&bytes)?;
-    ensure!(v["model"] == MODEL, "graph_model_mismatch");
+    ensure!(v["model"] == cfg.embedding_model, "graph_model_mismatch");
     Ok(v)
 }
 pub fn spec(s: &Snapshot, sha: &str, provenance: &Value) -> Result<Value> {
     let mut nodes = Vec::new();
     for (i, stage) in STAGES.iter().enumerate() {
         let model = [
-            MODEL,
-            "delphi-umap-evoc/1",
-            "delphi-tfidf-keywords/1",
-            "delphi-keyword-labels/1",
+            Model::named(provenance["model"].as_str().unwrap_or(default_model()?))
+                .map_err(anyhow::Error::msg)?,
+            Model::UmapEvoc,
+            Model::TfidfKeywords,
+            Model::KeywordLabels,
         ][i];
         let inputs = if i == 0 {
             json!([])
         } else {
             json!([{"node":STAGES[i-1],"role":(["","embeddings","clusters","topics"][i])}])
         };
-        nodes.push(json!({"key":stage,"stage":stage,"class":"delphi","max_attempts":3,"inputs":inputs,
-            "declared":{"snapshot":{"data":{"texts":s.texts},"sha256":sha},
-              "code":provenance["code"],"runtime":provenance["runtime"],"model":model,"seed":42,
+        nodes.push(crate::job_graph_contract::node(stage, model, json!({"snapshot":{"data":{"texts":s.texts},"sha256":sha},
+              "code":provenance["code"],"runtime":provenance["runtime"],"seed":42,
               "mode":"full","memory_bytes":4294967296_u64,"work_units":s.ids.len(),
               "config":{"comment_ids":s.ids,"adapter_sha256":provenance["adapter_sha256"],"model_sha256":provenance["model_sha256"],
-                        "shadow":{"comments":s.ids.len(),"graph_snapshot_sha256":s.digest}}}}));
+                        "shadow":{"comments":s.ids.len(),"graph_snapshot_sha256":s.digest}}}), inputs, 3).map_err(anyhow::Error::msg)?);
     }
     let v = json!({"schema":"polis-job-graph/1","nodes":nodes});
     bound(
@@ -303,28 +338,48 @@ impl Scheduler<'_> {
     /// Recover the latest unpublished or live graph before another admission.
     /// Only ids, digests and counts leave SQL; no snapshot text is returned.
     pub(super) fn recover_graph(&mut self) -> Result<()> {
-        let Some(cfg) = self.cfg.graph.as_ref() else {
-            return Ok(());
-        };
+        if let Some(cfg) = self.cfg.graph.as_ref()
+            && !self.state.graph_recovery_envs.contains(&cfg.env)
+        {
+            self.state.graph_recovery_envs.push(cfg.env.clone());
+            // Persist the recovery domain before any admission can commit.
+            self.state.save(&self.cfg.state_path)?;
+        }
+        if let Some(f) = &self.state.graph_flight
+            && !self.state.graph_recovery_envs.contains(&f.env)
+        {
+            self.state.graph_recovery_envs.push(f.env.clone());
+        }
         if self.state.graph_flight.is_some() {
             return Ok(());
         }
-        let recovered=self.db.read(|tx| {
-            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&cfg.env])?;
+        let deferred: Vec<String> = self
+            .state
+            .graph_deferred
+            .iter()
+            .map(|f| f.graph_id.clone())
+            .collect();
+        for env in self.state.graph_recovery_envs.clone() {
+            let recovered=self.db.read(|tx| {
+            let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs WHERE env=$1 AND scope_key='shadow-graph:'||zid::text ORDER BY zid,created_at DESC", &[&env])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
-            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id)))", &[&cfg.env])?;
+            let row=tx.query_opt("SELECT g.graph_id::text,g.zid, (extract(epoch FROM g.created_at)*1000)::bigint, coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}'), (g.request #>> '{nodes,0,declared,config,shadow,comments}')::bigint, (g.request #>> '{nodes,0,declared,config,shadow,expected_generation}')::bigint FROM delphi_graphs g WHERE g.env=$1 AND NOT (g.graph_id::text=ANY($2::text[])) AND g.scope_key='shadow-graph:'||g.zid::text AND (g.request #>> '{nodes,0,declared,config,shadow,comments}') IS NOT NULL AND NOT EXISTS (SELECT 1 FROM delphi_graphs newer WHERE newer.env=g.env AND newer.scope_key='shadow-graph:'||newer.zid::text AND newer.created_at>g.created_at) AND (EXISTS (SELECT 1 FROM delphi_job_guards d WHERE d.env=g.env AND d.root_job_id=g.root_job_id) OR (NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'succeeded') AND NOT EXISTS (SELECT 1 FROM delphi_graph_served s JOIN delphi_artifacts a USING(env,artifact_id) JOIN delphi_graph_nodes n USING(env,job_id) WHERE s.env=g.env AND n.graph_id=g.graph_id))) ORDER BY g.created_at,g.graph_id LIMIT 1", &[&env,&deferred])?;
             let Some(r)=row else { return Ok((seen,None)); };
             let graph_id:String=r.try_get(0)?;
             let mut nodes=Vec::new();
-            for n in tx.query("SELECT n.job_id::text,n.run_id::text,q.stage FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key", &[&cfg.env,&graph_id])? {
+            for n in tx.query("SELECT n.job_id::text,n.run_id::text,q.stage FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid ORDER BY n.node_key", &[&env,&graph_id])? {
                 nodes.push(Node {job_id:n.try_get(0)?,run_id:n.try_get(1)?,stage:n.try_get(2)?});
             }
             ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
-            Ok((seen,Some(Flight {env:cfg.env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
+            Ok((seen,Some(Flight {env:env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes})))
         })?;
-        self.state.graph_seen.extend(recovered.0);
-        self.state.graph_flight = recovered.1;
+            self.state.graph_seen.extend(recovered.0);
+            self.state.graph_flight = recovered.1;
+            if self.state.graph_flight.is_some() {
+                break;
+            }
+        }
         Ok(())
     }
 
@@ -334,6 +389,9 @@ impl Scheduler<'_> {
         let Some(cfg) = self.cfg.graph.as_ref() else {
             return Ok(false);
         };
+        if !self.state.graph_deferred.is_empty() {
+            return Ok(false);
+        }
         let cfg = cfg.clone();
         let listed = listed(&self.db, &cfg.codes)?;
         let counts = (cfg.codes.len(), listed.len());
@@ -342,7 +400,7 @@ impl Scheduler<'_> {
             self.graph_list_counts = Some(counts);
         }
         for candidate in listed {
-            let observed = Observation::from(&candidate);
+            let observed = Observation::new(&candidate, &self.cfg.code_version);
             if self.state.graph_observed.get(&candidate.zid) == Some(&observed) {
                 continue;
             }
@@ -389,17 +447,19 @@ impl Scheduler<'_> {
             "graph_refused",
             json!({"reason":reason,"comments":candidate.comments}),
         );
-        self.state
-            .graph_observed
-            .insert(candidate.zid, Observation::from(candidate));
+        self.state.graph_observed.insert(
+            candidate.zid,
+            Observation::new(candidate, &self.cfg.code_version),
+        );
     }
 
     fn admit_graph_candidate(&mut self, cfg: &Config, candidate: &Live, now: i64) -> Result<bool> {
         let s = snapshot(&self.db, candidate.zid)?;
         if self.state.graph_seen.get(&candidate.zid) == Some(&s.digest) {
-            self.state
-                .graph_observed
-                .insert(candidate.zid, Observation::from(candidate));
+            self.state.graph_observed.insert(
+                candidate.zid,
+                Observation::new(candidate, &self.cfg.code_version),
+            );
             return Ok(false);
         }
         // Four jobs plus all three inline copies per node. Charge the
@@ -472,13 +532,17 @@ impl Scheduler<'_> {
             return Ok(false);
         }
         let key = crate::jobs::sha256_hex(format!("{}:{specification}", candidate.zid).as_bytes());
-        let reply: String = client
-            .query_one(
-                "SELECT public.pd_graph_admit($1,$2,$3,$4,$5::text::jsonb)::text",
-                &[&cfg.env, &candidate.zid, &graph_scope, &key, &specification],
-            )?
-            .try_get(0)?;
-        let reply: Value = serde_json::from_str(&reply)?;
+        let image: Image = serde_json::from_value(p.clone())?;
+        let reply = crate::jobs::admission::admit(
+            &mut client,
+            &cfg.env,
+            candidate.zid,
+            &graph_scope,
+            &key,
+            serde_json::from_str(&specification)?,
+            &image,
+            None,
+        )?;
         let graph_id = reply["graph_id"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("graph_admission_reply"))?
@@ -531,23 +595,84 @@ impl Scheduler<'_> {
         Ok(true)
     }
 
+    pub(super) fn graph_scope_held(&self, zid: i32) -> Result<bool> {
+        if self.state.graph_recovery_envs.is_empty() {
+            return Ok(false);
+        }
+        self.db.read(|tx| Ok(tx.query_one(
+            "SELECT EXISTS (SELECT 1 FROM delphi_graphs g JOIN delphi_job_guards d ON d.env=g.env AND d.root_job_id=g.root_job_id WHERE g.env=ANY($1::text[]) AND g.zid=$2 AND g.scope_key='shadow-graph:'||g.zid::text)",
+            &[&self.state.graph_recovery_envs, &zid])?.try_get(0)?))
+    }
+
+    pub(super) fn poll_deferred_graph(&mut self, now: i64) -> Result<()> {
+        // One per cycle; rotation keeps recovery polling bounded and fair.
+        if !self.state.graph_deferred.is_empty() {
+            let flight = self.state.graph_deferred[0].clone();
+            self.state.graph_deferred.rotate_left(1);
+            self.watch_graph(flight, now)?;
+        }
+        Ok(())
+    }
+
+    fn defer_graph(&mut self, flight: &Flight, now: i64) {
+        if now.saturating_sub(flight.admitted_at_ms) < self.cfg.job_deadline.as_millis() as i64 {
+            return;
+        }
+        if !self
+            .state
+            .graph_deferred
+            .iter()
+            .any(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_deferred.push(flight.clone());
+            log(
+                "graph_recovery_pending",
+                json!({"graph_id":flight.graph_id,"reason":"wait_bound","scope_held":true}),
+            );
+        }
+        if self
+            .state
+            .graph_flight
+            .as_ref()
+            .is_some_and(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_flight = None;
+        }
+    }
+
     fn log_graph_wait(
         &mut self,
         flight: &Flight,
         now: i64,
         states: &BTreeMap<String, (String, f64)>,
         scope_held: bool,
-    ) {
+    ) -> Result<()> {
         let deadline = (self.cfg.job_deadline.as_millis() as i64).max(1);
         let overdue = (now - flight.admitted_at_ms - deadline).max(0);
         let bucket = overdue / deadline;
         if now - flight.admitted_at_ms >= deadline && self.graph_wait_bucket != Some(bucket) {
+            let unconfirmed: i64 = self.db.read(|tx| Ok(tx.query_one(
+                "SELECT count(*) FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid AND a.process_exit_confirmed_at IS NULL",
+                &[&flight.env, &flight.graph_id])?.try_get(0)?))?;
+            let reason = if states.values().any(|(s, _)| s == "running") {
+                "nodes_active"
+            } else if unconfirmed > 0 {
+                "exit_unconfirmed"
+            } else if states
+                .values()
+                .any(|(s, _)| !matches!(s.as_str(), "succeeded" | "dead" | "cancelled"))
+            {
+                "nodes_active"
+            } else {
+                "reconciliation_pending"
+            };
             log(
                 "graph_waiting",
-                json!({"graph_id":flight.graph_id,"states":states,"scope_held":scope_held,"seconds_overdue":overdue/1000,"reason":"awaiting_exit_proof"}),
+                json!({"graph_id":flight.graph_id,"states":states,"scope_held":scope_held,"seconds_overdue":overdue/1000,"reason":reason,"unconfirmed_attempts":unconfirmed}),
             );
             self.graph_wait_bucket = Some(bucket);
         }
+        Ok(())
     }
 
     pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
@@ -590,10 +715,11 @@ impl Scheduler<'_> {
             .values()
             .all(|(s, _)| matches!(s.as_str(), "succeeded" | "dead" | "cancelled"));
         // A dead producer reconciles its dependent nodes through the daemon.
-        // Never release the scheduler while a child is still running, even
-        // beyond the deadline: otherwise two computations could overlap.
+        // Keep this conversation excluded while execution remains unresolved.
+        // After the deadline, deferred tracking allows other conversations.
         if !terminal {
-            self.log_graph_wait(&flight, now, &states, true);
+            self.log_graph_wait(&flight, now, &states, true)?;
+            self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }
         let mut client = self.db.connect_queue()?;
@@ -606,58 +732,68 @@ impl Scheduler<'_> {
             .try_get(0)?;
         let view: Value = serde_json::from_str(&view)?;
         if view["guard_held"] != false {
-            self.log_graph_wait(&flight, now, &states, true);
+            self.log_graph_wait(&flight, now, &states, true)?;
+            self.defer_graph(&flight, now);
             return Ok(self.cfg.job_poll);
         }
         drop(client);
         let success = states.values().all(|(s, _)| s == "succeeded");
         let mut published = false;
         if success {
-            let result = (|| -> Result<bool> {
-                let leaf = flight
-                    .nodes
-                    .iter()
-                    .find(|n| n.stage == "graph_narrative")
-                    .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
-                let mut client = self.db.connect_queue()?;
-                let r: String = client
-                    .query_one(
-                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)::text",
+            let leaf = flight
+                .nodes
+                .iter()
+                .find(|n| n.stage == "graph_narrative")
+                .ok_or_else(|| anyhow::anyhow!("graph_leaf_missing"))?;
+            // Each retry and every read use a fresh connection, including after
+            // a commit whose reply was lost. No retry follows a definite refusal.
+            for attempt in 0..3 {
+                let result = (|| -> Result<Value> {
+                    let mut client = self.db.connect_queue()?;
+                    let row = client.query_one(
+                        "SELECT public.pd_graph_publish($1,$2::text::uuid,$3::text::uuid,$4)",
                         &[
                             &flight.env,
                             &flight.graph_id,
                             &leaf.job_id,
                             &flight.generation,
                         ],
-                    )?
-                    .try_get(0)?;
-                let r: Value = serde_json::from_str(&r)?;
-                published = r["outcome"] == "published";
-                // On restart after a lost publish reply, accept only this exact leaf.
-                if !published {
-                    let served: String = client
-                        .query_one(
-                            "SELECT public.pd_graph_served($1,$2,$3)::text",
-                            &[&flight.env, &flight.zid, &scope(flight.zid)],
-                        )?
-                        .try_get(0)?;
-                    let served: Value = serde_json::from_str(&served)?;
-                    published = served["generation"].as_i64() == Some(flight.generation + 1)
-                        && served["bundle"]["artifacts"]
-                            .as_array()
-                            .is_some_and(|a| a.iter().any(|x| x["job_id"] == leaf.job_id));
+                    )?;
+                    Ok(row.try_get(0)?)
+                })();
+                // A publish reply alone does not establish which root is served.
+                let served = (|| -> Result<Value> {
+                    let mut client = self.db.connect_queue()?;
+                    let row = client.query_one(
+                        "SELECT public.pd_graph_served($1,$2,$3)",
+                        &[&flight.env, &flight.zid, &scope(flight.zid)],
+                    )?;
+                    Ok(row.try_get::<_, Option<Value>>(0)?.unwrap_or(Value::Null))
+                })();
+                match served {
+                    Ok(ref value) if exact_leaf(value, &leaf.job_id, flight.generation) => {
+                        published = true;
+                        break;
+                    }
+                    // The outcome is still unknown. Keep the flight and resolve
+                    // it on a later poll; never count an uncertain commit failed.
+                    Err(error) => return Err(error),
+                    _ => {}
                 }
-                Ok(published)
-            })();
-            match result {
-                Ok(value) => published = value,
-                Err(_) => {
-                    log(
-                        "graph_publish_failed",
-                        json!({"graph_id":flight.graph_id,"reason":"publish_error"}),
-                    );
-                    published = false;
+                let retry = result.as_ref().err().is_some_and(publish_transient);
+                if !retry || attempt == 2 {
+                    break;
                 }
+                log(
+                    "graph_publish_retry",
+                    json!({"graph_id":flight.graph_id,"attempt":attempt+1}),
+                );
+            }
+            if !published {
+                log(
+                    "graph_publish_failed",
+                    json!({"graph_id":flight.graph_id,"reason":"publication_not_served"}),
+                );
             }
         }
         let mut bytes = 0u64;
@@ -703,12 +839,59 @@ impl Scheduler<'_> {
             "graph_finished",
             json!({"graph_id":flight.graph_id,"published":published,"bytes":bytes,"graph_row_bytes":graph_bytes}),
         );
-        self.state.graph_flight = None;
+        let deferred = self
+            .state
+            .graph_deferred
+            .iter()
+            .any(|f| f.graph_id == flight.graph_id);
+        self.state
+            .graph_deferred
+            .retain(|f| f.graph_id != flight.graph_id);
+        if self
+            .state
+            .graph_flight
+            .as_ref()
+            .is_some_and(|f| f.graph_id == flight.graph_id)
+        {
+            self.state.graph_flight = None;
+        }
+        if deferred {
+            return Ok(self.cfg.job_poll);
+        }
         self.rest_until_ms = now + plan::rest_ms(self.cfg.duty_cycle, now - flight.admitted_at_ms);
         Ok(Duration::from_millis(
             (self.rest_until_ms - now).max(1000) as u64
         ))
     }
+}
+
+fn publish_transient(error: &anyhow::Error) -> bool {
+    let Some(db) = error.downcast_ref::<postgres::Error>() else {
+        return true;
+    };
+    match db.code().map(|c| c.code()) {
+        None => true,
+        Some(c) => {
+            c.starts_with("08")
+                || matches!(
+                    c,
+                    "40001" | "40P01" | "53300" | "55P03" | "57014" | "57P01" | "57P03"
+                )
+        }
+    }
+}
+
+fn exact_leaf(served: &Value, job: &str, generation: i64) -> bool {
+    served["generation"].as_i64() == generation.checked_add(1)
+        && served["bundle"]["root"].as_str().is_some_and(|root| {
+            served["bundle"]["artifacts"]
+                .as_array()
+                .is_some_and(|artifacts| {
+                    artifacts
+                        .iter()
+                        .any(|a| a["artifact_id"] == root && a["job_id"] == job)
+                })
+        })
 }
 
 /// Additional graph rows, indexed by this job. The root pays the graph request
@@ -772,6 +955,21 @@ mod tests {
         Ok(())
     }
     #[test]
+    fn embedding_selection_is_per_environment_and_explicit() -> Result<()> {
+        for (selection, expected) in [("{}".to_owned(), default_model()?.to_owned()),
+            (json!({"other":Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model}).to_string(), default_model()?.to_owned()),
+            (json!({"shadow-graph-1":Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model}).to_string(), Model::MiniLm.definition().map_err(anyhow::Error::msg)?.model.clone())] {
+            let get = |key: &str| match key {
+                "DELPHI_SHADOW_GRAPH_CONVERSATIONS" => Some("demo1".into()),
+                "DELPHI_EMBED_MODEL_BY_ENV" => Some(selection.clone()),
+                _ => None,
+            };
+            let cfg=Config::load(&get,"shadow-delphi-1").map_err(|e|anyhow::anyhow!(e.0))?.ok_or_else(||anyhow::anyhow!("disabled"))?;
+            assert_eq!(cfg.embedding_model,expected);
+        }
+        Ok(())
+    }
+    #[test]
     fn specification_binds_four_steps_and_refuses_large_input() -> Result<()> {
         let mut s = Snapshot {
             ids: (0..5).collect(),
@@ -781,7 +979,7 @@ mod tests {
         let p = json!({"code":"a".repeat(64),"runtime":"python-3.12.0","adapter_sha256":"b".repeat(64),"model_sha256":"c".repeat(64)});
         let v = spec(&s, &"e".repeat(64), &p)?;
         assert_eq!(v["nodes"].as_array().map(Vec::len), Some(4));
-        assert_eq!(v["nodes"][0]["declared"]["model"], MODEL);
+        assert_eq!(v["nodes"][0]["declared"]["model"], default_model()?);
         assert_eq!(
             v["nodes"][3]["declared"]["model"],
             "delphi-keyword-labels/1"
@@ -790,6 +988,37 @@ mod tests {
         s.texts = vec!["x".repeat(4096); 2000];
         s.ids = (0..2000).collect();
         assert!(spec(&s, &"e".repeat(64), &p).is_err());
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod recovery_tests {
+    use super::*;
+    #[test]
+    fn publication_requires_exact_root_and_generation() {
+        let mut served = json!({"generation": 7,"bundle":{"root":"root","artifacts":[
+            {"artifact_id":"ancestor","job_id":"requested"},
+            {"artifact_id":"root","job_id":"other"}]}});
+        assert!(!exact_leaf(&served, "requested", 6));
+        served["bundle"]["root"] = json!("ancestor");
+        assert!(exact_leaf(&served, "requested", 6));
+        assert!(!exact_leaf(&served, "requested", 5));
+        assert!(!exact_leaf(&Value::Null, "requested", 6));
+    }
+    #[test]
+    fn old_refusal_and_new_code_are_reconsidered() -> Result<()> {
+        let live = Live {
+            zid: 1,
+            comments: 2001,
+            last_modified: 2,
+        };
+        let old: Observation = serde_json::from_value(json!({"comments":2001,"last_modified":2}))?;
+        assert_ne!(old, Observation::new(&live, "build-a"));
+        assert_ne!(
+            Observation::new(&live, "build-a"),
+            Observation::new(&live, "build-b")
+        );
         Ok(())
     }
 }

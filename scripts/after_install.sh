@@ -302,13 +302,20 @@ if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'DELPHI_SHADOW_ENABLED=1' .e
   DELPHI_SHADOW_SELECTED=1
 fi
 
+DELPHI_SHADOW_GRAPH_SELECTED=0
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && grep -qx 'DELPHI_SHADOW_GRAPH_ENABLED=1' .env 2>/dev/null; then
+  DELPHI_SHADOW_GRAPH_SELECTED=1
+fi
+
 # Compose runs the pulled digests: this override sets each service's image, and
 # every `up` below passes --no-build, so nothing is built on this box.
 if [ -n "$ROLE_IMAGES" ]; then
   { echo "services:"
     for image in $ROLE_IMAGES; do printf '  %s:\n    image: %s\n' "$image" "$(image_ref "$image")"; done
     if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
-      for image in delphi-shadow delphi-shadow-scheduler; do
+      SHADOW_IMAGES="delphi-shadow delphi-shadow-scheduler"
+      if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then SHADOW_IMAGES="$SHADOW_IMAGES delphi-shadow-graph"; fi
+      for image in $SHADOW_IMAGES; do
         printf '  %s:\n    image: %s\n' "$image" "$(image_ref delphi)"
       done
     fi
@@ -411,11 +418,21 @@ fi
 # Delphi deploy); the deploy goes on, as it
 # does when the shadow's start fails. Never print config.
 if [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
-  DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r '.services as $s | ($s["delphi-shadow"].environment // {}) as $d | ($s["delphi-shadow-scheduler"].environment // {}) as $c | (($d.QUEUE_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) as $shadow | [(if $shadow then empty else "delphi-shadow.QUEUE_ENV" end), (if ($d.DELPHI_RESULT_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow.DELPHI_RESULT_ENV" end), (if ($s["delphi-shadow"].command // []) == ["polis-delphi-shadow", "daemon"] then empty else "delphi-shadow.command" end), (if $shadow and ($c.DELPHI_SHADOW_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_ENV" end), (if ($c.QUEUE_ENV // "") == ($c.DELPHI_SHADOW_ENV // "") then empty else "delphi-shadow-scheduler.QUEUE_ENV" end), (if (($c.DELPHI_SHADOW_GRAPH_CONVERSATIONS // "") | test("^[,[:space:]]*$")) then empty elif (($c.DELPHI_SHADOW_GRAPH_CONVERSATIONS | split(",") | join(" ") | [splits("[[:space:]]+") | select(length > 0)] | all(test("^[A-Za-z0-9]{1,64}$"))) and (($c.DELPHI_SHADOW_GRAPH_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) and ($c.DELPHI_SHADOW_GRAPH_ENV != $c.DELPHI_SHADOW_ENV)) then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_GRAPH_CONVERSATIONS/DELPHI_SHADOW_GRAPH_ENV" end)] | join(" ")') \
+  DELPHI_SHADOW_SETTINGS_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow config --format json | jq -r '.services as $s | ($s["delphi-shadow"].environment // {}) as $d | ($s["delphi-shadow-scheduler"].environment // {}) as $c | (($d.QUEUE_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) as $shadow | [(if (($c.DELPHI_EMBED_MODEL_BY_ENV // "") == "") then empty elif (try (($c.DELPHI_EMBED_MODEL_BY_ENV | fromjson) | type == "object" and (to_entries | all((.key | test("^[a-z0-9_-]{1,64}$")) and (.value | type == "string" and length > 0)))) catch false) then empty else "delphi-shadow-scheduler.DELPHI_EMBED_MODEL_BY_ENV" end), (if $shadow then empty else "delphi-shadow.QUEUE_ENV" end), (if ($d.DELPHI_RESULT_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow.DELPHI_RESULT_ENV" end), (if ($s["delphi-shadow"].command // []) == ["polis-delphi-shadow", "daemon"] then empty else "delphi-shadow.command" end), (if $shadow and ($c.DELPHI_SHADOW_ENV // "") == ($d.QUEUE_ENV // "") then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_ENV" end), (if ($c.QUEUE_ENV // "") == ($c.DELPHI_SHADOW_ENV // "") then empty else "delphi-shadow-scheduler.QUEUE_ENV" end), (if (($c.DELPHI_SHADOW_GRAPH_CONVERSATIONS // "") | test("^[,[:space:]]*$")) then empty elif (($c.DELPHI_SHADOW_GRAPH_CONVERSATIONS | split(",") | join(" ") | [splits("[[:space:]]+") | select(length > 0)] | all(test("^[A-Za-z0-9]{1,64}$"))) and (($c.DELPHI_SHADOW_GRAPH_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) and ($c.DELPHI_SHADOW_GRAPH_ENV != $c.DELPHI_SHADOW_ENV)) then empty else "delphi-shadow-scheduler.DELPHI_SHADOW_GRAPH_CONVERSATIONS/DELPHI_SHADOW_GRAPH_ENV" end)] | join(" ")') \
     || DELPHI_SHADOW_SETTINGS_WRONG="unreadable"
   if [ -n "$DELPHI_SHADOW_SETTINGS_WRONG" ]; then
     echo "The Delphi shadow's composed settings are not a shadow's ($DELPHI_SHADOW_SETTINGS_WRONG); not starting it" >&2
     DELPHI_SHADOW_SELECTED=0
+  fi
+fi
+
+# A graph executor has its own profile, local journal and resource ceiling.
+# Validate only composed settings; never print the environment document.
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
+  if ! sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-shadow-graph config --format json | python3 scripts/check-shadow-graph.py; then
+    echo "The graph shadow's composed settings are invalid; not starting either shadow" >&2
+    DELPHI_SHADOW_SELECTED=0
+    DELPHI_SHADOW_GRAPH_SELECTED=0
   fi
 fi
 
@@ -689,6 +706,10 @@ fi
 # among them) see a Delphi-only block, not a start on the web boxes.
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
+  if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
+    "${COMPOSE[@]}" up -d delphi-shadow-graph --no-build --force-recreate \
+      || echo "The graph shadow did not start; recovery remains pending" >&2
+  fi
   "${COMPOSE[@]}" up -d delphi-shadow delphi-shadow-scheduler --no-build --force-recreate \
     || echo "The Delphi shadow did not start; the deploy continues without it" >&2
 fi

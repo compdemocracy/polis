@@ -21,6 +21,7 @@ import time
 import uuid
 from urllib.parse import unquote, urlsplit, urlunsplit
 
+from polismath.embedding_model import DEFAULT_IDENTITY
 from . import codec, legacy_import as legacy, scan_pacing
 from .embedding_spool import MAX_DIMS, MAX_SPOOL_BYTES, write_spool
 
@@ -39,8 +40,7 @@ FOLLOW_UP = 'follow-up.json'
 # Kept in step with queue-rs embedding::MODEL_MINILM and the migrations' rows.
 EMBEDDINGS_FAMILY = 'Delphi_CommentEmbeddings'
 SEEDED_EMBEDDING_MODEL = 'sentence-transformers/all-MiniLM-L6-v2'
-GRANITE_EMBEDDING_MODEL = (
-    'ibm-granite/granite-embedding-311m-multilingual-r2@44399559930365213510b1ee2eb15ded83374f0e:384')
+GRANITE_EMBEDDING_MODEL = DEFAULT_IDENTITY
 EMBEDDING_MODEL_ALIASES = {
     'all-MiniLM-L6-v2': SEEDED_EMBEDDING_MODEL,
     SEEDED_EMBEDDING_MODEL: SEEDED_EMBEDDING_MODEL,

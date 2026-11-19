@@ -1,0 +1,74 @@
+[
+  {
+    "id": "TokenCount",
+    "step": "embeddings",
+    "stage": "graph_embed",
+    "model": "local-token-count/1",
+    "adapter": "reference",
+    "inputs": [],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "NearestCentroid",
+    "step": "clusters",
+    "stage": "graph_cluster",
+    "model": "local-nearest-centroid/1",
+    "adapter": "reference",
+    "inputs": [
+      {
+        "role": "embeddings",
+        "producer": "embeddings"
+      }
+    ],
+    "classes": [
+      "delphi",
+      "large"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "ClusterSummary",
+    "step": "labels",
+    "stage": "graph_narrative",
+    "model": "local-cluster-summary/1",
+    "adapter": "reference",
+    "inputs": [
+      {
+        "role": "clusters",
+        "producer": "clusters"
+      }
+    ],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  },
+  {
+    "id": "NarrativeFixture",
+    "step": "labels",
+    "stage": "graph_narrative",
+    "model": "local-narrative-fixture/1",
+    "adapter": "numerical",
+    "inputs": [
+      {
+        "role": "topics",
+        "producer": "keywords"
+      }
+    ],
+    "classes": [
+      "delphi"
+    ],
+    "memory_bytes": 4294967296,
+    "work_units_max": 10000,
+    "max_attempts": 10
+  }
+]

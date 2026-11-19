@@ -403,3 +403,16 @@ def test_the_carried_model_at_384_is_its_768_output_sliced_and_renormalized(monk
     assert ours.shape == (len(texts), 384)
     np.testing.assert_allclose(np.linalg.norm(ours, axis=1), 1.0, atol=1e-6)
     np.testing.assert_allclose(ours, sliced, rtol=0, atol=1e-6)
+
+
+def test_explicit_environment_default_retains_locked_by_name_load(monkeypatch):
+    import json
+    from polismath import embedding_model as model
+    monkeypatch.delenv('DELPHI_EMBED_MODEL_PATH', raising=False)
+    monkeypatch.delenv('SENTENCE_TRANSFORMER_MODEL', raising=False)
+    monkeypatch.setenv('DELPHI_RESULT_ENV', 'shadow-example')
+    monkeypatch.setenv('DELPHI_EMBED_MODEL_BY_ENV', json.dumps({'shadow-example': model.DEFAULT_IDENTITY}))
+    resolved = model.resolve()
+    assert resolved.arg == model.DEFAULT_MODEL
+    assert resolved.model == model.DEFAULT_IDENTITY
+    assert resolved.lock and resolved.revision == model.DEFAULT_REVISION
