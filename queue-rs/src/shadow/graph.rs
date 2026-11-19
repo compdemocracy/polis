@@ -74,8 +74,8 @@ pub struct LetGo {
 
 /// The admission key: the conversation and the specification, and, after a
 /// graph of that snapshot was let go as unclaimed, that graph. Without the
-/// last part, `pd_graph_admit` would answer the same snapshot's admission
-/// with the cancelled graph.
+/// last part, the admission function would answer the same snapshot's
+/// admission with the cancelled graph (`existing`, for the same key).
 fn admission_key(zid: i32, specification: &str, after: Option<&str>) -> String {
     crate::jobs::sha256_hex(
         match after {
