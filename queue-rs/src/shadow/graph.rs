@@ -1498,6 +1498,31 @@ mod recovery_tests {
         assert_eq!(hours, [1, 1, 2, 4, 8, 16, 24, 24, 24, 24]);
     }
     #[test]
+    fn the_let_go_record_keeps_256_conversations_and_never_drops_the_one_let_go() {
+        let mut u = Unclaimed::default();
+        for zid in 0..300 {
+            u.remember(
+                zid,
+                LetGo {
+                    graph_id: format!("graph-{zid}"),
+                    digest: "d".into(),
+                },
+            );
+            assert!(u.graphs.contains_key(&zid), "{zid} was just let go");
+            assert_eq!(u.graphs.len(), (zid as usize + 1).min(256));
+        }
+        // A conversation already kept is remembered again in place.
+        u.remember(
+            299,
+            LetGo {
+                graph_id: "graph-299-again".into(),
+                digest: "e".into(),
+            },
+        );
+        assert_eq!(u.graphs.len(), 256);
+        assert_eq!(u.graphs[&299].graph_id, "graph-299-again");
+    }
+    #[test]
     fn a_let_go_snapshot_gets_a_new_key_and_every_other_keeps_its_own() {
         // The key of every admission that follows no let-go is the one the
         // scheduler always used, so a graph admitted before this code is

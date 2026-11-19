@@ -3005,12 +3005,17 @@ enum Race {
     /// After the read that found no attempt and before the cancel, which
     /// then wins: the node is cancelled with the claim's attempt on record.
     CancelWins,
+    /// Between the cancel's read of the node's management version and the
+    /// cancel, which then loses (`conflict`): the node runs.
+    ClaimWins,
 }
 
 /// Replace one queue function of the disposable database so that its first
 /// call claims the `graph_embed` node as an executor would (the claim is
-/// kept in `raced_claim`), then runs the original: with `CancelWins`, the
-/// cancel's read of a node's management version (`pq_job_status`).
+/// kept in `raced_claim`), then runs the original. With `CancelWins` it is
+/// the cancel's read of a node's management version (`pq_job_status`); with
+/// `ClaimWins`, the cancel of the `graph_embed` node itself (`pq_cancel`),
+/// which then holds a version the claim has moved on.
 fn claim_races_the_let_go(f: &Fixture, race: Race) {
     let claim = |condition: &str| {
         format!(
@@ -3025,6 +3030,14 @@ fn claim_races_the_let_go(f: &Fixture, race: Race) {
              BEGIN {} RETURN status_before_race(p_env,p_job); END $$;
              GRANT EXECUTE ON FUNCTION pq_job_status(text,uuid) TO polis_queue_executor;",
             claim("")
+        ),
+        Race::ClaimWins => format!(
+            "ALTER FUNCTION pq_cancel(text,uuid,bigint) RENAME TO cancel_before_race;
+             CREATE FUNCTION pq_cancel(p_env text,p_job uuid,p_version bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+             DECLARE c jsonb; o uuid := gen_random_uuid(); a uuid := gen_random_uuid();
+             BEGIN {} RETURN cancel_before_race(p_env,p_job,p_version); END $$;
+             GRANT EXECUTE ON FUNCTION pq_cancel(text,uuid,bigint) TO polis_queue_executor;",
+            claim(" AND EXISTS (SELECT 1 FROM polis_queue_jobs WHERE env=p_env AND job_id=p_job AND stage='graph_embed')")
         ),
     };
     f.superuser()
@@ -3373,4 +3386,158 @@ fn a_snapshot_let_go_that_changes_is_let_go_again_and_comes_back_is_a_new_graph_
         first.graph_id.as_str()
     );
     assert_eq!(graphs_of(&f, &first.env, 1131), 3);
+}
+
+#[test]
+fn a_claim_that_beats_the_cancel_of_the_let_go_graph_resets_the_count_and_holds_nothing() {
+    // The executor's claim lands between the cancel's read of the node's
+    // version and the cancel, which loses: the let-go graph's node runs.
+    // That is a claim seen in the env: the count goes to zero at once, and a
+    // count of zero holds nothing, though the let-go was a moment ago.
+    let f = Fixture::new();
+    f.quiet(1141, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1141")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    claim_races_the_let_go(&f, Race::ClaimWins);
+    s.state.graph_flight.as_mut().unwrap().admitted_at_ms -= 601_000;
+    s.cycle().unwrap();
+    assert_eq!(unclaimed(&s, &flight.env)["count"], 1, "let go");
+    let states = graph_states(&f, &flight);
+    assert_eq!(
+        states.iter().filter(|st| *st == "running").count(),
+        1,
+        "{states:?}"
+    );
+    assert_eq!(
+        states.iter().filter(|st| *st == "cancelled").count(),
+        3,
+        "{states:?}"
+    );
+    s.cycle().unwrap();
+    assert_eq!(
+        unclaimed(&s, &flight.env)["count"],
+        0,
+        "the claim resets the count"
+    );
+    assert_eq!(graph_states(&f, &flight), ["cancelled"; 4]);
+    confirm_raced_exit(&f);
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let next = s
+        .state
+        .graph_flight
+        .clone()
+        .expect("no hold at a count of zero");
+    assert_ne!(next.graph_id, flight.graph_id);
+    assert_eq!(next.digest, flight.digest);
+}
+
+#[test]
+fn a_returning_snapshot_names_only_its_own_let_go_graph_in_its_key() {
+    // Snapshot one is let go; snapshot two runs and its publication is given
+    // up; snapshot three is let go, so the record names snapshot three's
+    // graph. When snapshot two comes back, its admission key must be its
+    // own (it is answered with its finished graph, and nothing is computed
+    // again), whatever graph the record names for another snapshot of the
+    // conversation. (That graph cannot be published now: snapshot three's
+    // newer graph supersedes it, as `pd_graph_publish` requires.)
+    let f = Fixture::new();
+    f.quiet(1151, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1151")]);
+    let two = "generated comment 0 of conversation 1151, two";
+    let three = "generated comment 0 of conversation 1151, three";
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let first = let_go_unclaimed(&f, &mut s);
+    edit_first_comment(&f, 1151, two);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let ran = s.state.graph_flight.clone().unwrap();
+    assert_ne!(ran.digest, first.digest);
+    finish_graph(&f, &ran);
+    publication_fails_first(&f, 1_000_000);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(publish_calls(&f), 3, "given up");
+    edit_first_comment(&f, 1151, three);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    let third = let_go_unclaimed(&f, &mut s);
+    assert!(third.digest != ran.digest && third.digest != first.digest);
+    assert_eq!(
+        unclaimed(&s, &first.env)["graphs"]["1151"]["graph_id"],
+        third.graph_id.as_str()
+    );
+    publication_restored(&f);
+    edit_first_comment(&f, 1151, two);
+    age_hold(&mut s, &first.env, 3_601_000);
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    assert_eq!(
+        s.state.graph_flight.as_ref().map(|g| g.graph_id.clone()),
+        Some(ran.graph_id.clone()),
+        "its own finished graph, not a new one"
+    );
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(attempts_of(&f, &ran), 4, "nothing computed twice");
+    assert_eq!(graphs_of(&f, &first.env, 1151), 3);
+}
+
+#[test]
+fn a_graph_cancelled_after_a_claim_while_watched_is_counted_failed_and_not_let_go() {
+    // Claimed, then cancelled by a person while its first node runs: the
+    // scheduler watching it has the whole story. It is a failure, not a
+    // graph nothing claimed: not let go, its snapshot remembered as seen.
+    let f = Fixture::new();
+    f.quiet(1161, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c1161")]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.graph_flight.clone().unwrap();
+    let mut c = f.superuser();
+    let (owner, attempt) = (Uuid::new_v4().to_string(), Uuid::new_v4().to_string());
+    let claim: Value = c.query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')", &[&flight.env, &owner, &attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    let job = claim["job_id"].as_str().unwrap().to_owned();
+    let epoch: i64 = claim["lease_epoch"].as_str().unwrap().parse().unwrap();
+    for n in &flight.nodes {
+        let status: Value = c
+            .query_one(
+                "SELECT pq_job_status($1,$2::text::uuid)",
+                &[&flight.env, &n.job_id],
+            )
+            .unwrap()
+            .get(0);
+        let version: i64 = status["mgmt_version"].as_str().unwrap().parse().unwrap();
+        c.query_one(
+            "SELECT pq_cancel($1,$2::text::uuid,$3)",
+            &[&flight.env, &n.job_id, &version],
+        )
+        .unwrap();
+    }
+    let done: Value = c.query_one("SELECT pq_end_attempt($1,$2::text::uuid,$3::text::uuid,$4::text::uuid,$5,'confirm_exit',NULL,true)", &[&flight.env, &job, &owner, &attempt, &epoch]).unwrap().get(0);
+    assert_eq!(done["outcome"], "exit_confirmed", "{done}");
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(s.state.totals.failed, 1);
+    assert!(unclaimed(&s, &flight.env).is_null(), "not let go");
+    assert_eq!(s.state.graph_seen.get(&1161), Some(&flight.digest), "seen");
+    s.rest_until_ms = 0;
+    s.cycle().unwrap();
+    s.cycle().unwrap();
+    assert!(s.state.graph_flight.is_none());
+    assert_eq!(graphs_of(&f, &flight.env, 1161), 1);
 }
