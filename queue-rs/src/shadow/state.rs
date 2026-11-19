@@ -116,6 +116,10 @@ pub struct State {
     pub in_flight: Option<InFlight>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub graph_flight: Option<super::graph::Flight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_deferred: Vec<super::graph::Flight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_recovery_envs: Vec<String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub graph_seen: BTreeMap<i32, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -144,6 +148,8 @@ impl State {
             conversations: BTreeMap::new(),
             in_flight: None,
             graph_flight: None,
+            graph_deferred: Vec::new(),
+            graph_recovery_envs: Vec::new(),
             graph_seen: BTreeMap::new(),
             graph_observed: BTreeMap::new(),
             pending_twin: None,

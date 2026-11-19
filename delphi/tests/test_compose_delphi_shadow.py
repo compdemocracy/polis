@@ -238,11 +238,17 @@ def test_the_shadow_yields_cpu_and_memory_to_every_other_service():
     # services included, keeps Docker's default weight and OOM adjustment (or
     # sets a higher weight and a lower adjustment), so under contention the
     # shadow gets the smallest share of a CPU, and when the box runs out of
-    # memory it is killed first.
+    # memory it is killed first. The optional graph executor is shadow work
+    # too: it carries exactly the shadow's weight and OOM adjustment, and every
+    # other service outranks both.
     services, _ = _services()
     shadow = services["delphi-shadow"]
+    shadow_daemons = ("delphi-shadow", "delphi-shadow-graph")
+    for name in shadow_daemons:
+        assert services[name]["cpu_shares"] == shadow["cpu_shares"], name
+        assert services[name]["oom_score_adj"] == shadow["oom_score_adj"], name
     for name, service in services.items():
-        if name == "delphi-shadow":
+        if name in shadow_daemons:
             continue
         assert service.get("cpu_shares", DEFAULT_CPU_SHARES) > shadow["cpu_shares"], name
         assert service.get("oom_score_adj", DEFAULT_OOM_SCORE_ADJ) < shadow["oom_score_adj"], name

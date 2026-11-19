@@ -1811,6 +1811,9 @@ fn graph_scheduler_admits_publishes_and_accepts_only_its_lost_reply() {
                 .unwrap()
                 .get(0);
             assert_eq!(published["outcome"], "published");
+            // The original commit is durable but its reply was lost. A later
+            // publish call may itself fail; the separate root read still wins.
+            f.superuser().batch_execute("ALTER FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RENAME TO publish_before_lost_reply; CREATE FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$ BEGIN RAISE EXCEPTION 'publication reply unavailable' USING ERRCODE='40001'; END $$; GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;").unwrap();
         }
         s.cycle().unwrap();
         assert!(s.state.graph_flight.is_none());
@@ -2004,4 +2007,112 @@ fn typed_admission_resolves_external_producers_with_executor_privileges() {
     )
     .unwrap_err();
     assert_eq!(error.to_string(), "graph_producer_type");
+}
+
+#[test]
+fn lost_graph_attempt_does_not_hold_other_conversations_after_restart_and_list_clear() {
+    let f = Fixture::new();
+    f.quiet(971, 25, 1);
+    f.quiet(972, 25, 1);
+    graph_catalog(&f);
+    let mut cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c971"),
+            ("DELPHI_SHADOW_BENCHMARK", "c971,c972"),
+        ],
+    );
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let flight = scheduler.state.graph_flight.clone().unwrap();
+    let mut c = f.superuser();
+    // A claimed attempt with no exit attestation models a lost journal. No
+    // child is spawned in this database test; it must still remain unproven.
+    let owner = Uuid::new_v4().to_string();
+    let attempt = Uuid::new_v4().to_string();
+    let claim:Value=c.query_one("SELECT pd_graph_claim($1,1::smallint,$2::text::uuid,$3::text::uuid,60,'delphi','graph_embed')",&[&flight.env,&owner,&attempt]).unwrap().get(0);
+    assert_eq!(claim["outcome"], "owned");
+    scheduler.state.save(&cfg.state_path).unwrap();
+    drop(scheduler);
+    cfg.graph = None;
+    cfg.job_deadline = Duration::ZERO;
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    assert!(scheduler.state.graph_flight.is_none());
+    assert_eq!(scheduler.state.graph_deferred.len(), 1);
+    scheduler.state.save(&cfg.state_path).unwrap();
+    drop(scheduler);
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    assert_eq!(scheduler.state.in_flight.as_ref().unwrap().zid, 972);
+    let view: Value = c
+        .query_one(
+            "SELECT pd_graph_view($1,$2::text::uuid)",
+            &[&flight.env, &flight.graph_id],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(view["guard_held"], true);
+    let unconfirmed:i64=c.query_one("SELECT count(*) FROM polis_queue_attempts WHERE env=$1 AND attempt_id=$2::text::uuid AND process_exit_confirmed_at IS NULL",&[&flight.env,&attempt]).unwrap().get(0);
+    assert_eq!(unconfirmed, 1);
+}
+
+#[test]
+fn committed_graph_admission_with_unread_reply_is_recovered_before_full_pipeline() {
+    let f = Fixture::new();
+    f.quiet(981, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(
+        &f,
+        &[
+            ("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c981"),
+            ("DELPHI_SHADOW_BENCHMARK", "c981"),
+        ],
+    );
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let graph_id = scheduler
+        .state
+        .graph_flight
+        .as_ref()
+        .unwrap()
+        .graph_id
+        .clone();
+    // Discard the successful reply as a lost transport reply would do. The
+    // persisted recovery domain precedes admission, even without flight state.
+    scheduler.state.graph_flight = None;
+    scheduler.state.graph_seen.clear();
+    scheduler.cycle().unwrap();
+    assert_eq!(
+        scheduler.state.graph_flight.as_ref().unwrap().graph_id,
+        graph_id
+    );
+    assert!(scheduler.state.in_flight.is_none());
+}
+
+#[test]
+fn transient_publish_before_commit_retries_and_keeps_one_generation() {
+    let f = Fixture::new();
+    f.quiet(991, 25, 1);
+    graph_catalog(&f);
+    let cfg = graph_config(&f, &[("DELPHI_SHADOW_GRAPH_CONVERSATIONS", "c991")]);
+    let mut scheduler = Scheduler::new(&cfg).unwrap();
+    scheduler.cycle().unwrap();
+    let flight = scheduler.state.graph_flight.clone().unwrap();
+    finish_graph(&f, &flight);
+    let mut c = f.superuser();
+    // Sequences survive rollback, so the first call refuses before its commit
+    // and the second exercises the original publication function.
+    c.batch_execute("CREATE SEQUENCE publish_calls; ALTER FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RENAME TO publish_original;
+        CREATE FUNCTION pd_graph_publish(text,uuid,uuid,bigint) RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER AS $$
+        BEGIN IF nextval('publish_calls')=1 THEN RAISE EXCEPTION 'retry' USING ERRCODE='40001'; END IF;
+        RETURN publish_original($1,$2,$3,$4); END $$;
+        GRANT EXECUTE ON FUNCTION pd_graph_publish(text,uuid,uuid,bigint) TO polis_queue_executor;").unwrap();
+    scheduler.cycle().unwrap();
+    assert_eq!(scheduler.state.totals.succeeded, 1);
+    let calls: i64 = c
+        .query_one("SELECT last_value FROM publish_calls", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(calls, 2);
 }

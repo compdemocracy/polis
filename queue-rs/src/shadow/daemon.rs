@@ -167,6 +167,25 @@ pub fn check<F: Fn(&str) -> Option<String>>(get: F) -> Result<String, ConfigErro
                 .into(),
         ));
     }
+    if get("DELPHI_SHADOW_GRAPH_DAEMON").as_deref() == Some("1") {
+        let stages = get("POLIS_JOBS_STAGES").unwrap_or_default();
+        let stages: std::collections::BTreeSet<_> = stages.split(',').collect();
+        let expected: std::collections::BTreeSet<_> =
+            crate::jobs::config::GRAPH_STAGES.iter().copied().collect();
+        if stages != expected
+            || get("POLIS_JOBS_CONCURRENCY").as_deref() != Some("1")
+            || get("POLIS_JOBS_JOURNAL_HOST_FILE").is_none_or(|v| v.is_empty())
+        {
+            return Err(ConfigError(
+                "graph daemon: stages, concurrency or host journal setting".into(),
+            ));
+        }
+        if std::process::id() != 1 {
+            return Err(ConfigError(
+                "graph daemon: requires PID 1 in its private container namespace".into(),
+            ));
+        }
+    }
     Ok(queue)
 }
 
