@@ -4,7 +4,7 @@ use super::{
     config::{ConfigError, Share, benchmark_codes, valid_env},
     db::{Db, Live},
     plan,
-    scheduler::{Scheduler, log},
+    scheduler::{Scheduler, error, log},
     storage,
 };
 use crate::job_graph_contract::{Image, Model};
@@ -37,9 +37,12 @@ pub const UNCLAIMED_DEADLINE: Duration = Duration::from_secs(600);
 /// per hold, never a spin, and a let-go conversation is always admitted
 /// again: at once by a deploy of a new commit, otherwise when the hold ends,
 /// within a day. A deploy of the same commit (a settings fix redeployed)
-/// does not end the hold. A claim seen on any graph the scheduler watches in
-/// the env resets the count (`note_claimed`), the let-go graph itself
-/// included when an executor's claim beats its cancel; nothing else does.
+/// does not end the hold. A claim on any graph the scheduler watches in the
+/// env resets the count: one seen while the graph runs (`note_claimed`), or
+/// one on record when it ends cancelled (`cancelled_after_claim_watched`),
+/// the let-go graph itself included when an executor's claim beat its
+/// cancel; nothing else does. Such a let-go graph was cancelled after a
+/// claim, and is not admitted again until its snapshot changes.
 pub const UNCLAIMED_HOLD: Duration = Duration::from_secs(3600);
 pub const UNCLAIMED_HOLD_MAX: Duration = Duration::from_secs(86_400);
 /// How many let-go conversations an env's record keeps (the bound of the
@@ -105,25 +108,26 @@ pub struct LetGo {
 #[derive(Debug)]
 struct ChainEnd {
     graph_id: String,
-    admitted_at_ms: i64,
     /// A node of it was claimed (an attempt is on record): cancelled after
     /// a claim, not let go as unclaimed.
     claimed: bool,
 }
 
 /// The end of a snapshot's let-go chain: one read on the scheduler's read
-/// connection, ids only. A graph the scheduler lets go always ends with
-/// every node cancelled (a cancel that loses to a claim is made again on
-/// the next poll), so the graph the record names for the snapshot is never
-/// newer than this one.
+/// connection, ids only. A graph the scheduler lets go does not always end
+/// with every node cancelled: an executor's claim can beat the cancel, and
+/// the node it claimed can end (dead, or even succeeded) before the next
+/// poll cancels it. Such a graph is not this snapshot's chain end; it was
+/// cancelled after a claim, and when it ends its entry leaves the record
+/// (`cancelled_after_claim_watched`). So the record names only graphs that
+/// ended fully cancelled with no claim, and never one newer than this.
 fn chain_end(db: &Db<'_>, env: &str, zid: i32, digest: &str) -> Result<Option<ChainEnd>> {
     db.read(|tx| {
-        let row = tx.query_opt("SELECT g.graph_id::text, (extract(epoch FROM g.created_at)*1000)::bigint, EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id) FROM delphi_graphs g WHERE g.env=$1 AND g.zid=$2 AND g.scope_key='shadow-graph:'||g.zid::text AND coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',g.request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}')=$3 AND EXISTS (SELECT 1 FROM delphi_graph_nodes n WHERE n.env=g.env AND n.graph_id=g.graph_id) AND NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'cancelled') ORDER BY g.created_at DESC, g.graph_id DESC LIMIT 1", &[&env, &zid, &digest])?;
+        let row = tx.query_opt("SELECT g.graph_id::text, EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id) FROM delphi_graphs g WHERE g.env=$1 AND g.zid=$2 AND g.scope_key='shadow-graph:'||g.zid::text AND coalesce(g.request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',g.request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}')=$3 AND EXISTS (SELECT 1 FROM delphi_graph_nodes n WHERE n.env=g.env AND n.graph_id=g.graph_id) AND NOT EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'cancelled') ORDER BY g.created_at DESC, g.graph_id DESC LIMIT 1", &[&env, &zid, &digest])?;
         row.map(|r| {
             Ok(ChainEnd {
                 graph_id: r.try_get(0)?,
-                admitted_at_ms: r.try_get(1)?,
-                claimed: r.try_get(2)?,
+                claimed: r.try_get(1)?,
             })
         })
         .transpose()
@@ -148,18 +152,18 @@ fn let_go_run(db: &Db<'_>, env: &str) -> Result<u32> {
     })
 }
 
-/// The code the graph list names a conversation by (the first listed, if
-/// several name it), for an `Error:` line. The graph list may name only
-/// conversations whose comments are already public (docs/configuration.md).
-fn listed_code(db: &Db<'_>, zid: i32, codes: &[String]) -> Result<Option<String>> {
+/// Where the graph list names a conversation: the position, from 1, of the
+/// first of its codes in the list as parsed (each code counted once), as the
+/// list's parser names an entry it refuses. Never the code, which is the
+/// conversation's address. One read, only for an `Error:` line.
+fn listed_position(db: &Db<'_>, zid: i32, codes: &[String]) -> Result<Option<i64>> {
     db.read(|tx| {
         Ok(tx
-            .query_opt(
-                "SELECT z.zinvite FROM zinvites z WHERE z.zid=$1 AND z.zinvite=ANY($2::text[]) ORDER BY array_position($2::text[],z.zinvite) LIMIT 1",
-                &[&zid, &codes],
+            .query_one(
+                "SELECT min(w.ord)::bigint FROM unnest($1::text[]) WITH ORDINALITY w(code,ord) JOIN zinvites z ON z.zinvite=w.code WHERE z.zid=$2",
+                &[&codes, &zid],
             )?
-            .map(|r| r.try_get(0))
-            .transpose()?)
+            .try_get(0)?)
     })
 }
 
@@ -540,8 +544,9 @@ impl Scheduler<'_> {
         for env in self.state.graph_recovery_envs.clone() {
             let recovered=self.db.read(|tx| {
             // A snapshot whose publication was given up is not remembered as
-            // seen, nor one whose graph had every node cancelled (it computed
-            // nothing: a graph let go as unclaimed).
+            // seen, nor one whose graph had every node cancelled (a graph let
+            // go as unclaimed; one cancelled after a claim is found by its
+            // admission, which says so: `cancelled_after_claim`).
             let rows=tx.query("SELECT DISTINCT ON (zid) zid, coalesce(request #>> '{nodes,0,declared,config,shadow,graph_snapshot_sha256}',request #>> '{nodes,0,declared,config,shadow,comment_set_sha256}') FROM delphi_graphs g WHERE env=$1 AND scope_key='shadow-graph:'||zid::text AND NOT (graph_id::text=ANY($2::text[])) AND EXISTS (SELECT 1 FROM delphi_graph_nodes n JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=g.env AND n.graph_id=g.graph_id AND q.state<>'cancelled') ORDER BY zid,created_at DESC", &[&env,&unpublished])?;
             let mut seen=BTreeMap::new();
             for r in rows { if let Some(digest)=r.try_get::<_,Option<String>>(1)? { seen.insert(r.try_get::<_,i32>(0)?,digest); } }
@@ -555,7 +560,16 @@ impl Scheduler<'_> {
             ensure!(nodes.len()==4 && STAGES.iter().all(|s|nodes.iter().filter(|n|n.stage==*s).count()==1),"graph_recovery_shape");
             Ok((seen,Some(Flight {env:env.clone(),graph_id,zid:r.try_get(1)?,admitted_at_ms:r.try_get(2)?,digest:r.try_get(3)?,comments:r.try_get(4)?,generation:r.try_get::<_,Option<i64>>(5)?.unwrap_or(-1),nodes,publish_attempts:0})))
         })?;
-            self.state.graph_seen.extend(recovered.0);
+            // The database fills only what the state does not hold (after a
+            // lost state file); a snapshot the state remembers as seen
+            // stands. A graph cancelled after a claim is seen by the state,
+            // though this read, which skips every graph whose nodes were all
+            // cancelled, names an older snapshot of its conversation if one
+            // ran: overwritten by it, the cancelled snapshot would be found
+            // and said again at the next code version.
+            for (zid, digest) in recovered.0 {
+                self.state.graph_seen.entry(zid).or_insert(digest);
+            }
             self.state.graph_flight = recovered.1;
             if self.state.graph_flight.is_some() {
                 break;
@@ -685,101 +699,110 @@ impl Scheduler<'_> {
     /// that its conversation was seen and observed, so that it is admitted
     /// again (as a new graph) at the next code version or when the hold ends;
     /// say so with the count. Once per graph (it is decided before its
-    /// cancel and seen again when it finishes).
+    /// cancel and seen again when it finishes). If a claim turns out to have
+    /// beaten the cancel, the graph is cancelled after a claim when it ends
+    /// (`cancelled_after_claim_watched`): its entry leaves the record, the
+    /// count starts over, and its snapshot is remembered as seen again.
     fn let_go(&mut self, flight: &Flight, now: i64, reason: &str) {
-        self.let_go_graph(
-            &flight.env,
-            flight.zid,
-            &flight.graph_id,
-            &flight.digest,
-            flight.admitted_at_ms,
-            now,
-            reason,
-        );
-    }
-
-    /// `let_go` for a graph in `env` of conversation `zid`'s snapshot
-    /// `digest`. Returns the count and the hold that follow.
-    #[allow(clippy::too_many_arguments)]
-    fn let_go_graph(
-        &mut self,
-        env: &str,
-        zid: i32,
-        graph_id: &str,
-        digest: &str,
-        admitted_at_ms: i64,
-        now: i64,
-        reason: &str,
-    ) -> (u32, Duration) {
         let rule = rule(&self.cfg.code_version);
-        if self.state.graph_seen.get(&zid).map(String::as_str) == Some(digest) {
-            self.state.graph_seen.remove(&zid);
+        if self.state.graph_seen.get(&flight.zid) == Some(&flight.digest) {
+            self.state.graph_seen.remove(&flight.zid);
         }
-        self.state.graph_observed.remove(&zid);
+        self.state.graph_observed.remove(&flight.zid);
         let u = self
             .state
             .graph_unclaimed
-            .entry(env.to_owned())
+            .entry(flight.env.clone())
             .or_default();
-        if u.graphs.get(&zid).is_some_and(|g| g.graph_id == graph_id) {
-            return (u.count, unclaimed_hold(u.count));
+        if u.graphs
+            .get(&flight.zid)
+            .is_some_and(|g| g.graph_id == flight.graph_id)
+        {
+            return;
         }
         u.count = u.count.saturating_add(1);
         u.at_ms = now;
         u.rule = rule;
         u.remember(
-            zid,
+            flight.zid,
             LetGo {
-                graph_id: graph_id.to_owned(),
-                digest: digest.to_owned(),
+                graph_id: flight.graph_id.clone(),
+                digest: flight.digest.clone(),
             },
         );
-        let (count, hold) = (u.count, unclaimed_hold(u.count));
         log(
             "graph_unclaimed",
-            json!({"graph_id":graph_id,"seconds":(now - admitted_at_ms)/1000,"reason":reason,"let_go":count,"hold_seconds":hold.as_secs()}),
+            json!({"graph_id":flight.graph_id,"seconds":(now - flight.admitted_at_ms)/1000,"reason":reason,"let_go":u.count,"hold_seconds":unclaimed_hold(u.count).as_secs()}),
         );
-        (count, hold)
     }
 
-    /// A graph of this snapshot was cancelled after an executor claimed it,
-    /// and the record does not name it (a let-go whose cancel lost the race
-    /// with a claim, then a lost state file; or a graph cancelled while it
-    /// ran, whose snapshot comes up again after the state file was lost or
-    /// after it changed and came back). Admitted under the same key, it
-    /// would be answered with that cancelled graph, counted failed and its
-    /// snapshot remembered as seen: skipped until the snapshot changes, with
-    /// no line saying so. Instead it is let go under the same hold as a graph
-    /// nothing claimed, so the conversation is admitted again, as a new
-    /// graph, when the hold ends or at the next code version; and one line
-    /// on standard error beginning `Error:` names the conversation by its
-    /// code in the graph list, the graph and the reason.
-    fn found_cancelled_after_claim(
-        &mut self,
-        cfg: &Config,
-        zid: i32,
-        digest: &str,
-        end: &ChainEnd,
-        now: i64,
-    ) {
-        let code = listed_code(&self.db, zid, &cfg.codes).ok().flatten();
-        let (count, hold) = self.let_go_graph(
-            &cfg.env,
-            zid,
-            &end.graph_id,
-            digest,
-            end.admitted_at_ms,
-            now,
-            "cancelled_after_claim",
+    /// A graph cancelled after an executor claimed it: a node that was
+    /// claimed (an attempt is on record) ended cancelled, by a person or at
+    /// the job deadline; or the scheduler let the graph go as unclaimed and
+    /// a claim beat the cancel. One rule, whether this scheduler watched it
+    /// to its end (`cancelled_after_claim_watched`) or finds it in the
+    /// database (after a lost state file, or when its snapshot comes back):
+    /// - one line on standard error beginning `Error:`, naming the graph,
+    ///   the conversation's entry in the graph list (never its code) and the
+    ///   reason, `cancelled_after_claim`;
+    /// - counted failed;
+    /// - its snapshot remembered as seen, so it is not admitted again until
+    ///   it changes;
+    /// - no hold of the graph env.
+    ///
+    /// No hold, because the hold exists for a graph nobody claimed, and a
+    /// claim proves an executor exists; and one conversation must not hold
+    /// up every other listed conversation. No retry, because a person's
+    /// cancel should stand, and a graph cancelled at the job deadline would
+    /// most likely overrun it again.
+    fn cancelled_after_claim(&mut self, zid: i32, graph_id: &str, digest: &str, how: &str) {
+        let entry = self.list_entry(zid);
+        error(&format!(
+            "the Delphi shadow's graph {graph_id} ({entry}) was cancelled after an executor had claimed it ({how}): it is counted failed, its snapshot is not admitted again until it changes, and no graph env is held (reason cancelled_after_claim)"
+        ));
+        self.state.graph_seen.insert(zid, digest.to_owned());
+    }
+
+    /// `cancelled_after_claim` for the graph this scheduler watched to its
+    /// end. Its claim is a claim seen in the env: the count of let-gos in a
+    /// row starts over. If the scheduler had let it go (its claim beat the
+    /// cancel), its entry leaves the record, so no later admission names it
+    /// in a key and computes the snapshot again.
+    fn cancelled_after_claim_watched(&mut self, flight: &Flight) {
+        if let Some(u) = self.state.graph_unclaimed.get_mut(&flight.env) {
+            if u.graphs
+                .get(&flight.zid)
+                .is_some_and(|g| g.graph_id == flight.graph_id)
+            {
+                u.graphs.remove(&flight.zid);
+            }
+            if u.count > 0 {
+                log(
+                    "graph_unclaimed_cleared",
+                    json!({"graph_id":flight.graph_id,"reason":"executor_claimed","let_go":u.count}),
+                );
+                u.count = 0;
+            }
+        }
+        self.cancelled_after_claim(
+            flight.zid,
+            &flight.graph_id,
+            &flight.digest,
+            "watched to its end",
         );
-        eprintln!(
-            "Error: the Delphi shadow's graph {} of conversation {} was found cancelled after an executor had claimed it, with no record that this scheduler let it go (a lost state file, an entry dropped from its record, or a snapshot that came back): it is let go, and the conversation is admitted again as a new graph when the hold on graph env {} ends or at the next code version (reason cancelled_after_claim, let_go {}, hold_seconds {})",
-            end.graph_id,
-            code.as_deref().unwrap_or("(not in the graph list)"),
-            cfg.env,
-            count,
-            hold.as_secs()
-        );
+    }
+
+    /// The conversation's place in the graph list, for an `Error:` line:
+    /// "entry 2 of DELPHI_SHADOW_GRAPH_CONVERSATIONS". Never its code.
+    fn list_entry(&self, zid: i32) -> String {
+        let Some(cfg) = self.cfg.graph.as_ref() else {
+            return "DELPHI_SHADOW_GRAPH_CONVERSATIONS is empty".into();
+        };
+        match listed_position(&self.db, zid, &cfg.codes) {
+            Ok(Some(n)) => format!("entry {n} of DELPHI_SHADOW_GRAPH_CONVERSATIONS"),
+            Ok(None) => "no longer in DELPHI_SHADOW_GRAPH_CONVERSATIONS".into(),
+            Err(_) => "its entry in DELPHI_SHADOW_GRAPH_CONVERSATIONS unread".into(),
+        }
     }
 
     /// The end of a snapshot's let-go chain, read from the database because
@@ -823,8 +846,10 @@ impl Scheduler<'_> {
     /// there again, and the count starts over. Any graph watched in the env
     /// counts: one admitted after a hold, a deferred one, or the let-go
     /// graph itself when an executor's claim lands before its cancel (the
-    /// cancel then loses and that node runs). No other event resets it: a
-    /// new code version ends a hold but keeps the count.
+    /// cancel then loses and that node runs). The only other event that
+    /// resets it is a claim found on record when a watched graph ends
+    /// cancelled (`cancelled_after_claim_watched`): a new code version ends a
+    /// hold but keeps the count.
     fn note_claimed(&mut self, flight: &Flight, states: &BTreeMap<String, (String, f64)>) {
         let Some(u) = self.state.graph_unclaimed.get_mut(&flight.env) else {
             return;
@@ -866,11 +891,24 @@ impl Scheduler<'_> {
         // record was lost or does not hold it.
         let end = chain_end(&self.db, &cfg.env, candidate.zid, &s.digest)?;
         let after = match end {
+            // Its newest fully cancelled graph was claimed: cancelled after a
+            // claim, found here because the state does not remember the
+            // snapshot as seen. Not admitted; the next candidate is.
+            Some(e) if e.claimed => {
+                self.cancelled_after_claim(
+                    candidate.zid,
+                    &e.graph_id,
+                    &s.digest,
+                    "found in the database, not in this scheduler's state: a lost state file, or a snapshot that came back",
+                );
+                self.state.totals.failed += 1;
+                self.state.graph_observed.insert(
+                    candidate.zid,
+                    Observation::new(candidate, &self.cfg.code_version),
+                );
+                return Ok(false);
+            }
             Some(e) if recorded.as_deref() != Some(e.graph_id.as_str()) => {
-                if e.claimed {
-                    self.found_cancelled_after_claim(cfg, candidate.zid, &s.digest, &e, now);
-                    return Ok(false);
-                }
                 self.learn_let_go(&cfg.env, candidate.zid, &e.graph_id, &s.digest)?;
                 Some(e.graph_id)
             }
@@ -1137,6 +1175,19 @@ impl Scheduler<'_> {
             &[&flight.env, &flight.graph_id])?.try_get::<_, bool>(0)?))
     }
 
+    /// Whether any node of the graph was ever claimed (an attempt at all),
+    /// and whether a node that was claimed ended cancelled. One read on the
+    /// scheduler's read connection, booleans only.
+    fn claims(&self, flight: &Flight) -> Result<(bool, bool)> {
+        self.db.read(|tx| {
+            let r = tx.query_one(
+                "SELECT EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid), EXISTS (SELECT 1 FROM polis_queue_attempts a JOIN delphi_graph_nodes n USING(env,job_id) JOIN polis_queue_jobs q USING(env,job_id) WHERE n.env=$1 AND n.graph_id=$2::text::uuid AND q.state='cancelled')",
+                &[&flight.env, &flight.graph_id],
+            )?;
+            Ok((r.try_get(0)?, r.try_get(1)?))
+        })
+    }
+
     pub(super) fn watch_graph(&mut self, flight: Flight, now: i64) -> Result<Duration> {
         let states=self.db.read(|tx| {
             let mut out=BTreeMap::new();
@@ -1213,11 +1264,26 @@ impl Scheduler<'_> {
         }
         drop(client);
         let success = states.values().all(|(s, _)| s == "succeeded");
+        let (claimed, claimed_cancelled) = if states.values().any(|(s, _)| s == "cancelled") {
+            self.claims(&flight)?
+        } else {
+            (false, false)
+        };
         // Every node cancelled and none ever claimed: let go as unclaimed
         // here or, if not here (cancelled before this scheduler's state was
         // saved, by a person, or past the job deadline), now.
-        if states.values().all(|(s, _)| s == "cancelled") && self.never_claimed(&flight)? {
+        if !claimed && states.values().all(|(s, _)| s == "cancelled") {
             self.let_go(&flight, now, "cancelled_unclaimed");
+        }
+        // A claimed node cancelled, or a let-go whose claim beat its cancel.
+        let let_go_here = self
+            .state
+            .graph_unclaimed
+            .get(&flight.env)
+            .and_then(|u| u.graphs.get(&flight.zid))
+            .is_some_and(|g| g.graph_id == flight.graph_id);
+        if claimed_cancelled || (claimed && let_go_here) {
+            self.cancelled_after_claim_watched(&flight);
         }
         let mut published = false;
         if success {
@@ -1521,6 +1587,18 @@ mod recovery_tests {
         );
         assert_eq!(u.graphs.len(), 256);
         assert_eq!(u.graphs[&299].graph_id, "graph-299-again");
+        // Full, a conversation let go whose id sorts before every kept one
+        // (the first key, the one the bound would otherwise drop) is kept:
+        // the held line names it, and its admission key needs no read.
+        u.remember(
+            -1,
+            LetGo {
+                graph_id: "graph-first".into(),
+                digest: "f".into(),
+            },
+        );
+        assert_eq!(u.graphs.len(), 256);
+        assert_eq!(u.graphs[&-1].graph_id, "graph-first");
     }
     #[test]
     fn a_let_go_snapshot_gets_a_new_key_and_every_other_keeps_its_own() {
