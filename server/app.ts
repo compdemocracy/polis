@@ -41,6 +41,7 @@ import {
 } from "./src/routes/delphi";
 import { handle_GET_delphi_visualizations } from "./src/routes/delphi/visualizations";
 import { handle_POST_delphi_jobs } from "./src/routes/delphi/jobs";
+import { handle_GET_delphi_me } from "./src/routes/delphi/entitlement";
 import { handle_GET_delphi_reports } from "./src/routes/delphi/reports";
 import { handle_POST_delphi_batch_reports } from "./src/routes/delphi/batchReports";
 import { collectiveBody } from "./src/routes/delphi/collectiveBody";
@@ -811,6 +812,16 @@ export const appReady = helpersInitialized.then(
       moveToBody,
       hybridAuth(assignToP),
       handle_GET_delphi_job_logs
+    );
+
+    // Whether the signed-in caller's account may use Polis 2:
+    // {"delphi_entitled": true|false}, decided as the Delphi routes below
+    // decide it (routes/delphi/entitlement.ts, POLIS_DELPHI_ENTITLEMENT).
+    app.get(
+      "/api/v3/delphi/me",
+      moveToBody,
+      hybridAuth(assignToP),
+      handle_GET_delphi_me
     );
 
     // Add POST endpoint for creating Delphi jobs

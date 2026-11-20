@@ -882,10 +882,14 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     // Publish a receipt immediately after SQL acknowledges the vote transaction commit. A
     // disconnected caller cannot cancel the task. A deadline without a receipt
     // is explicitly unknown (202), never a failure that nginx may replay.
+    // Once the process is stopping nothing more is dispatched: this vote is
+    // handed back, marked, and nginx gives it to Node (`crate::shutdown`).
+    let Some(active_dispatch) = ActiveDispatch::begin() else {
+        return route::bad_gateway();
+    };
     let receipt = Arc::new(Mutex::new(None));
     let fallback_pid = admitted.pid;
     let fallback_star = fields.starred.is_some();
-    let active_dispatch = ActiveDispatch::new();
     #[cfg(all(test, feature = "db-tests"))]
     if let Some(observation) = &active_dispatch.observation {
         observation.lock().unwrap().receipt = Some(receipt.clone());
@@ -1314,16 +1318,26 @@ fn schedule_notification(pool: Arc<NotificationPool>, admitted: Admitted) -> boo
 
 static IN_FLIGHT: AtomicU64 = AtomicU64::new(0);
 struct ActiveDispatch {
+    _dispatched: crate::shutdown::Dispatched,
     #[cfg(all(test, feature = "db-tests"))]
     observation: Option<tests::DispatchObservation>,
 }
 impl ActiveDispatch {
-    fn new() -> Self {
+    /// None once the process is stopping: the vote is not dispatched.
+    fn begin() -> Option<Self> {
+        let dispatched = crate::shutdown::Dispatched::begin()?;
         IN_FLIGHT.fetch_add(1, Ordering::Relaxed);
-        Self {
+        Some(Self {
+            _dispatched: dispatched,
             #[cfg(all(test, feature = "db-tests"))]
             observation: tests::current_dispatch_observation(),
-        }
+        })
+    }
+
+    /// A dispatch in a test process, which never stops.
+    #[cfg(all(test, feature = "db-tests"))]
+    fn new() -> Self {
+        Self::begin().expect("a test process is never stopping")
     }
 }
 impl Drop for ActiveDispatch {
@@ -1356,6 +1370,14 @@ pub(crate) fn observe(out: &Outgoing) {
     }
 }
 
+/// Notification work the live writer has queued and not finished: what
+/// `/health` reports and what a stop waits for.
+pub(crate) fn notifications_in_flight(app: &App) -> usize {
+    app.post_votes
+        .as_ref()
+        .map_or(0, |w| 64 - w.background.admitted.available_permits())
+}
+
 pub(crate) fn health(app: &App) -> Js {
     let mut body = js::Obj::new();
     // Enabled means serving participants: the live writer only.
@@ -1385,11 +1407,7 @@ pub(crate) fn health(app: &App) -> Js {
     }
     body.set(
         "notificationsInFlight",
-        Js::Num(
-            app.post_votes
-                .as_ref()
-                .map_or(0, |w| 64 - w.background.admitted.available_permits()) as f64,
-        ),
+        Js::Num(notifications_in_flight(app) as f64),
     );
     body.set(
         "notificationDropped",

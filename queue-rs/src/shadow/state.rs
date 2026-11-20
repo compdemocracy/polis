@@ -124,6 +124,15 @@ pub struct State {
     pub graph_seen: BTreeMap<i32, String>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub graph_observed: BTreeMap<i32, super::graph::Observation>,
+    /// Graphs whose publication this scheduler gave up (`graph::PUBLISH_ATTEMPTS`
+    /// failed, or a definite refusal), newest last: recovery does not take
+    /// them up again, and their snapshots are not remembered as seen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_unpublished: Vec<String>,
+    /// Per graph env, the graphs let go there because nothing claimed them
+    /// and the hold on admission that follows (`graph::Unclaimed`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_unclaimed: BTreeMap<String, super::graph::Unclaimed>,
     pub pending_twin: Option<PendingTwin>,
     /// The UTC day (days since the epoch) the daily count is for.
     pub day: i64,
@@ -152,6 +161,8 @@ impl State {
             graph_recovery_envs: Vec::new(),
             graph_seen: BTreeMap::new(),
             graph_observed: BTreeMap::new(),
+            graph_unpublished: Vec::new(),
+            graph_unclaimed: BTreeMap::new(),
             pending_twin: None,
             day: 0,
             day_runs: 0,
@@ -262,6 +273,38 @@ mod tests {
         assert_eq!(s.in_flight.as_ref().map(|f| f.set), Some(None));
         assert_eq!(s.storage.pending[0].set, None);
         std::fs::remove_dir_all(&dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn with_no_graph_the_state_file_carries_no_graph_field() -> anyhow::Result<()> {
+        // With the graph list empty nothing graph-shaped is ever written, so
+        // the file is what the full-pipeline shadow wrote before.
+        let v = serde_json::to_value(State::new("shadow-delphi-1"))?;
+        let keys: Vec<&String> = v
+            .as_object()
+            .map(|o| o.keys().collect())
+            .unwrap_or_default();
+        assert!(!keys.iter().any(|k| k.starts_with("graph_")), "{keys:?}");
+        // A flight that has made no publication attempt carries no count.
+        let flight = crate::shadow::graph::Flight {
+            env: "shadow-graph-1".into(),
+            graph_id: "g".into(),
+            zid: 1,
+            digest: "d".into(),
+            comments: 5,
+            admitted_at_ms: 1,
+            generation: 0,
+            nodes: vec![],
+            publish_attempts: 0,
+        };
+        let f = serde_json::to_value(&flight)?;
+        assert!(f.get("publish_attempts").is_none(), "{f}");
+        let earlier: crate::shadow::graph::Flight = serde_json::from_value(f)?;
+        assert_eq!(
+            earlier, flight,
+            "a flight an earlier build wrote loads with no attempts"
+        );
         Ok(())
     }
 

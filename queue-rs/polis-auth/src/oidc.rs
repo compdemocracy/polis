@@ -12,15 +12,16 @@ use postgres::{Client, GenericClient, error::SqlState};
 use serde_json::Value;
 
 /// Mapped verified claims. No Debug: profile/credential values are not logs.
-/// email_verified and delphi_enabled are request metadata, never persisted by
-/// Node's provisioning SQL and never grounds for escalating account privileges.
+/// email_verified is request metadata, never persisted by Node's provisioning
+/// SQL and never grounds for escalating account privileges. No claim that
+/// grants a Polis permission is mapped: whether an account may use Polis 2 is
+/// recorded by Polis, not read from the token.
 pub struct Profile {
     pub subject: String,
     pub email: String,
     pub display_name: String,
     pub username: String,
     pub email_verified: Option<Value>,
-    pub delphi_enabled: Option<Value>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Error {
@@ -65,7 +66,6 @@ impl Profile {
             display_name: name.or(nickname).unwrap_or(local).into(),
             username: nickname.unwrap_or(local).into(),
             email_verified: claims.get("email_verified").cloned(),
-            delphi_enabled: claims.get(format!("{namespace}delphi_enabled")).cloned(),
         })
     }
 }
@@ -168,6 +168,37 @@ impl<T: GenericClient> Store for PostgresStore<'_, T> {
 mod tests {
     use super::*;
     use serde_json::json;
+    /// The claim the identity provider uses to say an account may use Polis 2,
+    /// spelled in two pieces so this file does not contain it whole.
+    const POLIS_2_CLAIM: &str = concat!("delphi", "_enabled");
+
+    /// Whether an account may use Polis 2 is Polis's to record, not a token
+    /// claim: no source file of this crate, and none of the API crate that
+    /// verifies tokens and serves routes, reads it.
+    #[test]
+    fn no_source_reads_the_polis_2_claim() {
+        let crates = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+        let mut read = vec![];
+        for dir in [crates.join("src"), crates.join("../polis-api/src")] {
+            let mut stack = vec![dir];
+            while let Some(dir) = stack.pop() {
+                for entry in std::fs::read_dir(&dir).unwrap() {
+                    let path = entry.unwrap().path();
+                    if path.is_dir() {
+                        stack.push(path);
+                    } else if path.extension().is_some_and(|e| e == "rs")
+                        && std::fs::read_to_string(&path)
+                            .unwrap()
+                            .contains(POLIS_2_CLAIM)
+                    {
+                        read.push(path);
+                    }
+                }
+            }
+        }
+        assert!(read.is_empty(), "{read:?}");
+    }
+
     #[test]
     fn every_claim_fallback_and_metadata() {
         for (claims, email, display, username) in [
@@ -213,14 +244,14 @@ mod tests {
             let mut claims = claims;
             claims["sub"] = json!("subject");
             claims["email_verified"] = json!(false);
-            claims["ns/delphi_enabled"] = json!(true);
+            // The Polis 2 permission claim may be present; it is not read.
+            claims[format!("ns/{POLIS_2_CLAIM}")] = json!(true);
             let p = Profile::from_verified_claims(&claims, "ns/").unwrap();
             assert_eq!(
                 (&*p.email, &*p.display_name, &*p.username),
                 (email, display, username)
             );
             assert_eq!(p.email_verified, Some(json!(false)));
-            assert_eq!(p.delphi_enabled, Some(json!(true)));
         }
         for c in [
             json!({"sub":"s"}),

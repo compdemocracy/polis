@@ -5,6 +5,7 @@ import {
   mayStartDelphiWork,
   refuseNotConversationOwner,
 } from "./delphi/generationOwner";
+import { isDelphiEntitled } from "./delphi/entitlement";
 
 import Anthropic from "@anthropic-ai/sdk";
 import { countTokens } from "@anthropic-ai/tokenizer";
@@ -902,7 +903,7 @@ export async function handle_GET_reportNarrative(
   // try because it resolves AWS credentials and throws a named configuration
   // error on a placeholder credential in the environment.
   try {
-    if (!req.p.delphiEnabled) {
+    if (!(await isDelphiEntitled(req.p))) {
       throw new Error("Unauthorized");
     }
     // The claim alone does not reach someone else's conversation. Checked

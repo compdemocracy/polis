@@ -179,8 +179,10 @@ integration test; it must never point at an existing installation.
 connection. No route calls it. Its future authentication caller must invoke it
 on any authenticated request, including reads, before route field validation.
 `Profile::from_verified_claims` preserves Node's standard/namespaced email and
-name fallbacks, nickname, local part, and whitespace. `email_verified` and the
-namespaced `delphi_enabled` stay request metadata, not database columns.
+name fallbacks, nickname, local part, and whitespace. `email_verified` stays
+request metadata, not a database column. The namespaced Polis 2 permission
+claim is not mapped at all: no Rust route reads it, and whether an account may
+use Polis 2 is recorded in Postgres (`delphi_entitlements`), not in the token.
 
 A mapping hit returns the existing UID without updating the account. A miss
 upserts by email, updates only hname/username on conflict, and installs the

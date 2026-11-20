@@ -15,6 +15,7 @@ import {
   namesOneConversation,
   refuseNotConversationOwner,
 } from "./generationOwner";
+import { isDelphiEntitled } from "./entitlement";
 
 // The job types delphi/scripts/job_poller.py runs (KNOWN_JOB_TYPES there).
 // Anything else is refused here; the poller used to send an unknown type to
@@ -32,8 +33,9 @@ export async function handle_POST_delphi_jobs(
 ): Promise<void> {
   try {
     // A refusal, not a fault: answered before the request is read, so no job
-    // is written. The catch below answers 500 for anything thrown.
-    if (!req.p.delphiEnabled) {
+    // is written. The catch below answers 500 for anything thrown, a failed
+    // entitlement read included.
+    if (!(await isDelphiEntitled(req.p))) {
       failJson(res, 403, "polis_err_delphi_jobs_delphi_disabled");
       return;
     }

@@ -10,12 +10,13 @@ import Config from "../../config";
  * (POST /api/v3/collectiveStatement) or the legacy narrative
  * (GET /api/v3/reportNarrative). Narratives and statements call a paid model.
  *
- * Each of those routes first checks the caller's delphi_enabled claim, as it
- * always has, and answers a caller without it exactly as before. The claim
- * says the account may use Delphi; it does not say on whose conversation. So
- * a caller with the claim must also own the conversation the request names,
- * or be a site administrator (isSiteAdministrator below). Moderators on the
- * owner's site get no right from this.
+ * Each of those routes first asks whether the caller's account may use
+ * Polis 2 (isDelphiEntitled in entitlement.ts: by default the delphi_enabled
+ * claim, as it always has been), and answers a caller who may not exactly as
+ * before. That permission says the account may use Delphi; it does not say on
+ * whose conversation. So a caller with it must also own the conversation the
+ * request names, or be a site administrator (isSiteAdministrator below).
+ * Moderators on the owner's site get no right from this.
  *
  * Anyone else is refused with HTTP 403 and DELPHI_NOT_CONVERSATION_OWNER
  * before anything is admitted, written or sent to a model.
@@ -30,7 +31,7 @@ export const DELPHI_NOT_CONVERSATION_OWNER =
 const MAX_INT4 = 2147483647;
 
 /** A positive integer id (number or decimal string), else null. */
-function positiveId(value: unknown): number | null {
+export function positiveId(value: unknown): number | null {
   if (typeof value !== "number" && typeof value !== "string") return null;
   const text = String(value);
   if (!/^[1-9][0-9]*$/.test(text)) return null;

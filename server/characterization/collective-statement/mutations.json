@@ -228,10 +228,24 @@
   },
   {
    "id": "DELPHI-GATE",
-   "what": "who may generate: the delphi_enabled check is dropped",
+   "what": "who may generate: the Polis 2 permission check (the delphi_enabled claim by default) is dropped",
    "file": "src/routes/collectiveStatement.ts",
-   "find": "if (!req.p.delphiEnabled) {",
-   "replace": "if (false && !req.p.delphiEnabled) {",
+   "find": "if (!(await isDelphiEntitled(req.p))) {",
+   "replace": "if (false && !(await isDelphiEntitled(req.p))) {",
+   "expectFailing": [
+    "post/oidc-delphi-claim-false",
+    "post/oidc-without-delphi-claim",
+    "post/participant-token",
+    "post/standard-user-token",
+    "post/xid-participant-token"
+   ]
+  },
+  {
+   "id": "ENTITLEMENT-DEFAULT",
+   "what": "who may generate: the entitlement function's default (claim) answers yes for everyone",
+   "file": "src/routes/delphi/entitlement.ts",
+   "find": "      return claim;",
+   "replace": "      return true;",
    "expectFailing": [
     "post/oidc-delphi-claim-false",
     "post/oidc-without-delphi-claim",
