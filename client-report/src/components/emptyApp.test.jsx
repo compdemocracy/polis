@@ -38,7 +38,10 @@ jest.mock("./collectiveStatementsReport/CollectiveStatementsReport.jsx", () => (
 window.history.replaceState({}, "", "/report/public-fixture");
 const App = require("./app").default;
 let math;
+let topic;
 beforeEach(() => {
+  topic = undefined;
+  document.title = "pol.is report";
   jest.spyOn(console, "log").mockImplementation(() => {});
   jest.spyOn(console, "error").mockImplementation(() => {});
   jest.spyOn(window, "setInterval").mockImplementation(() => 1);
@@ -47,7 +50,7 @@ beforeEach(() => {
       return [{ report_id: "public-fixture", conversation_id: "public-fixture", mod_level: -2 }];
     if (url.endsWith("/pca2")) return math;
     if (url.endsWith("/conversations"))
-      return { conversation_id: "public-fixture", participant_count: 0 };
+      return { conversation_id: "public-fixture", participant_count: 0, topic };
     if (url.endsWith("/comments"))
       return [{ tid: 0, pid: 0, txt: "Public fixture", count: 0, pass_count: 0 }];
     if (url.endsWith("/ptptois")) return [];
@@ -67,3 +70,19 @@ test.each(["python", "legacy", "missing"])(
     expect(screen.queryByText(/Error Loading|Loading \.\.\./)).not.toBeInTheDocument();
   }
 );
+
+test("sets the browser title from the loaded conversation", async () => {
+  math = emptyMath();
+  topic = "Our community budget";
+  render(<App />);
+
+  await waitFor(() => expect(document.title).toBe("Polis report: Our community budget"));
+});
+
+test("uses the report title fallback when the conversation has no topic", async () => {
+  math = emptyMath();
+  render(<App />);
+
+  await waitFor(() => expect(screen.getByTestId("average")).toBeInTheDocument());
+  expect(document.title).toBe("Polis report");
+});
