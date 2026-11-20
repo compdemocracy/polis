@@ -347,8 +347,16 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let after_mutation = writer.after_mutation.clone();
     #[cfg(all(test, feature = "db-tests"))]
     let before_mutation = writer.before_mutation.clone();
+    // Once the process is stopping nothing more is dispatched
+    // (`crate::shutdown`): no mutation has started, so the answer is this
+    // route's answer before every mutation (502). A mutation dispatched before
+    // the stop is counted until it ends, so the stop waits for it.
+    let Some(dispatched) = crate::shutdown::Dispatched::begin() else {
+        return route::bad_gateway();
+    };
     let task = tokio::spawn(async move {
         let _pending = pending;
+        let _dispatched = dispatched;
         let result = pool
             .with(move |c| {
                 #[cfg(all(test, feature = "db-tests"))]

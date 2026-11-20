@@ -552,6 +552,10 @@ pub fn build(inputs: &Inputs) -> Report {
                 ("unknown", "not known, by reason:"),
                 ("shed", "shed, by reason:"),
                 ("not_observed", "not observed, by reason:"),
+                (
+                    "stopped",
+                    "cut when the shadow stopped, by where they were:",
+                ),
             ] {
                 let mut reasons: BTreeMap<String, u64> = BTreeMap::new();
                 for row in obs.iter().filter(|row| text(row, "outcome") == outcome) {
@@ -982,6 +986,13 @@ fn paired_section(
         all("no_mirror"),
         pct(coverage)
     );
+    let stopped = all("stopped");
+    if stopped > 0 {
+        let _ = writeln!(
+            out,
+            "   copied comments whose observation was cut when the shadow stopped {stopped} (a stopped line; not counted as observed)"
+        );
+    }
     add(
         "coverage",
         format!(

@@ -1246,7 +1246,14 @@ impl IdentityObserver {
                 Some(anchor) => {
                     let subject = Arc::new(subject);
                     let mut found = None;
-                    for delay in [self.timing.first, self.timing.retry] {
+                    for (attempt, delay) in [self.timing.first, self.timing.retry]
+                        .into_iter()
+                        .enumerate()
+                    {
+                        if attempt > 0 {
+                            // A process that stops now says this copy waited for it.
+                            crate::shadow::stop::waiting_for_second_look();
+                        }
                         tokio::time::sleep_until(received + delay).await;
                         observed.readback_s = Some(delay.as_secs_f64());
                         let again = subject.clone();

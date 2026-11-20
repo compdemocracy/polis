@@ -30,7 +30,7 @@
     clippy::unwrap_used,
     clippy::expect_used
 )]
-use super::{event, ms, no_content, num, request_id, text};
+use super::{event, ms, no_content, num, request_id, stop, text};
 use crate::{
     config, db,
     http::{Outgoing, Request},
@@ -451,9 +451,17 @@ pub(crate) async fn accept(app: Arc<App>, route: Route, req: Request) -> Outgoin
         Some("shadow"),
     );
     match decision {
-        Ok(permit) => {
-            tokio::spawn(observe(app, lane, req, received, permit));
-        }
+        Ok(permit) => match stop::OBSERVATIONS.begin(stop::Kind::Read(route), request_id(&req)) {
+            Ok(observation) => {
+                let current = observation.current();
+                tokio::spawn(stop::scope(
+                    current,
+                    observe(app, lane, req, received, permit, observation),
+                ));
+            }
+            // The stop has printed its lines: this copy's is printed now.
+            Err(entry) => super::print_stopped(&app, &entry),
+        },
         Err(reason) => {
             lane.counters.shed.fetch_add(1, Ordering::Relaxed);
             Line {
@@ -515,13 +523,15 @@ fn prelude_reason(app: &App, route: Route, req: &Request) -> Option<&'static str
     None
 }
 
-/// One observation, after its 204 has been returned.
+/// One observation, after its 204 has been returned. Its line is printed
+/// unless the stop has printed its stopped line first (`super::stop`).
 async fn observe(
     app: Arc<App>,
     lane: Arc<Lane>,
     req: Request,
     received: tokio::time::Instant,
     permit: tokio::sync::OwnedSemaphorePermit,
+    observation: stop::Observation,
 ) {
     #[cfg(test)]
     drop(lane.park.read().await);
@@ -580,6 +590,9 @@ async fn observe(
         _ => &counters.would_answer,
     }
     .fetch_add(1, Ordering::Relaxed);
+    if !observation.finish() {
+        return;
+    }
     Line {
         request_id: request_id(&req),
         outcome,
@@ -597,6 +610,19 @@ async fn observe(
         weights_tick: taken.weights_tick,
     }
     .print(&app, route);
+}
+
+/// The line of a read's copy still in flight when the stop's bound came: the
+/// keys of every line of the lane, marked `stopped` and where it was, and
+/// nothing else, as on a shed line.
+pub(crate) fn print_stopped(app: &App, route: Route, entry: &stop::Entry) {
+    Line {
+        request_id: entry.request_id.as_deref(),
+        outcome: stop::OUTCOME,
+        reason: Some(entry.stage.as_str()),
+        ..Line::default()
+    }
+    .print(app, route);
 }
 
 /// A read lane's part of `GET /health` on the shadow listener. `enabled`

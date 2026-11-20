@@ -8,7 +8,7 @@
 //! (`zid`), as a vote's does; the one thing read from it is how many
 //! conversations the admitted copies are in, a count and never a number.
 use crate::query::*;
-use crate::route::{JOIN_PAD_S, Route};
+use crate::route::{JOIN_PAD_S, Route, STOPPED};
 
 /// A would-be duplicate beside Node's 200 is not judged when the copy's
 /// observation started this long after the copy arrived (`queue_ms`), in
@@ -22,9 +22,9 @@ use crate::route::{JOIN_PAD_S, Route};
 pub const LATE_COPY_MS: i64 = 2_000;
 
 /// The line's `outcome` words (docs/post-comments-rust-handler.md, "Observe
-/// mode"). The first five are observed copies; the last two were not
-/// observed.
-pub const OUTCOMES: [&str; 7] = [
+/// mode"). The first five are observed copies; the last three were not
+/// observed (the last: the observation was cut when the shadow stopped).
+pub const OUTCOMES: [&str; 8] = [
     "would_serve",
     "would_answer",
     "would_hand_back",
@@ -32,6 +32,7 @@ pub const OUTCOMES: [&str; 7] = [
     "unknown",
     "shed",
     "not_observed",
+    STOPPED,
 ];
 pub const OBSERVED: [&str; 5] = [
     "would_serve",
@@ -87,7 +88,7 @@ pub const VOTE_NOT_COMPARED: [&str; 3] = ["ambiguous", "unavailable", "not_check
 pub const BODY_CLASS: [&str; 4] = ["le_1k", "le_4k", "le_10k", "over_10k"];
 /// Every `reason` word the line can carry. A report prints a reason only when
 /// it is one of these.
-pub const REASONS: [&str; 42] = [
+pub const REASONS: [&str; 45] = [
     "rate_cap",
     "lane_full",
     "unconfigured",
@@ -130,6 +131,9 @@ pub const REASONS: [&str; 42] = [
     "duplicate",
     "closed",
     "no_anchor",
+    "in_handler",
+    "before_readback",
+    "before_retry",
 ];
 /// What the line says Node does after it stores the comment (`after_insert`,
 /// on a `would_serve` line only): the notification task, or, in a
@@ -346,6 +350,10 @@ impl Route {
                     "o_out",
                     Agg::Sum(E::In("outcome", vec!["shed", "not_observed"])),
                 ),
+                ("o_stopped", class("outcome", STOPPED)),
+                // The observation lines that are not stopped ones, counted
+                // to 1 (never `o_stopped` to 0: as for votes, `route.rs`).
+                ("o_kept", Agg::Sum(ne(f("outcome"), s(STOPPED)))),
                 // The copies whose comment is modelled and read back: the
                 // ones the handler would store, and the ones it would hand
                 // back only because the conversation has strict moderation.
@@ -517,12 +525,23 @@ impl Route {
                     "answered",
                     with(request(), vec![one("n_mirror"), one("n_answered")]),
                 ),
+                // A copied comment with its observation. A stopped line is
+                // not one: it says the observation was cut.
                 (
                     "covered",
                     with(
                         request(),
-                        vec![one("n_mirror"), one("n_copied"), one("n_obs")],
+                        vec![
+                            one("n_mirror"),
+                            one("n_copied"),
+                            one("n_obs"),
+                            one("o_kept"),
+                        ],
                     ),
+                ),
+                (
+                    "stopped",
+                    with(request(), vec![one("n_obs"), one("o_stopped")]),
                 ),
                 ("node_lines", with(request(), vec![one("n_http")])),
                 // An observation whose request has no Node access line, and

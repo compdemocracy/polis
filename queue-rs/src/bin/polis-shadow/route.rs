@@ -97,6 +97,10 @@ pub const JOIN_PAD_S: i64 = 60;
 
 /// The shadow's `outcome` values for an observed copy.
 const WOULD: [&str; 3] = ["would_serve", "would_hand_back", "would_fail"];
+/// The `outcome` of a copy the shadow was still observing when it was
+/// stopped, past its bound: a line saying the copy was cut, with no would-be
+/// answer. Counted apart, never as an observation.
+pub const STOPPED: &str = "stopped";
 
 pub(crate) fn shadow_line(message: &'static str) -> E {
     and(vec![is("listener", "shadow"), is("message", message)])
@@ -391,6 +395,12 @@ impl Route {
                 ("n_would", Agg::Sum(E::In("outcome", WOULD.to_vec()))),
                 ("n_shed", Agg::Sum(is("outcome", "shed"))),
                 ("n_unobserved", Agg::Sum(is("outcome", "not_observed"))),
+                ("n_stopped", Agg::Sum(is("outcome", STOPPED))),
+                // The request's observation lines that are not stopped ones.
+                // Counted to 1, never `n_stopped` to 0: on the request's
+                // other lines `outcome` is absent, and a sum of false and
+                // absent values was never measured (`eval::Reading`).
+                ("n_unstopped", Agg::Sum(ne(f("outcome"), s(STOPPED)))),
                 ("n_cors", Agg::Sum(is("reason", "cors"))),
                 ("edge_st", Agg::Max("edge_status")),
                 ("node_st", Agg::Max("node_status")),
@@ -499,11 +509,18 @@ impl Route {
                     "answered",
                     Agg::Sum(with(vote(), vec![one("n_mirror"), one("n_answered")])),
                 ),
+                // A copied vote with its observation. A stopped line is not
+                // one: it says the observation was cut.
                 (
                     "covered",
                     Agg::Sum(with(
                         vote(),
-                        vec![one("n_mirror"), one("n_copied"), one("n_obs")],
+                        vec![
+                            one("n_mirror"),
+                            one("n_copied"),
+                            one("n_obs"),
+                            one("n_unstopped"),
+                        ],
                     )),
                 ),
                 (
@@ -517,6 +534,10 @@ impl Route {
                 (
                     "not_observed",
                     Agg::Sum(with(vote(), vec![one("n_obs"), one("n_unobserved")])),
+                ),
+                (
+                    "stopped",
+                    Agg::Sum(with(vote(), vec![one("n_obs"), one("n_stopped")])),
                 ),
                 ("admitted_n", Agg::Sum(and(admitted()))),
                 ("node_replied", Agg::Sum(with(vote(), vec![one("n_reply")]))),

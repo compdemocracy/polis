@@ -98,7 +98,8 @@ presenting a saved vote as rejected and avoids inflating history on a lost reply
 The Node source and its current behavior are intentionally unchanged.
 
 Pre-dispatch 502 responses carry `X-Polis-Vote-Dispatch: not-started`, including
-parser-level chunked/oversized hand-backs. nginx's vote write location
+parser-level hand-backs: chunked or oversized bodies, and request heads the
+parser cannot read (never a dropped connection). nginx's vote write location
 (`file-server/nginx/rust-api/postVotes.location.conf.template`) sends a vote to
 Node only with that upstream marker, or when no byte of the request reached
 polis-api (`$upstream_bytes_sent` zero or absent: no such host, connection
@@ -112,4 +113,7 @@ The replay's existing-choice `vote-failure` and `duplicate-sqlstate` cases do
 not execute an INSERT under the retry rule, so Rust returns 200 despite Node's
 injected INSERT error. Separate fresh-key tests still prove 500/406 and complete
 rollback. Health also exposes detached `inFlight` and `notificationsInFlight`
-counts: a future rollback must drain these before stopping the process.
+counts. On SIGTERM or SIGINT the process stops accepting connections, hands
+back (502, marked) any vote not yet dispatched, and waits for dispatched writes,
+requests being answered and queued notifications, at most 5 s, before it exits;
+whatever is still running then is abandoned and counted in its last log line.
