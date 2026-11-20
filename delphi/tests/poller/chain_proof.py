@@ -37,7 +37,13 @@ the Delphi virtualenv synced):
     --db postgresql://postgres@127.0.0.1:55801/pyq \\
     --executor postgresql://polis_jobs_test@127.0.0.1:55801/pyq \\
     --daemon queue-rs/target/debug/polis-jobs --delphi delphi \\
-    --python delphi/.venv/bin/python --work /tmp/chain-proof
+    --python delphi/.venv/bin/python --work /tmp/chain-proof \\
+    --worker-env /tmp/worker-files/polis-jobs.env
+
+where /tmp/worker-files is written first by
+  (cd cdk && npx ts-node scripts/emit-worker-files.ts --out /tmp/worker-files --queue-hosts 127.0.0.1)
+The child's label comes from that env document, as on a worker box: the
+daemon's base environment carries the served label the shared .env carries.
 
 Exit 0 iff every step held. It removes what it wrote.
 """
@@ -72,6 +78,16 @@ def check(step: str, condition: bool, message: str) -> None:
     say(step, ("ok   " if condition else "FAIL ") + message)
     if not condition:
         raise SystemExit(f"chain proof failed at {step}: {message}")
+
+
+def read_env_document(path: Path) -> dict:
+    """KEY=VALUE lines, as docker's --env-file reads them (no quoting)."""
+    out = {}
+    for line in path.read_text().splitlines():
+        if line and not line.startswith("#"):
+            key, _, value = line.partition("=")
+            out[key] = value
+    return out
 
 
 class Pg:
@@ -126,7 +142,11 @@ class DaemonProcess:
             # The child's environment (the daemon forwards its own).
             "DATABASE_URL": args.db,
             "DATABASE_SSL_MODE": "disable",
-            "MATH_ENV": STAGED,
+            # What the shared app .env carries: the served label. The worker
+            # box's env document (written by its launch template, read here
+            # with --worker-env) must replace it with the staged label; this
+            # proof never sets the child's label itself.
+            "MATH_ENV": SMALL,
             # Room for the generated conversation's estimated need (1600 MiB
             # under the child's own model); phase 9 lowers it to make the
             # child refuse.
@@ -137,6 +157,10 @@ class DaemonProcess:
             "PYTHONPATH": str(Path(args.delphi).resolve()),
             "MATH_POLLER_SOURCE_COMMIT": COMMIT_A,
         }
+        # The env document's child keys, after the app .env, as the unit
+        # orders them. Its POLIS_JOBS_* transport keys are not used: this
+        # proof's daemon reaches Postgres over loopback.
+        env.update({k: v for k, v in args.worker_env_doc.items() if not k.startswith("POLIS_JOBS_")})
         env.update(child_env)
         self.proc = subprocess.Popen([args.daemon], env=env, stdout=subprocess.DEVNULL,
                                      stderr=open(self.stderr_path, "wb"))
@@ -206,7 +230,14 @@ def main() -> int:
     ap.add_argument("--delphi", required=True, help="the delphi directory (DELPHI_APP_PATH)")
     ap.add_argument("--python", required=True, help="the Delphi virtualenv's python")
     ap.add_argument("--work", required=True, help="a scratch directory")
+    ap.add_argument("--worker-env", required=True,
+                    help="the large worker's env document as its launch template writes it "
+                         "(cdk/scripts/emit-worker-files.ts --out DIR; DIR/polis-jobs.env)")
     args = ap.parse_args()
+    args.worker_env_doc = read_env_document(Path(args.worker_env))
+    check("setup", args.worker_env_doc.get("MATH_ENV") == STAGED,
+          f"the worker env document stages under {STAGED} "
+          f"(MATH_ENV={args.worker_env_doc.get('MATH_ENV')!r})")
 
     sys.path.insert(0, str(Path(args.delphi).resolve()))
     os.environ["MATH_POLLER_SOURCE_COMMIT"] = COMMIT_A
