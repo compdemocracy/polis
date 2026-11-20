@@ -11,6 +11,7 @@ import {
   mayStartDelphiWork,
   refuseNotConversationOwner,
 } from "./generationOwner";
+import { isDelphiEntitled } from "./entitlement";
 
 /**
  * Handler for Delphi API route that generates batch narrative reports
@@ -35,7 +36,7 @@ export async function handle_POST_delphi_batch_reports(
 
   // Extract zid from report_id
   try {
-    if (!req.p.delphiEnabled) {
+    if (!(await isDelphiEntitled(req.p))) {
       throw new Error("Unauthorized");
     }
     const zid = await getZidFromReport(report_id);

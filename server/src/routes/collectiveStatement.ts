@@ -19,6 +19,7 @@ import {
   mayStartDelphiWork,
   refuseNotConversationOwner,
 } from "./delphi/generationOwner";
+import { isDelphiEntitled } from "./delphi/entitlement";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -235,7 +236,7 @@ export async function handle_POST_collectiveStatement(
   }
 
   try {
-    if (!req.p.delphiEnabled) {
+    if (!(await isDelphiEntitled(req.p))) {
       throw new Error("Unauthorized");
     }
     const zid = await getZidFromReport(report_id);

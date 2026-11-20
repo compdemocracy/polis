@@ -234,6 +234,14 @@ row! {
 }
 
 row! {
+    DelphiEntitlementsRow, "delphi_entitlements", "server/postgres/migrations/000048_create_delphi_entitlements.sql:41";
+    uid: i32 => ("uid", "int4", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:42"),
+    granted_at: i64 => ("granted_at", "int8", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:43"),
+    granted_by: Option<i32> => ("granted_by", "int4", true, "server/postgres/migrations/000048_create_delphi_entitlements.sql:44"),
+    source: String => ("source", "text", false, "server/postgres/migrations/000048_create_delphi_entitlements.sql:45"),
+}
+
+row! {
     DelphiFoundationInstallRow, "delphi_foundation_install", "server/postgres/migrations/000023_create_delphi_foundation.sql:819";
     singleton: bool => ("singleton", "bool", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
     baseline: PgJson => ("baseline", "jsonb", false, "server/postgres/migrations/000023_create_delphi_foundation.sql:820"),
@@ -1297,6 +1305,12 @@ pub const TABLES: &[Table] = &[
         columns: DelphiEmbeddingSetsRow::COLUMNS,
         roundtrip: roundtrip::<DelphiEmbeddingSetsRow>,
         decode: decode::<DelphiEmbeddingSetsRow>,
+    },
+    Table {
+        name: "delphi_entitlements",
+        columns: DelphiEntitlementsRow::COLUMNS,
+        roundtrip: roundtrip::<DelphiEntitlementsRow>,
+        decode: decode::<DelphiEntitlementsRow>,
     },
     Table {
         name: "delphi_foundation_install",
