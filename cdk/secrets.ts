@@ -32,9 +32,13 @@ export default (
     secretName: 'polis-client-report-env-vars',
     description: 'Environment variables for the Polis client-report web application',
   });
+  // Read-only, by name, on the shared InstanceRole (iamRoles.ts: no
+  // SecretsManagerReadWrite). scripts/after_install.sh reads the app env
+  // document by name and the database secret by the ARN in /polis/db-secret-arn.
   webAppEnvVarsSecret.grantRead(instanceRole);
   clientAdminEnvVarsSecret.grantRead(instanceRole);
   clientReportEnvVarsSecret.grantRead(instanceRole);
+  db.secret!.grantRead(instanceRole);
   for (const role of workers?.roles ?? []) {
     webAppEnvVarsSecret.grantRead(role);
     db.secret!.grantRead(role);

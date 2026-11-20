@@ -3,12 +3,18 @@ import { Construct } from 'constructs';
 import * as cdk from 'aws-cdk-lib';
 
 export default (self: Construct) => {
+  // The shared role of the web, math-worker, Delphi small, Delphi large
+  // (with the worker classes off) and Ollama boxes. Secrets Manager access is
+  // NOT a managed policy: SecretsManagerReadWrite let any process on these
+  // boxes read, write and delete every secret in the account. Each secret a
+  // box reads is granted read-only (GetSecretValue + DescribeSecret) by name
+  // where it is created: secrets.ts (the app env document, the client env
+  // documents, the database secret) and cdk-stack.ts (the Ollama URL).
   const instanceRole = new iam.Role(self, 'InstanceRole', {
     assumedBy: new iam.ServicePrincipal('ec2.amazonaws.com'),
     managedPolicies: [
       iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonSSMManagedInstanceCore'),
       iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmazonEC2RoleforAWSCodeDeploy'),
-      iam.ManagedPolicy.fromAwsManagedPolicyName('SecretsManagerReadWrite'),
       iam.ManagedPolicy.fromAwsManagedPolicyName('AmazonEC2ContainerRegistryReadOnly'),
       iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchLogsFullAccess'),
       iam.ManagedPolicy.fromAwsManagedPolicyName('CloudWatchAgentServerPolicy'),
