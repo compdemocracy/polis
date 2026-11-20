@@ -111,6 +111,54 @@ describe('ModerateCommentsSeed', () => {
   })
 
   describe('Single seed comment submission', () => {
+    it.each([
+      'First statement\nSecond statement',
+      'First statement\rSecond statement',
+      'a'.repeat(251)
+    ])(
+      'warns about potentially combined statements without blocking submission: %p',
+      (seedText) => {
+        const store = createMockStore({ seedText })
+        renderWithProviders(<ModerateCommentsSeed {...defaultProps} />, { store })
+
+        const warning = screen.getByRole('status')
+        expect(warning).toHaveTextContent('This field adds one statement at a time')
+        expect(warning.querySelector('a')).toHaveAttribute('href', '#seed-comments-csv-upload')
+        expect(document.getElementById('seed-comments-csv-upload')).toHaveTextContent(
+          'Upload a CSV'
+        )
+
+        fireEvent.click(screen.getAllByText('Submit')[0])
+        expect(actions.handleSeedCommentSubmit).toHaveBeenCalledWith({
+          txt: seedText.replace(/\r\n?/g, '\n'),
+          conversation_id: 'test-conversation-123',
+          is_seed: true
+        })
+      }
+    )
+
+    it.each(['', 'One statement', 'a'.repeat(250)])(
+      'does not warn for a short single statement: %p',
+      (seedText) => {
+        renderWithProviders(<ModerateCommentsSeed {...defaultProps} />, {
+          store: createMockStore({ seedText })
+        })
+
+        expect(screen.queryByRole('status')).not.toBeInTheDocument()
+      }
+    )
+
+    it('does not show the single-statement warning in upload-only mode', () => {
+      renderWithProviders(
+        <ModerateCommentsSeed params={{ ...defaultProps.params, uploadOnly: true }} />,
+        {
+          store: createMockStore({ seedText: 'First\nSecond' })
+        }
+      )
+
+      expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    })
+
     it('dispatches seedCommentChanged action when textarea changes', () => {
       renderWithProviders(<ModerateCommentsSeed {...defaultProps} />)
       const textarea = screen.getByTestId('seed_form')
