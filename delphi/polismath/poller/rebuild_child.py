@@ -259,7 +259,9 @@ def run(job_arg: Optional[str], *, label: str, environ: Optional[Mapping[str, st
         manifest = build_manifest(
             ctx, outcome="succeeded",
             inputs={"math_env": label, "math_tick": fp.math_tick, "math_caching_tick": None,
-                    "comment_set_sha256": None, "vote_hwm": fp.lvt},
+                    "comment_set_sha256": None, "vote_hwm": fp.lvt,
+                    "math_modified_ms": fp.modified, "target_label": config.target_label,
+                    "source_commit": config.source_commit},
             outputs=[], models={"embed": None, "topic": None, "narrative": None},
             cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None})
         write_manifest(ctx, manifest)

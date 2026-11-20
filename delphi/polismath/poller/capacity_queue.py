@@ -295,6 +295,11 @@ class Receipt:
     math_env: Optional[str] = None
     math_tick: Optional[int] = None
     vote_hwm: Optional[int] = None
+    # The manifest's binding of the rebuild (#677): the staged bundle's
+    # modified time, the label it was staged for and the admitted commit.
+    modified_ms: Optional[int] = None
+    target_label: Optional[str] = None
+    source_commit: Optional[str] = None
 
     @property
     def finalized(self) -> bool:
@@ -302,11 +307,24 @@ class Receipt:
             self.math_tick is not None
 
     def binds(self, staged: Any, label: str) -> bool:
-        """The receipt names exactly this staged bundle (its label, tick and
-        newest vote)."""
+        """The receipt names exactly this staged bundle: its label and its
+        whole fingerprint (tick, newest vote and modified time). Two writes
+        of the same tick and newest vote differ in ``modified``; a manifest
+        without it (a job finalized before the binding) binds nothing."""
         return (self.finalized and self.math_env == label
                 and self.math_tick == getattr(staged, "math_tick", None)
-                and self.vote_hwm == getattr(staged, "lvt", None))
+                and self.vote_hwm == getattr(staged, "lvt", None)
+                and self.modified_ms is not None
+                and self.modified_ms == getattr(staged, "modified", None))
+
+    def admitted_for(self, target_label: str, source_commit: Optional[str]) -> bool:
+        """The job was admitted to stage for ``target_label`` at
+        ``source_commit`` (the promoting poller's own label and commit): a
+        bundle computed for another label, or under another deploy, is not
+        promoted (the next job is)."""
+        return (self.finalized and self.target_label is not None
+                and self.target_label == target_label
+                and self.source_commit is not None and self.source_commit == source_commit)
 
 
 def receipt_of(job_id: str, status: Dict[str, Any], manifest_line: Optional[str]) -> Receipt:
@@ -331,8 +349,13 @@ def receipt_of(job_id: str, status: Dict[str, Any], manifest_line: Optional[str]
     tick, hwm, env = inputs.get("math_tick"), inputs.get("vote_hwm"), inputs.get("math_env")
     if type(tick) is not int or type(hwm) is not int or not isinstance(env, str):
         return bare
+    modified, target, commit = (inputs.get("math_modified_ms"), inputs.get("target_label"),
+                                inputs.get("source_commit"))
     return Receipt(job_id=job_id, state=state, output_sha256=sha, math_env=env,
-                   math_tick=tick, vote_hwm=hwm)
+                   math_tick=tick, vote_hwm=hwm,
+                   modified_ms=modified if type(modified) is int else None,
+                   target_label=target if isinstance(target, str) else None,
+                   source_commit=commit if isinstance(commit, str) else None)
 
 
 @dataclass(frozen=True)

@@ -16,13 +16,16 @@
     "inputs": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm"],
+      "required": ["math_env", "math_tick", "math_caching_tick", "comment_set_sha256", "vote_hwm", "math_modified_ms", "target_label", "source_commit"],
       "properties": {
         "math_env": {"type": ["string", "null"]},
         "math_tick": {"type": ["integer", "null"]},
         "math_caching_tick": {"type": ["integer", "null"]},
         "comment_set_sha256": {"type": ["string", "null"], "pattern": "^[0-9a-f]{64}$"},
-        "vote_hwm": {"type": ["integer", "null"]}
+        "vote_hwm": {"type": ["integer", "null"]},
+        "math_modified_ms": {"type": ["integer", "null"]},
+        "target_label": {"type": ["string", "null"]},
+        "source_commit": {"type": ["string", "null"], "pattern": "^[0-9a-f]{40}$"}
       }
     },
     "outputs": {
