@@ -19,8 +19,9 @@
 //!
 //! A run whose admission names a selection ([`SELECTIONS`]) also reads the
 //! conversation's `strict_moderation` and every comment's `velocity`, the two
-//! columns the selection needs besides these; its bundle carries them and no
-//! other bundle does. The selection itself is [`select`].
+//! columns a selection may need besides these (every selection's bundle
+//! carries them, whichever it names); no other bundle does. The selection
+//! itself is [`select`], by its rule in [`RULES`].
 //!
 //! No vote row and no participant row crosses: no stage of the full pipeline
 //! reads one. The votes reach the run only as `inputs.vote_hwm`, the newest
@@ -217,8 +218,29 @@ pub fn comment_set_sha256(comments: &[Comment]) -> String {
 /// The selection a run lays out, clusters and names when its admission names
 /// it: the comments participants are shown, by [`participant_visible`].
 pub const PARTICIPANT_VISIBLE: &str = "participant_visible/1";
-/// Every selection an admission may name.
-pub const SELECTIONS: [&str; 1] = [PARTICIPANT_VISIBLE];
+/// The selection a run lays out, clusters and names when its admission names
+/// it: every comment of the conversation, whatever its moderation, by
+/// [`all_comments`].
+pub const ALL_COMMENTS: &str = "all_comments/1";
+/// The selection a run lays out, clusters and names when its admission names
+/// it: every comment of the conversation but the moderated-out ones, by
+/// [`all_but_moderated_out`].
+pub const ALL_BUT_MODERATED_OUT: &str = "all_but_moderated_out/1";
+/// A selection's membership: whether it keeps one comment, given the
+/// comment's `active`, `velocity` and `mod` and the conversation's
+/// `strict_moderation`.
+pub type Rule = fn(bool, f64, i64, bool) -> bool;
+/// Every selection an admission may name, each with its rule. This table is
+/// the one place where a selection's name and its membership meet: [`select`]
+/// keeps what the named rule keeps and nothing else decides it. A new rule is
+/// one function and one line here (and its twin in `polismath/selection.py`).
+pub const RULES: [(&str, Rule); 3] = [
+    (PARTICIPANT_VISIBLE, participant_visible),
+    (ALL_COMMENTS, all_comments),
+    (ALL_BUT_MODERATED_OUT, all_but_moderated_out),
+];
+/// Every selection an admission may name: the names of [`RULES`], in order.
+pub const SELECTIONS: [&str; 3] = [RULES[0].0, RULES[1].0, RULES[2].0];
 /// The header line of the selection digest (`polismath/selection.py`,
 /// `SELECTION_FORMAT`).
 pub const SELECTION_FORMAT: &str = "polis-jobs.selection/1";
@@ -249,6 +271,29 @@ pub fn participant_visible(
         }
 }
 
+/// Every comment of the conversation, whatever its state: every row of
+/// `comments` for it is kept, in each of the three moderation states
+/// (unmoderated, moderated in, moderated out), active or not, muted or not,
+/// under strict moderation or not. A run that names it lays out the whole
+/// conversation, as a report on all of it would. The one Rust statement of the
+/// rule; the Python one is `polismath/selection.py`.
+pub fn all_comments(_active: bool, _velocity: f64, _mod: i64, _strict_moderation: bool) -> bool {
+    true
+}
+
+/// Every comment of the conversation but the moderated-out ones: the
+/// unmoderated and the moderated-in are kept whatever the conversation's
+/// strict moderation says, active or not, muted or not. The one Rust
+/// statement of the rule; the Python one is `polismath/selection.py`.
+pub fn all_but_moderated_out(
+    _active: bool,
+    _velocity: f64,
+    r#mod: i64,
+    _strict_moderation: bool,
+) -> bool {
+    r#mod != MOD_REJECTED
+}
+
 /// The comments one selection keeps.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Selection {
@@ -262,28 +307,31 @@ pub struct Selection {
 
 /// The selection `name` makes of `comments` (every comment of one
 /// conversation, each with its `velocity`) under the conversation's
-/// `strict_moderation`. Its digest is sha256 over the header line, the
-/// selection's name line, then one line per kept comment ordered by tid,
-/// `tid\tsha256(txt)\n`: a moderation that keeps the same comments (an
-/// unmoderated comment accepted outside strict moderation, a rejected comment
-/// added) leaves it as it was, and one that keeps or drops another comment
-/// changes it. A name that is not a selection, or a comment without its
-/// velocity, is refused.
+/// `strict_moderation`, by the selection's rule in [`RULES`]. Its digest is
+/// sha256 over the header line, the selection's name line, then one line per
+/// kept comment ordered by tid, `tid\tsha256(txt)\n`: a moderation that keeps
+/// the same comments (an unmoderated comment accepted outside strict
+/// moderation, a rejected comment added; under [`ALL_COMMENTS`], any
+/// moderation; under [`ALL_BUT_MODERATED_OUT`], an unmoderated comment
+/// moderated in) leaves it as it was, and one that keeps or drops another
+/// comment changes it. The name line makes the digests of two selections
+/// differ even when they keep the same comments. A name that is not a
+/// selection, or a comment without its velocity, is refused.
 pub fn select(
     name: &str,
     comments: &[Comment],
     strict_moderation: bool,
 ) -> Result<Selection, Invalid> {
-    let name = SELECTIONS
+    let (name, keeps) = RULES
         .into_iter()
-        .find(|n| *n == name)
+        .find(|(n, _)| *n == name)
         .ok_or_else(|| Invalid(format!("selection {name:?}")))?;
     let mut kept = Vec::new();
     for c in comments {
         let velocity = c
             .velocity
             .ok_or_else(|| Invalid("comments.velocity".to_owned()))?;
-        if participant_visible(c.active, velocity, c.r#mod, strict_moderation) {
+        if keeps(c.active, velocity, c.r#mod, strict_moderation) {
             kept.push(c);
         }
     }
