@@ -1360,14 +1360,17 @@ how it was made.
 Who: the served map under the participants' rule is as public as the report's
 other Delphi reads (`/api/v3/delphi`, `/delphi/reports`,
 `/delphi/visualizations`, which Node registers without sign-in): the report id
-reads it. A `job_id` and any other `selection` need a sign-in of one of the
-conversation's moderators or a site administrator (`ADMIN_UIDS`), the rule of
-the typed result reads; `source=shadow` needs a site administrator. Without a
+reads it. A past run named by `job_id` is as public too when it was made under
+the participants' rule (`PUBLIC_RUN_HISTORY`); a past run's map may later be
+removed to save storage, and then answers `not_stored`, as a run that never
+stored one does. Any other `selection`, and a named run made under another
+rule, need a sign-in of one of the conversation's moderators or a site
+administrator (`ADMIN_UIDS`), the rule of the typed result reads;
+`source=shadow` needs a site administrator. Without a
 verifiable bearer token: 401 `polis_err_topic_map_sign_in`; signed in without
 the right: 403 `polis_err_topic_map_auth`. Those answers are
 `Cache-Control: private, no-store` with `Vary: Authorization, Accept-Encoding`.
-Whether a stored run is as public as the served map is one constant,
-`PUBLIC_RUN_HISTORY` (false).
+An identity lookup the database does not answer is 503, never 401.
 
 Refusals as the neighbours': no `report_id` is 400; a report that does not
 exist or has no conversation is 404 `Could not find conversation for
@@ -1379,9 +1382,15 @@ another conversation's run is 404 `Job not found`; an unknown `source` or
 of `no_run`, `run_not_ready`, `not_stored` (a run from before runs stored
 maps), `no_positions`, `no_topics` or `too_few_comments`. A stored `too_large`,
 a part longer than a stored row (1 MiB) or a family longer than 4 MiB is 422
-`polis_err_topic_map_too_large`, never a truncated map. Stored rows the route
-does not read (an unknown reason, a missing part, a digest that is not one,
-a row naming another job) hand back.
+`polis_err_topic_map_too_large`, never a truncated map. Stored rows that are not a map the
+route can serve (an unknown reason, a missing part, a row naming another job,
+a digest that is not the document's, a gzip that is not the document) are 500
+`polis_err_topic_map_unreadable`, whatever `If-None-Match` says. Before a
+stored family is first sent, the process checks it once, off the runtime's
+threads and after its connection has gone back: the document's SHA-256 must be
+the stored digest and the gzip must inflate to exactly the document
+(`miniz_oxide`). The verdict, never the bytes, is kept for the family (which
+never changes), so later requests send one part with no check.
 
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
@@ -1396,19 +1405,27 @@ The participation path shares nothing with this route. Before anything is
 read a request takes one of four places in the process; with none free it is
 answered 503 `polis_err_topic_map_busy` with `Retry-After: 1` at once. A
 request that finds no connection within 50 ms, or is not answered within its
-3 s deadline, is answered the same 503: the route shedding its own load, never
-an answer about the conversation; nginx passes it to the client. The stored
+3 s deadline, or whose statement times out or whose connection fails, is
+answered the same 503: the route shedding its own load, never an answer about
+the conversation; nginx passes it to the client. The stored
 part crosses the connection only when it is within its bound, checked in the
-statement, so the stored bytes in the process are at most four parts; a place
-is held until its read has ended, even when the request has given up. Nothing
-is kept between requests. nginx buffers the answer in memory, so a slow reader
-holds nginx's buffers, not polis-api's. The isolation tests are
+statement. A place and its byte count are held until the answer has been
+written to its connection, or the connection has dropped, or its write has
+taken `HELD_WRITE_DEADLINE` (5 s, after which the connection is closed;
+`http::hold_until_written`), and until its read has ended even when the
+request has given up: so the stored bytes in the process, on their way to
+clients included, are at most four parts (eight during a family's one check).
+nginx buffers the answer in memory, so a slow reader normally holds nginx's
+buffers, not polis-api's. The isolation tests are
 `connection_bounds_topic_map_flood_leaves_participation_clear`,
-`connection_bounds_warm_topic_map_answers_leave_participation_clear` and the
-load test `connection_bounds_topic_map_saturation_keeps_participation_latency`.
+`connection_bounds_warm_topic_map_answers_leave_participation_clear`,
+`connection_bounds_held_topic_map_answers_keep_their_places_until_written`
+(answers held open on the real HTTP server) and the load test
+`connection_bounds_topic_map_saturation_keeps_participation_latency`.
 `delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap` (places
 in use now and at most, requests shed, maps sent and answered 304, stored
-bytes held now and at most) are on `/health`.
+bytes held now and at most, families checked) are on `/health`, switched on or
+off.
 
 ### Statement importance (off by default)
 

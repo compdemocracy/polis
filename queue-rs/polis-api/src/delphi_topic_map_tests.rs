@@ -169,7 +169,9 @@ fn who_must_be_signed_in_for_what() {
         (q(None, Served, Some(ParticipantVisible)), Need::Anyone),
         (q(None, Served, Some(AllComments)), Need::Moderator),
         (q(None, Served, Some(AllButModeratedOut)), Need::Moderator),
-        (q(Some("j"), Served, None), Need::Moderator),
+        // Ruled public: a past run's map (made under the participants' rule,
+        // checked once its job is read) is as public as the current one.
+        (q(Some("j"), Served, None), Need::Anyone),
         (q(None, Shadow, None), Need::SiteAdministrator),
         (q(Some("j"), Shadow, None), Need::SiteAdministrator),
         (q(None, Shadow, Some(AllComments)), Need::SiteAdministrator),
@@ -177,7 +179,7 @@ fn who_must_be_signed_in_for_what() {
         assert_eq!(need(&request), expected, "{request:?}");
     }
     // The ruling this waits on is one constant.
-    const { assert!(!PUBLIC_RUN_HISTORY) };
+    const { assert!(PUBLIC_RUN_HISTORY) };
 }
 
 #[test]
@@ -281,9 +283,10 @@ async fn refusals_that_need_no_read_are_answered_before_one() {
     }
     #[cfg(feature = "db-tests")]
     assert_eq!(pool.evidence.snapshot()[0], 0, "nothing was read");
-    // A read that cannot reach its database goes back to Node.
+    // A database that does not answer is the route shedding its load
+    // (503, try again), never Node's 404 for "no such map".
     let out = crate::dispatch(app, None, get("/api/v3/delphi/topicMap?report_id=r1")).await;
-    assert_eq!(out.status, 502);
+    assert_eq!((out.status, header(&out, "Retry-After")), (503, Some("1")));
 }
 
 #[test]
@@ -338,6 +341,30 @@ fn stored_bytes_are_sent_as_they_are() {
         !route::negotiate_gzip(&gzip),
         "HEAD reads the document's length"
     );
+}
+
+#[test]
+fn a_stored_family_is_checked_against_its_digest_and_its_gzip() {
+    use sha2::{Digest, Sha256};
+    let doc = document(300, "j").into_bytes();
+    let sha: String = Sha256::digest(&doc)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let gz = crate::compress::gzip(&doc).unwrap();
+    assert!(stored_parts_agree(&doc, &gz, &sha));
+    // A digest of the right shape that is not the document's.
+    assert!(!stored_parts_agree(&doc, &gz, &"0".repeat(64)));
+    // A gzip of another document, a cut gzip, and a gzip that is not one.
+    let other = crate::compress::gzip(&document(301, "j").into_bytes()).unwrap();
+    assert!(!stored_parts_agree(&doc, &other, &sha));
+    assert!(!stored_parts_agree(&doc, &gz[..gz.len() - 9], &sha));
+    assert!(!stored_parts_agree(&doc, &doc, &sha));
+    // A gzip with a name field (as other writers make them) still reads.
+    let mut named = vec![0x1f, 0x8b, 8, 8, 0, 0, 0, 0, 0, 3];
+    named.extend_from_slice(b"map.json\0");
+    named.extend_from_slice(&gz[10..]);
+    assert!(stored_parts_agree(&doc, &named, &sha));
 }
 
 #[test]

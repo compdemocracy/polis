@@ -704,6 +704,162 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
     });
 }
 
+/// Stored map answers held on their way to clients that do not read, through
+/// the real HTTP server: the route's places and byte count last as long as
+/// each answer is being written, so a fifth request is shed while four
+/// answers wait on their readers, the bytes held are four documents, a
+/// dropped connection or the write deadline lets go of its answer, and the
+/// votes-path reads keep their latency meanwhile (the load test's rule:
+/// no wait for a slot of their own pool, no more misses of their own
+/// deadline than the control's plus two, the 95th percentile within twice
+/// the control's plus 25 ms).
+#[test]
+fn connection_bounds_held_topic_map_answers_keep_their_places_until_written() {
+    let database = Database::new("topic_map_held");
+    let (mut app, _) = setup(&database);
+    let map = store_topic_map(&database, 30_000);
+    const ROUNDS: usize = 20;
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+        topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
+        let state = app.delphi_topic_map.clone();
+        let reads = participation_reads(&app);
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let served = app.clone();
+        let handler = Arc::new(move |req: Request| crate::dispatch(served.clone(), None, req));
+        let server = tokio::spawn(crate::http::serve_until(listener, handler, crate::http::Listener::Main, async move {
+            let _ = stopped.await;
+        }));
+        // A client that asks for the document and reads nothing, with a
+        // receive buffer far smaller than the answer.
+        async fn stalled(address: std::net::SocketAddr) -> tokio::net::TcpStream {
+            let socket = tokio::net::TcpSocket::new_v4().unwrap();
+            socket.set_recv_buffer_size(4096).unwrap();
+            let mut stream = socket.connect(address).await.unwrap();
+            tokio::io::AsyncWriteExt::write_all(
+                &mut stream,
+                b"GET /api/v3/delphi/topicMap?report_id=r1 HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-Proto: https\r\nConnection: close\r\n\r\n",
+            )
+            .await
+            .unwrap();
+            stream
+        }
+        // The family is checked once, before the clock starts.
+        let first = crate::dispatch(app.clone(), None, forwarded("/api/v3/delphi/topicMap?report_id=r1", &[])).await;
+        assert_eq!(first.status, 200);
+        async fn sample(app: &Arc<App>, reads: &[(&'static str, Arc<db::Pool>); 3]) -> Vec<Vec<(u16, Duration, [usize; 6])>> {
+            let mut out = vec![Vec::new(); reads.len()];
+            for _ in 0..ROUNDS {
+                for (i, (path, pool)) in reads.iter().enumerate() {
+                    out[i].push(participation_read(app.clone(), path, pool).await);
+                }
+            }
+            out
+        }
+        fn quantile(samples: &[(u16, Duration, [usize; 6])], q: f64) -> Duration {
+            let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+            d.sort();
+            d[((d.len() - 1) as f64 * q).round() as usize]
+        }
+        let _ = sample(&app, &reads).await;
+        let control = sample(&app, &reads).await;
+        let busy_before = state.busy();
+        let mut clients = Vec::new();
+        for _ in 0..12 {
+            clients.push(stalled(address).await);
+        }
+        wait_for("four answers held, eight shed", || {
+            state.in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT && state.busy() >= busy_before + 8
+        })
+        .await;
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        let doc = map.document.len();
+        let (held_places, held_bytes) = (state.in_flight(), state.held_now());
+        eprintln!("held topic map answers: places {held_places}, bytes {held_bytes}, shed {}", state.busy() - busy_before);
+        assert_eq!(held_places, crate::delphi_topic_map::MAX_IN_FLIGHT, "the places last while the answers are written");
+        assert_eq!(held_bytes, crate::delphi_topic_map::MAX_IN_FLIGHT * doc, "the bytes on their way are counted");
+        // A fifth asker is shed at once while four answers wait on readers.
+        let shed = crate::dispatch(app.clone(), None, forwarded("/api/v3/delphi/topicMap?report_id=r1", &[])).await;
+        assert_eq!(shed.status, 503);
+        let loaded = sample(&app, &reads).await;
+        assert_eq!(state.in_flight(), crate::delphi_topic_map::MAX_IN_FLIGHT, "still held throughout the samples");
+        let mut lines = vec![format!(
+            "held topic map answers: places {held_places} bytes {held_bytes} (document {doc}) rounds={ROUNDS}"
+        )];
+        for (i, (path, _)) in reads.iter().enumerate() {
+            lines.push(format!(
+                "  {path}: control p50={:?} p95={:?}; held p50={:?} p95={:?}",
+                quantile(&control[i], 0.5),
+                quantile(&control[i], 0.95),
+                quantile(&loaded[i], 0.5),
+                quantile(&loaded[i], 0.95),
+            ));
+        }
+        let report = lines.join("\n") + "\n";
+        std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
+        for (i, (path, _)) in reads.iter().enumerate() {
+            let missed = |v: &[(u16, Duration, [usize; 6])]| v.iter().filter(|s| s.0 != 200).count();
+            for (status, _, delta) in control[i].iter().chain(&loaded[i]) {
+                participation_isolated(path, *status, *delta);
+            }
+            assert!(missed(&loaded[i]) <= missed(&control[i]) + 2, "{path} missed its deadline more while answers were held");
+            let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
+            assert!(l95 <= c95 * 2 + Duration::from_millis(25), "{path}: control p95 {c95:?}, held p95 {l95:?}");
+        }
+        // Which clients hold a map and which were shed: the first bytes of
+        // each answer.
+        let mut held = Vec::new();
+        for mut client in clients {
+            let mut status = [0u8; 12];
+            tokio::io::AsyncReadExt::read_exact(&mut client, &mut status).await.unwrap();
+            if &status == b"HTTP/1.1 200" {
+                held.push(client);
+            }
+        }
+        assert_eq!(held.len(), crate::delphi_topic_map::MAX_IN_FLIGHT);
+        // Readers that leave let go of their answers.
+        drop(held.drain(..2).collect::<Vec<_>>());
+        wait_for("dropped connections let go", || {
+            state.in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT - 2
+                && state.held_now() == (crate::delphi_topic_map::MAX_IN_FLIGHT - 2) * doc
+        })
+        .await;
+        // The rest read: every answer that was held arrives whole.
+        for mut client in held {
+            let mut got = Vec::new();
+            tokio::time::timeout(Duration::from_secs(10), tokio::io::AsyncReadExt::read_to_end(&mut client, &mut got))
+                .await
+                .expect("a held answer is written once read")
+                .unwrap();
+            assert!(got.len() > doc, "the held answer arrives whole: {} bytes", got.len());
+        }
+        wait_for("every answer written or let go", || state.in_flight() == 0 && state.held_now() == 0).await;
+        // A reader that never reads is let go at the write deadline.
+        let never = stalled(address).await;
+        wait_for("one answer held", || state.in_flight() == 1).await;
+        let started = std::time::Instant::now();
+        tokio::time::timeout(crate::http::HELD_WRITE_DEADLINE + Duration::from_secs(3), async {
+            while state.in_flight() != 0 {
+                tokio::time::sleep(Duration::from_millis(20)).await;
+            }
+        })
+        .await
+        .expect("the write deadline lets go of a held answer");
+        assert!(started.elapsed() >= crate::http::HELD_WRITE_DEADLINE - Duration::from_millis(500));
+        assert_eq!(state.held_now(), 0);
+        drop(never);
+        let _ = stop.send(());
+        let _ = server.await;
+    });
+}
+
 #[test]
 fn connection_bounds_warm_next_comment_hands_back_and_reclaims() {
     let database = Database::new("silent_next_comment");

@@ -37,7 +37,8 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
            status text, job_config jsonb);
          CREATE TABLE stand_in_runs(env text, job_id uuid, record jsonb);
-         CREATE TABLE stand_in_wires(env text, artifact_id uuid, family text, wire text);
+         CREATE TABLE stand_in_wires(env text, artifact_id uuid, family text, wire text,
+           delay float8 NOT NULL DEFAULT 0);
          CREATE FUNCTION pd_run_record(p_env text, p_job uuid) RETURNS jsonb
            LANGUAGE sql STABLE AS
            $$ SELECT record FROM stand_in_runs WHERE env=p_env AND job_id=p_job $$;
@@ -45,7 +46,8 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
            RETURNS jsonb LANGUAGE sql STABLE AS
            $$ SELECT jsonb_build_object('wire',wire,'sha256',encode(sha256(convert_to(wire,'UTF8')),'hex'),
                 'batch_sha256',NULL,'batch_id',NULL)
-              FROM stand_in_wires WHERE env=p_env AND artifact_id=p_artifact AND family=p_family $$;",
+              FROM stand_in_wires w, LATERAL (SELECT pg_sleep(w.delay)) z
+              WHERE env=p_env AND artifact_id=p_artifact AND family=p_family $$;",
     )
     .unwrap();
 }
@@ -237,7 +239,7 @@ pub(crate) fn run(
 /// The map family at `artifact`, its rows naming `job`.
 pub(crate) fn wire_at(c: &mut postgres::Client, env: &str, artifact: &str, wire: &str, job: &str) {
     c.execute(
-        "INSERT INTO stand_in_wires VALUES($1,$2::text::uuid,$3,$4)",
+        "INSERT INTO stand_in_wires(env, artifact_id, family, wire) VALUES($1,$2::text::uuid,$3,$4)",
         &[&env, &artifact, &contract::FAMILY, &wire.replace(JOB, job)],
     )
     .unwrap();
@@ -406,10 +408,13 @@ fn a_report_answers_its_served_runs_map_as_stored() {
         assert_eq!(out.status, 200);
         let state = &app.delphi_topic_map;
         assert_eq!(state.0.held.load(Ordering::SeqCst), 0, "nothing is kept");
+        // The family is checked once against its digest, holding both parts
+        // for that check; afterwards one part at a time.
+        assert_eq!(state.checked(), 1, "one check for the family, kept");
         assert_eq!(
             state.max_held(),
-            map.document.len(),
-            "one part at a time, the largest the document"
+            map.document.len() + map.gzip.len(),
+            "the check holds the document and its gzip, once"
         );
         assert_eq!(state.max_in_flight(), 1);
     });
@@ -424,7 +429,8 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
         c.batch_execute(
             "INSERT INTO reports VALUES('r0',0),('rnull',NULL),('none',11),('before',12),
                ('carried',13),('large',14),('few',15),('odd',16),('huge',17),('long',18),
-               ('badsha',19),('nogz',20),('twice',21),('foreign',22)",
+               ('badsha',19),('nogz',20),('twice',21),('foreign',22),('zeros',23),('badgz',24),
+               ('otherdoc',25),('othergz',26),('slow',27)",
         )
         .unwrap();
         let p = "participant_visible/1";
@@ -522,6 +528,49 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
             &uuid(0x8000),
         );
         publish(&mut c, "test", 22, "delphi", &job, &artifact);
+        // A digest of the right shape that is not the document's.
+        let zeros = Stored {
+            sha256: "0".repeat(64),
+            ..stored(document(5, "j"))
+        };
+        served(
+            &mut c,
+            "test",
+            23,
+            "delphi",
+            p,
+            Some(&map_family(23, &zeros)),
+        );
+        // A gzip of another document.
+        let badgz = Stored {
+            gzip: stored(document(6, "j")).gzip,
+            ..stored(document(5, "j"))
+        };
+        served(
+            &mut c,
+            "test",
+            24,
+            "delphi",
+            p,
+            Some(&map_family(24, &badgz)),
+        );
+        // The digest names the run's job, the document (or the gzip) another.
+        let other = uuid(0x8000);
+        for (zid, row) in [(25, 0), (26, 1)] {
+            let mut rows: Vec<String> = map_family(zid, &map)
+                .lines()
+                .skip(1)
+                .map(str::to_owned)
+                .collect();
+            rows[row] = rows[row].replace(JOB, &other);
+            served(&mut c, "test", zid, "delphi", p, Some(&family(&rows)));
+        }
+        served(&mut c, "test", 27, "delphi", p, Some(&map_family(27, &map)));
+        c.execute(
+            "UPDATE stand_in_wires SET delay=2.5 WHERE wire LIKE '%\"conversation_id\":{\"S\":\"27\"}%'",
+            &[],
+        )
+        .unwrap();
     }
     runtime().block_on(async {
         let app = Arc::new(app_on(&db));
@@ -538,12 +587,14 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
             let out = crate::dispatch(app.clone(), None, ask(report)).await;
             assert_eq!((out.status, text(&out).as_str()), (status, body), "{report}");
         }
-        // The bound is the part's: a document longer than the route sends is
-        // refused whole, while its gzip, within the bound, is sent.
+        // A part longer than a stored row refuses the whole map, whichever
+        // part is asked for: its document cannot be checked against its
+        // digest, so neither part is sent.
         let huge = "/api/v3/delphi/topicMap?report_id=huge";
-        let out = crate::dispatch(app.clone(), None, with(huge, &[])).await;
-        assert_eq!((out.status, text(&out).as_str()), (422, r#"{"status":"error","message":"polis_err_topic_map_too_large"}"#));
-        assert_eq!(crate::dispatch(app.clone(), None, with(huge, &gz)).await.status, 200);
+        for headers in [&[][..], &gz[..]] {
+            let out = crate::dispatch(app.clone(), None, with(huge, headers)).await;
+            assert_eq!((out.status, text(&out).as_str()), (422, r#"{"status":"error","message":"polis_err_topic_map_too_large"}"#));
+        }
         let out = crate::dispatch(app.clone(), None, ask("before")).await;
         assert_eq!(out.status, 200);
         let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
@@ -556,11 +607,31 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
         let out = crate::dispatch(app.clone(), None, ask("carried")).await;
         let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
         assert_eq!(body.reason, NoMapReason::NotStored);
-        // Stored rows this route does not read go back to Node.
-        for report in ["odd", "badsha", "nogz", "twice", "foreign"] {
-            let out = crate::dispatch(app.clone(), None, ask(report)).await;
-            assert_eq!(out.status, 502, "{report}");
+        // Stored rows that are not a map this route can serve: refused as
+        // this run's map (500), never served and never Node's 404. A digest
+        // of the right shape that is not the document's, a gzip that is not
+        // the document, and a part naming another job are refused whatever
+        // the client holds: with no ETag, with the stored one, and with `*`.
+        let unreadable = r#"{"status":"error","message":"polis_err_topic_map_unreadable"}"#;
+        for report in ["odd", "badsha", "nogz", "twice", "foreign", "zeros", "badgz", "otherdoc", "othergz"] {
+            for coding in ["gzip", "identity"] {
+                for tag in [None, Some("*".to_owned()), Some(format!("\"{}\"", "0".repeat(64))), Some(format!("W/\"{}\"", map.sha256))] {
+                    let mut headers = vec![("accept-encoding", coding)];
+                    if let Some(tag) = &tag {
+                        headers.push(("if-none-match", tag.as_str()));
+                    }
+                    let out = crate::dispatch(app.clone(), None, with(&format!("/api/v3/delphi/topicMap?report_id={report}"), &headers)).await;
+                    assert_eq!((out.status, text(&out).as_str()), (500, unreadable), "{report} {coding} {tag:?}");
+                }
+            }
         }
+        // A read slower than its statement bound is the route shedding its
+        // load (503, try again), never "no such map".
+        let started = std::time::Instant::now();
+        let out = crate::dispatch(app.clone(), None, ask("slow")).await;
+        assert_eq!((out.status, header(&out, "Retry-After")), (503, Some("1")), "{}", text(&out));
+        assert_eq!(text(&out), r#"{"status":"error","message":"polis_err_topic_map_busy"}"#);
+        assert!(started.elapsed() < DEADLINE, "the statement bound, not the deadline");
         // The oversized part never crossed the connection.
         assert!(app.delphi_topic_map.max_held() < MAX_PART_BYTES as usize);
     });
@@ -603,7 +674,7 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
     let all_map = stored(document(6, "all"));
     let named_map = stored(document(7, "named"));
     let shadow_map = stored(document(8, "shadow"));
-    let (named, later, running, foreign) = {
+    let (named, later, running, foreign, all_job, removed) = {
         let mut c = db.connect();
         c.batch_execute(&format!(
             "INSERT INTO reports VALUES('r1',{ZID});
@@ -620,13 +691,26 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
             "participant_visible/1",
             Some(&map_family(ZID, &served_map)),
         );
-        served(
+        let all_job = served(
             &mut c,
             "test",
             ZID,
             "delphi:all_comments",
             "all_comments/1",
             Some(&map_family(ZID, &all_map)),
+        );
+        // A past run whose stored map has since been removed (to save
+        // storage): its record still names the family, its batch no longer
+        // holds it.
+        let (removed, gone) = (uuid(0x8000), uuid(0xa000));
+        run(
+            &mut c,
+            "test",
+            &removed,
+            ZID,
+            "COMPLETED",
+            "participant_visible/1",
+            Some((&gone, &removed)),
         );
         let (named, artifact) = (uuid(0x8000), uuid(0xa000));
         run(
@@ -686,7 +770,7 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
             "participant_visible/1",
             Some(&map_family(ZID, &shadow_map)),
         );
-        (named, later, running, foreign)
+        (named, later, running, foreign, all_job, removed)
     };
     runtime().block_on(async {
         let mut app = app_on(&db);
@@ -704,11 +788,19 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
         };
         let status = |out: &Outgoing| out.status;
         let named_q = format!("&job_id={named}");
+        let all_q = format!("&job_id={all_job}");
         for (query, token, expected) in [
-            (named_q.as_str(), None, 401),
-            (named_q.as_str(), Some("Basic abc"), 401),
-            (named_q.as_str(), Some("Bearer not-a-token"), 401),
-            (named_q.as_str(), Some(stranger.as_str()), 403),
+            // Ruled public: a past run's map, made under the participants'
+            // rule, whoever asks and whatever they send.
+            (named_q.as_str(), None, 200),
+            (named_q.as_str(), Some("Basic abc"), 200),
+            (named_q.as_str(), Some("Bearer not-a-token"), 200),
+            (named_q.as_str(), Some(stranger.as_str()), 200),
+            // A past run of another comment rule stays that rule's.
+            (all_q.as_str(), None, 401),
+            (all_q.as_str(), Some("Bearer not-a-token"), 401),
+            (all_q.as_str(), Some(stranger.as_str()), 403),
+            (all_q.as_str(), Some(owner.as_str()), 200),
             ("&selection=all_comments", None, 401),
             ("&selection=all_comments", Some(stranger.as_str()), 403),
             ("&source=shadow", None, 401),
@@ -731,16 +823,32 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
         let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={later}"), Some(&owner))).await;
         let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
         assert_eq!((body.reason, body.job_id.as_deref()), (NoMapReason::NotStored, Some(later.as_str())));
-        // The owner and a site administrator read the named run, the other
-        // rule's run, and only the administrator the shadow's.
+        // A past run whose map was removed answers as one that never stored
+        // one: 200, `not_stored`, for anyone.
+        for token in [None, Some(owner.as_str())] {
+            let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={removed}"), token)).await;
+            assert_eq!(
+                text(&out),
+                format!(r#"{{"status":"success","message":"The Delphi run has no stored topic map","report_id":"r1","job_id":"{removed}","source":"served","scope":null,"reason":"not_stored"}}"#)
+            );
+        }
+        // The named run is a public answer; the other rule's past run a
+        // private one.
+        let out = crate::dispatch(app.clone(), None, ask(&named_q, None)).await;
+        assert_eq!(text(&out), named_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(named.as_str()));
+        // A named run's scope is the one its map was published in.
+        assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi"));
+        assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
+        assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+        let out = crate::dispatch(app.clone(), None, ask(&all_q, Some(&owner))).await;
+        assert_eq!(text(&out), all_map.document);
+        assert_eq!(header(&out, contract::HEADER_SELECTION), Some("all_comments/1"));
+        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        // The owner and a site administrator read the other rule's current
+        // run, and only the administrator the shadow's.
         for token in [&owner, &admin] {
-            let out = crate::dispatch(app.clone(), None, ask(&named_q, Some(token))).await;
-            assert_eq!(text(&out), named_map.document);
-            assert_eq!(header(&out, contract::HEADER_JOB), Some(named.as_str()));
-            // A named run's scope is the one its map was published in.
-            assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi"));
-            assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
-            assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
             let out = crate::dispatch(app.clone(), None, ask("&selection=all_comments", Some(token))).await;
             assert_eq!(text(&out), all_map.document);
             assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi:all_comments"));
@@ -761,6 +869,20 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
             assert_eq!(text(&out), served_map.document, "{token:?}");
             assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
         }
+        // The identity database not answering is the route shedding its
+        // load (503), never "not signed in".
+        let mut unanswered = app_on(&db);
+        let signer = Signer::new(&mut unanswered);
+        unanswered.legacy_admin_uids = vec![6];
+        unanswered.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
+        unanswered.delphi_topic_map_auth_db = Some(crate::db::Pool::new(
+            Connector::Plain(Box::new("postgresql://test@127.0.0.1:1/test".parse().unwrap())),
+            auth_pool_limits(),
+        ));
+        let unanswered = Arc::new(unanswered);
+        let admin = signer.bearer("admin");
+        let out = crate::dispatch(unanswered, None, ask("&source=shadow", Some(&admin))).await;
+        assert_eq!((out.status, header(&out, "Retry-After")), (503, Some("1")), "{}", text(&out));
     });
 }
 

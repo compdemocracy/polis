@@ -68,10 +68,14 @@ pub const DEADLINE: Duration = Duration::from_millis(3000);
 pub const DEFAULT_SCOPE: &str = "delphi";
 /// A shadow env's prefix: a served env never reads as the shadow.
 pub const SHADOW_PREFIX: &str = "shadow-";
-/// Whether a stored run named by `job_id` is as public as the served map. It
-/// is not (the conversation's moderators and the site administrators only)
-/// until it is ruled otherwise; setting this true is the whole change.
-pub const PUBLIC_RUN_HISTORY: bool = false;
+/// Whether a stored run named by `job_id` is as public as the served map:
+/// yes (ruled; a past run's map may later be removed to save storage, and
+/// then answers `not_stored`). Only for a run made under the participants'
+/// rule; a run of another rule stays its moderators', and the shadow its site
+/// administrators'. `false` makes named runs moderators-only again.
+pub const PUBLIC_RUN_HISTORY: bool = true;
+/// Stored families whose verdict a process keeps.
+const VERDICTS: usize = 4096;
 
 /// Two slots, one statement each: the run record walks the job's publication
 /// history, so the statement timeout is the typed result read's.
@@ -104,6 +108,12 @@ struct Inner {
     /// Stored bytes requests hold now, and at most since start.
     held: AtomicUsize,
     max_held: AtomicUsize,
+    /// Stored families checked against their digest in this process: one
+    /// at a time, and each family's verdict kept (a stored family never
+    /// changes; only the verdict is kept, never the bytes).
+    checking: Arc<Semaphore>,
+    checked: AtomicU64,
+    verdicts: std::sync::Mutex<std::collections::VecDeque<(String, bool)>>,
     /// A test sets this to hold every read inside its connection.
     #[cfg(all(test, feature = "db-tests"))]
     reads_held: (std::sync::Mutex<bool>, std::sync::Condvar),
@@ -156,6 +166,9 @@ impl State {
             not_modified: AtomicU64::new(0),
             held: AtomicUsize::new(0),
             max_held: AtomicUsize::new(0),
+            checking: Arc::new(Semaphore::new(1)),
+            checked: AtomicU64::new(0),
+            verdicts: std::sync::Mutex::new(std::collections::VecDeque::new()),
             #[cfg(all(test, feature = "db-tests"))]
             reads_held: (std::sync::Mutex::new(false), std::sync::Condvar::new()),
         }))
@@ -180,6 +193,32 @@ impl State {
             inner: self.0.clone(),
             bytes,
         }
+    }
+    /// This process's verdict on the stored family `key`, if it has one.
+    fn verdict(&self, key: &str) -> Option<bool> {
+        let verdicts = self.0.verdicts.lock().ok()?;
+        verdicts
+            .iter()
+            .find(|(k, _)| k == key)
+            .map(|(_, good)| *good)
+    }
+    fn remember(&self, key: String, good: bool) {
+        if let Ok(mut verdicts) = self.0.verdicts.lock() {
+            verdicts.retain(|(k, _)| *k != key);
+            verdicts.push_back((key, good));
+            while verdicts.len() > VERDICTS {
+                verdicts.pop_front();
+            }
+        }
+    }
+    /// Stored families checked since start.
+    pub(crate) fn checked(&self) -> u64 {
+        self.0.checked.load(Ordering::Relaxed)
+    }
+    /// Stored bytes held now.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn held_now(&self) -> usize {
+        self.0.held.load(Ordering::SeqCst)
     }
     /// Requests holding a place at most at once, since start.
     pub(crate) fn max_in_flight(&self) -> usize {
@@ -211,6 +250,7 @@ impl State {
         );
         body.set("heldBytes", num(self.0.held.load(Ordering::SeqCst) as f64));
         body.set("maxHeldBytes", num(self.max_held() as f64));
+        body.set("checked", num(self.checked() as f64));
         crate::js::Js::Obj(body)
     }
     /// Requests holding a place now.
@@ -340,7 +380,7 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     };
     let gzip = route::negotiate_gzip(req);
     let tags = client_tags(req);
-    match tokio::time::timeout(DEADLINE, answer(app, parsed, place, gzip, tags)).await {
+    match tokio::time::timeout(DEADLINE, answer(app, parsed, place.clone(), gzip, tags)).await {
         Err(_) => {
             state.0.busy.fetch_add(1, Ordering::Relaxed);
             refuse(req, res, Refused::Busy)
@@ -348,12 +388,15 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         Ok(None) => route::bad_gateway(),
         Ok(Some(Answer::Refused(refused))) => refuse(req, res, refused),
         Ok(Some(Answer::NoMap(body))) => json(req, res, 200, &body, false),
-        Ok(Some(Answer::Map(map))) => send(state, req, res, *map),
+        Ok(Some(Answer::Map(map))) => send(state, req, res, *map, place),
     }
 }
 
-/// The stored bytes, as they are.
-fn send(state: &State, req: &Request, mut res: Res, map: Map) -> Outgoing {
+/// The stored bytes, as they are. The request's place and the count of its
+/// bytes go with the response: they are let go when it has been written or
+/// its connection has dropped, so the places bound the bytes still on their
+/// way to clients, not only those being read.
+fn send(state: &State, req: &Request, mut res: Res, map: Map, place: Place) -> Outgoing {
     res.set(contract::HEADER_JOB, map.job);
     res.set(contract::HEADER_SOURCE, map.source.word());
     if let Some(scope) = map.scope {
@@ -370,9 +413,9 @@ fn send(state: &State, req: &Request, mut res: Res, map: Map) -> Outgoing {
             state.0.not_modified.fetch_add(1, Ordering::Relaxed);
             route::stored_json(req, res, None, map.gzip, &map.etag, map.privileged)
         }
-        // The count of held bytes ends here: the bytes are the response's.
-        Some((bytes, _held)) => {
+        Some((bytes, held)) => {
             state.0.sent.fetch_add(1, Ordering::Relaxed);
+            crate::http::hold_until_written((place, held));
             route::stored_json(req, res, Some(bytes), map.gzip, &map.etag, map.privileged)
         }
     }
@@ -434,6 +477,9 @@ enum Need {
     SiteAdministrator,
 }
 
+/// Who a request must be, from its query alone. A named run is as public as
+/// the current map ([`PUBLIC_RUN_HISTORY`]) only when it was made under the
+/// participants' rule, which is known once its job is read ([`answer`]).
 fn need(q: &contract::Request) -> Need {
     if q.source == Source::Shadow {
         Need::SiteAdministrator
@@ -448,7 +494,25 @@ fn need(q: &contract::Request) -> Need {
     }
 }
 
-/// `None` hands the request back to Node, whose answer for this path is 404.
+/// What a failed database exchange answers. Stored rows the database itself
+/// cannot read as declared (a value that is not base64, a line that is not
+/// JSON) and a statement this login may not run are this run's map being
+/// unreadable; everything else (a statement or lock timeout, a busy or lost
+/// connection, a server shutting down) is the route shedding its load.
+fn failure(e: &anyhow::Error) -> Refused {
+    let code = e
+        .chain()
+        .find_map(|c| c.downcast_ref::<postgres::Error>())
+        .and_then(|e| e.as_db_error())
+        .map(|db| db.code().code().to_owned());
+    match code {
+        Some(code) if code.starts_with("22") || code.starts_with("42") => Refused::Unreadable,
+        _ => Refused::Busy,
+    }
+}
+
+/// `None` hands the request back to Node, whose answer for this path is 404:
+/// only when the route is switched off.
 async fn answer(
     app: &App,
     parsed: Parsed,
@@ -501,10 +565,9 @@ async fn answer(
     {
         Ok(Some(zid)) => zid,
         Ok(None) => return refused(Refused::UnknownReport(report)),
-        Err(e) if crate::db::is_acquire_timeout(&e) => return refused(Refused::Busy),
-        Err(_) => return None,
+        Err(e) => return refused(failure(&e)),
     };
-    let need = need(&q);
+    let mut need = need(&q);
     if need != Need::Anyone
         && let Err(r) = authorize(app, parsed.authorization.as_deref(), zid, need).await?
     {
@@ -528,19 +591,38 @@ async fn answer(
         tags,
     };
     let state = app.delphi_topic_map.clone();
+    let reading = place.clone();
     let read = pool
         .with(move |c| {
-            let _place = place;
+            let _place = reading;
             read(c, ask, &state)
         })
         .await;
-    let found = match read {
-        Ok(found) => found,
-        Err(e) if crate::db::is_acquire_timeout(&e) => return refused(Refused::Busy),
-        Err(_) => return None,
+    let Read { found, selection } = match read {
+        Ok(read) => read,
+        Err(e) => return refused(failure(&e)),
+    };
+    // A named run made under another comment rule is that rule's: its
+    // moderators' and the site administrators', whoever may read past runs.
+    if named_run
+        && need == Need::Anyone
+        && !matches!(found, Found::NoSuchRun)
+        && selection.as_deref() != Some(PARTICIPANT_VISIBLE)
+    {
+        need = Need::Moderator;
+        if let Err(r) = authorize(app, parsed.authorization.as_deref(), zid, need).await? {
+            return refused(r);
+        }
+    }
+    let found = match found {
+        Found::Unverified(u) => match verify(&app.delphi_topic_map, *u).await {
+            Ok(found) => found,
+            Err(r) => return refused(r),
+        },
+        found => found,
     };
     Some(match found {
-        Found::Invalid => return None,
+        Found::Unreadable => Answer::Refused(Refused::Unreadable),
         Found::NoSuchRun => Answer::Refused(Refused::JobNotFound),
         Found::TooLarge => Answer::Refused(Refused::TooLarge),
         // A served run came from the scope read; a named run from none.
@@ -551,10 +633,10 @@ async fn answer(
             (!named_run).then(|| scope.clone()),
             reason,
         )),
+        Found::Unverified(_) => Answer::Refused(Refused::Unreadable),
         Found::Map {
             job,
             scope,
-            selection,
             sha,
             body,
         } => Answer::Map(Box::new(Map {
@@ -570,6 +652,10 @@ async fn answer(
     })
 }
 
+/// The comment rule what participants are shown, as a run's configuration
+/// names it.
+const PARTICIPANT_VISIBLE: &str = "participant_visible/1";
+
 /// `Err` is the refusal; `None` hands back.
 async fn authorize(
     app: &App,
@@ -581,14 +667,19 @@ async fn authorize(
         return Some(Err(Refused::Unauthenticated));
     };
     let auth_pool = app.delphi_topic_map_auth_db.as_ref()?;
-    let Some(uid) = crate::hybrid_read::resolve(
+    let uid = match crate::hybrid_read::resolve_or_unavailable(
         Some(raw),
         app.participant_verifier.as_deref(),
         app.read_oidc.as_deref(),
         auth_pool,
     )
     .await
-    .and_then(|identity| identity.uid()) else {
+    {
+        // The identity database did not answer: shed, never "not signed in".
+        Err(_) => return Some(Err(Refused::Busy)),
+        Ok(identity) => identity.and_then(|identity| identity.uid()),
+    };
+    let Some(uid) = uid else {
         return Some(Err(Refused::Unauthenticated));
     };
     let admins = app.legacy_admin_uids.clone();
@@ -604,8 +695,10 @@ async fn authorize(
     {
         Ok(true) => Some(Ok(())),
         Ok(false) => Some(Err(Refused::Denied)),
-        Err(e) if crate::db::is_acquire_timeout(&e) => Some(Err(Refused::Busy)),
-        Err(_) => None,
+        Err(e) => Some(Err(match failure(&e) {
+            Refused::Unreadable => Refused::Unreadable,
+            _ => Refused::Busy,
+        })),
     }
 }
 
@@ -620,6 +713,12 @@ struct Ask {
     tags: Vec<String>,
 }
 
+struct Read {
+    found: Found,
+    /// The run's comment rule as its configuration names it.
+    selection: Option<String>,
+}
+
 enum Found {
     NoSuchRun,
     NoMap {
@@ -627,20 +726,36 @@ enum Found {
         reason: NoMapReason,
     },
     TooLarge,
-    /// The stored rows are not what this route reads: hand back.
-    Invalid,
+    /// The stored rows are not a map this route can serve: a part missing,
+    /// a row naming another job, a digest that is not the document's.
+    Unreadable,
+    /// A stored family not yet checked in this process: its document and
+    /// gzip, to be checked against the stored digest before anything is sent.
+    Unverified(Box<Unverified>),
     Map {
         job: String,
         scope: Option<String>,
-        selection: Option<String>,
         sha: String,
         body: Option<(Vec<u8>, Held)>,
     },
 }
 
-/// The run, then its map's one part, on one connection: indexed reads and
-/// the result store's own functions, nothing computed here.
-fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Found> {
+struct Unverified {
+    key: String,
+    job: String,
+    scope: Option<String>,
+    sha: String,
+    document: Vec<u8>,
+    gzip: Vec<u8>,
+    held: Held,
+    /// Which of the two the client gets, and whether it already holds it.
+    send_gzip: bool,
+    matched: bool,
+}
+
+/// The run, then its map's part, on one connection: indexed reads and the
+/// result store's own functions, nothing computed here.
+fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Read> {
     let (job, selection, mut artifact) = match &ask.job {
         None => {
             let rows = c.query(
@@ -652,9 +767,12 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Fou
             )?;
             match rows.as_slice() {
                 [] => {
-                    return Ok(Found::NoMap {
-                        job: None,
-                        reason: NoMapReason::NoRun,
+                    return Ok(Read {
+                        found: Found::NoMap {
+                            job: None,
+                            reason: NoMapReason::NoRun,
+                        },
+                        selection: None,
                     });
                 }
                 // One served pointer per env, conversation and scope.
@@ -663,7 +781,12 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Fou
                     row.try_get::<_, Option<String>>(2)?,
                     row.try_get::<_, Option<String>>(1)?,
                 ),
-                _ => return Ok(Found::Invalid),
+                _ => {
+                    return Ok(Read {
+                        found: Found::Unreadable,
+                        selection: None,
+                    });
+                }
             }
         }
         Some(job) => {
@@ -673,19 +796,29 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Fou
                 &[&ask.env, job],
             )?
             else {
-                return Ok(Found::NoSuchRun);
+                return Ok(Read {
+                    found: Found::NoSuchRun,
+                    selection: None,
+                });
             };
             // Another conversation's run is no run of this report's.
             if row.try_get::<_, Option<String>>(0)? != Some(ask.zid.to_string()) {
-                return Ok(Found::NoSuchRun);
-            }
-            if row.try_get::<_, Option<String>>(1)?.as_deref() != Some("COMPLETED") {
-                return Ok(Found::NoMap {
-                    job: Some(job.clone()),
-                    reason: NoMapReason::RunNotReady,
+                return Ok(Read {
+                    found: Found::NoSuchRun,
+                    selection: None,
                 });
             }
-            (job.clone(), row.try_get::<_, Option<String>>(2)?, None)
+            let selection = row.try_get::<_, Option<String>>(2)?;
+            if row.try_get::<_, Option<String>>(1)?.as_deref() != Some("COMPLETED") {
+                return Ok(Read {
+                    found: Found::NoMap {
+                        job: Some(job.clone()),
+                        reason: NoMapReason::RunNotReady,
+                    },
+                    selection,
+                });
+            }
+            (job.clone(), selection, None)
         }
     };
     let mut scope = ask.job.is_none().then(|| ask.scope.clone());
@@ -707,24 +840,21 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Fou
     }
     // The map is read from the run's own batch only, never followed to an
     // earlier one, and every row read must name the run's job.
-    let part = artifact
-        .as_deref()
-        .map(|a| read_part(c, &ask, a, &job))
-        .transpose()?
-        .flatten();
+    let part = match artifact.as_deref() {
+        Some(a) => read_part(c, &ask, a, &job, state)?,
+        None => None,
+    };
     #[cfg(all(test, feature = "db-tests"))]
     state.wait_while_reads_held();
-    let Some(part) = part else {
-        return Ok(Found::NoMap {
+    let found = match part {
+        // Not stored, or no longer stored: the same answer.
+        None => Found::NoMap {
             job: Some(job),
             reason: NoMapReason::NotStored,
-        });
-    };
-    Ok(match part {
-        Part::TooLarge => Found::TooLarge,
-        Part::Invalid => Found::Invalid,
-        Part::NoMap(StoredNoMap::TooLarge) => Found::TooLarge,
-        Part::NoMap(reason) => Found::NoMap {
+        },
+        Some(Part::TooLarge) | Some(Part::NoMap(StoredNoMap::TooLarge)) => Found::TooLarge,
+        Some(Part::Unreadable) => Found::Unreadable,
+        Some(Part::NoMap(reason)) => Found::NoMap {
             job: Some(job),
             reason: match reason {
                 StoredNoMap::NoPositions => NoMapReason::NoPositions,
@@ -732,77 +862,128 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Fou
                 _ => NoMapReason::TooFewComments,
             },
         },
-        Part::Map { sha, body } => Found::Map {
+        Some(Part::Unverified {
+            key,
+            sha,
+            document,
+            gzip,
+            matched,
+        }) => {
+            let held = state.hold(document.len() + gzip.len());
+            Found::Unverified(Box::new(Unverified {
+                key,
+                job,
+                scope,
+                sha,
+                document,
+                gzip,
+                held,
+                send_gzip: ask.gzip,
+                matched,
+            }))
+        }
+        Some(Part::Map { sha, body }) => Found::Map {
             job,
             scope,
-            selection,
             sha,
             body: body.map(|b| {
                 let held = state.hold(b.len());
                 (b, held)
             }),
         },
-    })
+    };
+    Ok(Read { found, selection })
 }
 
 enum Part {
     TooLarge,
-    Invalid,
+    Unreadable,
     NoMap(StoredNoMap),
-    Map { sha: String, body: Option<Vec<u8>> },
+    Unverified {
+        key: String,
+        sha: String,
+        document: Vec<u8>,
+        gzip: Vec<u8>,
+        matched: bool,
+    },
+    Map {
+        sha: String,
+        body: Option<Vec<u8>>,
+    },
 }
 
-/// The one part the client needs from the family stored at `artifact`, or
-/// `None` when that artifact holds no such family. Each row of the stored
-/// family is one canonical line (sorted keys, no spaces, every quote inside a
-/// value escaped), so a part's line is found by its key without reading the
-/// others; only the lines used are parsed, the part's bytes are sent only
-/// when they are within the bound and the client does not already hold them,
-/// and every row used must name `job`.
+/// The part the client needs from the family stored at `artifact`, or `None`
+/// when that artifact holds no such family. Each row of the stored family is
+/// one canonical line (sorted keys, no spaces, every quote inside a value
+/// escaped), so a part's line is found by its key, and its job by the exact
+/// text `"job_id":{"S":"<job>"}`, without parsing the others. Whatever the
+/// client holds, every row the answer rests on must name `job`: the digest's,
+/// the chosen part's, and when the family has not been checked in this
+/// process yet, the document's and the gzip's, whose bytes then both come
+/// back to be checked against the digest ([`verify`]). Only then may a
+/// matching ETag skip the body.
 fn read_part(
     c: &mut postgres::Client,
     ask: &Ask,
     artifact: &str,
     job: &str,
+    state: &State,
 ) -> anyhow::Result<Option<Part>> {
     let Ok(artifact) = uuid::Uuid::parse_str(artifact).map(|u| u.to_string()) else {
-        return Ok(Some(Part::Invalid));
+        return Ok(Some(Part::Unreadable));
     };
+    let key = format!("{}\n{artifact}", ask.env);
+    let checked = state.verdict(&key);
+    if checked == Some(false) {
+        return Ok(Some(Part::Unreadable));
+    }
+    let verifying = checked.is_none();
     let wanted = if ask.gzip {
         contract::PART_GZIP
     } else {
         contract::PART_DOCUMENT
     };
-    let key = |part: &str| format!("\"part\":{{\"S\":\"{part}\"}}");
+    let part = |part: &str| format!("\"part\":{{\"S\":\"{part}\"}}");
+    let by = format!("\"job_id\":{{\"S\":\"{job}\"}}");
     let row = c.query_one(
         "WITH f AS (SELECT public.pd_result_artifact_wire($1::text,($2::text)::uuid,$3::text)->>'wire' AS wire), \
          l AS (SELECT line FROM f, unnest(string_to_array(f.wire, E'\\n')) AS line WHERE octet_length(f.wire) <= $4::bigint), \
-         s AS (SELECT j->'body'->>'S' AS sha, j->'job_id'->>'S' AS job FROM \
-               (SELECT line::jsonb AS j FROM l WHERE strpos(line,$5)>0 AND octet_length(line) <= 512 LIMIT 1) x), \
-         n AS (SELECT j->'reason'->>'S' AS reason, j->'job_id'->>'S' AS job FROM \
-               (SELECT line::jsonb AS j FROM l WHERE strpos(line,$6)>0 AND octet_length(line) <= 512 LIMIT 1) x), \
-         d AS (SELECT octet_length(line) AS len, line FROM l WHERE strpos(line,$7)>0 LIMIT 1), \
-         b AS (SELECT line::jsonb AS j FROM d WHERE d.len <= $8::bigint \
-               AND NOT EXISTS(SELECT 1 FROM s WHERE s.sha = ANY($10::text[]) OR '*' = ANY($10::text[]))) \
+         s AS (SELECT j->'body'->>'S' AS sha, strpos(line,$11)>0 AS ours FROM \
+               (SELECT line, line::jsonb AS j FROM l WHERE strpos(line,$5)>0 AND octet_length(line) <= 512 LIMIT 1) x), \
+         n AS (SELECT j->'reason'->>'S' AS reason, strpos(line,$11)>0 AS ours FROM \
+               (SELECT line, line::jsonb AS j FROM l WHERE strpos(line,$6)>0 AND octet_length(line) <= 512 LIMIT 1) x), \
+         d AS (SELECT octet_length(line) AS len, strpos(line,$11)>0 AS ours, line FROM l WHERE strpos(line,$7)>0 LIMIT 1), \
+         b AS (SELECT line::jsonb AS j FROM d WHERE NOT $12::boolean AND d.len <= $8::bigint \
+               AND NOT EXISTS(SELECT 1 FROM s WHERE s.sha = ANY($10::text[]) OR '*' = ANY($10::text[]))), \
+         vd AS (SELECT (line::jsonb)->'body'->>'S' AS v, strpos(line,$11)>0 AS ours FROM l \
+               WHERE $12::boolean AND strpos(line,$13)>0 AND octet_length(line) <= $8::bigint LIMIT 1), \
+         vg AS (SELECT (line::jsonb)->'body'->>'B' AS v, strpos(line,$11)>0 AS ours FROM l \
+               WHERE $12::boolean AND strpos(line,$14)>0 AND octet_length(line) <= $8::bigint LIMIT 1) \
          SELECT (SELECT wire IS NOT NULL FROM f), \
           (SELECT octet_length(wire) FROM f)::bigint, \
-          (SELECT reason FROM n), (SELECT job FROM n), \
-          (SELECT sha FROM s), (SELECT job FROM s), \
-          (SELECT len FROM d)::bigint, \
+          (SELECT reason FROM n), (SELECT ours FROM n), \
+          (SELECT sha FROM s), (SELECT ours FROM s), \
+          (SELECT len FROM d)::bigint, (SELECT ours FROM d), \
           (SELECT CASE WHEN $9::boolean THEN decode(j->'body'->>'B','base64') \
                        ELSE convert_to(j->'body'->>'S','UTF8') END FROM b), \
-          (SELECT j->'job_id'->>'S' FROM b)",
+          (SELECT convert_to(v,'UTF8') FROM vd), (SELECT ours FROM vd), \
+          (SELECT decode(v,'base64') FROM vg), (SELECT ours FROM vg), \
+          (SELECT max(octet_length(line)) FROM l WHERE $12::boolean AND (strpos(line,$13)>0 OR strpos(line,$14)>0))::bigint",
         &[
             &ask.env,
             &artifact,
             &contract::FAMILY,
             &MAX_FAMILY_BYTES,
-            &key(contract::PART_SHA256),
-            &key(contract::PART_NO_MAP),
-            &key(wanted),
+            &part(contract::PART_SHA256),
+            &part(contract::PART_NO_MAP),
+            &part(wanted),
             &MAX_PART_BYTES,
             &ask.gzip,
             &ask.tags,
+            &by,
+            &verifying,
+            &part(contract::PART_DOCUMENT),
+            &part(contract::PART_GZIP),
         ],
     )?;
     if !row.try_get::<_, Option<bool>>(0)?.unwrap_or(false) {
@@ -814,42 +995,175 @@ fn read_part(
     {
         return Ok(Some(Part::TooLarge));
     }
-    let ours = |by: Option<String>| by.as_deref() == Some(job);
+    let ours = |i: usize| -> anyhow::Result<bool> {
+        Ok(row.try_get::<_, Option<bool>>(i)?.unwrap_or(false))
+    };
     if let Some(reason) = row.try_get::<_, Option<String>>(2)? {
-        if !ours(row.try_get(3)?) {
-            return Ok(Some(Part::Invalid));
+        if !ours(3)? {
+            return Ok(Some(Part::Unreadable));
         }
         return Ok(Some(
-            StoredNoMap::parse(&reason).map_or(Part::Invalid, Part::NoMap),
+            StoredNoMap::parse(&reason).map_or(Part::Unreadable, Part::NoMap),
         ));
     }
     let Some(sha) = row
         .try_get::<_, Option<String>>(4)?
         .filter(|s| is_digest(s))
     else {
-        return Ok(Some(Part::Invalid));
+        return Ok(Some(Part::Unreadable));
     };
-    if !ours(row.try_get(5)?) {
-        return Ok(Some(Part::Invalid));
+    if !ours(5)? {
+        return Ok(Some(Part::Unreadable));
     }
     let Some(length) = row.try_get::<_, Option<i64>>(6)? else {
-        return Ok(Some(Part::Invalid));
+        return Ok(Some(Part::Unreadable));
     };
     if length > MAX_PART_BYTES {
         return Ok(Some(Part::TooLarge));
     }
-    let body = row.try_get::<_, Option<Vec<u8>>>(7)?;
+    if !ours(7)? {
+        return Ok(Some(Part::Unreadable));
+    }
     let matched = ask.tags.iter().any(|t| t == "*" || *t == sha);
+    if verifying {
+        // The family is checked whole before any part of it is sent: a part
+        // longer than its bound refuses the map, whichever part was asked.
+        if row
+            .try_get::<_, Option<i64>>(13)?
+            .is_some_and(|n| n > MAX_PART_BYTES)
+        {
+            return Ok(Some(Part::TooLarge));
+        }
+        let (Some(document), Some(gzip)) = (
+            row.try_get::<_, Option<Vec<u8>>>(9)?,
+            row.try_get::<_, Option<Vec<u8>>>(11)?,
+        ) else {
+            // A part too long for its bound was refused above; a part that
+            // is missing is not a map.
+            return Ok(Some(Part::Unreadable));
+        };
+        if !ours(10)? || !ours(12)? {
+            return Ok(Some(Part::Unreadable));
+        }
+        return Ok(Some(Part::Unverified {
+            key,
+            sha,
+            document,
+            gzip,
+            matched,
+        }));
+    }
+    let body = row.try_get::<_, Option<Vec<u8>>>(8)?;
     Ok(Some(match (body, matched) {
-        (Some(_), _) if !ours(row.try_get(8)?) => Part::Invalid,
         (Some(body), _) => Part::Map {
             sha,
             body: Some(body),
         },
         (None, true) => Part::Map { sha, body: None },
         // The part's line is there but holds no bytes of its kind.
-        (None, false) => Part::Invalid,
+        (None, false) => Part::Unreadable,
     }))
+}
+
+/// Check a stored family once in this process, off the runtime's threads and
+/// after its connection has gone back: the document's SHA-256 must be the
+/// stored digest and the gzip must inflate to exactly the document. The
+/// verdict is kept (a stored family never changes); the bytes are not. Only
+/// one family is checked at a time; another request meanwhile is shed.
+async fn verify(state: &State, u: Unverified) -> Result<Found, Refused> {
+    // One check at a time; a request for a family being checked waits for
+    // that check (holding its place, so at most the places wait) and uses
+    // its verdict.
+    let Ok(_checking) = state.0.checking.clone().acquire_owned().await else {
+        return Err(Refused::Busy);
+    };
+    let Unverified {
+        key,
+        job,
+        scope,
+        mut sha,
+        mut document,
+        mut gzip,
+        held,
+        send_gzip,
+        matched,
+    } = u;
+    let good = match state.verdict(&key) {
+        Some(good) => good,
+        None => {
+            let checked = tokio::task::spawn_blocking(move || {
+                let good = stored_parts_agree(&document, &gzip, &sha);
+                (good, document, gzip, sha)
+            })
+            .await;
+            let Ok((good, d, g, h)) = checked else {
+                return Err(Refused::Busy);
+            };
+            (document, gzip, sha) = (d, g, h);
+            state.0.checked.fetch_add(1, Ordering::Relaxed);
+            state.remember(key, good);
+            good
+        }
+    };
+    if !good {
+        return Err(Refused::Unreadable);
+    }
+    let body = if matched {
+        drop(held);
+        None
+    } else {
+        let bytes = if send_gzip { gzip } else { document };
+        drop(held);
+        let held = state.hold(bytes.len());
+        Some((bytes, held))
+    };
+    Ok(Found::Map {
+        job,
+        scope,
+        sha,
+        body,
+    })
+}
+
+/// Whether `document` hashes to `sha` and `gzip` inflates to exactly it.
+pub(crate) fn stored_parts_agree(document: &[u8], gzip: &[u8], sha: &str) -> bool {
+    use sha2::{Digest, Sha256};
+    let digest: String = Sha256::digest(document)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    digest == sha && gunzip(gzip, document.len()).as_deref() == Some(document)
+}
+
+/// The data of one gzip member (RFC 1952), at most `limit` bytes, when its
+/// trailer's length is that data's.
+fn gunzip(member: &[u8], limit: usize) -> Option<Vec<u8>> {
+    const FHCRC: u8 = 2;
+    const FEXTRA: u8 = 4;
+    const FNAME: u8 = 8;
+    const FCOMMENT: u8 = 16;
+    if member.len() < 18 || member[..3] != [0x1f, 0x8b, 8] {
+        return None;
+    }
+    let flags = member[3];
+    let mut at = 10;
+    if flags & FEXTRA != 0 {
+        let n = usize::from(u16::from_le_bytes([*member.get(at)?, *member.get(at + 1)?]));
+        at += 2 + n;
+    }
+    for flag in [FNAME, FCOMMENT] {
+        if flags & flag != 0 {
+            at += member.get(at..)?.iter().position(|b| *b == 0)? + 1;
+        }
+    }
+    if flags & FHCRC != 0 {
+        at += 2;
+    }
+    let end = member.len().checked_sub(8)?;
+    let data =
+        miniz_oxide::inflate::decompress_to_vec_with_limit(member.get(at..end)?, limit).ok()?;
+    let size = u32::from_le_bytes(member[end + 4..].try_into().ok()?);
+    (size as usize == data.len()).then_some(data)
 }
 
 #[cfg(test)]

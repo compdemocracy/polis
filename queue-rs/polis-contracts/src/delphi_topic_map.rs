@@ -23,8 +23,12 @@
 //!   report's other Delphi reads (`GET /api/v3/delphi`,
 //!   `/api/v3/delphi/reports`, `/api/v3/delphi/visualizations` take no
 //!   sign-in: knowing the report id is what reads them).
-//! - `job_id` (one stored run) and a `selection` other than
-//!   `participant_visible`: the conversation's moderators and the site
+//! - `job_id` (one stored run): as public as the current map when the run
+//!   was made under the participants' rule; a past run's map may later be
+//!   removed to save storage, and then answers `not_stored`, as a run that
+//!   never stored one does.
+//! - A `selection` other than `participant_visible`, and a named run made
+//!   under another rule: the conversation's moderators and the site
 //!   administrators only.
 //! - `source=shadow` (the shadow's runs, which no other reader serves): the
 //!   site administrators only.
@@ -36,7 +40,8 @@
 //!   and [`HEADER_SELECTION`]; 304 when the client's ETag is the stored one.
 //! - 200, [`NoMap`]: the report exists and there is nothing to draw, with the
 //!   reason from a closed set ([`NoMapReason`]).
-//! - 400, 401, 403, 404, 422, 503: the closed set of refusals ([`Refused`]).
+//! - 400, 401, 403, 404, 422, 500, 503: the closed set of refusals
+//!   ([`Refused`]).
 //!   503 is the route shedding its own load: nothing is wrong with the
 //!   conversation and asking again after `Retry-After` is safe.
 //!
@@ -225,10 +230,14 @@ pub enum Refused {
     /// 422: the run stored no map because it was too large, or a stored part
     /// is larger than this route sends. The map is refused, never truncated.
     TooLarge,
+    /// 500: the run's stored map cannot be served: a part missing, a row
+    /// naming another job, a digest that is not the document's, a gzip that
+    /// is not the document. The map is refused, never served unchecked.
+    Unreadable,
     /// 503 with `Retry-After`: the route is full (as many map reads in flight
-    /// as it admits, all its connections in use, or its reads slower than its
-    /// deadline). Nothing is wrong with the conversation; asking again later
-    /// is safe.
+    /// as it admits, all its connections in use, or its reads or the identity
+    /// lookup slower than their deadlines or unanswered). Nothing is wrong
+    /// with the conversation; asking again later is safe.
     Busy,
 }
 
@@ -239,6 +248,7 @@ pub const BAD_PARAMETER: &str = "polis_err_topic_map_parameter";
 pub const SIGN_IN: &str = "polis_err_topic_map_sign_in";
 pub const DENIED: &str = "polis_err_topic_map_auth";
 pub const NO_SOURCE: &str = "polis_err_topic_map_no_source";
+pub const UNREADABLE: &str = "polis_err_topic_map_unreadable";
 /// The seconds a busy refusal asks the client to wait.
 pub const RETRY_AFTER: &str = "1";
 
@@ -250,6 +260,7 @@ impl Refused {
             Self::Denied => 403,
             Self::UnknownReport(_) | Self::JobNotFound | Self::SourceUnavailable => 404,
             Self::TooLarge => 422,
+            Self::Unreadable => 500,
             Self::Busy => 503,
         }
     }
@@ -267,6 +278,7 @@ impl Refused {
             Self::JobNotFound => ("Job not found", None, None),
             Self::SourceUnavailable => (NO_SOURCE, None, None),
             Self::TooLarge => (TOO_LARGE, None, None),
+            Self::Unreadable => (UNREADABLE, None, None),
             Self::Busy => (BUSY, None, None),
         };
         Refusal {
@@ -310,8 +322,8 @@ pub enum NoMapReason {
     NoRun,
     /// The named run has not succeeded (queued, running, failed or cancelled).
     RunNotReady,
-    /// The run stored no map: it ran before runs stored maps, or with the map
-    /// step off.
+    /// The run has no stored map: it ran before runs stored maps or with the
+    /// map step off, or its map has been removed since (to save storage).
     NotStored,
     /// The run stored no comment positions.
     NoPositions,
@@ -327,7 +339,7 @@ impl NoMapReason {
         match self {
             Self::NoRun => "No Delphi run found for this report",
             Self::RunNotReady => "The Delphi run has not finished",
-            Self::NotStored => "The Delphi run stored no topic map",
+            Self::NotStored => "The Delphi run has no stored topic map",
             Self::NoPositions => "The Delphi run stored no comment positions",
             Self::NoTopics => "The Delphi run stored no topics",
             Self::TooFewComments => "Too few comments to draw a topic map",
@@ -506,6 +518,11 @@ mod tests {
                 r#"{"status":"error","message":"polis_err_topic_map_too_large"}"#,
             ),
             (
+                Refused::Unreadable,
+                500,
+                r#"{"status":"error","message":"polis_err_topic_map_unreadable"}"#,
+            ),
+            (
                 Refused::Busy,
                 503,
                 r#"{"status":"error","message":"polis_err_topic_map_busy"}"#,
@@ -602,9 +619,8 @@ mod tests {
         assert!(parsed.points.text.is_empty());
         assert!(parsed.provenance.is_none());
         // Absent provenance is not written back.
-        assert!(!serde_json::to_string(&parsed)
-            .unwrap()
-            .contains("provenance"));
+        let written = serde_json::to_string(&parsed).unwrap();
+        assert!(!written.contains("provenance"));
         let mut extra: serde_json::Value = serde_json::from_str(doc).unwrap();
         extra["points"]["label"] = serde_json::json!([]);
         assert!(serde_json::from_value::<TopicMap>(extra).is_err());
