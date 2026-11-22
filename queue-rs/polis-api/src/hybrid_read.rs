@@ -11,6 +11,15 @@ pub struct Oidc {
     namespace: String,
 }
 impl Oidc {
+    /// An account verifier for a test outside this module.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn for_tests(verifier: owner::Verifier, namespace: &str) -> Self {
+        Self {
+            verifier,
+            namespace: namespace.into(),
+        }
+    }
+
     /// Signature-only classification for a write route that refuses account
     /// conversion. This neither provisions an account nor grants authority.
     pub(crate) fn verifies(&self, raw: &str, now: u64) -> bool {

@@ -3,20 +3,22 @@
 # goes straight to Node (418 here is only an internal hand-over, never sent).
 #
 # A Rust-only route: Node has no handler for this path, so every hand-over to
-# Node (a request polis-api does not model, a read it cannot finish, its 502,
-# or no answer in time) reaches Node's 404.
+# Node (a request polis-api does not model, stored rows it cannot read, its
+# 502, or no answer in time) reaches Node's 404.
 #
 # Node also answers when polis-api gives no response: no such host, refused,
-# slower than the timeouts below before sending its status line, or its own
-# 502. polis-api's 503 (the route is reading or computing another run's map;
-# it carries Retry-After) is passed through to the client, as are its 500s. The read timeout is wider than other routes' because a run's map is
-# computed on its first request (later requests are answered from memory);
-# polis-api answers or hands back within 4 seconds. This fallback covers
-# failures BEFORE polis-api starts its response. Once its status line and
-# headers have gone to the client (buffering is off), nginx cannot switch to
-# Node: a response cut short after that reaches the client as a truncated
-# reply (shorter than its Content-Length, or a chunked body without its end),
-# which an HTTP client reports as a failed request.
+# or slower than the timeouts below before sending its status line. polis-api's
+# 503 (the route shedding its own load: as many map reads in flight as it
+# admits, its connections all in use, or its reads slower than its 3-second
+# deadline; it carries Retry-After) is passed through to the client, as are
+# its 500s. The read timeout is wider than the participation routes' because
+# a run's map is found through its run record, which walks the job's
+# publication history; polis-api answers or sheds within 3 seconds. This
+# fallback covers failures BEFORE polis-api starts its response. Once its
+# status line and headers have reached nginx, nginx cannot switch to Node: a
+# response cut short after that reaches the client as a truncated reply
+# (shorter than its Content-Length), which an HTTP client reports as a failed
+# request.
 location = /api/v3/delphi/topicMap {
     error_page 418 = @polis_node_api;
     if ($polis_api_plain = 0) {
@@ -30,6 +32,13 @@ location = /api/v3/delphi/topicMap {
     proxy_connect_timeout 100ms;
     proxy_send_timeout 100ms;
     proxy_read_timeout 5s;
-    proxy_buffering off;
+    # A map is up to 1.5 MiB. nginx takes all of it from polis-api at once, in
+    # memory and never a temporary file, so a slow reader holds nginx's
+    # buffers, not polis-api's memory or its socket.
+    proxy_buffering on;
+    proxy_buffer_size 16k;
+    proxy_buffers 32 64k;
+    proxy_busy_buffers_size 128k;
+    proxy_max_temp_file_size 0;
     proxy_request_buffering off;
 }

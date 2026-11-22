@@ -305,7 +305,7 @@
     "expected_requests": 0,
     "expected_node_handoffs": 0,
     "commands": [],
-    "scope": "Rust-only report topic map, computed from a run's stored families in the PostgreSQL result store: Node has no handler, so a hand-back is Node's 404. No CLI command reaches this route; polis-api's database tests serve the whole request against the result store's read signatures, and the nginx switch test covers its selector."
+    "scope": "Rust-only report topic map, read as a run stored it in the PostgreSQL result store (the family Delphi_TopicMapDocument): Node has no handler, so a hand-back is Node's 404. No CLI command reaches this route; polis-api's database tests serve the whole request against the result store's read signatures, and the nginx switch test covers its selector."
   },
   "delphiVisualizations": {
     "path": "/api/v3/delphi/visualizations",

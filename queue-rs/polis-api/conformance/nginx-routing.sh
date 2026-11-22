@@ -1196,7 +1196,7 @@ sleep 6
 expect_upstream server GET '/api/v3/delphi/topicMap?report_id=r1'
 handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/topicMap?report_id=r1' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
 [[ $handback == "HTTP/1.1 404" ]] || fail "Topic map handoff answered '$handback', expected Node's 404"
-# Its 503 (busy with another run, retry) reaches the client, not Node.
+# Its 503 (the route shedding its own load, retry) reaches the client, not Node.
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 503 "busy"
 sleep 6

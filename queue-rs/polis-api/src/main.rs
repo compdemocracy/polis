@@ -1164,8 +1164,9 @@ async fn startup() -> Result<Startup> {
             std::env::var("DELPHI_RESULT_BACKEND").ok().as_deref() == Some("postgres"),
             "the report topic map requires the Postgres result backend"
         );
-        // A login that reads `reports` and is a member of polis_queue_executor,
-        // as the narrative reads' login is.
+        // A login that reads `reports` and is a member of polis_queue_executor
+        // (the result functions, `delphi_result_publications` and
+        // `delphi_result_jobs`), as the narrative reads' login is.
         let dsn = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL").context(
             "POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL is required for report topic map reads",
         )?;
@@ -1176,10 +1177,42 @@ async fn startup() -> Result<Startup> {
         state.delphi_topic_map_scope = std::env::var("DELPHI_RESULT_SCOPE")
             .ok()
             .filter(|s| !s.is_empty());
+        // Off unless named: the shadow's runs, read by site administrators
+        // only (`source=shadow`). Never a served env.
+        state.delphi_topic_map_shadow_env = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV")
+            .ok()
+            .filter(|s| !s.is_empty());
+        if let Some(shadow) = &state.delphi_topic_map_shadow_env {
+            anyhow::ensure!(
+                shadow.starts_with(delphi_topic_map::SHADOW_PREFIX)
+                    && *shadow != state.delphi_topic_map_env,
+                "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+            );
+        }
+        // Identity and the moderator rule read Node's tables with Node's read
+        // login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for report topic map identity reads is required")?;
         state.delphi_topic_map_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-delphi-topic-map/1")?,
             delphi_topic_map::pool_limits(),
         ));
+        state.delphi_topic_map_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-topic-map-auth/1")?,
+            delphi_topic_map::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()
@@ -2111,13 +2144,13 @@ mod health_tests {
                 if reachable { 200 } else { 503 },
             );
             assert_eq!(body.as_object().unwrap().len(), 136);
-            // The report topic map: its two counters and its computations, at zero.
+            // The report topic map: its two counters and its places, at zero.
             assert_eq!(body["delphiTopicMapServed"], 0);
             assert_eq!(body["delphiTopicMapFallback"], 0);
             assert_eq!(
                 body["delphiTopicMap"],
-                json!({"computed":0,"maxInFlight":0,"busy":0,"familyBytes":0,"maxFamilyBytes":0,
-                    "cacheEntries":0,"cacheBytes":0})
+                json!({"inFlight":0,"maxInFlight":0,"busy":0,"sent":0,"notModified":0,
+                    "heldBytes":0,"maxHeldBytes":0})
             );
             // The featured-participants route: its two counters, and every
             // hand-back reason by name, at zero.

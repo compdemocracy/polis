@@ -1315,73 +1315,100 @@ still uses the contract's `Cluster::Unassigned` encoding.
 
 ### Report topic map (off by default)
 
-`GET` and `HEAD /api/v3/delphi/topicMap?report_id=…[&job_id=…]` answer the
-document `polis-topic-map/1` that the generator crate
-[`polis-topic-map`](../polis-topic-map/README.md) writes, for the run the
-report's conversation serves (`delphi_result_publications` at
-`DELPHI_RESULT_SCOPE`) or for the named run when it is that conversation's.
-A Rust-only route: Node has no handler for this path, so a hand-back becomes
-its 404. Its contract is `polis-contracts/src/delphi_topic_map.rs`.
+`GET` and `HEAD /api/v3/delphi/topicMap?report_id=…[&job_id=…][&source=served|shadow][&selection=…]`
+answer a run's topic map, the document `polis-topic-map/1`, as the run stored
+it. A run that makes a map stores it in the result family
+`Delphi_TopicMapDocument` (key `conversation_id`, `part`; migration 000049
+and `polis-topic-map/src/stored.rs`), in its own result batch: the document
+(`document`, attribute `body`, `S`), its gzip (`document.gz`, `body`, `B`) and
+its SHA-256 (`sha256`, `body`, `S`, 64 lowercase hex digits); or, with nothing
+to draw, one row `no_map` whose `reason` (`S`) is `too_large`,
+`no_positions`, `no_topics` or `too_few_comments`. Every row names the job
+that stored it (`job_id`). The route sends the stored
+gzip to a client that takes gzip and the stored document otherwise, with the
+stored SHA-256 as a weak ETag (`If-None-Match` with it is 304, and then no
+part crosses the database connection). It never builds, hashes, compresses or
+parses a map. A Rust-only route: Node has no handler for this path, so a
+hand-back becomes its 404. Its contract is
+`polis-contracts/src/delphi_topic_map.rs`.
 
-It is as public as the report's other Delphi reads (`/api/v3/delphi`,
-`/delphi/reports`, `/delphi/visualizations`, which Node registers without
-sign-in) and refuses as they do: no `report_id` is 400; a report that does not
+Which run: without `job_id`, the run the conversation's results are served
+from (`delphi_result_publications`) in the publication scope of the comment
+rule asked for: `selection=participant_visible` (the default) reads the
+deployment's scope (`DELPHI_RESULT_SCOPE`, else `delphi`), `all_comments` and
+`all_but_moderated_out` read `<scope>:all_comments` and
+`<scope>:all_but_moderated_out`. The scope is always named, so two rules' runs
+are never read as one. `source=shadow` reads the same way in the env named by
+`POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV` (a `shadow-` env other than
+`DELPHI_RESULT_ENV`; unset, `source=shadow` is 404
+`polis_err_topic_map_no_source`). `job_id` names one stored run
+(`delphi_result_jobs`), which must be the report's conversation's and
+finished. The map is read from the run's own batch only: the published
+artifact for a served run, and for a named run the artifact its run record
+(`pd_run_record`) gives for a family the run itself produced. Reads that walk
+a publication's earlier batches would find an earlier run's map for a run
+that stored none; this route never follows them, and every row it reads must
+name the run's job (else it hands back). A run whose own batch holds no map
+answers `not_stored`. A map is one run's: its parts come from one stored
+family of one batch.
+The answer says which run it is: `X-Polis-Topic-Map-Job` (the job that stored
+the map), `X-Polis-Topic-Map-Source`, `X-Polis-Topic-Map-Scope` and
+`X-Polis-Topic-Map-Selection` (the run's comment rule as its configuration
+names it); the document's own `provenance`, when the step writes one, says
+how it was made.
+
+Who: the served map under the participants' rule is as public as the report's
+other Delphi reads (`/api/v3/delphi`, `/delphi/reports`,
+`/delphi/visualizations`, which Node registers without sign-in): the report id
+reads it. A `job_id` and any other `selection` need a sign-in of one of the
+conversation's moderators or a site administrator (`ADMIN_UIDS`), the rule of
+the typed result reads; `source=shadow` needs a site administrator. Without a
+verifiable bearer token: 401 `polis_err_topic_map_sign_in`; signed in without
+the right: 403 `polis_err_topic_map_auth`. Those answers are
+`Cache-Control: private, no-store` with `Vary: Authorization, Accept-Encoding`.
+Whether a stored run is as public as the served map is one constant,
+`PUBLIC_RUN_HISTORY` (false).
+
+Refusals as the neighbours': no `report_id` is 400; a report that does not
 exist or has no conversation is 404 `Could not find conversation for
 report_id`; a `job_id` that is not a canonical job id, names no run, or names
-another conversation's run is 404 `Job not found`. A report with nothing to
-draw is 200 `{"status":"success",…,"reason":…}` with one of `no_run`,
-`run_not_ready`, `no_positions`, `no_topics` or `too_few_comments` (the first
-view has no area: always so for one or two comments). A run over the bounds
-(layer ids past 15 and an oversized run record included) is 422
-`polis_err_topic_map_too_large`, never a truncated map. When the route is full
-it answers 503 `polis_err_topic_map_busy` with `Retry-After: 1`, which nginx
-passes to the client.
-
-The map is computed when first asked, from three families the run already
-stores (`Delphi_UMAPGraph` node rows, `Delphi_CommentHierarchicalClusterAssignments`,
-`Delphi_CommentClustersLLMTopicNames`), each read where its batch lives with
-`pd_run_record` and `pd_result_artifact_wire`, never through the publication
-pointer, and kept in memory by job id (32 MiB and 256 runs at most): a run's
-families never change. The document carries no comment text (`points.text` is
-empty; the page fills it from the comments it holds) and an empty `title` and
-`attribution`, so it depends only on the run. The same run answers the same
-bytes, with the weak ETag every Express answer has (computed once per run).
-Bounds: 20,000 comments,
-200,000 position rows, 20,000 topic rows, 16 layers, 32 MiB per stored family
-(checked in the statement), an 8 MiB run record (checked in the statement) and
-a 2 MiB document; the cache counts each document with its compressed forms.
-Each answer in flight holds a copy of its document until it is written, as
-every route's answers do.
+another conversation's run is 404 `Job not found`; an unknown `source` or
+`selection`, or a `selection` with a `job_id`, is 400
+`polis_err_topic_map_parameter` naming the key. With nothing to draw: 200
+`{"status":"success",…,"job_id":…,"source":…,"scope":…,"reason":…}` with one
+of `no_run`, `run_not_ready`, `not_stored` (a run from before runs stored
+maps), `no_positions`, `no_topics` or `too_few_comments`. A stored `too_large`,
+a part longer than a stored row (1 MiB) or a family longer than 4 MiB is 422
+`polis_err_topic_map_too_large`, never a truncated map. Stored rows the route
+does not read (an unknown reason, a missing part, a digest that is not one,
+a row naming another job) hand back.
 
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
 `POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
-a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout and
-a 2 s statement timeout; a request's answer is bounded at 4 s.
+a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout
+and a 2 s statement timeout; identity and the moderator rule use their own
+one-slot pool (`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else Node's read
+login), 50 ms and 100 ms.
 
-Admission comes before any read. A run that is not in memory is read and
-computed by one request at a time in the process; every other request for a
-run not in memory is answered 503 at once, having read nothing, and requests
-for the run already being read wait for it holding only a receiver. A request
-that finds no connection within 50 ms is answered 503 too. So at most one run's
-stored families (at most three 32 MiB codec files) are held outside the cache
-at any moment. The read returns its connection before anything is decoded.
-Decoding, the generator, the document's ETag and its gzip and deflate forms
-run on the route's own thread (`polis-topic-map`), one job at a time, at the
-lowest CPU priority on Linux (nice 19, its own thread only), so in a process
-with a CPU quota the participation routes' threads come first. A map in memory
-is answered by copying its prepared bytes: nothing proportional to its size is
-hashed or compressed on the runtime's threads (`route::json_prepared`, the
-same status, headers and bytes as `json_text`, which a test holds byte for
-byte). The run's read and computation run to their end whatever the request
-does, and keep their answer. Nothing is shared with votes, comments or the
-next comment; the isolation tests are
-`connection_bounds_topic_map_flood_leaves_participation_clear` and
-`connection_bounds_warm_topic_map_answers_leave_participation_clear`.
-`delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap`
-(computations, the most at once, busy refusals, family bytes held now and at
-most, cache entries and bytes) are on `/health`.
+The participation path shares nothing with this route. Before anything is
+read a request takes one of four places in the process; with none free it is
+answered 503 `polis_err_topic_map_busy` with `Retry-After: 1` at once. A
+request that finds no connection within 50 ms, or is not answered within its
+3 s deadline, is answered the same 503: the route shedding its own load, never
+an answer about the conversation; nginx passes it to the client. The stored
+part crosses the connection only when it is within its bound, checked in the
+statement, so the stored bytes in the process are at most four parts; a place
+is held until its read has ended, even when the request has given up. Nothing
+is kept between requests. nginx buffers the answer in memory, so a slow reader
+holds nginx's buffers, not polis-api's. The isolation tests are
+`connection_bounds_topic_map_flood_leaves_participation_clear`,
+`connection_bounds_warm_topic_map_answers_leave_participation_clear` and the
+load test `connection_bounds_topic_map_saturation_keeps_participation_latency`.
+`delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap` (places
+in use now and at most, requests shed, maps sent and answered 304, stored
+bytes held now and at most) are on `/health`.
 
 ### Statement importance (off by default)
 

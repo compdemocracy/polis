@@ -1,20 +1,44 @@
-//! `GET /api/v3/delphi/topicMap?report_id=<id>[&job_id=<id>]`: the topic map
-//! of one Delphi run of a report's conversation, as the document
-//! `polis-topic-map/1` that the generator `polis-topic-map` writes.
+//! `GET /api/v3/delphi/topicMap?report_id=<id>[&job_id=<id>][&source=served|shadow][&selection=<rule>]`:
+//! the topic map of one Delphi run of a report's conversation, as the
+//! document `polis-topic-map/1`, read as the run stored it.
+//!
+//! A run that makes a map stores it as one result family,
+//! [`FAMILY`] (key `conversation_id`, `part`), one row per part: the
+//! document ([`PART_DOCUMENT`]), its gzip ([`PART_GZIP`]) and its SHA-256
+//! ([`PART_SHA256`]); or, when there is no map to draw, one row
+//! [`PART_NO_MAP`] with the reason ([`StoredNoMap`]); every row names the
+//! job that stored it ([`JOB_ID`]). The route sends the
+//! stored bytes as they are: the gzip to a client that accepts gzip, the
+//! document otherwise, with the stored SHA-256 as the ETag. It never builds,
+//! hashes or compresses a map.
 //!
 //! A Rust-only route: Node has no handler for this path, so a request
-//! polis-api hands back reaches Node's 404. It is as public as the report's
-//! other Delphi reads (`GET /api/v3/delphi`, `/api/v3/delphi/reports` and
-//! `/api/v3/delphi/visualizations` take no sign-in: knowing the report id is
-//! what reads them), and its refusals keep their shapes.
+//! polis-api hands back reaches Node's 404.
+//!
+//! Who may read what:
+//!
+//! - Without `job_id`, `source` or `selection`: the map of the run the
+//!   conversation's results are served from, under the comment rule
+//!   participants are shown (`participant_visible/1`). As public as the
+//!   report's other Delphi reads (`GET /api/v3/delphi`,
+//!   `/api/v3/delphi/reports`, `/api/v3/delphi/visualizations` take no
+//!   sign-in: knowing the report id is what reads them).
+//! - `job_id` (one stored run) and a `selection` other than
+//!   `participant_visible`: the conversation's moderators and the site
+//!   administrators only.
+//! - `source=shadow` (the shadow's runs, which no other reader serves): the
+//!   site administrators only.
 //!
 //! Every answer is one of the types below:
 //!
-//! - 200, [`TopicMap`]: the document of the run.
+//! - 200, the document (`TopicMap`, in the stored bytes), with the run it is
+//!   from in the headers [`HEADER_JOB`], [`HEADER_SOURCE`], [`HEADER_SCOPE`]
+//!   and [`HEADER_SELECTION`]; 304 when the client's ETag is the stored one.
 //! - 200, [`NoMap`]: the report exists and there is nothing to draw, with the
-//!   reason from a closed set ([`NoMapReason`]); the neighbouring reads answer
-//!   200 with an empty set for a conversation with no run.
-//! - 400, 404, 404, 422, 503: the closed set of refusals ([`Refused`]).
+//!   reason from a closed set ([`NoMapReason`]).
+//! - 400, 401, 403, 404, 422, 503: the closed set of refusals ([`Refused`]).
+//!   503 is the route shedding its own load: nothing is wrong with the
+//!   conversation and asking again after `Retry-After` is safe.
 //!
 //! The document carries no comment text: `points.text` is empty. A page that
 //! shows the text in the tooltip fills `points.text` from the comments it
@@ -27,13 +51,126 @@ pub const PATH: &str = "/api/v3/delphi/topicMap";
 /// The document's `schema`.
 pub const SCHEMA: &str = "polis-topic-map/1";
 
-/// The query: a report, and optionally one run of its conversation. Without
-/// `job_id`, the run the conversation's Delphi results are served from.
+/// The result family a run stores its map in, in its own result batch
+/// (`queue-rs/polis-topic-map/src/stored.rs` writes it). Every row carries
+/// [`JOB_ID`], the producing run's job: a read that follows a publication to
+/// earlier batches can meet an earlier run's map, and a reader checks it.
+pub const FAMILY: &str = "Delphi_TopicMapDocument";
+/// The document's part: attribute [`BODY`], `S` (the JSON text, UTF-8).
+pub const PART_DOCUMENT: &str = "document";
+/// The document's gzip: attribute [`BODY`], `B` (base64 of the gzip of the
+/// document's UTF-8 bytes).
+pub const PART_GZIP: &str = "document.gz";
+/// The document's digest: attribute [`BODY`], `S` (64 lowercase hex digits,
+/// the SHA-256 of the document's UTF-8 bytes).
+pub const PART_SHA256: &str = "sha256";
+/// No map: attribute [`REASON`], `S`, one of [`StoredNoMap`]. When this row
+/// is present it is the family's only row.
+pub const PART_NO_MAP: &str = "no_map";
+/// The attribute that holds a part's bytes.
+pub const BODY: &str = "body";
+/// The attribute that holds a stored no-map reason.
+pub const REASON: &str = "reason";
+/// The attribute that names the job that stored the row.
+pub const JOB_ID: &str = "job_id";
+/// The longest a stored row's line is (the writer stores `no_map`,
+/// `too_large` above it).
+pub const ROW_LIMIT: usize = 1_048_576;
+
+/// Response headers naming the run a map is from.
+pub const HEADER_JOB: &str = "X-Polis-Topic-Map-Job";
+pub const HEADER_SOURCE: &str = "X-Polis-Topic-Map-Source";
+pub const HEADER_SCOPE: &str = "X-Polis-Topic-Map-Scope";
+pub const HEADER_SELECTION: &str = "X-Polis-Topic-Map-Selection";
+
+/// Which runs are read: the ones the deployment serves, or the shadow's.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Source {
+    #[default]
+    Served,
+    Shadow,
+}
+
+impl Source {
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Served => "served",
+            Self::Shadow => "shadow",
+        }
+    }
+    pub fn parse(word: &str) -> Option<Self> {
+        match word {
+            "served" => Some(Self::Served),
+            "shadow" => Some(Self::Shadow),
+            _ => None,
+        }
+    }
+}
+
+/// The comment rule a run laid out, clustered and named. Each publishes in
+/// its own scope ([`Selection::scope`]), so a reader names the one it reads
+/// and never merges two.
+#[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum Selection {
+    /// What participants are shown.
+    #[default]
+    ParticipantVisible,
+    /// Every comment: unmoderated, moderated in and moderated out.
+    AllComments,
+    /// Every comment but the moderated-out ones.
+    AllButModeratedOut,
+}
+
+impl Selection {
+    /// The word a query names it by.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::ParticipantVisible => "participant_visible",
+            Self::AllComments => "all_comments",
+            Self::AllButModeratedOut => "all_but_moderated_out",
+        }
+    }
+    pub fn parse(word: &str) -> Option<Self> {
+        match word {
+            "participant_visible" => Some(Self::ParticipantVisible),
+            "all_comments" => Some(Self::AllComments),
+            "all_but_moderated_out" => Some(Self::AllButModeratedOut),
+            _ => None,
+        }
+    }
+    /// The publication scope its runs are served from under `base` (the
+    /// deployment's result scope): `base` itself for what participants are
+    /// shown, `base:<word>` for each other rule.
+    pub fn scope(self, base: &str) -> String {
+        match self {
+            Self::ParticipantVisible => base.to_owned(),
+            other => format!("{base}:{}", other.word()),
+        }
+    }
+}
+
+/// The query. Without `job_id`, the run the conversation's results are
+/// served from under `selection` (what participants are shown when absent).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
     pub report_id: Option<String>,
     pub job_id: Option<String>,
+    pub source: Source,
+    pub selection: Option<Selection>,
+}
+
+impl Request {
+    /// Whether the request reads anything beyond the public served map.
+    pub fn privileged(&self) -> bool {
+        self.job_id.is_some()
+            || self.source != Source::Served
+            || self
+                .selection
+                .is_some_and(|s| s != Selection::ParticipantVisible)
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -56,6 +193,9 @@ pub struct Refusal {
     pub message: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub report_id: Option<String>,
+    /// The query key a 400 is about.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parameter: Option<String>,
 }
 
 /// The closed set of refusals.
@@ -63,6 +203,16 @@ pub struct Refusal {
 pub enum Refused {
     /// 400: no `report_id`, or an empty one (as `/delphi/visualizations`).
     MissingReport,
+    /// 400: `source` or `selection` names nothing this route knows, or
+    /// `selection` is given with `job_id` (a stored run has its own rule).
+    BadParameter(&'static str),
+    /// 401: the request needs a sign-in (a stored run, another comment rule,
+    /// the shadow) and carries none this route can verify.
+    Unauthenticated,
+    /// 403: signed in, but not a moderator of the report's conversation (a
+    /// stored run, another comment rule) or not a site administrator (the
+    /// shadow).
+    Denied,
     /// 404: no report with this id, or a report without a conversation (as
     /// `/delphi/visualizations` and `/api/v3/delphi`).
     UnknownReport(String),
@@ -70,47 +220,83 @@ pub enum Refused {
     /// canonical job id, no such run, or another conversation's run. One
     /// answer for all three (as `/delphi/runs/:job_id`).
     JobNotFound,
-    /// 422: the run is larger than this route computes or serves. The map is
-    /// refused, never truncated.
+    /// 404: this deployment reads no shadow.
+    SourceUnavailable,
+    /// 422: the run stored no map because it was too large, or a stored part
+    /// is larger than this route sends. The map is refused, never truncated.
     TooLarge,
-    /// 503 with `Retry-After: 1`: the route is full (another run's map is
-    /// being read or computed and this one is not in memory, or all the
-    /// route's connections are in use). Nothing was read for this run;
-    /// asking again later is safe.
+    /// 503 with `Retry-After`: the route is full (as many map reads in flight
+    /// as it admits, all its connections in use, or its reads slower than its
+    /// deadline). Nothing is wrong with the conversation; asking again later
+    /// is safe.
     Busy,
 }
 
-/// The code a too-large refusal carries as its message.
+/// The codes the refusals carry as their messages.
 pub const TOO_LARGE: &str = "polis_err_topic_map_too_large";
-/// The code a busy refusal carries as its message.
 pub const BUSY: &str = "polis_err_topic_map_busy";
+pub const BAD_PARAMETER: &str = "polis_err_topic_map_parameter";
+pub const SIGN_IN: &str = "polis_err_topic_map_sign_in";
+pub const DENIED: &str = "polis_err_topic_map_auth";
+pub const NO_SOURCE: &str = "polis_err_topic_map_no_source";
 /// The seconds a busy refusal asks the client to wait.
 pub const RETRY_AFTER: &str = "1";
 
 impl Refused {
     pub fn status(&self) -> u16 {
         match self {
-            Self::MissingReport => 400,
-            Self::UnknownReport(_) | Self::JobNotFound => 404,
+            Self::MissingReport | Self::BadParameter(_) => 400,
+            Self::Unauthenticated => 401,
+            Self::Denied => 403,
+            Self::UnknownReport(_) | Self::JobNotFound | Self::SourceUnavailable => 404,
             Self::TooLarge => 422,
             Self::Busy => 503,
         }
     }
     pub fn body(&self) -> Refusal {
-        let (message, report_id) = match self {
-            Self::MissingReport => ("report_id is required", None),
+        let (message, report_id, parameter) = match self {
+            Self::MissingReport => ("report_id is required", None, None),
+            Self::BadParameter(key) => (BAD_PARAMETER, None, Some((*key).to_owned())),
+            Self::Unauthenticated => (SIGN_IN, None, None),
+            Self::Denied => (DENIED, None, None),
             Self::UnknownReport(id) => (
                 "Could not find conversation for report_id",
                 Some(id.clone()),
+                None,
             ),
-            Self::JobNotFound => ("Job not found", None),
-            Self::TooLarge => (TOO_LARGE, None),
-            Self::Busy => (BUSY, None),
+            Self::JobNotFound => ("Job not found", None, None),
+            Self::SourceUnavailable => (NO_SOURCE, None, None),
+            Self::TooLarge => (TOO_LARGE, None, None),
+            Self::Busy => (BUSY, None, None),
         };
         Refusal {
             status: Status::Error,
             message: message.into(),
             report_id,
+            parameter,
+        }
+    }
+}
+
+/// The reasons a run stores instead of a map ([`PART_NO_MAP`]).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum StoredNoMap {
+    /// The document would be larger than a stored row: answered 422.
+    TooLarge,
+    NoPositions,
+    NoTopics,
+    TooFewComments,
+}
+
+impl StoredNoMap {
+    pub fn parse(word: &str) -> Option<Self> {
+        match word {
+            "too_large" => Some(Self::TooLarge),
+            "no_positions" => Some(Self::NoPositions),
+            "no_topics" => Some(Self::NoTopics),
+            "too_few_comments" => Some(Self::TooFewComments),
+            _ => None,
         }
     }
 }
@@ -119,17 +305,20 @@ impl Refused {
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[serde(rename_all = "snake_case")]
 pub enum NoMapReason {
-    /// The conversation serves no Delphi run (and no `job_id` was given).
+    /// The conversation serves no Delphi run under this source and comment
+    /// rule (and no `job_id` was given).
     NoRun,
     /// The named run has not succeeded (queued, running, failed or cancelled).
     RunNotReady,
+    /// The run stored no map: it ran before runs stored maps, or with the map
+    /// step off.
+    NotStored,
     /// The run stored no comment positions.
     NoPositions,
     /// The run stored no topics: no topic names, or no cluster layers.
     NoTopics,
     /// The first view has no area: always so for one or two comments, and
-    /// when the comments it keeps (the 99.9% nearest the middle) sit on one
-    /// point or one horizontal or vertical line.
+    /// when the comments it keeps sit on one point or one line.
     TooFewComments,
 }
 
@@ -138,6 +327,7 @@ impl NoMapReason {
         match self {
             Self::NoRun => "No Delphi run found for this report",
             Self::RunNotReady => "The Delphi run has not finished",
+            Self::NotStored => "The Delphi run stored no topic map",
             Self::NoPositions => "The Delphi run stored no comment positions",
             Self::NoTopics => "The Delphi run stored no topics",
             Self::TooFewComments => "Too few comments to draw a topic map",
@@ -145,7 +335,8 @@ impl NoMapReason {
     }
 }
 
-/// 200 without a map.
+/// 200 without a map: which run was considered and why there is nothing to
+/// draw.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct NoMap {
@@ -154,16 +345,27 @@ pub struct NoMap {
     pub report_id: String,
     /// The run considered; null when the conversation serves none.
     pub job_id: Option<String>,
+    pub source: Source,
+    /// The publication scope read; null for a named run.
+    pub scope: Option<String>,
     pub reason: NoMapReason,
 }
 
 impl NoMap {
-    pub fn new(report_id: String, job_id: Option<String>, reason: NoMapReason) -> Self {
+    pub fn new(
+        report_id: String,
+        job_id: Option<String>,
+        source: Source,
+        scope: Option<String>,
+        reason: NoMapReason,
+    ) -> Self {
         Self {
             status: Success::Success,
             message: reason.message().into(),
             report_id,
             job_id,
+            source,
+            scope,
             reason,
         }
     }
@@ -188,6 +390,11 @@ pub struct TopicMap {
     pub levels: Vec<Level>,
     pub topics: Vec<Topic>,
     pub points: Points,
+    /// How the run made the map (its steps, models, comment rule and
+    /// counts), written by the step that stored it; absent from documents
+    /// made before the step wrote one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub provenance: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -247,7 +454,7 @@ pub struct Points {
     pub y: Vec<f64>,
     /// Per level: the index in `topics` of each comment's topic, or -1.
     pub topic: Vec<Vec<i64>>,
-    /// Empty: this route carries no comment text.
+    /// Empty: the stored document carries no comment text.
     pub text: Vec<String>,
 }
 
@@ -264,6 +471,21 @@ mod tests {
                 r#"{"status":"error","message":"report_id is required"}"#,
             ),
             (
+                Refused::BadParameter("source"),
+                400,
+                r#"{"status":"error","message":"polis_err_topic_map_parameter","parameter":"source"}"#,
+            ),
+            (
+                Refused::Unauthenticated,
+                401,
+                r#"{"status":"error","message":"polis_err_topic_map_sign_in"}"#,
+            ),
+            (
+                Refused::Denied,
+                403,
+                r#"{"status":"error","message":"polis_err_topic_map_auth"}"#,
+            ),
+            (
                 Refused::UnknownReport("r1".into()),
                 404,
                 r#"{"status":"error","message":"Could not find conversation for report_id","report_id":"r1"}"#,
@@ -272,6 +494,11 @@ mod tests {
                 Refused::JobNotFound,
                 404,
                 r#"{"status":"error","message":"Job not found"}"#,
+            ),
+            (
+                Refused::SourceUnavailable,
+                404,
+                r#"{"status":"error","message":"polis_err_topic_map_no_source"}"#,
             ),
             (
                 Refused::TooLarge,
@@ -291,37 +518,105 @@ mod tests {
     }
 
     #[test]
-    fn a_report_without_a_map_says_why_in_a_closed_set() {
-        let body = NoMap::new("r1".into(), None, NoMapReason::NoRun);
+    fn a_report_without_a_map_says_why_and_which_run_in_a_closed_set() {
+        let body = NoMap::new(
+            "r1".into(),
+            None,
+            Source::Served,
+            Some("delphi".into()),
+            NoMapReason::NoRun,
+        );
         assert_eq!(
             serde_json::to_string(&body).unwrap(),
-            r#"{"status":"success","message":"No Delphi run found for this report","report_id":"r1","job_id":null,"reason":"no_run"}"#
+            r#"{"status":"success","message":"No Delphi run found for this report","report_id":"r1","job_id":null,"source":"served","scope":"delphi","reason":"no_run"}"#
         );
         for (reason, code) in [
             (NoMapReason::RunNotReady, "run_not_ready"),
+            (NoMapReason::NotStored, "not_stored"),
             (NoMapReason::NoPositions, "no_positions"),
             (NoMapReason::NoTopics, "no_topics"),
             (NoMapReason::TooFewComments, "too_few_comments"),
         ] {
-            let body = NoMap::new("r1".into(), Some("j".into()), reason);
+            let body = NoMap::new("r1".into(), Some("j".into()), Source::Shadow, None, reason);
             let text = serde_json::to_string(&body).unwrap();
             assert!(text.contains(&format!(r#""reason":"{code}""#)), "{text}");
             assert_eq!(serde_json::from_str::<NoMap>(&text).unwrap(), body);
         }
         assert!(serde_json::from_str::<NoMapReason>(r#""too_large""#).is_err());
+        for word in ["too_large", "no_positions", "no_topics", "too_few_comments"] {
+            assert!(StoredNoMap::parse(word).is_some(), "{word}");
+        }
+        assert!(StoredNoMap::parse("no_run").is_none());
     }
 
     #[test]
-    fn the_document_is_closed() {
+    fn each_comment_rule_names_its_own_scope() {
+        assert_eq!(Selection::ParticipantVisible.scope("delphi"), "delphi");
+        assert_eq!(
+            Selection::AllComments.scope("delphi"),
+            "delphi:all_comments"
+        );
+        assert_eq!(
+            Selection::AllButModeratedOut.scope("delphi"),
+            "delphi:all_but_moderated_out"
+        );
+        for s in [
+            Selection::ParticipantVisible,
+            Selection::AllComments,
+            Selection::AllButModeratedOut,
+        ] {
+            assert_eq!(Selection::parse(s.word()), Some(s));
+        }
+        assert_eq!(Selection::parse("participant_visible/1"), None);
+        assert_eq!(Source::parse("shadow"), Some(Source::Shadow));
+        assert_eq!(Source::parse("Shadow"), None);
+        let public = Request {
+            report_id: Some("r".into()),
+            selection: Some(Selection::ParticipantVisible),
+            ..Request::default()
+        };
+        assert!(!public.privileged());
+        for privileged in [
+            Request {
+                job_id: Some("j".into()),
+                ..public.clone()
+            },
+            Request {
+                source: Source::Shadow,
+                ..public.clone()
+            },
+            Request {
+                selection: Some(Selection::AllComments),
+                ..public.clone()
+            },
+        ] {
+            assert!(privileged.privileged(), "{privileged:?}");
+        }
+    }
+
+    #[test]
+    fn the_document_is_closed_and_may_carry_its_provenance() {
         let doc = r##"{"schema":"polis-topic-map/1","title":"","attribution":"","run":{"jobId":"j","topicModel":null,"createdAt":"2026-11-11T02:48:21Z"},"bounds":[-1.5,1.5,-2.0,2.0],"pointRadius":0.11,"levels":[{"level":0,"topics":1,"unclustered":0,"cmapPalette":false}],"topics":[{"id":"0_0","level":0,"cluster":0,"key":"k","name":"0_0: n","count":3,"x":0.0,"y":0.5,"weight":1.31607,"parent":null,"parentShare":null,"color":"#dd6a94","labelColor":"#734252","colorAll":"#dd6a94","labelColorAll":"#734252"}],"points":{"id":[1,2,3],"x":[-1.0,0.0,1.0],"y":[0.0,1.0,0.5],"topic":[[0,0,0]],"text":[]}}"##;
         let parsed: TopicMap = serde_json::from_str(doc).unwrap();
         assert_eq!(parsed.schema, SCHEMA);
         assert!(parsed.points.text.is_empty());
+        assert!(parsed.provenance.is_none());
+        // Absent provenance is not written back.
+        assert!(!serde_json::to_string(&parsed)
+            .unwrap()
+            .contains("provenance"));
         let mut extra: serde_json::Value = serde_json::from_str(doc).unwrap();
         extra["points"]["label"] = serde_json::json!([]);
         assert!(serde_json::from_value::<TopicMap>(extra).is_err());
         let mut missing: serde_json::Value = serde_json::from_str(doc).unwrap();
         missing.as_object_mut().unwrap().remove("bounds");
         assert!(serde_json::from_value::<TopicMap>(missing).is_err());
+        let mut with: serde_json::Value = serde_json::from_str(doc).unwrap();
+        with["provenance"] = serde_json::json!({"selection": "participant_visible/1"});
+        let parsed: TopicMap = serde_json::from_value(with).unwrap();
+        assert_eq!(
+            parsed.provenance.unwrap()["selection"],
+            "participant_visible/1"
+        );
     }
 }

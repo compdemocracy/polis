@@ -225,18 +225,157 @@ fn connection_bounds_blackhole_pools_leave_participation_clear() {
     });
 }
 
-/// A flood of report topic map requests, with the route's own pool stuck
-/// mid-connect and its one computation slot taken, then with the largest
-/// public map computing: a vote is written and the next comment, the comments
-/// and the votes are read, each on its own pool with no wait for a slot, and
-/// the route never computes more than one map at a time.
+/// The participation pools, healthy and warmed, with the production limits
+/// the connection tests use, beside the report topic map's own two pools.
+async fn topic_map_beside_participation(
+    database: &Database,
+    app: &mut Arc<App>,
+    topic_map: Arc<db::Pool>,
+) {
+    let healthy =
+        |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+    {
+        let app = Arc::get_mut(app).unwrap();
+        app.delphi_topic_map_db = Some(topic_map);
+        app.delphi_topic_map_auth_db = Some(healthy(crate::delphi_topic_map::auth_pool_limits()));
+        app.delphi_topic_map_env = "test".into();
+        app.next_comment_db = Some(healthy(next_comment::pool_limits()));
+        app.next_comment_plain = true;
+        app.comments_db = Some(healthy(db::Limits {
+            size: 2,
+            acquire_timeout: Duration::from_millis(100),
+            statement_timeout: Duration::from_millis(1000),
+            max_lifetime: Duration::from_secs(300),
+        }));
+        app.comments_count_db = Some(healthy(db::Limits {
+            size: 1,
+            acquire_timeout: Duration::from_millis(100),
+            statement_timeout: Duration::from_millis(1000),
+            max_lifetime: Duration::from_secs(300),
+        }));
+        app.votes_read_db = Some(healthy(crate::votes_read::pool_limits()));
+        app.votes_read_auth_db = Some(healthy(crate::votes_read::pool_limits()));
+    }
+    warm_pool(app.next_comment_db.as_ref().unwrap(), 2).await;
+    warm_pool(app.comments_db.as_ref().unwrap(), 2).await;
+    warm_pool(app.comments_count_db.as_ref().unwrap(), 1).await;
+    warm_pool(app.votes_read_db.as_ref().unwrap(), 1).await;
+    warm_pool(app.votes_read_auth_db.as_ref().unwrap(), 1).await;
+}
+
+fn participation_reads(app: &App) -> [(&'static str, Arc<db::Pool>); 3] {
+    [
+        (
+            "/api/v3/nextComment?conversation_id=2fixture",
+            app.next_comment_db.clone().unwrap(),
+        ),
+        (
+            "/api/v3/comments?conversation_id=2fixture",
+            app.comments_db.clone().unwrap(),
+        ),
+        (
+            "/api/v3/votes?conversation_id=2fixture",
+            app.votes_read_db.clone().unwrap(),
+        ),
+    ]
+}
+
+/// As nginx forwards a request: this app redirects one without these.
+fn forwarded(target: &str, extra: &[(&str, &str)]) -> Request {
+    let mut headers = vec![("host", "localhost"), ("x-forwarded-proto", "https")];
+    headers.extend_from_slice(extra);
+    Request {
+        method: "GET".into(),
+        target: target.into(),
+        headers: Headers::from_raw(headers),
+        body: vec![],
+    }
+}
+
+/// One participation read: its status, how long it took, and its own pool's
+/// evidence across it (acquired, waits, timeouts, completed, errors,
+/// deadlines), once every operation it acquired has finished.
+async fn participation_read(
+    app: Arc<App>,
+    path: &str,
+    pool: &Arc<db::Pool>,
+) -> (u16, Duration, [usize; 6]) {
+    let before = pool.evidence.snapshot();
+    let start = std::time::Instant::now();
+    let response = crate::dispatch(app, None, forwarded(path, &[])).await;
+    let took = start.elapsed();
+    wait_for("participation database operation completed", || {
+        let now = pool.evidence.snapshot();
+        now[2] > before[2] || (now[0] > before[0] && now[3] - before[3] == now[0] - before[0])
+    })
+    .await;
+    let after = pool.evidence.snapshot();
+    (
+        response.status,
+        took,
+        std::array::from_fn(|i| after[i] - before[i]),
+    )
+}
+
+/// No wait for a slot of its own pool, every acquired operation finished,
+/// and a 502 only with its own failure.
+fn participation_isolated(path: &str, status: u16, delta: [usize; 6]) {
+    let [acquired, waits, timeouts, completed, errors, deadlines] = delta;
+    assert_eq!(
+        (waits, timeouts),
+        (0, 0),
+        "participation must not wait on a pool slot: {path} {delta:?}"
+    );
+    assert!(
+        acquired >= 1,
+        "the participation request must acquire its own pool: {path} {delta:?}"
+    );
+    assert_eq!(
+        completed, acquired,
+        "all acquired participation work must finish: {path}"
+    );
+    if status != 200 {
+        assert_eq!(status, 502, "{path}");
+        assert!(
+            errors == 1 || deadlines == 1 || path.starts_with("/api/v3/votes?"),
+            "502 without own-route failure evidence: {path} {delta:?}"
+        );
+    }
+}
+
+/// A stored map of about `points` comments for conversation 1 (the vote
+/// fixture's), served for report `r1`.
+fn store_topic_map(
+    database: &Database,
+    points: usize,
+) -> crate::delphi_topic_map::tests::database_tests::Stored {
+    use crate::delphi_topic_map::tests::{database_tests as t, document};
+    let map = t::stored(document(points, "load"));
+    let mut c = database.connect();
+    t::stand_ins(&mut c, false);
+    c.batch_execute("INSERT INTO reports(report_id, zid) VALUES('r1', 1)")
+        .unwrap();
+    t::served(
+        &mut c,
+        "test",
+        1,
+        "delphi",
+        "participant_visible/1",
+        Some(&t::map_family(1, &map)),
+    );
+    map
+}
+
+/// A flood of report topic map requests with the route's own pool stuck
+/// mid-connect to a database that never answers: the route takes its few
+/// places, sheds every other request at once (503, never a wait), and a vote
+/// is written and the next comment, the comments and the votes are read
+/// meanwhile, each on its own pool with no wait for a slot.
 #[test]
 fn connection_bounds_topic_map_flood_leaves_participation_clear() {
     let database = Database::new("topic_map_isolation");
     let (mut app, vote) = setup(&database);
-    // The largest public map, built before the clock starts: parsing it on
-    // this single-threaded runtime would hold back every timer.
-    let (wires, job, _) = crate::delphi_topic_map::tests::fixture("bg2050");
+    store_topic_map(&database, 10);
     runtime().block_on(async {
         let peer = Peer::new(None).await;
         let dsn = format!(
@@ -245,173 +384,156 @@ fn connection_bounds_topic_map_flood_leaves_participation_clear() {
             database.config.get_dbname().unwrap()
         );
         let topic_map = db::Pool::new(peer.connector(&dsn), crate::delphi_topic_map::pool_limits());
+        topic_map_beside_participation(&database, &mut app, topic_map.clone()).await;
+        let state = app.delphi_topic_map.clone();
+        let flood: Vec<_> = (0..64)
+            .map(|n| {
+                let coding = if n % 2 == 0 { "gzip" } else { "identity" };
+                tokio::spawn(crate::dispatch(
+                    app.clone(),
+                    None,
+                    forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
+                ))
+            })
+            .collect();
+        wait_for("both topic map slots mid-connect", || peer.accepted.load(Ordering::SeqCst) == 2).await;
+        let writer = app.post_votes.as_ref().unwrap();
+        let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let voted = handle_after_admission(app.clone(), vote).await;
+        assert_eq!(voted.status, 200, "the vote is written while the topic map is flooded");
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        for (path, pool) in &participation_reads(&app) {
+            let (status, took, delta) = participation_read(app.clone(), path, pool).await;
+            eprintln!("topic map flood {path} status={status} took={took:?} pool_delta={delta:?} in_flight={}", state.in_flight());
+            participation_isolated(path, status, delta);
+        }
+        let writer_after = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        for (before, after) in writer_before.iter().zip(&writer_after) {
+            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
+        }
+        // Every map request is the route shedding itself: no place, no free
+        // connection, or its database slower than its deadline. None is an
+        // answer about the conversation, and none reached Node.
+        let mut statuses = std::collections::BTreeMap::new();
+        for task in flood {
+            *statuses.entry(task.await.unwrap().status).or_insert(0) += 1;
+        }
+        eprintln!("topic map flood answers {statuses:?} busy={} max_in_flight={}", state.busy(), state.max_in_flight());
+        assert_eq!(statuses, std::collections::BTreeMap::from([(503, 64)]));
+        assert!(state.max_in_flight() <= crate::delphi_topic_map::MAX_IN_FLIGHT);
+        assert!(state.busy() >= 60, "shed at the door, before any read");
+        let stuck = topic_map.evidence.snapshot();
+        eprintln!("topic map pool {stuck:?}");
+        assert_eq!(stuck[0], 2, "only the route's own two slots were taken");
+        assert_eq!(app.delphi_topic_map_fallback.load(Ordering::Relaxed), 0);
+        peer.stop().await;
+    });
+}
+
+/// Stored report topic map answers of about a megabyte, sixty-four at once,
+/// gzip and identity: the route sends the stored bytes as they are, sheds
+/// what its places cannot take, and a vote is written and the next comment,
+/// the comments and the votes are read meanwhile, each on its own pool with
+/// no wait for a slot; this single-threaded runtime's 1 ms timer is never
+/// held back by a map.
+#[test]
+fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
+    use crate::delphi_topic_map::tests::lateness;
+    let database = Database::new("topic_map_warm");
+    let (mut app, vote) = setup(&database);
+    let map = store_topic_map(&database, 30_000);
+    runtime().block_on(async {
         let healthy =
             |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
-        {
-            let app = Arc::get_mut(&mut app).unwrap();
-            app.delphi_topic_map_db = Some(topic_map.clone());
-            app.delphi_topic_map_env = "test".into();
-            app.next_comment_db = Some(healthy(next_comment::pool_limits()));
-            app.next_comment_plain = true;
-            app.comments_db = Some(healthy(db::Limits {
-                size: 2,
-                acquire_timeout: Duration::from_millis(100),
-                statement_timeout: Duration::from_millis(1000),
-                max_lifetime: Duration::from_secs(300),
-            }));
-            app.comments_count_db = Some(healthy(db::Limits {
-                size: 1,
-                acquire_timeout: Duration::from_millis(100),
-                statement_timeout: Duration::from_millis(1000),
-                max_lifetime: Duration::from_secs(300),
-            }));
-            app.votes_read_db = Some(healthy(crate::votes_read::pool_limits()));
-            app.votes_read_auth_db = Some(healthy(crate::votes_read::pool_limits()));
-        }
-        warm_pool(app.next_comment_db.as_ref().unwrap(), 2).await;
-        warm_pool(app.comments_db.as_ref().unwrap(), 2).await;
-        warm_pool(app.comments_count_db.as_ref().unwrap(), 1).await;
-        warm_pool(app.votes_read_db.as_ref().unwrap(), 1).await;
-        warm_pool(app.votes_read_auth_db.as_ref().unwrap(), 1).await;
-        let reads = [
-            (
-                "/api/v3/nextComment?conversation_id=2fixture",
-                app.next_comment_db.clone().unwrap(),
-            ),
-            (
-                "/api/v3/comments?conversation_id=2fixture",
-                app.comments_db.clone().unwrap(),
-            ),
-            (
-                "/api/v3/votes?conversation_id=2fixture",
-                app.votes_read_db.clone().unwrap(),
-            ),
-        ];
-        // As nginx forwards them: this app redirects a request without them.
-        let get = |target: String| Request {
-            method: "GET".into(),
-            target,
-            headers: Headers::from_raw([("host", "localhost"), ("x-forwarded-proto", "https")]),
-            body: vec![],
-        };
-        // Each participation read: no wait for a slot of its own pool, every
-        // acquired operation finished, and a 502 only with its own failure.
-        async fn read(app: Arc<App>, path: &str, pool: &Arc<db::Pool>) -> (u16, [usize; 6]) {
-            let before = pool.evidence.snapshot();
-            let response = crate::dispatch(
-                app,
-                None,
-                Request {
-                    method: "GET".into(),
-                    target: path.into(),
-                    headers: Headers::from_raw([
-                        ("host", "localhost"),
-                        ("x-forwarded-proto", "https"),
-                    ]),
-                    body: vec![],
-                },
-            )
-            .await;
-            wait_for("participation database operation completed", || {
-                let now = pool.evidence.snapshot();
-                now[2] > before[2]
-                    || (now[0] > before[0] && now[3] - before[3] == now[0] - before[0])
-            })
-            .await;
-            let after = pool.evidence.snapshot();
-            (
-                response.status,
-                std::array::from_fn(|i| after[i] - before[i]),
-            )
-        }
-        fn isolated(path: &str, status: u16, delta: [usize; 6]) {
-            let [acquired, waits, timeouts, completed, errors, deadlines] = delta;
-            assert_eq!(
-                (waits, timeouts),
-                (0, 0),
-                "participation must not wait on a pool slot: {path} {delta:?}"
-            );
-            assert!(
-                acquired >= 1,
-                "the participation request must acquire its own pool: {path} {delta:?}"
-            );
-            assert_eq!(
-                completed, acquired,
-                "all acquired participation work must finish: {path}"
-            );
-            if status != 200 {
-                assert_eq!(status, 502, "{path}");
-                assert!(
-                    errors == 1 || deadlines == 1 || path.starts_with("/api/v3/votes?"),
-                    "502 without own-route failure evidence: {path} {delta:?}"
-                );
-            }
-        }
-        // The flood: every request waits on the route's own pool, whose two
-        // slots are stuck connecting to a peer that never answers.
-        let mut flood = Vec::new();
-        for n in 0..64 {
-            flood.push(tokio::spawn(crate::dispatch(
-                app.clone(),
-                None,
-                get(format!("/api/v3/delphi/topicMap?report_id=r{n}")),
-            )));
-        }
-        wait_for("both topic map slots mid-connect", || {
-            peer.accepted.load(Ordering::SeqCst) == 2
-        })
+        topic_map_beside_participation(
+            &database,
+            &mut app,
+            healthy(crate::delphi_topic_map::pool_limits()),
+        )
         .await;
-        // A computation of the largest public map is in flight, held inside
-        // its blocking thread; fifteen more wait for the route's one slot,
-        // holding no thread. On this single-threaded runtime the participation
-        // requests below can finish only because the computation is not on it.
-        let state = app.delphi_topic_map.clone();
-        let release = state.hold_next_computation();
-        let mut computing = Vec::new();
-        for _ in 0..16 {
-            let (wires, job) = (wires.clone(), job.clone());
-            let state = state.clone();
-            computing.push(tokio::spawn(async move { state.compute(job, wires).await }));
-        }
-        wait_for("a topic map computation in flight", || {
-            state.in_flight() == 1
-        })
+        warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
+        let first = crate::dispatch(
+            app.clone(),
+            None,
+            forwarded(
+                "/api/v3/delphi/topicMap?report_id=r1",
+                &[("accept-encoding", "gzip")],
+            ),
+        )
         .await;
+        assert_eq!(first.status, 200);
+        let reads = participation_reads(&app);
         let writer = app.post_votes.as_ref().unwrap();
         let writer_before = [
             writer.pool.evidence.snapshot(),
             writer.reads.evidence.snapshot(),
         ];
-        let voted = handle_after_admission(app.clone(), vote).await;
-        assert_eq!(
-            voted.status, 200,
-            "the vote is written while the topic map is flooded and computing"
-        );
+        let ((maps, voted, sampled), late) = lateness(async {
+            let maps: Vec<_> = ["gzip", "identity", "deflate", "gzip, deflate"]
+                .iter()
+                .cycle()
+                .take(64)
+                .map(|coding| {
+                    tokio::spawn(crate::dispatch(
+                        app.clone(),
+                        None,
+                        forwarded(
+                            "/api/v3/delphi/topicMap?report_id=r1",
+                            &[("accept-encoding", coding)],
+                        ),
+                    ))
+                })
+                .collect();
+            let voted = handle_after_admission(app.clone(), vote).await.status;
+            let mut sampled = Vec::new();
+            for (path, pool) in &reads {
+                sampled.push((*path, participation_read(app.clone(), path, pool).await));
+            }
+            let mut answered = Vec::new();
+            for task in maps {
+                let out = task.await.unwrap();
+                answered.push((
+                    out.status,
+                    out.headers
+                        .iter()
+                        .any(|(k, v)| k == "Content-Encoding" && v == "gzip"),
+                    match out.body {
+                        crate::http::Body::Fixed(b) => b.len(),
+                        _ => 0,
+                    },
+                ));
+            }
+            (answered, voted, sampled)
+        })
+        .await;
         wait_for_idle(app.post_votes.as_ref().unwrap()).await;
-        for (path, pool) in &reads {
-            let (status, delta) = read(app.clone(), path, pool).await;
-            eprintln!(
-                "topic map flood {path} status={status} pool_delta={delta:?} in_flight={}",
-                state.in_flight()
-            );
-            isolated(path, status, delta);
-        }
-        assert_eq!(
-            state.in_flight(),
-            1,
-            "the computation was in flight throughout"
+        eprintln!(
+            "warm topic map flood: timer lateness {late:?}, participation {sampled:?}, vote {voted}"
         );
-        // The rest compute, one at a time, beside the same reads.
-        release.send(()).unwrap();
-        for (path, pool) in &reads {
-            let (status, delta) = read(app.clone(), path, pool).await;
-            eprintln!("topic map computing {path} status={status} pool_delta={delta:?}");
-            isolated(path, status, delta);
+        assert_eq!(voted, 200, "the vote is written beside the maps");
+        for (path, (status, _, delta)) in &sampled {
+            participation_isolated(path, *status, *delta);
+            assert_eq!(*status, 200, "{path}");
         }
-        for task in computing {
-            assert!(task.await.unwrap().unwrap().is_map());
+        // Every map answered is whole and as stored; the rest were shed.
+        for (status, gzip, length) in &maps {
+            match status {
+                200 => assert_eq!(
+                    *length,
+                    if *gzip {
+                        map.gzip.len()
+                    } else {
+                        map.document.len()
+                    }
+                ),
+                503 => {}
+                other => panic!("a stored map answered {other}"),
+            }
         }
-        assert_eq!(state.max_in_flight(), 1, "one map at a time");
+        assert!(
+            maps.iter().filter(|(s, ..)| *s == 200).count() >= 4,
+            "{maps:?}"
+        );
         let writer_after = [
             writer.pool.evidence.snapshot(),
             writer.reads.evidence.snapshot(),
@@ -423,174 +545,144 @@ fn connection_bounds_topic_map_flood_leaves_participation_clear() {
                 "the vote writer waited for a slot"
             );
         }
-        let mut handed_back = 0;
-        let mut shed = 0;
-        for task in flood {
-            let out = task.await.unwrap();
-            // The two holding the stuck connections go back to Node at the
-            // deadline; the rest found no connection and were told to retry.
-            match out.status {
-                502 => handed_back += 1,
-                503 => shed += 1,
-                status => panic!("a topic map request that cannot read answered {status}"),
-            }
-        }
-        assert_eq!((handed_back, shed), (2, 62));
-        let stuck = topic_map.evidence.snapshot();
-        eprintln!("topic map pool {stuck:?}");
-        assert_eq!(stuck[0], 2, "only the route's own two slots were taken");
+        let state = &app.delphi_topic_map;
+        assert!(state.max_in_flight() <= crate::delphi_topic_map::MAX_IN_FLIGHT);
         assert!(
-            stuck[2] >= 62,
-            "the rest of the flood timed out on the route's own pool: {stuck:?}"
+            state.max_held() <= crate::delphi_topic_map::MAX_IN_FLIGHT * map.document.len(),
+            "stored bytes held at once are bounded by the places: {}",
+            state.max_held()
         );
-        peer.stop().await;
+        // Nothing here hashes, compresses or builds a map: the runtime's
+        // thread only copies bytes it was handed.
+        assert!(
+            late < Duration::from_millis(100),
+            "the runtime's thread was held {late:?}"
+        );
     });
 }
 
-/// Warm report topic map answers of about 1.8 MB, gzip, identity and
-/// deflate, sixty-four at once: a vote is written and the next comment, the
-/// comments and the votes are read meanwhile, each on its own pool with no
-/// wait for a slot, and this single-threaded runtime's 1 ms timer is never
-/// held back by preparing, hashing or compressing a map.
+/// The load test of the item that made this route a read of stored bytes:
+/// the votes-path reads (the next comment, the comments, the votes) keep
+/// their latency while the report topic map is saturated. Each read is
+/// sampled sequentially, first with the route idle (the control), then while
+/// sixteen clients ask for a stored map of about a megabyte as fast as the
+/// route answers them (the route at its places, shedding the rest). Run it
+/// under the service's own budget (half a CPU, 512 MiB) for the figure that
+/// matters: the hand-off names the container command. Every loaded read must
+/// be isolated (no wait for a slot of its own pool) and answered, and its
+/// 95th percentile within twice the control's plus 25 ms; the samples are
+/// printed whatever the outcome.
 #[test]
-fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
-    use crate::delphi_topic_map::tests::{database_tests, large, lateness};
-    let database = Database::new("topic_map_warm");
-    let (mut app, vote) = setup(&database);
-    let stored = large(1);
-    {
-        let mut c = database.connect();
-        database_tests::stand_ins(&mut c, false);
-        c.batch_execute(
-            "INSERT INTO reports(report_id, zid) VALUES('r1', 1);
-             INSERT INTO delphi_result_publications VALUES('test',1,'delphi',1,NULL,'00000000-0000-4000-8000-000000007000');",
-        )
+fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
+    let database = Database::new("topic_map_saturation");
+    let (mut app, _) = setup(&database);
+    store_topic_map(&database, 30_000);
+    const ROUNDS: usize = 40;
+    // The service's runtime has threads of its own; a test on one thread
+    // would only measure that thread's queue.
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
         .unwrap();
-        database_tests::store(
-            &mut c,
-            "00000000-0000-4000-8000-000000007000",
-            1,
-            "succeeded",
-            &[
-                (
-                    "Delphi_UMAPGraph",
-                    Some(&stored.umap_wire()),
-                    stored.umap_wire().1,
-                ),
-                (
-                    "Delphi_CommentHierarchicalClusterAssignments",
-                    Some(&stored.assignments_wire()),
-                    stored.assignments_wire().1,
-                ),
-                (
-                    "Delphi_CommentClustersLLMTopicNames",
-                    Some(&stored.topics_wire()),
-                    stored.topics_wire().1,
-                ),
-            ],
-        );
-    }
-    runtime().block_on(async {
+    rt.block_on(async {
         let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
-        {
-            let app = Arc::get_mut(&mut app).unwrap();
-            app.delphi_topic_map_db = Some(healthy(crate::delphi_topic_map::pool_limits()));
-            app.delphi_topic_map_env = "test".into();
-            app.delphi_topic_map_scope = Some("delphi".into());
-            app.next_comment_db = Some(healthy(next_comment::pool_limits()));
-            app.next_comment_plain = true;
-            app.comments_db = Some(healthy(db::Limits {
-                size: 2,
-                acquire_timeout: Duration::from_millis(100),
-                statement_timeout: Duration::from_millis(1000),
-                max_lifetime: Duration::from_secs(300),
-            }));
-            app.comments_count_db = Some(healthy(db::Limits {
-                size: 1,
-                acquire_timeout: Duration::from_millis(100),
-                statement_timeout: Duration::from_millis(1000),
-                max_lifetime: Duration::from_secs(300),
-            }));
-            app.votes_read_db = Some(healthy(crate::votes_read::pool_limits()));
-            app.votes_read_auth_db = Some(healthy(crate::votes_read::pool_limits()));
-        }
+        topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
         warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
-        warm_pool(app.next_comment_db.as_ref().unwrap(), 2).await;
-        warm_pool(app.comments_db.as_ref().unwrap(), 2).await;
-        warm_pool(app.comments_count_db.as_ref().unwrap(), 1).await;
-        warm_pool(app.votes_read_db.as_ref().unwrap(), 1).await;
-        warm_pool(app.votes_read_auth_db.as_ref().unwrap(), 1).await;
-        let map = |coding: &'static str| Request {
-            method: "GET".into(),
-            target: "/api/v3/delphi/topicMap?report_id=r1".into(),
-            headers: Headers::from_raw([
-                ("host", "localhost"),
-                ("x-forwarded-proto", "https"),
-                ("accept-encoding", coding),
-            ]),
-            body: vec![],
-        };
-        // The map, computed once.
-        let first = crate::dispatch(app.clone(), None, map("gzip")).await;
-        assert_eq!(first.status, 200);
-        let reads = [
-            ("/api/v3/nextComment?conversation_id=2fixture", app.next_comment_db.clone().unwrap()),
-            ("/api/v3/comments?conversation_id=2fixture", app.comments_db.clone().unwrap()),
-            ("/api/v3/votes?conversation_id=2fixture", app.votes_read_db.clone().unwrap()),
-        ];
-        let before: Vec<_> = reads.iter().map(|(_, pool)| pool.evidence.snapshot()).collect();
-        let writer = app.post_votes.as_ref().unwrap();
-        let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
-        let ((maps, voted, statuses), late) = lateness(async {
-            let maps: Vec<_> = ["gzip", "identity", "deflate", "gzip, deflate"]
-                .iter()
-                .cycle()
-                .take(64)
-                .map(|coding| tokio::spawn(crate::dispatch(app.clone(), None, map(coding))))
-                .collect();
-            let voted = handle_after_admission(app.clone(), vote).await.status;
-            let mut statuses = Vec::new();
-            for (path, _) in &reads {
-                statuses.push(
-                    crate::dispatch(app.clone(), None, Request {
-                        method: "GET".into(),
-                        target: (*path).into(),
-                        headers: Headers::from_raw([("host", "localhost"), ("x-forwarded-proto", "https")]),
-                        body: vec![],
-                    })
-                    .await
-                    .status,
-                );
+        let reads = participation_reads(&app);
+        async fn sample(
+            app: &Arc<App>,
+            reads: &[(&'static str, Arc<db::Pool>); 3],
+        ) -> Vec<Vec<(u16, Duration, [usize; 6])>> {
+            let mut out = vec![Vec::new(); reads.len()];
+            for _ in 0..ROUNDS {
+                for (i, (path, pool)) in reads.iter().enumerate() {
+                    out[i].push(participation_read(app.clone(), path, pool).await);
+                }
             }
-            let mut answered = Vec::new();
-            for task in maps {
-                answered.push(task.await.unwrap().status);
-            }
-            (answered, voted, statuses)
+            out
+        }
+        fn quantile(samples: &[(u16, Duration, [usize; 6])], q: f64) -> Duration {
+            let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+            d.sort();
+            d[((d.len() - 1) as f64 * q).round() as usize]
+        }
+        // Warm every path once, then the control.
+        let _ = sample(&app, &reads).await;
+        let control = sample(&app, &reads).await;
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let clients: Vec<_> = (0..16)
+            .map(|n| {
+                let (app, stop) = (app.clone(), stop.clone());
+                tokio::spawn(async move {
+                    let mut answers = std::collections::BTreeMap::<u16, usize>::new();
+                    let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    while !stop.load(Ordering::SeqCst) {
+                        let out = crate::dispatch(
+                            app.clone(),
+                            None,
+                            forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
+                        )
+                        .await;
+                        *answers.entry(out.status).or_insert(0) += 1;
+                        if out.status == 503 {
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    answers
+                })
+            })
+            .collect();
+        // The route is saturated before the first loaded sample.
+        let state = app.delphi_topic_map.clone();
+        wait_for("the topic map at its places", || {
+            state.max_in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT && state.busy() > 0
         })
         .await;
-        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
-        eprintln!("warm topic map flood: timer lateness {late:?}, participation {statuses:?}, vote {voted}");
-        assert_eq!(voted, 200, "the vote is written beside the maps");
-        // The route sheds what its two connections cannot take at once (503,
-        // retry); every map it answers is whole.
-        assert!(maps.iter().all(|s| *s == 200 || *s == 503), "{maps:?}");
-        assert!(maps.contains(&200), "{maps:?}");
-        for ((path, pool), before) in reads.iter().zip(&before) {
-            let after = pool.evidence.snapshot();
-            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "{path} waited for a slot");
+        let loaded = sample(&app, &reads).await;
+        stop.store(true, Ordering::SeqCst);
+        let mut maps = std::collections::BTreeMap::<u16, usize>::new();
+        for client in clients {
+            for (status, n) in client.await.unwrap() {
+                *maps.entry(status).or_insert(0) += n;
+            }
         }
-        assert!(statuses.iter().all(|s| *s == 200), "{statuses:?}");
-        let writer_after = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
-        for (before, after) in writer_before.iter().zip(&writer_after) {
-            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
+        let cgroup = std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into());
+        let mut lines = vec![format!(
+            "topic map saturation: cpu.max={} rounds={ROUNDS} maps={maps:?} busy={} max_in_flight={} max_held_bytes={}",
+            cgroup.trim(),
+            state.busy(),
+            state.max_in_flight(),
+            state.max_held()
+        )];
+        for (i, (path, _)) in reads.iter().enumerate() {
+            lines.push(format!(
+                "  {path}: control p50={:?} p95={:?} max={:?}; loaded p50={:?} p95={:?} max={:?}",
+                quantile(&control[i], 0.5),
+                quantile(&control[i], 0.95),
+                quantile(&control[i], 1.0),
+                quantile(&loaded[i], 0.5),
+                quantile(&loaded[i], 0.95),
+                quantile(&loaded[i], 1.0),
+            ));
         }
-        // Sixty-four whole answers are copied out back to back (about a
-        // millisecond each on this box); before the map's ETag and compressed
-        // forms were prepared off the runtime this timer waited seconds (6.9 s
-        // measured), and a single large answer now holds it under 25 ms
-        // (`a_large_answer_leaves_the_runtime_free`).
-        assert!(late < Duration::from_millis(500), "the runtime's thread was held {late:?}");
+        // Bypass the test harness's capture: the figures are the evidence.
+        let report = lines.join("\n") + "\n";
+        std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
+        assert!(maps.get(&200).copied().unwrap_or(0) > 0, "maps were served: {maps:?}");
+        assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
+        assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
+        for (i, (path, _)) in reads.iter().enumerate() {
+            for (status, _, delta) in &loaded[i] {
+                participation_isolated(path, *status, *delta);
+                assert_eq!(*status, 200, "{path}");
+            }
+            let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
+            assert!(
+                l95 <= c95 * 2 + Duration::from_millis(25),
+                "{path} lost its latency under a saturated topic map: control p95 {c95:?}, loaded p95 {l95:?}"
+            );
+        }
     });
 }
 
