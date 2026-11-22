@@ -21,10 +21,14 @@ pub struct Seen {
     /// (`polis-jobs.comment-set/1`), and in `admitted_digest`.
     pub digest: String,
     pub comments: i64,
-    /// The selection `digest` and `admitted_digest` are of
-    /// (`participant_visible/1`); None in an entry an earlier build wrote,
-    /// whose runs laid out every comment: such an entry is read again and
-    /// its conversation admitted once more.
+    /// The selection `digest` and `admitted_digest` are of (the comment rule
+    /// the conversation's runs named when last read: `participant_visible/1`,
+    /// `all_comments/1` or `all_but_moderated_out/1`); None in an entry an
+    /// earlier build wrote, whose runs laid out every comment: such an entry
+    /// is read again and its conversation admitted once more. An entry of
+    /// another selection than the conversation's rule now is read again the
+    /// same way. The run record in Postgres, not this file, says which
+    /// selection made a run.
     #[serde(default)]
     pub selection: Option<String>,
     /// The comments the selection kept that have text, when last read.

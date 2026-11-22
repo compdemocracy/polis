@@ -17,6 +17,30 @@ pub const SCOPE: &str = "delphi";
 pub const ACTOR: &str = "delphi-shadow";
 /// The most conversation codes `DELPHI_SHADOW_BENCHMARK` may list.
 pub const BENCHMARK_MAX: usize = 10_000;
+/// The most conversation codes each comment-rule list may name.
+pub const RULE_LIST_MAX: usize = BENCHMARK_MAX;
+/// The settings that choose a conversation's comment rule (the selection its
+/// runs name), each with the rule it chooses, in the order they are read. A
+/// conversation listed in none has `participant_visible/1`, what participants
+/// are shown. A conversation may be listed in at most one.
+pub const RULE_LISTS: [(&str, &str); 2] = [
+    (
+        "DELPHI_SHADOW_ALL_COMMENTS",
+        crate::jobs::inputs::contract::ALL_COMMENTS,
+    ),
+    (
+        "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT",
+        crate::jobs::inputs::contract::ALL_BUT_MODERATED_OUT,
+    ),
+];
+
+/// One comment-rule list: its setting, the rule it chooses, and its codes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuleList {
+    pub key: &'static str,
+    pub selection: &'static str,
+    pub codes: Vec<String>,
+}
 /// Settings an earlier build of this scheduler read, refused when set so a
 /// stale line is never silently ignored: the benchmark list's old name, and
 /// the participant-count source, which is removed.
@@ -68,6 +92,16 @@ pub struct Config {
     /// the pacing and the storage budget. (The featured set, the open-data
     /// conversations, and the current set, the live ones, need no setting.)
     pub benchmark: Vec<String>,
+    /// The conversations whose runs lay out another comment rule than what
+    /// participants are shown (`contract::PARTICIPANT_VISIBLE`, every other
+    /// conversation's): one list per rule, in [`RULE_LISTS`] order,
+    /// conversation codes as the benchmark list names them, each empty by
+    /// default: `DELPHI_SHADOW_ALL_COMMENTS` (every comment,
+    /// `all_comments/1`) and `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` (every
+    /// comment but the moderated-out ones, `all_but_moderated_out/1`). They
+    /// choose a rule for a conversation, not whether it runs: a listed one is
+    /// run only when one of the three sets picks it, under the same bounds.
+    pub rule_lists: Vec<RuleList>,
     /// An explicit public-comment allowlist. Empty means no graph work.
     pub graph: Option<super::graph::Config>,
     /// How often the roster (the benchmark and featured sets, read once a UTC
@@ -207,14 +241,19 @@ pub fn valid_code(code: &str) -> bool {
 /// a code is refused by its position, never its text: the list is the
 /// operator's, and the log carries no conversation's name.
 pub fn benchmark_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
+    conversation_codes("DELPHI_SHADOW_BENCHMARK", raw, BENCHMARK_MAX)
+}
+
+/// A list of conversation codes in the setting `key`, read as
+/// `DELPHI_SHADOW_BENCHMARK` is ([`benchmark_codes`]): separated by commas or
+/// white space, a repeat kept at its first place, an entry that is not a code
+/// refused by its position (never its text), and at most `max` of them.
+pub fn conversation_codes(key: &str, raw: &str, max: usize) -> Result<Vec<String>, ConfigError> {
     let mut out: Vec<String> = Vec::new();
-    let entries = raw
-        .split(|c: char| c == ',' || c.is_whitespace())
-        .filter(|e| !e.is_empty());
-    for (i, entry) in entries.enumerate() {
+    for (i, entry) in entries(raw).enumerate() {
         if !valid_code(entry) {
             return err(format!(
-                "DELPHI_SHADOW_BENCHMARK entry {} is not a conversation code (1-64 letters and digits)",
+                "{key} entry {} is not a conversation code (1-64 letters and digits)",
                 i + 1
             ));
         }
@@ -222,10 +261,40 @@ pub fn benchmark_codes(raw: &str) -> Result<Vec<String>, ConfigError> {
             out.push(entry.to_owned());
         }
     }
-    if out.len() > BENCHMARK_MAX {
-        return err(format!(
-            "DELPHI_SHADOW_BENCHMARK lists more than {BENCHMARK_MAX} conversations"
-        ));
+    if out.len() > max {
+        return err(format!("{key} lists more than {max} conversations"));
+    }
+    Ok(out)
+}
+
+/// A list setting's entries, in order: separated by commas or white space.
+fn entries(raw: &str) -> impl Iterator<Item = &str> {
+    raw.split(|c: char| c == ',' || c.is_whitespace())
+        .filter(|e| !e.is_empty())
+}
+
+/// The comment-rule lists ([`RULE_LISTS`]), each read as the benchmark list
+/// is. A code a list names that an earlier list already names is refused by
+/// its list and position: a conversation has one comment rule at a time.
+pub fn rule_lists<F: Fn(&str) -> Option<String>>(get: &F) -> Result<Vec<RuleList>, ConfigError> {
+    let mut out: Vec<RuleList> = Vec::new();
+    for (key, selection) in RULE_LISTS {
+        let raw = get(key).unwrap_or_default();
+        let codes = conversation_codes(key, &raw, RULE_LIST_MAX)?;
+        for (i, entry) in entries(&raw).enumerate() {
+            if let Some(other) = out.iter().find(|l| l.codes.iter().any(|c| c == entry)) {
+                return err(format!(
+                    "{key} entry {} is also listed in {}: a conversation has one comment rule",
+                    i + 1,
+                    other.key
+                ));
+            }
+        }
+        out.push(RuleList {
+            key,
+            selection,
+            codes,
+        });
     }
     Ok(out)
 }
@@ -331,6 +400,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     }
     let graph = super::graph::Config::load(&get, &env)?;
     let benchmark = benchmark_codes(&get("DELPHI_SHADOW_BENCHMARK").unwrap_or_default())?;
+    let rule_lists = rule_lists(&get)?;
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
         queue_dsn,
@@ -364,6 +434,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         )?),
         twin_every: number(&get, "DELPHI_SHADOW_TWIN_EVERY", 0, 0, 1_000_000)? as u32,
         benchmark,
+        rule_lists,
         graph,
         roster_retry: Duration::from_secs(number(
             &get,
@@ -535,6 +606,93 @@ mod tests {
             .len(),
             BENCHMARK_MAX
         );
+    }
+
+    fn codes(c: &Config, key: &str) -> Vec<String> {
+        c.rule_lists
+            .iter()
+            .find(|l| l.key == key)
+            .map(|l| l.codes.clone())
+            .unwrap_or_else(|| panic!("{key} is not a rule list"))
+    }
+
+    #[test]
+    fn the_comment_rule_lists_are_read_as_the_benchmark_list_and_refuse_what_is_not_a_code() {
+        assert_eq!(
+            RULE_LISTS,
+            [
+                ("DELPHI_SHADOW_ALL_COMMENTS", "all_comments/1"),
+                (
+                    "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT",
+                    "all_but_moderated_out/1"
+                ),
+            ]
+        );
+        for (key, _) in RULE_LISTS {
+            // Unset or empty: no conversation has that rule.
+            for v in [None, Some(""), Some(" , \n")] {
+                assert!(codes(&ready(&[(key, v)]), key).is_empty(), "{key} {v:?}");
+            }
+            let c = ready(&[(key, Some(" 69abcd, 2xyz\n9Mixed7 ,,2xyz 69abcd\t4last "))]);
+            assert_eq!(codes(&c, key), ["69abcd", "2xyz", "9Mixed7", "4last"]);
+            assert!(c.benchmark.is_empty(), "the lists are separate");
+            for (bad, position) in [
+                ("https://pol.is/2abc", "entry 1"),
+                ("2abc;3def", "entry 1"),
+                ("2abc,2ab-c", "entry 2"),
+                ("2abc 3def \u{e9}9", "entry 3"),
+            ] {
+                let Err(e) = with(&[(key, Some(bad))]) else {
+                    panic!("{key}: {bad} was accepted");
+                };
+                assert!(e.0.contains(&format!("{key} {position} ")), "{bad}: {e}");
+                assert!(
+                    !e.0.contains("pol.is") && !e.0.contains("2ab") && !e.0.contains("3def"),
+                    "never the entry's text: {e}"
+                );
+            }
+            let Err(e) = with(&[(key, Some(&"a".repeat(65)))]) else {
+                panic!("a 65-character code was accepted");
+            };
+            assert!(e.0.contains("entry 1"), "{e}");
+            let many: Vec<String> = (0..=RULE_LIST_MAX).map(|i| format!("c{i}")).collect();
+            assert!(with(&[(key, Some(&many.join(",")))]).is_err());
+        }
+        // Both lists at once, each conversation in one.
+        let c = ready(&[
+            ("DELPHI_SHADOW_ALL_COMMENTS", Some("69abcd,2xyz")),
+            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", Some("3def")),
+        ]);
+        assert_eq!(codes(&c, "DELPHI_SHADOW_ALL_COMMENTS"), ["69abcd", "2xyz"]);
+        assert_eq!(codes(&c, "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT"), ["3def"]);
+        // A conversation listed under two rules is refused, by the later
+        // list and its position, never its code.
+        let Err(e) = with(&[
+            ("DELPHI_SHADOW_ALL_COMMENTS", Some("69abcd,2xyz")),
+            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", Some("3def 2xyz")),
+        ]) else {
+            panic!("a conversation under two rules was accepted");
+        };
+        assert_eq!(
+            e.0,
+            "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT entry 2 is also listed in DELPHI_SHADOW_ALL_COMMENTS: a conversation has one comment rule"
+        );
+        // The benchmark list's own messages are what they were.
+        let Err(e) = with(&[("DELPHI_SHADOW_BENCHMARK", Some("2abc,3def;"))]) else {
+            panic!("a bad benchmark entry was accepted");
+        };
+        assert_eq!(
+            e.0,
+            "DELPHI_SHADOW_BENCHMARK entry 2 is not a conversation code (1-64 letters and digits)"
+        );
+        // A benchmark conversation may have any rule.
+        assert!(matches!(
+            with(&[
+                ("DELPHI_SHADOW_BENCHMARK", Some("69abcd")),
+                ("DELPHI_SHADOW_ALL_COMMENTS", Some("69abcd")),
+            ]),
+            Ok(Load::Ready(_))
+        ));
     }
 
     #[test]

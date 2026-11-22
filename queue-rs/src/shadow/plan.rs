@@ -6,17 +6,49 @@ use super::{
     state::State,
     storage::Ledger,
 };
-
-/// The selection every run the scheduler admits names: the comments
-/// participants are shown (`contract::participant_visible`). Each run embeds
-/// every comment of its conversation and lays out, clusters and names these
-/// only. It is part of the run's identity: its admission names it, its
-/// digest keys the admission, and its run record carries both
-/// (`config_effective.selection`, `config_effective.shadow`).
-pub const SELECTION: &str = crate::jobs::inputs::contract::PARTICIPANT_VISIBLE;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
+
+/// The selection a run the scheduler admits names unless [`Rules`] chooses
+/// another for its conversation: the comments participants are shown
+/// (`contract::participant_visible`). Each run embeds every comment of its
+/// conversation and lays out, clusters and names its selection's comments
+/// only. The selection is part of the run's identity: its admission names it,
+/// its digest keys the admission, and its run record carries both
+/// (`config_effective.selection`, `config_effective.shadow`).
+pub const SELECTION: &str = crate::jobs::inputs::contract::PARTICIPANT_VISIBLE;
+/// A selection [`Rules`] may choose: every comment of the conversation,
+/// whatever its moderation (`contract::all_comments`).
+pub const ALL_COMMENTS: &str = crate::jobs::inputs::contract::ALL_COMMENTS;
+/// A selection [`Rules`] may choose: every comment of the conversation but the
+/// moderated-out ones (`contract::all_but_moderated_out`).
+pub const ALL_BUT_MODERATED_OUT: &str = crate::jobs::inputs::contract::ALL_BUT_MODERATED_OUT;
+
+/// Which selection each conversation's runs name. The selection is an input
+/// of a run, never a property of the shadow: the scheduler asks this which
+/// one a conversation's next run names, and the census, the admission's key
+/// and the run record all follow from that name (`db::census`, [`admission`]).
+/// Today one source fills it, the operator's lists
+/// (`config::RULE_LISTS`: `DELPHI_SHADOW_ALL_COMMENTS`,
+/// `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT`, resolved to conversation ids on the
+/// read login); with them empty, every run names [`SELECTION`], as before
+/// they existed. A conversation has one rule at a time. Held in memory only
+/// and read again from the database at every start: the run record in
+/// Postgres is what says which selection made a run.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Rules {
+    /// The conversations whose runs name another selection than
+    /// [`SELECTION`], with it.
+    pub listed: std::collections::BTreeMap<i32, &'static str>,
+}
+
+impl Rules {
+    /// The selection the next run of conversation `zid` names.
+    pub fn selection(&self, zid: i32) -> &'static str {
+        self.listed.get(&zid).copied().unwrap_or(SELECTION)
+    }
+}
 
 /// Why nothing is admitted now. Closed set; these words are the log's.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -180,8 +212,25 @@ pub enum Look {
 /// all is below it too, and one whose last census found too few selected is
 /// below it until a comment changes. A state entry written before runs named
 /// a selection is read again whatever its time: its digests are of every
-/// comment, not of the selection.
+/// comment, not of the selection. Every conversation is looked at under
+/// [`SELECTION`]; [`look_under`] names another.
 pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share) -> Look {
+    look_under(cfg, state, live, now_ms, share, SELECTION)
+}
+
+/// [`look`], for a conversation whose next run names `selection`. A state
+/// entry of another selection (the conversation's rule changed, or an earlier
+/// build wrote it) is read again whatever its comments' times, so a
+/// conversation whose rule changed is never taken as unchanged; only the
+/// bounds and the rerun window hold it.
+pub fn look_under(
+    cfg: &Config,
+    state: &State,
+    live: &Live,
+    now_ms: i64,
+    share: Share,
+    selection: &str,
+) -> Look {
     if live.comments < cfg.min_comments {
         return Look::TooSmall;
     }
@@ -199,7 +248,7 @@ pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share)
     {
         return Look::Recent;
     }
-    if seen.selection.as_deref() == Some(SELECTION) && seen.last_modified == live.last_modified {
+    if seen.selection.as_deref() == Some(selection) && seen.last_modified == live.last_modified {
         if seen.admitted_digest.as_deref() == Some(&seen.digest) {
             return Look::Unchanged;
         }
@@ -213,9 +262,22 @@ pub fn look(cfg: &Config, state: &State, live: &Live, now_ms: i64, share: Share)
 /// The candidates to read, smallest first (then by conversation id), so the
 /// first pass learns the cheap sizes before the expensive ones.
 pub fn order(cfg: &Config, state: &State, live: &[Live], now_ms: i64) -> Vec<Live> {
+    order_under(cfg, state, live, now_ms, &Rules::default())
+}
+
+/// [`order`], each conversation looked at under its own selection (`rules`).
+pub fn order_under(
+    cfg: &Config,
+    state: &State,
+    live: &[Live],
+    now_ms: i64,
+    rules: &Rules,
+) -> Vec<Live> {
     let mut out: Vec<Live> = live
         .iter()
-        .filter(|l| look(cfg, state, l, now_ms, Share::Whole) == Look::Read)
+        .filter(|l| {
+            look_under(cfg, state, l, now_ms, Share::Whole, rules.selection(l.zid)) == Look::Read
+        })
         .cloned()
         .collect();
     out.sort_by_key(|l| (l.comments, l.zid));
@@ -299,11 +361,37 @@ pub fn candidates(
     current: &[Live],
     now_ms: i64,
 ) -> Vec<(Live, Set)> {
+    candidates_under(
+        cfg,
+        state,
+        benchmark,
+        featured,
+        current,
+        now_ms,
+        &Rules::default(),
+    )
+}
+
+/// [`candidates`], each conversation looked at under its own selection
+/// (`rules`). The rules choose no candidate and order none: they decide only
+/// what a candidate's run lays out, and so whether its last run still stands.
+pub fn candidates_under(
+    cfg: &Config,
+    state: &State,
+    benchmark: &[Live],
+    featured: &[Live],
+    current: &[Live],
+    now_ms: i64,
+    rules: &Rules,
+) -> Vec<(Live, Set)> {
     let mut out: Vec<(Live, Set)> = Vec::new();
     let mut tried = std::collections::BTreeSet::new();
     for (list, set) in [(benchmark, Set::Benchmark), (featured, Set::Featured)] {
         for l in list {
-            if tried.insert(l.zid) && look(cfg, state, l, now_ms, set.share()) == Look::Read {
+            if tried.insert(l.zid)
+                && look_under(cfg, state, l, now_ms, set.share(), rules.selection(l.zid))
+                    == Look::Read
+            {
                 out.push((l.clone(), set));
             }
         }
@@ -314,7 +402,7 @@ pub fn candidates(
         .cloned()
         .collect();
     out.extend(
-        order(cfg, state, &rest, now_ms)
+        order_under(cfg, state, &rest, now_ms, rules)
             .into_iter()
             .map(|l| (l, Set::Current)),
     );
@@ -349,9 +437,11 @@ fn sha256_hex(bytes: &[u8]) -> String {
 /// selection, which it lays out, clusters and names) with their counts, the
 /// named set the run was selected from (a twin, its first run's; `None` only
 /// for a twin of a run admitted before runs named it) and, on a twin, the run
-/// it repeats, and is stored in the job's run record (`config_effective`). The
-/// report filter (`exclude_comment_selections`) is off: the selection is what
-/// participants are shown, which a report's own choices do not narrow. The
+/// it repeats, and is stored in the job's run record (`config_effective`).
+/// Which selection it names is the census's (`census.selection`), chosen by
+/// whoever asked for the census: the scheduler per conversation ([`Rules`]).
+/// The report filter (`exclude_comment_selections`) is off: a selection is
+/// the whole rule, which a report's own choices do not narrow. The
 /// named set is not in the key: one selection is run once whichever set
 /// selects it, and the same key asked again under another set within the
 /// binding window is the queue's `conflict`, refused, not run twice.
@@ -975,6 +1065,174 @@ mod tests {
             admitted_job(&json!({"outcome":"conflict","job_id":"j"})),
             None
         );
+    }
+
+    #[test]
+    fn a_listed_conversation_names_every_comment_and_any_other_what_participants_are_shown() {
+        assert_eq!(SELECTION, "participant_visible/1");
+        assert_eq!(ALL_COMMENTS, "all_comments/1");
+        assert_eq!(ALL_BUT_MODERATED_OUT, "all_but_moderated_out/1");
+        let none = Rules::default();
+        for zid in [0, 2, 7, i32::MAX] {
+            assert_eq!(none.selection(zid), SELECTION, "no list: today's rule");
+        }
+        let listed = Rules {
+            listed: [(7, ALL_COMMENTS), (8, ALL_BUT_MODERATED_OUT)]
+                .into_iter()
+                .collect(),
+        };
+        assert_eq!(listed.selection(7), ALL_COMMENTS);
+        assert_eq!(listed.selection(8), ALL_BUT_MODERATED_OUT);
+        assert_eq!(listed.selection(2), SELECTION);
+    }
+
+    #[test]
+    fn a_conversation_whose_rule_changed_is_read_again_and_never_taken_as_unchanged() {
+        let c = cfg();
+        let now = 10 * 86_400_000;
+        let live = Live {
+            zid: 2,
+            comments: 25,
+            last_modified: 9,
+        };
+        let mut s = State::new("shadow-delphi-1");
+        s.conversations.insert(
+            2,
+            Seen {
+                last_modified: 9,
+                digest: "d".into(),
+                comments: 25,
+                selection: Some(SELECTION.into()),
+                selected: 25,
+                admitted_digest: Some("d".into()),
+                admitted_at_ms: Some(now - 2 * 86_400_000),
+                ..Seen::default()
+            },
+        );
+        let listed = Rules {
+            listed: [(2, ALL_COMMENTS)].into_iter().collect(),
+        };
+        // Run under what participants are shown and nothing changed: unchanged
+        // under that rule, read again under the other (and the other way).
+        assert_eq!(look(&c, &s, &live, now, Share::Whole), Look::Unchanged);
+        assert_eq!(
+            look_under(&c, &s, &live, now, Share::Whole, SELECTION),
+            Look::Unchanged
+        );
+        assert_eq!(
+            look_under(&c, &s, &live, now, Share::Whole, ALL_COMMENTS),
+            Look::Read
+        );
+        assert_eq!(
+            look_under(&c, &s, &live, now, Share::Whole, ALL_BUT_MODERATED_OUT),
+            Look::Read
+        );
+        let mut all = s.clone();
+        if let Some(seen) = all.conversations.get_mut(&2) {
+            seen.selection = Some(ALL_COMMENTS.into());
+        }
+        assert_eq!(
+            look_under(&c, &all, &live, now, Share::Whole, ALL_COMMENTS),
+            Look::Unchanged
+        );
+        assert_eq!(look(&c, &all, &live, now, Share::Whole), Look::Read);
+        assert_eq!(
+            look_under(&c, &all, &live, now, Share::Whole, ALL_BUT_MODERATED_OUT),
+            Look::Read,
+            "between the two report rules too"
+        );
+        // Below the floor under one rule says nothing of the other.
+        let mut few = s.clone();
+        if let Some(seen) = few.conversations.get_mut(&2) {
+            seen.admitted_digest = None;
+            seen.selected = 3;
+        }
+        assert_eq!(look(&c, &few, &live, now, Share::Whole), Look::TooSmall);
+        assert_eq!(
+            look_under(&c, &few, &live, now, Share::Whole, ALL_COMMENTS),
+            Look::Read
+        );
+        // The rerun window and the bounds still hold it, whatever its rule.
+        let mut recent = s.clone();
+        if let Some(seen) = recent.conversations.get_mut(&2) {
+            seen.admitted_at_ms = Some(now - 3_600_000);
+        }
+        assert_eq!(
+            look_under(&c, &recent, &live, now, Share::Whole, ALL_COMMENTS),
+            Look::Recent
+        );
+        let large = Live {
+            comments: c.max_comments + 1,
+            ..live.clone()
+        };
+        assert_eq!(
+            look_under(&c, &s, &large, now, Share::Whole, ALL_COMMENTS),
+            Look::TooLarge
+        );
+        // Through the candidates: listed, it is a candidate again, in every
+        // set; not listed, it is not.
+        let zids = |got: Vec<(Live, Set)>| {
+            got.into_iter()
+                .map(|(l, set)| (l.zid, set))
+                .collect::<Vec<_>>()
+        };
+        let one = std::slice::from_ref(&live);
+        assert!(candidates(&c, &s, &[], &[], one, now).is_empty());
+        assert_eq!(
+            zids(candidates_under(&c, &s, &[], &[], one, now, &listed)),
+            [(2, Set::Current)]
+        );
+        assert_eq!(
+            zids(candidates_under(&c, &s, one, &[], &[], now, &listed)),
+            [(2, Set::Benchmark)]
+        );
+        assert_eq!(
+            zids(candidates_under(&c, &s, &[], one, &[], now, &listed)),
+            [(2, Set::Featured)]
+        );
+        assert_eq!(order_under(&c, &s, one, now, &listed), vec![live.clone()]);
+        assert!(order(&c, &s, one, now).is_empty());
+        // The rules choose no candidate: a listed conversation in no set is
+        // not one.
+        assert!(candidates_under(&c, &s, &[], &[], &[], now, &listed).is_empty());
+    }
+
+    #[test]
+    fn an_all_comments_admission_names_its_selection_in_the_run_record_and_its_key() {
+        let (digest, every) = ("ab".repeat(32), "cd".repeat(32));
+        let census = CommentSet {
+            digest: digest.clone(),
+            comments: 42,
+            selection: ALL_COMMENTS,
+            selection_digest: every.clone(),
+            selected: 42,
+        };
+        let a = admission(7, &census, Some(Set::Benchmark), None);
+        assert_eq!(a.config["selection"], "all_comments/1");
+        assert_eq!(a.config["exclude_comment_selections"], false);
+        assert!(a.config.get("include_moderation").is_none());
+        let shadow = &a.config["shadow"];
+        assert_eq!(shadow["schema"], "delphi-shadow/2");
+        assert_eq!(shadow["selection"], "all_comments/1");
+        assert_eq!(shadow["selection_sha256"], every);
+        assert_eq!(shadow["comment_set_sha256"], digest);
+        assert_eq!(
+            (shadow["comments"].as_i64(), shadow["selected"].as_i64()),
+            (Some(42), Some(42))
+        );
+        assert_eq!(a.key, format!("shadow:first:7:{}", &every[..48]));
+        // The same conversation under the other rule: another selection
+        // digest (the name line differs), so another key and request.
+        let shown = CommentSet {
+            selection: SELECTION,
+            selection_digest: "ef".repeat(32),
+            selected: 30,
+            ..census.clone()
+        };
+        let b = admission(7, &shown, Some(Set::Benchmark), None);
+        assert_eq!(b.config["selection"], "participant_visible/1");
+        assert_ne!(a.key, b.key);
+        assert_ne!(a.request_sha, b.request_sha);
     }
 
     #[test]

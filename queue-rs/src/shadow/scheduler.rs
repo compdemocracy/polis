@@ -19,6 +19,10 @@
 //! code or a conversation id (the run record has the id). Every line about a
 //! run names its set (`"set"`: `benchmark`, `featured` or `current`; a twin,
 //! its first run's), as its run record does (`config_effective.shadow.set`).
+//! Each conversation's runs name a selection (`plan::Rules`): what
+//! participants are shown, or, for a conversation a comment-rule list names
+//! (`DELPHI_SHADOW_ALL_COMMENTS`, `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT`), that
+//! list's rule; the admitted line and the run record name it.
 //! One kind of line goes to standard error instead, beginning `Error:`
 //! (`error`): a graph cancelled after an executor claimed it (`graph`). It
 //! keeps the same rule: it names the graph and the conversation's position in
@@ -38,6 +42,12 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 pub const PREFIX: &str = "delphi_shadow/1";
 pub const EXIT_CONFIG: i32 = 2;
+
+/// A comment rule's word in the log: its selection's name without the
+/// version (`all_comments/1` is `all_comments`).
+fn rule_word(selection: &str) -> &str {
+    selection.split('/').next().unwrap_or(selection)
+}
 
 /// SIGTERM and SIGINT set the daemon's own shutdown flag; the loop stops
 /// before its next statement. Nothing is in flight on this side: a run that
@@ -167,6 +177,12 @@ pub struct Scheduler<'a> {
     pub(super) graph_wait_bucket: Option<i64>,
     /// The deferred graphs the last `graph_admission_held` line named.
     pub(super) graph_held: Option<String>,
+    /// Which selection each conversation's runs name, once the comment-rule
+    /// lists are resolved (`rules`), with the UTC day they were resolved on.
+    /// In memory only: resolved again at every start.
+    pub rules: Option<(i64, plan::Rules)>,
+    /// When resolving the list last failed (`rules`).
+    pub rules_failed_at_ms: Option<i64>,
 }
 
 impl<'a> Scheduler<'a> {
@@ -185,6 +201,8 @@ impl<'a> Scheduler<'a> {
             graph_list_counts: None,
             graph_wait_bucket: None,
             graph_held: None,
+            rules: None,
+            rules_failed_at_ms: None,
         };
         scheduler.recover_graph()?;
         Ok(scheduler)
@@ -199,16 +217,19 @@ impl<'a> Scheduler<'a> {
     /// Run until stopped. Errors of one cycle are logged and the cycle is
     /// tried again after the poll interval; nothing is retried faster.
     pub fn run(&mut self) -> i32 {
-        log(
-            "started",
-            json!({"env": self.cfg.env, "min_comments": self.cfg.min_comments,
-                   "max_comments": self.cfg.max_comments, "daily_runs": self.cfg.daily_runs,
-                   "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle,
-                   "benchmark": self.cfg.benchmark.len(),
-                   "storage_budget_bytes": self.cfg.storage_budget_bytes,
-                   "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
-                   "storage_daily_bytes": self.cfg.storage_daily_log()}),
-        );
+        let mut started = json!({"env": self.cfg.env, "min_comments": self.cfg.min_comments,
+               "max_comments": self.cfg.max_comments, "daily_runs": self.cfg.daily_runs,
+               "twin_every": self.cfg.twin_every, "duty_cycle": self.cfg.duty_cycle,
+               "benchmark": self.cfg.benchmark.len(),
+               "storage_budget_bytes": self.cfg.storage_budget_bytes,
+               "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
+               "storage_daily_bytes": self.cfg.storage_daily_log()});
+        // Each list named only when it is set, so the line is what it was
+        // without them.
+        for list in self.cfg.rule_lists.iter().filter(|l| !l.codes.is_empty()) {
+            started[rule_word(list.selection)] = list.codes.len().into();
+        }
+        log("started", started);
         while !stopping() {
             let wait = match self.cycle() {
                 Ok(wait) => wait,
@@ -395,6 +416,71 @@ impl<'a> Scheduler<'a> {
         }
     }
 
+    /// Which selection each conversation's next run names. With every
+    /// comment-rule list empty, the default rules and no read: every run names
+    /// what participants are shown. Otherwise the listed codes are resolved on
+    /// the read login at the first cycle and again each UTC day. Until a first
+    /// resolution succeeds nothing is admitted (the cycle fails with a fixed
+    /// message and is tried again at the next poll), so no listed
+    /// conversation is ever run under the wrong rule; a later failure keeps
+    /// the day's resolution and is tried again after `roster_retry`. Two
+    /// codes of one conversation in two lists (the startup check sees only
+    /// codes) fail the resolution the same way: one rule at a time. The log
+    /// names counts only, never a code or a conversation id.
+    fn rules(&mut self, now: i64) -> Result<plan::Rules> {
+        if self.cfg.rule_lists.iter().all(|l| l.codes.is_empty()) {
+            return Ok(plan::Rules::default());
+        }
+        let day = now.div_euclid(86_400_000);
+        let due = match (&self.rules, self.rules_failed_at_ms) {
+            (Some((read, _)), _) if *read == day => false,
+            (Some(_), Some(at)) => now - at >= self.cfg.roster_retry.as_millis() as i64,
+            _ => true,
+        };
+        if due {
+            match self.resolve_rules() {
+                Ok((rules, line)) => {
+                    log("rules", line);
+                    self.rules = Some((day, rules));
+                    self.rules_failed_at_ms = None;
+                }
+                Err(reason) => {
+                    // Errors can contain SQL input: a closed reason only.
+                    log("rules_unread", json!({"reason": reason}));
+                    self.rules_failed_at_ms = Some(now);
+                    if self.rules.is_none() {
+                        anyhow::bail!("the comment-rule lists are not resolved yet ({reason})");
+                    }
+                }
+            }
+        }
+        Ok(self
+            .rules
+            .as_ref()
+            .map(|(_, r)| r.clone())
+            .unwrap_or_default())
+    }
+
+    /// Each list's conversations, read on the read login, as rules and the
+    /// counts the `rules` line names; or the closed reason they could not be.
+    fn resolve_rules(&self) -> std::result::Result<(plan::Rules, Value), &'static str> {
+        let mut rules = plan::Rules::default();
+        let mut line = json!({});
+        for list in self.cfg.rule_lists.iter().filter(|l| !l.codes.is_empty()) {
+            let zids = self.db.listed(&list.codes).map_err(|_| "read_error")?;
+            line[rule_word(list.selection)] = list.codes.len().into();
+            line[format!("{}_found", rule_word(list.selection))] = zids.len().into();
+            for zid in zids {
+                if let Some(earlier) = rules.listed.insert(zid, list.selection)
+                    && earlier != list.selection
+                {
+                    return Err("one_conversation_two_rules");
+                }
+            }
+        }
+        Ok((rules, line))
+    }
+
     /// Admit the next run, or say why not: `Some` when the storage budget
     /// holds the next run back. The benchmark set is tried first, in the
     /// list's order, then the featured set, most participants first, then the
@@ -410,7 +496,8 @@ impl<'a> Scheduler<'a> {
         if self.state.graph_flight.is_some() {
             return Ok(None);
         }
-        match self.admit_twin(now)? {
+        let rules = self.rules(now)?;
+        match self.admit_twin(now, &rules)? {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
@@ -458,14 +545,29 @@ impl<'a> Scheduler<'a> {
             if !counted.insert(l.zid) {
                 continue;
             }
-            match plan::look(self.cfg, &self.state, l, now, set.share()) {
+            match plan::look_under(
+                self.cfg,
+                &self.state,
+                l,
+                now,
+                set.share(),
+                rules.selection(l.zid),
+            ) {
                 Look::TooSmall => small += 1,
                 Look::TooLarge => too_large += 1,
                 Look::TooCostly => costly += 1,
                 _ => {}
             }
         }
-        let candidates = plan::candidates(self.cfg, &self.state, &benchmark, &featured, &live, now);
+        let candidates = plan::candidates_under(
+            self.cfg,
+            &self.state,
+            &benchmark,
+            &featured,
+            &live,
+            now,
+            &rules,
+        );
         // Set once a run of the benchmark or featured set would pass the
         // budget less the live reserve: the rest of those two wait, the
         // current set goes on. When even the smallest run there can be would,
@@ -487,11 +589,14 @@ impl<'a> Scheduler<'a> {
                 reserve_waiting = true;
                 continue;
             }
-            let set = self.db.comment_set(candidate.zid)?;
+            let set = self
+                .db
+                .comment_set(candidate.zid, rules.selection(candidate.zid))?;
             let seen = self.state.conversations.entry(candidate.zid).or_default();
             // Unchanged only when the last run was admitted under this
             // selection and kept the same comments. An entry an earlier
             // build wrote names no selection: its run laid out every comment.
+            // A conversation whose rule changed names the other one: it runs.
             let unchanged = seen.selection.as_deref() == Some(set.selection)
                 && seen.admitted_digest.as_deref() == Some(set.selection_digest.as_str());
             seen.last_modified = candidate.last_modified;
@@ -686,7 +791,7 @@ impl<'a> Scheduler<'a> {
     /// only on the same selection as its first run; a selection that changed
     /// in between drops it (and the next first run on the new one may get
     /// one). Its closed reason word stays `comment_set_changed`.
-    fn admit_twin(&mut self, now: i64) -> Result<TwinStep> {
+    fn admit_twin(&mut self, now: i64, rules: &plan::Rules) -> Result<TwinStep> {
         let Some(pending) = self.state.pending_twin.clone() else {
             return Ok(TwinStep::Nothing);
         };
@@ -696,7 +801,11 @@ impl<'a> Scheduler<'a> {
         if self.graph_scope_held(pending.zid)? {
             return Ok(TwinStep::Nothing);
         }
-        let set = self.db.comment_set(pending.zid)?;
+        // Under the conversation's rule now: a rule changed since the first
+        // run gives another selection digest, and the twin is dropped.
+        let set = self
+            .db
+            .comment_set(pending.zid, rules.selection(pending.zid))?;
         if set.selection_digest != pending.digest {
             log(
                 "twin_dropped",

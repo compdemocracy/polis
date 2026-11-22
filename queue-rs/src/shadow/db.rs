@@ -21,7 +21,10 @@
 //! one pass over `conversations`, which has no index on that column). Both
 //! are read once a UTC day (the scheduler's roster), never per poll, and both
 //! take `ACCESS SHARE` only, which the `conversations` updates votes and
-//! comments cause (`ROW EXCLUSIVE`) do not wait on.
+//! comments cause (`ROW EXCLUSIVE`) do not wait on. When
+//! `DELPHI_SHADOW_ALL_COMMENTS` lists conversations, the read login resolves
+//! those codes the same way (`listed`, `zinvites_zinvite_key`), once a UTC
+//! day; with the list empty that read is never made.
 use super::{
     config::{ACTOR, Config, SCOPE},
     storage::{self, Measured, Pending},
@@ -60,7 +63,8 @@ pub struct CommentSet {
     pub digest: String,
     /// Comments with text: the comments the run embeds.
     pub comments: i64,
-    /// The selection the scheduler admits under ([`super::plan::SELECTION`]).
+    /// The selection the census was asked for, which the run will name
+    /// ([`super::plan::Rules`] chooses it per conversation).
     pub selection: &'static str,
     /// `polis-jobs.selection/1` over the comments it keeps: the admission's key.
     pub selection_digest: String,
@@ -121,8 +125,15 @@ impl<'a> Db<'a> {
         self.read(|tx| Ok((benchmark(tx, codes)?, featured(tx)?)))
     }
 
-    pub fn comment_set(&self, zid: i32) -> Result<CommentSet> {
-        self.read(|tx| comment_set(tx, zid))
+    /// The census of `zid` under `selection`, the one its next run names.
+    pub fn comment_set(&self, zid: i32, selection: &str) -> Result<CommentSet> {
+        self.read(|tx| census(tx, zid, selection))
+    }
+
+    /// The conversations `codes` name (`listed`), in one read-only
+    /// transaction on one connection.
+    pub fn listed(&self, codes: &[String]) -> Result<std::collections::BTreeSet<i32>> {
+        self.read(|tx| listed(tx, codes))
     }
 
     pub fn signals(&self) -> Result<Signals> {
@@ -274,7 +285,31 @@ pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
         .collect()
 }
 
-/// The census of one conversation. The comment set's digest is computed by
+/// The conversations the codes name, by the unique index on the code
+/// (`zinvites_zinvite_key`), as `benchmark` resolves its list; a code no
+/// conversation has names none. No comment is read.
+pub fn listed(
+    tx: &mut Transaction<'_>,
+    codes: &[String],
+) -> Result<std::collections::BTreeSet<i32>> {
+    if codes.is_empty() {
+        return Ok(Default::default());
+    }
+    let rows = tx.query(
+        "SELECT DISTINCT zid FROM zinvites WHERE zinvite = ANY($1::text[])",
+        &[&codes],
+    )?;
+    rows.iter().map(|r| Ok(r.try_get::<_, i32>(0)?)).collect()
+}
+
+/// The census of one conversation under the selection its runs name today,
+/// [`super::plan::SELECTION`] (what participants are shown); [`census`]
+/// names the selection.
+pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
+    census(tx, zid, super::plan::SELECTION)
+}
+
+/// The census of one conversation under `selection`. The comment set's digest is computed by
 /// the input bundle's own function from the same columns the bundle reads, so
 /// it equals the digest the run's census records
 /// (`manifest.inputs.comment_set_sha256` in the run record); the selection by
@@ -282,7 +317,7 @@ pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
 /// run that names it reads in its bundle (`strict_moderation`, `velocity`).
 /// One read-only snapshot: `ACCESS SHARE` on `comments` and `conversations`
 /// only, which no vote, comment or moderation statement waits on.
-pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
+pub fn census(tx: &mut Transaction<'_>, zid: i32, selection: &str) -> Result<CommentSet> {
     let strict = tx
         .query_opt(
             "SELECT coalesce(strict_moderation, false) FROM conversations WHERE zid = $1",
@@ -308,7 +343,7 @@ pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
             velocity: Some(r.try_get(7)?),
         });
     }
-    let selection = contract::select(super::plan::SELECTION, &comments, strict)?;
+    let selection = contract::select(selection, &comments, strict)?;
     let has_text = |c: &&Comment| !c.txt.trim().is_empty();
     let selected = comments
         .iter()

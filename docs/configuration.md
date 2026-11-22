@@ -329,6 +329,31 @@ check, and logs each job id, run id, stage, elapsed execution seconds and bytes.
 Finished results are retained when a later node fails. A deadline or dead node
 cancels unfinished nodes through the queue's fenced management operation.
 
+### Delphi Shadow Comment Rules
+
+Every Delphi shadow run embeds every comment of its conversation, and lays out
+(UMAP), clusters (EVoC) and names the comments of one rule. A conversation has
+one rule at a time, chosen by the scheduler's two lists of conversation codes
+(read as `DELPHI_SHADOW_BENCHMARK` is: commas or white space, a repeat kept at
+its first place, an entry that is not 1 to 64 letters and digits refused at
+startup by its position). Both are empty by default, and then every run is as
+it was.
+
+| Rule | Lays out | Chosen by |
+|---|---|---|
+| `participant_visible/1` | what participants are shown (the server's participant comment list) | being in neither list |
+| `all_comments/1` | every comment: unmoderated, moderated in and moderated out | `DELPHI_SHADOW_ALL_COMMENTS` |
+| `all_but_moderated_out/1` | every comment but the moderated-out ones, whatever strict moderation says | `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` |
+
+A code in both lists is refused at startup; two codes of one conversation in
+the two lists stop admission until one is removed. A list chooses a
+conversation's rule, not whether it runs: it still runs only when the
+benchmark, featured or current set picks it, within the same comment cap,
+pacing, time and storage limits. Each run's record names its rule
+(`config_effective.selection`). Moving a conversation to another rule runs it
+again at its next turn (after the rerun window); a moderation that does not
+change what its rule keeps runs nothing. No reader serves these runs.
+
 ### Delphi Shadow Resources
 
 Read only where the Delphi shadow runs (its services start on the exact line `DELPHI_SHADOW_ENABLED=1`). Compose alone reads this key, for the `delphi-shadow` container's limit; no service sees it.

@@ -790,6 +790,34 @@ mod tests {
         Ok(())
     }
 
+    /// The two report rules are selections like the first: each reaches the
+    /// pipeline by its name, and nothing else changes in the arguments.
+    #[test]
+    fn the_report_rules_reach_the_pipeline_by_name() -> Result<()> {
+        let app = Path::new("/app");
+        for name in ["all_comments/1", "all_but_moderated_out/1"] {
+            let adm = Admission {
+                zid: 42,
+                report_id: None,
+                config: json!({"selection": name, "exclude_comment_selections": false,
+                    "embeddings_table": true, "shadow": {"schema": "delphi-shadow/2"}}),
+                inputs: json!({}),
+            };
+            assert_eq!(selection(&adm)?, Some(name));
+            let (_, args) = command_args(app, &claim("delphi_full_pipeline"), &adm, "run")?;
+            assert_eq!(
+                args,
+                vec![
+                    "--zid=42".to_owned(),
+                    "--include_moderation=False".to_owned(),
+                    "--exclude_comment_selections=False".to_owned(),
+                    format!("--selection={name}"),
+                ]
+            );
+        }
+        Ok(())
+    }
+
     fn math_config() -> Value {
         json!({"staged_label": "python-large", "target_label": "python", "need_bytes": 850_000_000u64,
             "input_through_ms": 1_790_000_000_000i64, "binding": "0000000000000000",
