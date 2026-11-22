@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 . "$(dirname "$0")/runtime.sh"
+python3 ci/check_graph_registry.py
+python3 -m unittest discover -s ci -p test_graph_registry.py
 python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
 python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
 : "${POLIS_JOBS_TEST_DATABASE_URL:?provide an isolated PostgreSQL 17 database}"
@@ -12,7 +14,7 @@ python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
 (
   cd "$CHECK_ROOT/queue-rs"
   cargo clippy --locked --all-targets -- -D warnings
-  cargo clippy --locked --all-targets --features jobs-integration -- -D warnings
+  cargo clippy --locked --all-targets --features jobs-integration,graph-test-models -- -D warnings
 )
 
 (
@@ -24,8 +26,8 @@ python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
   cd "$CHECK_ROOT/queue-rs"
   export POLIS_JOBS_TEST_DATABASE_URL
   export POLIS_JOBS_TEST_PYTHON="${POLIS_JOBS_TEST_PYTHON:-python3}"
-  cargo test --locked --features jobs-integration --test jobs_integration -- --test-threads 4
+  cargo test --locked --features jobs-integration,graph-test-models --test jobs_integration -- --test-threads 4
   # The Delphi shadow's scheduler: what it admits, and that its sessions never
   # make a vote, a comment or the next comment wait.
-  cargo test --locked --features jobs-integration --test delphi_shadow -- --test-threads 2
+  cargo test --locked --features jobs-integration,graph-test-models --test delphi_shadow -- --test-threads 2
 )

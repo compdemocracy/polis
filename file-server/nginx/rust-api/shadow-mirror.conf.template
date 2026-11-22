@@ -16,6 +16,7 @@ location @polis_shadow_${SHADOW_NAME} {
     access_log /var/log/nginx/access.log polis_shadow_edge;
     include /etc/nginx/node-proxy.conf;
     proxy_set_header X-Request-Id $request_id;
+    proxy_set_header Connection close;
 }
 
 location = /_polis_shadow/${SHADOW_NAME} {
@@ -45,6 +46,7 @@ location = /_polis_shadow/${SHADOW_NAME} {
     proxy_set_header Host $host;
     proxy_set_header X-Request-Id $request_id;
     proxy_set_header X-Polis-Shadow ${SHADOW_NAME};
+    proxy_set_header Connection close;
     proxy_next_upstream off;
     resolver_timeout 30ms;
     proxy_connect_timeout 20ms;

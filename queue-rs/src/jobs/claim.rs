@@ -216,14 +216,103 @@ fn retry_pending(ctx: &Ctx, rpc: &mut Rpc) {
     }
 }
 
+/// A journal entry of a host-bound journal written under another boot. The
+/// binding is a file's contents, so a restored snapshot of the volume, or a
+/// copied or template-baked identity file, passes it on a second machine
+/// while the original may still run the attempt. Its exit is confirmed only
+/// once the database shows the attempt's lease over (`lease_over`): a live
+/// original keeps renewing it, so it is never confirmed; an honest reboot
+/// waits at most one lease.
+struct Waiting {
+    entry: journal::Entry,
+    /// Database time (seconds since the epoch) at which this daemon first
+    /// read the job no longer held by this attempt.
+    released_seen: Option<f64>,
+}
+
+fn recovery_line(entry: &journal::Entry, exit_proven: bool, reason: &str) {
+    line(&format!(
+        "graph_recovery {}",
+        json!({"job_id":entry.job_id,"attempt_id":entry.attempt_id,"owner_id":entry.owner_id,"exit_proven":exit_proven,"reason":reason})
+    ));
+}
+
+/// Whether the waiting entry's lease is over by database time. While its
+/// attempt still holds the job, the lease is the job's `locked_until`. Once
+/// the job is no longer held by it (expired and parked by a reaper,
+/// cancelled, gone), the end of the lease is not on record, so one whole
+/// lease of this daemon's is counted from the moment this daemon first read
+/// it so.
+fn lease_over(lease_seconds: u32, rpc: &mut Rpc, waiting: &mut Waiting) -> anyhow::Result<bool> {
+    let (status, now, locked_until) = rpc.job_status_at(&waiting.entry.job_id)?;
+    let e = &waiting.entry;
+    let held = status["state"] == "running"
+        && status["owner_id"].as_str() == Some(e.owner_id.as_str())
+        && status["attempt_id"].as_str() == Some(e.attempt_id.as_str())
+        && status["lease_epoch"].as_str() == Some(e.lease_epoch.as_str());
+    if held {
+        return Ok(locked_until.is_some_and(|until| until <= now));
+    }
+    let since = *waiting.released_seen.get_or_insert(now);
+    Ok(now - since >= f64::from(lease_seconds))
+}
+
+/// Confirm each waiting entry whose lease is over (queued as `recover`
+/// queues a provably gone one); keep the rest. A read that fails keeps the
+/// entry: nothing is confirmed on a guess.
+fn confirm_after_lease(ctx: &Ctx, rpc: &mut Rpc, waiting: Vec<Waiting>) -> Vec<Waiting> {
+    let mut kept = vec![];
+    for mut w in waiting {
+        match lease_over(ctx.cfg.lease_seconds, rpc, &mut w) {
+            Ok(true) => {
+                recovery_line(&w.entry, true, "another_boot_lease_expired");
+                if let Ok(mut p) = ctx.pending.lock() {
+                    p.push(Pending {
+                        entry: w.entry,
+                        code: Some("daemon_restarted".into()),
+                    });
+                }
+            }
+            Ok(false) => kept.push(w),
+            Err(e) => {
+                line(&format!(
+                    "journal entry {} kept: its lease could not be read ({e})",
+                    w.entry.attempt_id
+                ));
+                kept.push(w);
+            }
+        }
+    }
+    kept
+}
+
 /// Recovery: every journaled attempt that is provably gone is confirmed with
-/// `pq_fail(env, job, owner, attempt, epoch, false, 'daemon_restarted', true)`.
-fn recover(ctx: &Ctx, rpc: &mut Rpc) {
+/// `pq_fail(env, job, owner, attempt, epoch, false, 'daemon_restarted', true)`,
+/// except that an entry of a host-bound journal from another boot waits for
+/// its lease (`Waiting`); those are returned, to be read again at the reaper
+/// cadence.
+fn recover(ctx: &Ctx, rpc: &mut Rpc) -> Vec<Waiting> {
+    let mut waiting = vec![];
     for entry in ctx.journal.entries() {
         if entry.env != ctx.cfg.env {
             continue;
         }
-        if !journal::provably_gone(&entry, &ctx.cfg.boot_id, &ctx.cfg.container_id, &ctx.owner) {
+        let gone =
+            journal::provably_gone(&entry, &ctx.cfg.boot_id, &ctx.cfg.container_id, &ctx.owner);
+        if gone && ctx.cfg.journal_host_file.is_some() && entry.boot_id != ctx.cfg.boot_id {
+            waiting.push(Waiting {
+                entry,
+                released_seen: None,
+            });
+            continue;
+        }
+        if ctx.cfg.journal_host_file.is_some() {
+            line(&format!(
+                "graph_recovery {}",
+                json!({"job_id":entry.job_id,"attempt_id":entry.attempt_id,"owner_id":entry.owner_id,"exit_proven":gone,"reason":if gone { "retained_host_journal" } else { "process_exit_unconfirmed" }})
+            ));
+        }
+        if !gone {
             line(&format!(
                 "journal entry {} not provably gone; left in place",
                 entry.attempt_id
@@ -237,7 +326,12 @@ fn recover(ctx: &Ctx, rpc: &mut Rpc) {
             });
         }
     }
+    let waiting = confirm_after_lease(ctx, rpc, waiting);
+    for w in &waiting {
+        recovery_line(&w.entry, false, "another_boot_lease_live");
+    }
     retry_pending(ctx, rpc);
+    waiting
 }
 
 fn snapshot_line(ctx: &Ctx, progress: &str) -> String {
@@ -272,6 +366,12 @@ pub fn run(cfg: Config) -> i32 {
             return EXIT_CONFIG;
         }
     };
+    if let Some(host_file) = &cfg.journal_host_file
+        && let Err(error) = journal.bind_host(host_file)
+    {
+        line(&format!("config refused: journal host binding ({error})"));
+        return EXIT_CONFIG;
+    }
     let connector = match Connector::new(&cfg) {
         Ok(c) => Arc::new(c),
         Err(e) => {
@@ -340,7 +440,7 @@ pub fn run(cfg: Config) -> i32 {
         line("graph stages require polis-queue/5");
         return EXIT_CONTRACT;
     }
-    recover(&ctx, &mut rpc);
+    let mut waiting = recover(&ctx, &mut rpc);
     let mut listener: Option<postgres::Client> = rpc.listener().ok();
     let mut jobs: Vec<JoinHandle<()>> = vec![];
     let mut reaper = Reaper::new(cfg.lease_seconds, cfg.reap_interval);
@@ -397,6 +497,11 @@ pub fn run(cfg: Config) -> i32 {
         }
         if Instant::now() >= next_reap {
             next_reap = Instant::now() + cfg.reap_interval;
+            // Before the reaper below parks an expired attempt, so that an
+            // honest reboot's entry is confirmed at the tick its lease ends.
+            if !waiting.is_empty() {
+                waiting = confirm_after_lease(&ctx, &mut rpc, waiting);
+            }
             retry_pending(&ctx, &mut rpc);
             if ctx.contract() == "polis-queue/5"
                 && let Err(e) = rpc.committed("pd_graph_reconcile", &[json!(cfg.env)])

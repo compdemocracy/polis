@@ -81,6 +81,32 @@ impl Journal {
         })
     }
 
+    /// A retained journal belongs to exactly one host. A copied volume is not
+    /// exit evidence. Bind while holding the directory's exclusive lock.
+    pub fn bind_host(&self, host_file: &Path) -> anyhow::Result<()> {
+        let host = fs::read_to_string(host_file)?;
+        let host = host.trim();
+        anyhow::ensure!(
+            !host.is_empty() && host.len() <= 256,
+            "journal_host_identity"
+        );
+        let marker = self.dir.join(".host");
+        match fs::read_to_string(&marker) {
+            Ok(previous) => anyhow::ensure!(previous == host, "journal_host_mismatch"),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                anyhow::ensure!(self.entries().is_empty(), "journal_host_unrecorded");
+                let tmp = self.dir.join(".host.tmp");
+                let mut file = File::create(&tmp)?;
+                file.write_all(host.as_bytes())?;
+                file.sync_all()?;
+                fs::rename(tmp, marker)?;
+                fsync_dir(&self.dir)?;
+            }
+            Err(e) => return Err(e.into()),
+        }
+        Ok(())
+    }
+
     fn path(&self, attempt_id: &str) -> PathBuf {
         self.dir.join(format!("{attempt_id}.json"))
     }
@@ -229,5 +255,27 @@ mod tests {
         let mut alive = e.clone();
         alive.daemon_pid = std::process::id();
         assert!(!provably_gone(&alive, "boot-a", "box-a", me));
+    }
+}
+
+#[cfg(test)]
+mod host_tests {
+    use super::*;
+    #[test]
+    fn retained_journal_refuses_another_host_and_concurrent_daemon() -> anyhow::Result<()> {
+        let dir = std::env::temp_dir().join(format!("journal-host-{}", uuid::Uuid::new_v4()));
+        let host = dir.join("host-id");
+        let journal = Journal::open(&dir.join("journal"))?;
+        fs::write(&host, "machine-a\n")?;
+        journal.bind_host(&host)?;
+        assert!(Journal::open(&dir.join("journal")).is_err());
+        drop(journal);
+        let replacement = Journal::open(&dir.join("journal"))?;
+        replacement.bind_host(&host)?;
+        fs::write(&host, "machine-b")?;
+        assert!(replacement.bind_host(&host).is_err());
+        drop(replacement);
+        fs::remove_dir_all(dir)?;
+        Ok(())
     }
 }

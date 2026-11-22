@@ -17,7 +17,7 @@ import time
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import Any, Callable, Deque, Dict, List, Set, Tuple
+from typing import Any, Callable, Deque, Dict, List, Optional, Set, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -50,6 +50,10 @@ class CoalescedBatch:
     rebuild: bool = False
     # Set when a BACKFILL message was coalesced (P-070).
     backfill: bool = False
+    # Seconds from when the oldest coalesced message was queued to when the
+    # pool took the batch (the recompute line); None outside the pool. Not
+    # part of the batch's identity.
+    queue_wait_s: Optional[float] = field(default=None, compare=False, repr=False)
 
     def has_work(self) -> bool:
         return bool(self.votes) or bool(self.moderation) or self.rebuild or self.backfill
@@ -212,6 +216,8 @@ class ConversationWorkerPool:
                 self._running_since[zid] = (started, live)
 
             coalesced = coalesce_messages(messages)
+            if queued:
+                coalesced.queue_wait_s = max(0.0, self._clock() - started)
             outcome = None
             if coalesced.has_work():
                 try:

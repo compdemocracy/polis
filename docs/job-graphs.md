@@ -95,3 +95,33 @@ before replacing services. A modern M24 history upgrades by applying M27 only;
 existing receipt bytes are preserved. An unledgered or old-draft M27 catalog is
 not silently adopted or re-sealed. The API refuses pending or changed receipts.
 DynamoDB readers/importers and M28/M29 are outside this release.
+
+## Typed admission and image capabilities
+
+All application graph admissions pass through `jobs::admission` in Rust.
+`polis-jobs graph-admit` accepts one bounded JSON request on stdin with `env`,
+`zid`, `scope`, `request_key`, `specification`, and optional `supersedes`.
+Credentials remain in the existing queue transport settings. It obtains
+capabilities from the local image, validates the model, input roles, producer
+output types, resource reservations and code/adapter digests, then calls the
+atomic database admission. Its Python client requires an idle connection so it
+cannot silently move an open transaction to another session. On a lost reply,
+retry the exact request key and specification; never invent a new key.
+
+The source registry is `queue-rs/polis-contracts/job-models.json`; its generated
+Python copy is `delphi/polismath/job-models.json`. Copy the source file verbatim
+after editing it. `ci/check_graph_registry.py` checks both copies and refuses
+application admissions outside the Rust entry. `polis-jobs graph-registry`
+prints the compiled registry. Rust and Python consume the same definitions;
+unknown Rust model/step variants refuse deserialization. The current cluster
+implementation still computes both projection and clusters as one legacy stage.
+Positions, aligned layouts and topic maps reserve output types only; no model
+implements them and they cannot be admitted.
+
+Reference adapters are separate test builds. Rust needs `graph-test-models`;
+the Delphi `test` image additionally installs `graph_test_models.py` and its
+reference registry. The `final` image contains neither, and no runtime switch
+can add them. Fixtures in source tests opt into that module through their test
+path. The production database's historical fixture names remain redundant until
+the separately reviewed policy-removal migration; production binaries and
+children refuse them before execution.

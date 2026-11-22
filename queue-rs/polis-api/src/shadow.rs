@@ -46,6 +46,9 @@ pub(crate) mod comments;
 #[path = "shadow_reads.rs"]
 pub(crate) mod reads;
 
+#[path = "shadow_stop.rs"]
+pub(crate) mod stop;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Role {
     Main,
@@ -473,7 +476,21 @@ async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
         .map(|_| None);
     match decision {
         Decision::Observe(permit) => {
-            tokio::spawn(observe(app, lane, req, received, permit));
+            let kind = stop::Kind::Votes {
+                facts,
+                identity: identity.is_some(),
+            };
+            match stop::OBSERVATIONS.begin(kind, request_id(&req)) {
+                Ok(observation) => {
+                    let current = observation.current();
+                    tokio::spawn(stop::scope(
+                        current,
+                        observe(app, lane, req, received, permit, observation),
+                    ));
+                }
+                // The stop has printed its lines: this copy's is printed now.
+                Err(entry) => print_stopped(&app, &entry),
+            }
         }
         Decision::Shed(reason) => {
             lane.counters.shed.fetch_add(1, Ordering::Relaxed);
@@ -503,13 +520,15 @@ async fn accept_vote(app: Arc<App>, lane: Arc<Lane>, req: Request) -> Outgoing {
     no_content()
 }
 
-/// One observation, after its 204 has been returned.
+/// One observation, after its 204 has been returned. Its line is printed
+/// unless the stop has printed its stopped line first (`stop`).
 async fn observe(
     app: Arc<App>,
     lane: Arc<Lane>,
     req: Request,
     received: tokio::time::Instant,
     permit: tokio::sync::OwnedSemaphorePermit,
+    observation: stop::Observation,
 ) {
     #[cfg(test)]
     drop(lane.park.read().await);
@@ -536,6 +555,7 @@ async fn observe(
     let total = received.elapsed();
     // The lane slot covers admission and selection only.
     drop(permit);
+    observation.stage(stop::Stage::Readback);
     let mut taken = std::mem::take(&mut *record.lock().unwrap_or_else(|e| e.into_inner()));
     if taken.reason.is_none() && out.status != 200 {
         taken.reason = post_votes::shape_reason(&app, &req);
@@ -601,6 +621,9 @@ async fn observe(
             Some(Some(identity.read_back(pending, anchor, received).await))
         }
     };
+    if !observation.finish() {
+        return;
+    }
     Line {
         request_id: copy_id.as_deref(),
         outcome,
@@ -624,6 +647,28 @@ async fn observe(
         identity,
     }
     .print(&app);
+}
+
+/// The line of a copy still in flight when the stop's bound came: its route's
+/// own line, with the keys in their order, marked `stopped` and where it was
+/// (`reason`), and with nothing else the observation had found: no would-be
+/// answer, admission, conversation, duration or read-back, as on a shed line.
+pub(crate) fn print_stopped(app: &App, entry: &stop::Entry) {
+    match entry.kind {
+        stop::Kind::Votes { facts, identity } => Line {
+            request_id: entry.request_id.as_deref(),
+            outcome: stop::OUTCOME,
+            reason: Some(entry.stage.as_str()),
+            facts,
+            identity: identity.then_some(None),
+            ..Line::default()
+        }
+        .print(app),
+        stop::Kind::Comments { facts, body_class } => {
+            comments::print_stopped(app, entry, facts, body_class)
+        }
+        stop::Kind::Read(route) => reads::print_stopped(app, route, entry),
+    }
 }
 
 /// `GET /health` on the shadow listener. `enabled` means serving
@@ -799,20 +844,38 @@ pub(crate) fn configure() -> Result<Shadow> {
     })
 }
 
-/// Serves the shadow listener until the listener fails.
+/// Serves the shadow listener until the listener fails (the tests' server).
+#[cfg(test)]
 pub(crate) async fn serve(
     listener: tokio::net::TcpListener,
     app: Arc<App>,
     lane: Arc<Lane>,
 ) -> Result<()> {
+    serve_until(listener, app, lane, std::future::pending()).await
+}
+
+/// Serves the shadow listener until `stop` completes; then nothing new is
+/// accepted.
+async fn serve_until(
+    listener: tokio::net::TcpListener,
+    app: Arc<App>,
+    lane: Arc<Lane>,
+    stop: impl std::future::Future<Output = ()>,
+) -> Result<()> {
     lane.listening(listener.local_addr()?);
     let handler = Arc::new(move |req: Request| accept(app.clone(), lane.clone(), req));
-    http::serve_as(listener, handler, http::Listener::Shadow).await
+    http::serve_until(listener, handler, http::Listener::Shadow, stop).await
 }
 
 /// The shadow role's process: configure, load the revocation snapshot the
-/// prelude checks, listen, and stop on SIGINT as the main role does.
+/// prelude checks, listen, and stop on SIGTERM or SIGINT. It writes nothing;
+/// on a stop it waits, at most `stop::BOUND`, for the observations it has
+/// begun to print their lines, and prints a stopped line for each one still
+/// in flight then (`stop`).
 pub(crate) async fn run() -> Result<()> {
+    // Before any startup work: as PID 1 in its container, the process would
+    // ignore a signal it has no handler for.
+    let mut signals = crate::shutdown::Signals::install()?;
     let Shadow {
         mut app,
         lane,
@@ -864,10 +927,22 @@ pub(crate) async fn run() -> Result<()> {
         reads::report_startup(&app).await;
     }
     event("shadow_listening", &listening);
-    let result = tokio::select! {
-        r = serve(listener, Arc::new(app), lane) => r,
-        _ = tokio::signal::ctrl_c() => Ok(()),
+    let stopping = async move {
+        let signal = signals.recv().await;
+        stop::OBSERVATIONS.stopping();
+        event("shadow_stopping", &[("signal", Js::Str(signal.into()))]);
     };
+    let app = Arc::new(app);
+    let result = serve_until(listener, app.clone(), lane, stopping).await;
+    if result.is_ok() {
+        stop::drain(
+            &stop::OBSERVATIONS,
+            stop::BOUND,
+            http::in_progress,
+            |entry| print_stopped(&app, entry),
+        )
+        .await;
+    }
     if let Some(task) = refresh {
         task.abort();
         let _ = task.await;

@@ -19,6 +19,11 @@
 //! code or a conversation id (the run record has the id). Every line about a
 //! run names its set (`"set"`: `benchmark`, `featured` or `current`; a twin,
 //! its first run's), as its run record does (`config_effective.shadow.set`).
+//! One kind of line goes to standard error instead, beginning `Error:`
+//! (`error`): a graph cancelled after an executor claimed it (`graph`). It
+//! keeps the same rule: it names the graph and the conversation's position in
+//! `DELPHI_SHADOW_GRAPH_CONVERSATIONS` ("entry 2"), never its code, which is
+//! the conversation's address. Both output streams go to the same log.
 use super::{
     config::{Config, Share},
     db::{Db, Live, Signals},
@@ -55,7 +60,52 @@ pub fn log(event: &str, mut fields: Value) {
     if let Some(o) = fields.as_object_mut() {
         o.insert("event".into(), Value::String(event.into()));
     }
-    println!("{PREFIX} {fields}");
+    let line = format!("{PREFIX} {fields}");
+    keep(&line);
+    println!("{line}");
+}
+
+/// One line on standard error beginning `Error:`, for what an operator must
+/// see though nothing stops on it. The module's rule holds for it too: no
+/// comment, no conversation code, no conversation id.
+pub fn error(text: &str) {
+    let line = format!("Error: {text}");
+    keep(&line);
+    eprintln!("{line}");
+}
+
+thread_local! {
+    /// The lines `log` and `error` wrote on this thread, kept only once a
+    /// test has asked for them (`keep_lines`); `None`, and never filled,
+    /// otherwise.
+    static KEPT: std::cell::RefCell<Option<Vec<String>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn keep(line: &str) {
+    KEPT.with(|k| {
+        if let Some(lines) = k.borrow_mut().as_mut() {
+            lines.push(line.to_owned());
+        }
+    });
+}
+
+/// For tests: from now on keep every line this thread's scheduler writes,
+/// as well as writing it, so that a test can read them back (`kept_lines`).
+#[doc(hidden)]
+pub fn keep_lines() {
+    KEPT.with(|k| *k.borrow_mut() = Some(Vec::new()));
+}
+
+/// For tests: the lines kept on this thread since `keep_lines` or the last
+/// call, oldest first.
+#[doc(hidden)]
+pub fn kept_lines() -> Vec<String> {
+    KEPT.with(|k| {
+        k.borrow_mut()
+            .as_mut()
+            .map(std::mem::take)
+            .unwrap_or_default()
+    })
 }
 
 /// Whether a run record was admitted under this scheduler's code version (the
@@ -111,12 +161,18 @@ pub struct Scheduler<'a> {
     /// When a roster read last failed: the next is tried after
     /// `roster_retry`, so a failing read is not repeated every poll.
     pub roster_failed_at_ms: Option<i64>,
+    pub(super) graph_failed_at_ms: Option<i64>,
+    pub(super) graph_provenance: Option<(String, Value)>,
+    pub(super) graph_list_counts: Option<(usize, usize)>,
+    pub(super) graph_wait_bucket: Option<i64>,
+    /// The deferred graphs the last `graph_admission_held` line named.
+    pub(super) graph_held: Option<String>,
 }
 
 impl<'a> Scheduler<'a> {
     pub fn new(cfg: &'a Config) -> Result<Self> {
         let state = State::load(&cfg.state_path, &cfg.env)?;
-        Ok(Self {
+        let mut scheduler = Self {
             cfg,
             db: Db::new(cfg),
             state,
@@ -124,7 +180,14 @@ impl<'a> Scheduler<'a> {
             rest_until_ms: 0,
             roster: None,
             roster_failed_at_ms: None,
-        })
+            graph_failed_at_ms: None,
+            graph_provenance: None,
+            graph_list_counts: None,
+            graph_wait_bucket: None,
+            graph_held: None,
+        };
+        scheduler.recover_graph()?;
+        Ok(scheduler)
     }
 
     fn save(&self) {
@@ -167,6 +230,11 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
+        self.poll_deferred_graph(now)?;
+        self.recover_graph()?;
+        if let Some(flight) = self.state.graph_flight.clone() {
+            return self.watch_graph(flight, now);
+        }
         if let Some(flight) = self.state.in_flight.clone() {
             return self.watch(flight, now);
         }
@@ -194,11 +262,13 @@ impl<'a> Scheduler<'a> {
             return Ok(self.cfg.poll);
         }
         self.resume();
-        Ok(if self.state.in_flight.is_some() {
-            self.cfg.job_poll
-        } else {
-            self.cfg.poll
-        })
+        Ok(
+            if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
+                self.cfg.job_poll
+            } else {
+                self.cfg.poll
+            },
+        )
     }
 
     fn resume(&mut self) {
@@ -217,6 +287,11 @@ impl<'a> Scheduler<'a> {
         let jobs = self.db.shadow_jobs()?;
         log("storage_listed", json!({"jobs": jobs.len()}));
         self.state.storage.pending = jobs;
+        if let Some(flight) = &self.state.graph_flight {
+            self.state.storage.pending.retain(|p| {
+                p.env != flight.env || !flight.nodes.iter().any(|n| n.job_id == p.job_id)
+            });
+        }
         self.state.storage.reconciled = true;
         Ok(())
     }
@@ -331,10 +406,40 @@ impl<'a> Scheduler<'a> {
     /// alone holds the rest of those two, and the current set is still
     /// tried, against the whole budget.
     fn pick_and_admit(&mut self, now: i64) -> Result<Option<Pause>> {
+        self.recover_graph()?;
+        if self.state.graph_flight.is_some() {
+            return Ok(None);
+        }
         match self.admit_twin(now)? {
             TwinStep::Admitted => return Ok(None),
             TwinStep::Held(reason) => return Ok(Some(reason)),
             TwinStep::Nothing => {}
+        }
+        if self
+            .graph_failed_at_ms
+            .is_none_or(|at| now - at >= self.cfg.roster_retry.as_millis() as i64)
+        {
+            match self.admit_graph(now) {
+                Ok(true) => {
+                    self.graph_failed_at_ms = None;
+                    return Ok(None);
+                }
+                Ok(false) => self.graph_failed_at_ms = None,
+                Err(_) => {
+                    // Errors can contain SQL input. Log a closed reason only.
+                    log(
+                        "graph_unavailable",
+                        json!({"reason":"admission_error","retry_seconds":self.cfg.roster_retry.as_secs()}),
+                    );
+                    self.graph_failed_at_ms = Some(now);
+                    // Admission may have committed before its reply was lost.
+                    // Recovery failure stops this cycle, including full runs.
+                    self.recover_graph()?;
+                    if self.state.graph_flight.is_some() {
+                        return Ok(None);
+                    }
+                }
+            }
         }
         self.refresh_roster(now);
         let since = now - self.cfg.live_days as i64 * 86_400_000;
@@ -374,6 +479,9 @@ impl<'a> Scheduler<'a> {
         // A benchmark or featured candidate was passed over for the reserve.
         let mut reserve_waiting = false;
         for (candidate, set_name) in candidates {
+            if self.graph_scope_held(candidate.zid)? {
+                continue;
+            }
             let share = set_name.share();
             if reserve_held && share == Share::Shared {
                 reserve_waiting = true;
@@ -381,22 +489,33 @@ impl<'a> Scheduler<'a> {
             }
             let set = self.db.comment_set(candidate.zid)?;
             let seen = self.state.conversations.entry(candidate.zid).or_default();
-            let unchanged = seen.admitted_digest.as_deref() == Some(set.digest.as_str());
+            // Unchanged only when the last run was admitted under this
+            // selection and kept the same comments. An entry an earlier
+            // build wrote names no selection: its run laid out every comment.
+            let unchanged = seen.selection.as_deref() == Some(set.selection)
+                && seen.admitted_digest.as_deref() == Some(set.selection_digest.as_str());
             seen.last_modified = candidate.last_modified;
-            seen.digest = set.digest.clone();
+            seen.digest = set.selection_digest.clone();
             seen.comments = set.comments;
+            seen.selected = set.selected;
+            if seen.selection.as_deref() != Some(set.selection) {
+                seen.selection = Some(set.selection.to_owned());
+                seen.admitted_digest = None;
+            }
             if unchanged {
-                // The set is the one already run: a run now would recompute
-                // what is stored.
+                // The selection is the one already run: a run now would
+                // recompute what is stored.
                 self.state.totals.unchanged += 1;
                 log(
                     "unchanged",
-                    json!({"comments": set.comments, "set": set_name.word(),
-                    "size_class": plan::size_class(set.comments), "digest": set.digest}),
+                    json!({"comments": set.comments, "selected": set.selected, "set": set_name.word(),
+                    "size_class": plan::size_class(set.comments), "digest": set.selection_digest}),
                 );
                 continue;
             }
-            if set.comments < self.cfg.min_comments || set.comments > self.cfg.max_comments {
+            // The floor is of what a run lays out (the selection), the cap of
+            // what it embeds (every comment with text).
+            if set.selected < self.cfg.min_comments || set.comments > self.cfg.max_comments {
                 continue;
             }
             match plan::storage_room(self.cfg, &self.state.storage, set.comments, share) {
@@ -407,13 +526,7 @@ impl<'a> Scheduler<'a> {
                 Some(reason) => return Ok(Some(reason)),
                 None => {}
             }
-            let request = plan::admission(
-                candidate.zid,
-                &set.digest,
-                set.comments,
-                Some(set_name),
-                None,
-            );
+            let request = plan::admission(candidate.zid, &set, Some(set_name), None);
             self.admit(request, set.comments, None, Some(set_name), now)?;
             return Ok(None);
         }
@@ -445,18 +558,23 @@ impl<'a> Scheduler<'a> {
     ) -> Result<()> {
         self.resume();
         let reply = self.db.admit(&request)?;
-        let digest = request.config["shadow"]["comment_set_sha256"]
+        let shadow = &request.config["shadow"];
+        let digest = shadow["selection_sha256"]
             .as_str()
             .unwrap_or_default()
             .to_owned();
+        let selection = shadow["selection"].as_str().map(str::to_owned);
+        let comment_set = shadow["comment_set_sha256"].as_str().map(str::to_owned);
+        let selected = shadow["selected"].as_i64();
         let Some((outcome, job_id)) = plan::admitted_job(&reply) else {
             log(
                 "refused",
                 json!({"outcome": reply.get("outcome"), "comments": comments,
                        "set": set, "twin_of": twin_of}),
             );
-            // Do not try the same set again until its comments change.
+            // Do not try the same selection again until it changes.
             let seen = self.state.conversations.entry(request.zid).or_default();
+            seen.selection = selection;
             seen.admitted_digest = Some(digest);
             seen.admitted_at_ms = Some(now);
             seen.outcome = reply
@@ -466,6 +584,7 @@ impl<'a> Scheduler<'a> {
             return Ok(());
         };
         let seen = self.state.conversations.entry(request.zid).or_default();
+        seen.selection = selection.clone();
         seen.admitted_digest = Some(digest.clone());
         seen.admitted_at_ms = Some(now);
         seen.job_id = Some(job_id.clone());
@@ -485,6 +604,7 @@ impl<'a> Scheduler<'a> {
         log(
             "admitted",
             json!({"job_id": job_id, "outcome": outcome, "comments": comments,
+                   "selection": selection, "selected": selected,
                    "size_class": plan::size_class(comments), "digest": digest, "twin_of": twin_of,
                    "set": set}),
         );
@@ -492,6 +612,7 @@ impl<'a> Scheduler<'a> {
             zid: request.zid,
             job_id,
             digest,
+            comment_set_sha256: comment_set,
             comments,
             admitted_at_ms: now,
             twin_of,
@@ -529,7 +650,9 @@ impl<'a> Scheduler<'a> {
                    "comments": flight.comments, "size_class": plan::size_class(flight.comments),
                    "seconds_since_admission": run_ms as f64 / 1000.0,
                    "attempt": attempt, "families": families,
-                   "census_digest_matches": census.map(|c| c == flight.digest),
+                   "census_digest_matches": census.map(|c| {
+                       c == flight.comment_set_sha256.as_deref().unwrap_or(&flight.digest)
+                   }),
                    "twin_of": flight.twin_of, "set": flight.set}),
         );
         if let Some(seen) = self.state.conversations.get_mut(&flight.zid) {
@@ -560,8 +683,9 @@ impl<'a> Scheduler<'a> {
     }
 
     /// A twin waiting for admission goes before any new set. It is admitted
-    /// only on the same comment set as its first run; a set that changed in
-    /// between drops it (and the next first run on the new set may get one).
+    /// only on the same selection as its first run; a selection that changed
+    /// in between drops it (and the next first run on the new one may get
+    /// one). Its closed reason word stays `comment_set_changed`.
     fn admit_twin(&mut self, now: i64) -> Result<TwinStep> {
         let Some(pending) = self.state.pending_twin.clone() else {
             return Ok(TwinStep::Nothing);
@@ -569,8 +693,11 @@ impl<'a> Scheduler<'a> {
         if pending.twin_job_id.is_some() {
             return Ok(TwinStep::Nothing);
         }
+        if self.graph_scope_held(pending.zid)? {
+            return Ok(TwinStep::Nothing);
+        }
         let set = self.db.comment_set(pending.zid)?;
-        if set.digest != pending.digest {
+        if set.selection_digest != pending.digest {
             log(
                 "twin_dropped",
                 json!({"first_job_id": pending.first_job_id, "reason": "comment_set_changed",
@@ -600,13 +727,7 @@ impl<'a> Scheduler<'a> {
             Some(reason) => return Ok(TwinStep::Held(reason)),
             None => {}
         }
-        let request = plan::admission(
-            pending.zid,
-            &set.digest,
-            set.comments,
-            pending.set,
-            Some(&pending.first_job_id),
-        );
+        let request = plan::admission(pending.zid, &set, pending.set, Some(&pending.first_job_id));
         self.admit(
             request,
             set.comments,

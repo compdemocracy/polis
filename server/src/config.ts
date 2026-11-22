@@ -110,6 +110,13 @@ export default {
   databaseSSL: isTrue(process.env.DATABASE_SSL),
   databaseURL: process.env.DATABASE_URL as string,
   ddEnv: process.env.DD_ENV as string,
+  // Where the server learns whether an account may use Polis 2 (start Delphi
+  // work): POLIS_DELPHI_ENTITLEMENT, read by routes/delphi/entitlement.ts.
+  // "claim" (unset or blank, the default): the access token's delphi_enabled
+  // claim only, as always; "claim_or_db": the claim or a delphi_entitlements
+  // row; "db": a row only. Anything else stops the server at startup. See
+  // docs/configuration.md.
+  delphiEntitlement: delphiEntitlementFromEnv(),
   dynamoDbEndpoint: process.env.DYNAMODB_ENDPOINT || null,
   emailTransportTypes: process.env.EMAIL_TRANSPORT_TYPES || null,
   geminiApiKey: process.env.GEMINI_API_KEY || null,
@@ -262,6 +269,18 @@ function poolSizeFromEnv(name: string): number | undefined {
     );
   }
   return parseInt(raw, 10);
+}
+
+// POLIS_DELPHI_ENTITLEMENT: claim (unset or blank), claim_or_db or db.
+// Anything else stops the server at startup, so a mistyped value can never
+// quietly leave the server reading something other than what was meant.
+function delphiEntitlementFromEnv(): "claim" | "claim_or_db" | "db" {
+  const raw = (process.env.POLIS_DELPHI_ENTITLEMENT ?? "").trim();
+  if (raw === "") return "claim";
+  if (raw === "claim" || raw === "claim_or_db" || raw === "db") return raw;
+  throw new Error(
+    `POLIS_DELPHI_ENTITLEMENT must be claim, claim_or_db or db; got '${raw}'`
+  );
 }
 
 // Use this function when a value should default to true if not set.

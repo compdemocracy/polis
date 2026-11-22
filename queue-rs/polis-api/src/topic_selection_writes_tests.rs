@@ -607,6 +607,52 @@ async fn safety(url: &str, public: &[u8], key: &EncodingKey, state: Arc<App>, ca
         let mut c=postgres::Client::connect(&clean,postgres::NoTls).unwrap();
         c.batch_execute("DROP TRIGGER park_selection ON topic_agenda_selections; DROP FUNCTION park_selection()").unwrap();
     }).await.unwrap();
+    // The stop (`crate::shutdown`). A stopping process dispatches no
+    // mutation: the request is answered as every request this route does not
+    // mutate for (502), and nothing changes. A mutation dispatched before the
+    // stop is counted by the stop while it runs, so the drain waits for it.
+    let stopping = crate::shutdown::Stop::for_test();
+    stopping.stop();
+    let before = snapshot_async(url).await;
+    let stopped = Arc::new(app(url, public));
+    let mut marked = case.clone();
+    marked["request"]["selections"] = json!(["stopping-marker"]);
+    let answer = crate::shutdown::scoped(
+        stopping,
+        route::handle(stopped.clone(), request(&marked, key)),
+    )
+    .await;
+    assert_eq!(answer.status, 502);
+    assert_eq!(stopping.handed_back(), 1);
+    assert_eq!(stopping.dispatched(), 0);
+    wait_pending(&stopped).await;
+    assert_eq!(snapshot_async(url).await, before, "nothing changes");
+    let running = crate::shutdown::Stop::for_test();
+    let seen = Arc::new(AtomicUsize::new(usize::MAX));
+    let witness = seen.clone();
+    let mut counted = app(url, public);
+    counted
+        .topic_selection_writer
+        .as_mut()
+        .unwrap()
+        .before_mutation = Some(Arc::new(move || {
+        witness.store(running.dispatched(), Ordering::SeqCst);
+    }));
+    let counted = Arc::new(counted);
+    let mut marked = case.clone();
+    let selections = json!(["counted-marker"]);
+    marked["request"]["selections"] = selections.clone();
+    let answer = crate::shutdown::scoped(
+        running,
+        route::handle(counted.clone(), request(&marked, key)),
+    )
+    .await;
+    assert_eq!(answer.status, 200);
+    assert_eq!(seen.load(Ordering::SeqCst), 1, "counted while it runs");
+    wait_pending(&counted).await;
+    assert_eq!(running.dispatched(), 0);
+    assert_eq!(running.handed_back(), 0);
+    assert_selection(url, Some((&selections, "in-flight-job"))).await;
     println!(
         "late-write witnesses: unique JSON/count/job after deadline, after caller loss, and after observed in-flight PostgreSQL caller loss"
     );

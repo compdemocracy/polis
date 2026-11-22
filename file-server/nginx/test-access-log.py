@@ -297,9 +297,12 @@ REFERERS = [
     (f'https://pol.is/a\t{XID}', 'unparsed'),
     (f'https://pol.is/a\x01{XID}', 'unparsed'),
     (f'https://pol.is/a\x7f{XID}', 'unparsed'),
-    # The header sent twice: nginx reads the first, and the second is never
-    # written, whatever it holds.
-    (('https://pol.is/2fixture', f'https://pol.is/{XID}?xid={XID}'), 'https://pol.is/2fixture'),
+    # The header sent twice: since nginx 1.23.0 $http_referer holds both
+    # values joined by ", ". After a first value with no query string the
+    # join is no single address, so the field is written "unparsed"; after a
+    # first value with one, the join is that address with the rest dropped as
+    # its query string. The second value is never written, whatever it holds.
+    (('https://pol.is/2fixture', f'https://pol.is/{XID}?xid={XID}'), 'unparsed'),
     ((f'https://pol.is/2fixture?xid={XID}', f'see {XID}'), 'https://pol.is/2fixture'),
     (f'https://pol.is:port/{XID}', 'unparsed'),
     (f'https://pol.is/2fixture https://pol.is/{XID}', 'unparsed'),

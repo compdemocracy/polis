@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest import mock
 
 SCRIPTS = Path(__file__).resolve().parents[2] / 'scripts'
 sys.path.insert(0,str(SCRIPTS))
@@ -54,7 +55,7 @@ class NumericalBoundary(unittest.TestCase):
             snapshot=dict(data=dict(texts=['constructed text']*5)),
             config=dict(comment_ids=list(range(5)),report_id='constructed-report',adapter_sha256=stages.code_digest()))
         inp = dict(schema='polis-job-input/1',declared=declared,
-            artifacts=dict(topics=dict(payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest())))
+            artifacts=dict(topics=dict(schema='graph_topics/1',payload=payload,sha256=hashlib.sha256(payload.encode()).hexdigest())))
         frame = dict(schema='polis-job-stage-frame/1',stage='graph_narrative',zid=9001,
             job_id='00000000-0000-4000-8000-000000009001',run_id='run',attempt_id='attempt',input=inp)
         return self.digest(frame)
@@ -72,6 +73,76 @@ class NumericalBoundary(unittest.TestCase):
         self.assertTrue(json.loads(rows[0]['report_data'])['provider_fixture'])
         self.assertEqual(rows[0]['model'],'local-narrative-fixture/1')
         self.assertEqual(result['output']['sha256'],hashlib.sha256(result['output']['payload'].encode()).hexdigest())
+
+    def embedding_frame(self, model):
+        frame = self.frame()
+        frame['stage'] = 'graph_embed'
+        frame['input']['declared']['model'] = model
+        frame['input']['declared']['config']['model_sha256'] = 'a' * 64
+        frame['input']['artifacts'] = {}
+        return frame
+
+    def test_granite_uses_the_locked_declared_model_and_shared_encoder(self):
+        import numpy as np
+        from polismath import embedding_model as em
+        resolved = em.Resolved('/fixture/model', True, None, '/fixture/lock', stages.GRANITE)
+        model = object()
+        with mock.patch.dict('os.environ', DELPHI_EMBED_MODEL_PATH='/fixture/model'), \
+                mock.patch.object(stages, 'model_digest', return_value='a' * 64), \
+                mock.patch.object(em, 'resolve', return_value=resolved), \
+                mock.patch.object(em, 'load', return_value=(model, resolved)) as load, \
+                mock.patch.object(em, 'encode', return_value=np.ones((5, 384))) as encode:
+            result = stages.execute(self.embedding_frame(stages.GRANITE))
+            load.assert_called_once_with(device='cpu', resolved=resolved)
+            self.assertTrue(encode.call_args.kwargs['normalize_embeddings'])
+            self.assertEqual(result['model'], stages.GRANITE)
+            row = stages.read_family(result, 'Delphi_CommentEmbeddings')[0]
+            self.assertEqual(row['embedding']['model'], stages.GRANITE)
+
+    def test_granite_refuses_a_different_lock_before_loading(self):
+        from polismath import embedding_model as em
+        resolved = em.Resolved('/fixture/model', True, None, '/fixture/lock', 'another-model')
+        with mock.patch.dict('os.environ', DELPHI_EMBED_MODEL_PATH='/fixture/model'), \
+                mock.patch.object(stages, 'model_digest', return_value='a' * 64), \
+                mock.patch.object(em, 'resolve', return_value=resolved), \
+                mock.patch.object(em, 'load') as load:
+            with self.assertRaisesRegex(ValueError, 'declared embedding model'):
+                stages.execute(self.embedding_frame(stages.GRANITE))
+            load.assert_not_called()
+
+    def test_prior_comment_text_cannot_be_relabelled_as_new_text(self):
+        from polismath import embedding_model as em
+        resolved = em.Resolved('/fixture/model', True, None, '/fixture/lock', stages.GRANITE)
+        frame = self.embedding_frame(stages.GRANITE)
+        frame.update(embeddings_table=True, embedding_prior={})
+        frame['embedding_prior'] = dict(file='embeddings.prior.spool')
+        prior = (stages.GRANITE, 384, [dict(tid=0, text_sha=b'x' * 32, vector=[1.] * 384)])
+        with mock.patch.dict('os.environ', DELPHI_EMBED_MODEL_PATH='/fixture/model'), \
+                mock.patch.object(stages, 'model_digest', return_value='a' * 64), \
+                mock.patch.object(em, 'resolve', return_value=resolved), \
+                mock.patch.object(em, 'load', return_value=(object(), resolved)), \
+                mock.patch.object(stages, '_read_spool', return_value=prior), \
+                mock.patch.object(em, 'encode') as encode:
+            with self.assertRaisesRegex(ValueError, 'immutable comment text'):
+                stages.execute(frame)
+            encode.assert_not_called()
+
+    def test_keyword_labels_keep_cluster_identity_and_have_no_narratives(self):
+        frame = self.frame()
+        frame['input']['declared']['model'] = stages.KEYWORD_MODEL
+        cluster_job = '00000000-0000-4000-8000-000000009002'
+        payload = json.dumps(dict(cluster_job_id=cluster_job, topics=[dict(
+            cluster_id=3, layer_id=1, topic_label='Keywords: trees, rivers', size=5)]))
+        frame['input']['artifacts']['topics'].update(payload=payload,
+            sha256=hashlib.sha256(payload.encode()).hexdigest())
+        result = job_graph_stage.run(self.digest(frame))
+        output = json.loads(result['output']['payload'])
+        self.assertNotIn('Delphi_NarrativeReports', output['family_files'])
+        rows = stages.read_family(output, 'Delphi_CommentClustersLLMTopicNames')
+        self.assertEqual(rows[0]['topic_key'], cluster_job + '#1#3')
+        self.assertEqual(rows[0]['job_id'], cluster_job)
+        self.assertEqual(rows[0]['model_name'], 'none')
+        self.assertEqual(rows[0]['topic_name'], 'Keywords: trees, rivers')
 
     def test_signed_wire_is_authoritative_over_reserialized_duplicate(self):
         frame=self.frame()

@@ -51,11 +51,21 @@ pub struct Live {
     pub last_modified: i64,
 }
 
-/// One comment set, as the run's census will digest it.
+/// One conversation's census: every comment, as the run's census will digest
+/// it (the set the run embeds), and the selection the run lays out, clusters
+/// and names.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommentSet {
+    /// `polis-jobs.comment-set/1` over every comment.
     pub digest: String,
+    /// Comments with text: the comments the run embeds.
     pub comments: i64,
+    /// The selection the scheduler admits under ([`super::plan::SELECTION`]).
+    pub selection: &'static str,
+    /// `polis-jobs.selection/1` over the comments it keeps: the admission's key.
+    pub selection_digest: String,
+    /// The comments it keeps that have text: the comments the run lays out.
+    pub selected: i64,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -82,7 +92,7 @@ impl<'a> Db<'a> {
         .connect()
     }
 
-    fn connect_queue(&self) -> Result<Client> {
+    pub(super) fn connect_queue(&self) -> Result<Client> {
         Connector::from_parts(
             &self.cfg.queue_dsn,
             &self.cfg.transport,
@@ -93,7 +103,7 @@ impl<'a> Db<'a> {
     }
 
     /// One read-only transaction with the scheduler's bounds.
-    fn read<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
+    pub(super) fn read<T>(&self, f: impl FnOnce(&mut Transaction<'_>) -> Result<T>) -> Result<T> {
         let mut client = self.connect_read()?;
         read_only(&mut client, self.cfg.statement_timeout.as_millis(), f)
     }
@@ -151,7 +161,13 @@ impl<'a> Db<'a> {
 
     /// One terminal job's bytes (`storage`): index ranges on its own keys only.
     pub fn measure(&self, p: &Pending) -> Result<Measured> {
-        self.read(|tx| storage::measure(tx, &p.env, &p.job_id, p.zid))
+        self.read(|tx| {
+            let mut m = storage::measure(tx, &p.env, &p.job_id, p.zid)?;
+            if self.cfg.graph.is_some() {
+                m.graph_bytes = super::graph::measure_records(tx, &p.env, &p.job_id)?;
+            }
+            Ok(m)
+        })
     }
 
     /// Every shadow env's jobs, once per state file (`storage`).
@@ -258,14 +274,27 @@ pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
         .collect()
 }
 
-/// The comment set's digest, computed by the input bundle's own function from
-/// the same columns the bundle reads, so it equals the digest the run's census
-/// records (`manifest.inputs.comment_set_sha256` in the run record).
+/// The census of one conversation. The comment set's digest is computed by
+/// the input bundle's own function from the same columns the bundle reads, so
+/// it equals the digest the run's census records
+/// (`manifest.inputs.comment_set_sha256` in the run record); the selection by
+/// the contract's own rule (`contract::select`), from the two more columns a
+/// run that names it reads in its bundle (`strict_moderation`, `velocity`).
+/// One read-only snapshot: `ACCESS SHARE` on `comments` and `conversations`
+/// only, which no vote, comment or moderation statement waits on.
 pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
+    let strict = tx
+        .query_opt(
+            "SELECT coalesce(strict_moderation, false) FROM conversations WHERE zid = $1",
+            &[&zid],
+        )?
+        .map(|r| r.try_get::<_, bool>(0))
+        .transpose()?
+        .unwrap_or(false);
     let mut comments = Vec::new();
     for r in tx.query(
         "SELECT tid::bigint, zid::bigint, pid::bigint, txt::text, created::bigint, \
-         mod::bigint, active FROM comments WHERE zid = $1::bigint ORDER BY tid",
+         mod::bigint, active, velocity::float8 FROM comments WHERE zid = $1::bigint ORDER BY tid",
         &[&i64::from(zid)],
     )? {
         comments.push(Comment {
@@ -276,12 +305,22 @@ pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
             created: r.try_get(4)?,
             r#mod: r.try_get(5)?,
             active: r.try_get(6)?,
+            velocity: Some(r.try_get(7)?),
         });
     }
-    let with_text = comments.iter().filter(|c| !c.txt.trim().is_empty()).count() as i64;
+    let selection = contract::select(super::plan::SELECTION, &comments, strict)?;
+    let has_text = |c: &&Comment| !c.txt.trim().is_empty();
+    let selected = comments
+        .iter()
+        .filter(has_text)
+        .filter(|c| selection.tids.binary_search(&c.tid).is_ok())
+        .count() as i64;
     Ok(CommentSet {
         digest: contract::comment_set_sha256(&comments),
-        comments: with_text,
+        comments: comments.iter().filter(has_text).count() as i64,
+        selection: selection.name,
+        selection_digest: selection.sha256,
+        selected,
     })
 }
 

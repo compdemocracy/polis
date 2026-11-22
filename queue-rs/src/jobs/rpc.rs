@@ -239,6 +239,44 @@ impl Rpc {
         result
     }
 
+    /// One job's `pq_job_status` (000019, granted to the executor) read
+    /// together with the database's own clock, in one read-only statement:
+    /// the status, then the database time and the status's `locked_until`,
+    /// both as seconds since the epoch. Nothing is locked or written.
+    pub fn job_status_at(&mut self, job: &str) -> Result<(Value, f64, Option<f64>)> {
+        let job = Uuid::parse_str(job)?;
+        let env = self.env.clone();
+        let result = (|| -> Result<(Value, f64, Option<f64>)> {
+            let client = self.client()?;
+            let mut tx = client
+                .build_transaction()
+                .isolation_level(IsolationLevel::ReadCommitted)
+                .read_only(true)
+                .start()?;
+            tx.batch_execute(
+                "SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='10s'; \
+                 SET LOCAL idle_in_transaction_session_timeout='30s'; SET LOCAL TimeZone='UTC'",
+            )?;
+            let row = tx
+                .query_one(
+                    "SELECT s, extract(epoch FROM clock_timestamp())::float8, \
+                     extract(epoch FROM (s->>'locked_until')::timestamptz)::float8 \
+                     FROM public.pq_job_status($1::text,$2::uuid) s",
+                    &[&env, &job],
+                )
+                .map_err(classify)?;
+            let status = row.try_get::<_, Option<Value>>(0)?.unwrap_or(Value::Null);
+            let now: f64 = row.try_get(1)?;
+            let locked_until: Option<f64> = row.try_get(2)?;
+            tx.commit()?;
+            Ok((status, now, locked_until))
+        })();
+        if let Err(error) = &result {
+            self.drop_on_transport_error(error);
+        }
+        result
+    }
+
     /// `call`, accepting only a committed reply.
     pub fn committed(&mut self, name: &str, args: &[Value]) -> Result<Value> {
         match self.call(name, args)? {

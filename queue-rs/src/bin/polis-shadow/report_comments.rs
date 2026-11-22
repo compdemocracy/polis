@@ -148,18 +148,22 @@ struct Serve {
 }
 
 /// The join's names for a set of would-be 200s: all of them, and the ones
-/// in conversations with strict moderation.
-const SERVE_KEYS: [&str; 5] = [
+/// in conversations with strict moderation. A definite difference is two
+/// counts that never overlap: no row of Node's own (`gone`), and Node's own
+/// row stored otherwise (`ownd`).
+const SERVE_KEYS: [&str; 6] = [
     "serve",
     "serve_clean",
-    "serve_diff",
+    "serve_gone",
+    "serve_ownd",
     "serve_own",
     "serve_any_own",
 ];
-const STRICT_KEYS: [&str; 5] = [
+const STRICT_KEYS: [&str; 6] = [
     "strict",
     "strict_clean",
-    "strict_diff",
+    "strict_gone",
+    "strict_ownd",
     "strict_own",
     "strict_any_own",
 ];
@@ -167,9 +171,9 @@ const STRICT_KEYS: [&str; 5] = [
 impl Serve {
     /// One join row's would-be 200s of this set, beside Node's status.
     /// Returns how many of them Node's status contradicts.
-    fn add(&mut self, row: &Row, node: &str, keys: [&str; 5]) -> u64 {
+    fn add(&mut self, row: &Row, node: &str, keys: [&str; 6]) -> u64 {
         let n = |key: &str| count(row, key);
-        let [all, clean, diff, own, any_own] = keys;
+        let [all, clean, gone, ownd, own, any_own] = keys;
         let serve = n(all);
         self.n += serve;
         if serve == 0 {
@@ -177,7 +181,7 @@ impl Serve {
         }
         match node {
             "200" => {
-                let (clean, diff) = (n(clean), n(diff));
+                let (clean, diff) = (n(clean), n(gone) + n(ownd));
                 self.agree += clean;
                 self.stored_otherwise += diff;
                 self.not_read += serve.saturating_sub(clean + diff);
@@ -345,7 +349,13 @@ fn classify(join: &[Row]) -> Joined {
         }
         // ---- What Node stored, for the copies that are read back.
         if node == "200" {
-            let (read, clean, diff) = (n("read"), n("read_clean"), n("read_diff"));
+            // Differs: no row with the text, a row that is not this
+            // request's, or Node's own row stored otherwise; never two.
+            let (read, clean, diff) = (
+                n("read"),
+                n("read_clean"),
+                n("read_absent") + n("read_other") + n("read_ownd"),
+            );
             j.read += read;
             j.read_clean += clean;
             j.read_diff += diff;
@@ -433,6 +443,9 @@ pub fn build(inputs: &Inputs) -> Report {
     // this tool was built could hide what it says: no verdict but "not
     // evaluated" while there is one.
     let mut strange: u64 = 0;
+    // Copies admitted and then handed back for a reason other than strict
+    // moderation: none, from any observer so far (`rb` in the join).
+    let mut admitted_other: u64 = 0;
 
     // ---- The shadow's observations.
     let _ = writeln!(out, "\n4. The shadow's observations");
@@ -481,6 +494,22 @@ pub fn build(inputs: &Inputs) -> Report {
                 words_line(&after),
                 after.1
             );
+            // The join reads back every copy admitted and then stored or
+            // handed back, which is the would-be stores and the strict
+            // hand-backs only while no copy is handed back after admission
+            // for another reason. One that is withholds the read-back's
+            // judgement.
+            admitted_other = sum(obs, "n", |row| {
+                text(row, "outcome") == "would_hand_back"
+                    && text(row, "admitted") == "1"
+                    && text(row, "reason") != STRICT
+            });
+            if admitted_other > 0 {
+                let _ = writeln!(
+                    out,
+                    "   admitted and then handed back for a reason other than strict moderation {admitted_other}: read back with the stored comments, so those are not judged"
+                );
+            }
             add(
                 "observed copies",
                 against(observed, need::OBSERVED),
@@ -523,6 +552,10 @@ pub fn build(inputs: &Inputs) -> Report {
                 ("unknown", "not known, by reason:"),
                 ("shed", "shed, by reason:"),
                 ("not_observed", "not observed, by reason:"),
+                (
+                    "stopped",
+                    "cut when the shadow stopped, by where they were:",
+                ),
             ] {
                 let mut reasons: BTreeMap<String, u64> = BTreeMap::new();
                 for row in obs.iter().filter(|row| text(row, "outcome") == outcome) {
@@ -770,7 +803,7 @@ pub fn build(inputs: &Inputs) -> Report {
                     add(name, "withheld (section 6)".into(), Mark::NotEvaluated);
                 }
             } else {
-                paired_section(&mut out, &mut add, join, differs_anywhere);
+                paired_section(&mut out, &mut add, join, differs_anywhere, admitted_other);
             }
         }
         Err(why) => {
@@ -867,6 +900,9 @@ pub fn build(inputs: &Inputs) -> Report {
             what: "comment",
             route: r.route,
             lines: "node_requests",
+            // A day against the same day a week earlier: about eight
+            // comments an hour leave too few days for bands of volume.
+            bands: &[],
         },
         stop,
     );
@@ -933,9 +969,11 @@ fn paired_section(
     add: &mut impl FnMut(&'static str, String, Mark),
     join: &[Row],
     differs_anywhere: Option<(u64, u64)>,
+    admitted_other: u64,
 ) {
     let all = |key: &str| sum(join, key, |_| true);
-    let (copied, covered, host_absent) = (all("copied"), all("covered"), all("host_absent"));
+    let (copied, covered) = (all("copied"), all("covered"));
+    let (not_copied, host_absent) = crate::report::not_sent(&all);
     // A copy nginx answered itself (the shadow's host absent: a shadow that
     // is down) is a copy the shadow should have seen.
     let expected = copied + host_absent;
@@ -944,10 +982,17 @@ fn paired_section(
         out,
         "   copied {copied}, answered 204 {}, the shadow's host absent {host_absent}, outside the body bound {}, no copy line {}; observation lines for copied comments {covered} ({} of copied and host-absent)",
         all("answered"),
-        all("not_copied"),
+        not_copied,
         all("no_mirror"),
         pct(coverage)
     );
+    let stopped = all("stopped");
+    if stopped > 0 {
+        let _ = writeln!(
+            out,
+            "   copied comments whose observation was cut when the shadow stopped {stopped} (a stopped line; not counted as observed)"
+        );
+    }
     add(
         "coverage",
         format!(
@@ -1135,10 +1180,15 @@ fn paired_section(
     );
     let (vote_anywhere, text_anywhere) = differs_anywhere.unwrap_or((0, 0));
     let read_unknown = share(read_not_known, j.read);
+    let withheld = if admitted_other > 0 {
+        format!("; not judged: {admitted_other} admitted and then handed back for another reason")
+    } else {
+        String::new()
+    };
     add(
         "stored comment",
         format!(
-            "as the handler would store it {}, otherwise {}, not known {read_not_known}; a stored text that differs on any line {text_anywhere}; judged {}; not known {} of those read back",
+            "as the handler would store it {}, otherwise {}, not known {read_not_known}; a stored text that differs on any line {text_anywhere}; judged {}; not known {} of those read back{withheld}",
             j.read_clean,
             j.read_diff,
             against(read_judged, need::STORED),
@@ -1146,7 +1196,7 @@ fn paired_section(
         ),
         if j.read_diff > 0 || text_anywhere > 0 {
             Mark::Stop
-        } else if differs_anywhere.is_none() {
+        } else if differs_anywhere.is_none() || admitted_other > 0 {
             Mark::NotEvaluated
         } else if read_judged < need::STORED {
             Mark::Short
@@ -1172,7 +1222,7 @@ fn paired_section(
     add(
         "author's vote",
         format!(
-            "same {}, different {} (on any line {vote_anywhere}), absent {}, not compared {}; compared {}",
+            "same {}, different {} (on any line {vote_anywhere}), absent {}, not compared {}; compared {}{withheld}",
             j.vote_same,
             j.vote_different,
             j.vote_absent,
@@ -1181,7 +1231,7 @@ fn paired_section(
         ),
         if j.vote_different > 0 || vote_anywhere > 0 {
             Mark::Stop
-        } else if differs_anywhere.is_none() {
+        } else if differs_anywhere.is_none() || admitted_other > 0 {
             Mark::NotEvaluated
         } else if votes_compared < need::VOTES {
             Mark::Short

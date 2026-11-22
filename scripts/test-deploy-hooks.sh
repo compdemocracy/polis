@@ -17,6 +17,7 @@ inputs=(
   scripts/before_install.sh
   scripts/application_stop.sh
   scripts/validate_service.sh
+  scripts/check-shadow-graph.py
   deploy/build-images.sh
   deploy/build-on-box.sh
   docker-compose.yml

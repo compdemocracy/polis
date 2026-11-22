@@ -97,6 +97,10 @@ pub const JOIN_PAD_S: i64 = 60;
 
 /// The shadow's `outcome` values for an observed copy.
 const WOULD: [&str; 3] = ["would_serve", "would_hand_back", "would_fail"];
+/// The `outcome` of a copy the shadow was still observing when it was
+/// stopped, past its bound: a line saying the copy was cut, with no would-be
+/// answer. Counted apart, never as an observation.
+pub const STOPPED: &str = "stopped";
 
 pub(crate) fn shadow_line(message: &'static str) -> E {
     and(vec![is("listener", "shadow"), is("message", message)])
@@ -218,13 +222,22 @@ impl Route {
     pub(crate) fn mirror_hours(&self) -> Query {
         Self::one(
             "mirror_hours",
-            "The copy's hold by hour (stop rule 2).",
+            "The copy's hold by hour, and the copies held above the stop rule's bound (stop rule 2).",
             self.mirror(),
             Stats {
                 aggs: vec![
                     ("n", Agg::Count),
                     ("p99_s", Agg::Pct("mirror_s", 99)),
                     ("max_s", Agg::Max("mirror_s")),
+                    // Every copy's line carries its `mirror_s`, so this sum
+                    // has a value in every hour.
+                    (
+                        "over",
+                        Agg::Sum(gt(
+                            f("mirror_s"),
+                            E::Decimal(crate::report::bar::STOP_MIRROR_P99_MS / 1000.0),
+                        )),
+                    ),
                 ],
                 by: vec![Key::Hour],
             },
@@ -382,6 +395,12 @@ impl Route {
                 ("n_would", Agg::Sum(E::In("outcome", WOULD.to_vec()))),
                 ("n_shed", Agg::Sum(is("outcome", "shed"))),
                 ("n_unobserved", Agg::Sum(is("outcome", "not_observed"))),
+                ("n_stopped", Agg::Sum(is("outcome", STOPPED))),
+                // The request's observation lines that are not stopped ones.
+                // Counted to 1, never `n_stopped` to 0: on the request's
+                // other lines `outcome` is absent, and a sum of false and
+                // absent values was never measured (`eval::Reading`).
+                ("n_unstopped", Agg::Sum(ne(f("outcome"), s(STOPPED)))),
                 ("n_cors", Agg::Sum(is("reason", "cors"))),
                 ("edge_st", Agg::Max("edge_status")),
                 ("node_st", Agg::Max("node_status")),
@@ -458,24 +477,28 @@ impl Route {
                     "no_mirror",
                     Agg::Sum(with(vote(), vec![num_is("n_mirror", 0)])),
                 ),
+                // The copies nginx logged, those of them with its status 204
+                // for the copy, and the copied ones with status 204: the
+                // report takes the copied from the logged for the copies not
+                // sent, outside the body bound (status 204) and the shadow's
+                // host absent (any other status: nginx answered the copy
+                // itself, a shadow that is down, copied as far as coverage
+                // goes). Each is a test that a count is 1, never that one is
+                // 0: on the lines of a request that are not its mirror line
+                // `n_copied` and `n_mirror_204` test fields those lines do
+                // not carry, and whether such a sum with no true value is 0
+                // or no value was never measured (`eval::Reading`). A count
+                // of `message`, which every line carries, always has one.
+                ("mirrored", Agg::Sum(with(vote(), vec![one("n_mirror")]))),
                 (
-                    "not_copied",
-                    Agg::Sum(with(
-                        vote(),
-                        vec![one("n_mirror"), num_is("n_copied", 0), one("n_mirror_204")],
-                    )),
+                    "mirrored_204",
+                    Agg::Sum(with(vote(), vec![one("n_mirror"), one("n_mirror_204")])),
                 ),
-                // nginx answered the copy itself (the shadow's host absent, a
-                // shadow that is down): copied as far as coverage goes.
                 (
-                    "host_absent",
+                    "copied_204",
                     Agg::Sum(with(
                         vote(),
-                        vec![
-                            one("n_mirror"),
-                            num_is("n_copied", 0),
-                            num_is("n_mirror_204", 0),
-                        ],
+                        vec![one("n_mirror"), one("n_copied"), one("n_mirror_204")],
                     )),
                 ),
                 (
@@ -486,11 +509,18 @@ impl Route {
                     "answered",
                     Agg::Sum(with(vote(), vec![one("n_mirror"), one("n_answered")])),
                 ),
+                // A copied vote with its observation. A stopped line is not
+                // one: it says the observation was cut.
                 (
                     "covered",
                     Agg::Sum(with(
                         vote(),
-                        vec![one("n_mirror"), one("n_copied"), one("n_obs")],
+                        vec![
+                            one("n_mirror"),
+                            one("n_copied"),
+                            one("n_obs"),
+                            one("n_unstopped"),
+                        ],
                     )),
                 ),
                 (
@@ -504,6 +534,10 @@ impl Route {
                 (
                     "not_observed",
                     Agg::Sum(with(vote(), vec![one("n_obs"), one("n_unobserved")])),
+                ),
+                (
+                    "stopped",
+                    Agg::Sum(with(vote(), vec![one("n_obs"), one("n_stopped")])),
                 ),
                 ("admitted_n", Agg::Sum(and(admitted()))),
                 ("node_replied", Agg::Sum(with(vote(), vec![one("n_reply")]))),

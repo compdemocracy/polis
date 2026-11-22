@@ -10,6 +10,12 @@ import {
   JobAdmissionUnavailableError,
   JOB_QUEUE_TABLE,
 } from "./jobGuard";
+import {
+  mayStartDelphiWork,
+  namesOneConversation,
+  refuseNotConversationOwner,
+} from "./generationOwner";
+import { isDelphiEntitled } from "./entitlement";
 
 // The job types delphi/scripts/job_poller.py runs (KNOWN_JOB_TYPES there).
 // Anything else is refused here; the poller used to send an unknown type to
@@ -27,8 +33,9 @@ export async function handle_POST_delphi_jobs(
 ): Promise<void> {
   try {
     // A refusal, not a fault: answered before the request is read, so no job
-    // is written. The catch below answers 500 for anything thrown.
-    if (!req.p.delphiEnabled) {
+    // is written. The catch below answers 500 for anything thrown, a failed
+    // entitlement read included.
+    if (!(await isDelphiEntitled(req.p))) {
       failJson(res, 403, "polis_err_delphi_jobs_delphi_disabled");
       return;
     }
@@ -77,6 +84,23 @@ export async function handle_POST_delphi_jobs(
         status: "error",
         error: "Could not determine conversation ID",
       });
+      return;
+    }
+
+    // The job runs on conversation_id but carries report_id into the paths
+    // its stages write, so when both are sent they must name one
+    // conversation, whoever sends them.
+    if (conversation_id && report_id) {
+      const reportZid = await getConversationIdFromReportId(report_id);
+      if (!namesOneConversation(conversation_id, reportZid)) {
+        refuseNotConversationOwner(res);
+        return;
+      }
+    }
+
+    // The claim alone does not reach someone else's conversation.
+    if (!(await mayStartDelphiWork(zid, req.p.uid))) {
+      refuseNotConversationOwner(res);
       return;
     }
 

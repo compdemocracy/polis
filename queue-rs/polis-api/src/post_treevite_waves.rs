@@ -232,9 +232,19 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let pool = writer.pool.clone();
     let caps = writer.caps;
     let admins = app.legacy_admin_uids.clone();
+    // Once the process is stopping nothing more is dispatched
+    // (`crate::shutdown`): the request is answered 502, as this handler's
+    // other refusals before dispatch are, unmarked. No nginx location sends a
+    // wave POST to polis-api (treeviteWaves.location.conf.template routes
+    // only GET and HEAD without a body), so no hand-back marker would be read
+    // by anything.
+    let Some(dispatched) = crate::shutdown::Dispatched::begin() else {
+        return route::bad_gateway();
+    };
     // Once dispatched, no error can replay the request through Node. Dropping
     // the HTTP future does not drop the task or free its pool slot early.
     let task = tokio::spawn(async move {
+        let _dispatched = dispatched;
         pool.with(move |c| create(c, zid, uid.0, &admins, &fields, caps, DEADLINE))
             .await
     });

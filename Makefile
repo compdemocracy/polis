@@ -448,6 +448,14 @@ check-delphi-result-reads: ## Run delphi-result-reads checks
 check-production-import: ## Run production-import checks
 	@bash ci/local/production-import.sh
 
+.PHONY: check-delphi-shadow-cpu-priority
+check-delphi-shadow-cpu-priority: ## Run the Delphi shadow's CPU priority load test (a quiet host)
+	@bash ci/local/delphi-shadow-cpu-priority.sh
+
+.PHONY: check-shadow-graph-recovery
+check-shadow-graph-recovery: ## Run the Delphi shadow's job graph recovery proofs in Docker
+	@bash ci/local/shadow-graph-recovery.sh
+
 .PHONY: check-client-errors
 check-client-errors: ## Run client error reporting behaviour and path checks
 	@bash ci/local/client-errors.sh

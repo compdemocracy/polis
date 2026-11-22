@@ -15,6 +15,11 @@ import { v4 as uuidv4 } from "uuid";
 import pgQuery from "../db/pg-query";
 import { getCommentIdsForCluster } from "../utils/commentClusters";
 import { storageSqlValue } from "../votes/convention";
+import {
+  mayStartDelphiWork,
+  refuseNotConversationOwner,
+} from "./delphi/generationOwner";
+import { isDelphiEntitled } from "./delphi/entitlement";
 
 const dynamoDBConfig: any = {
   region: Config.AWS_REGION || "us-east-1",
@@ -231,7 +236,7 @@ export async function handle_POST_collectiveStatement(
   }
 
   try {
-    if (!req.p.delphiEnabled) {
+    if (!(await isDelphiEntitled(req.p))) {
       throw new Error("Unauthorized");
     }
     const zid = await getZidFromReport(report_id);
@@ -240,6 +245,12 @@ export async function handle_POST_collectiveStatement(
         status: "error",
         message: "Could not find conversation for report_id",
       });
+    }
+
+    // The claim alone does not reach someone else's conversation.
+    if (!(await mayStartDelphiWork(zid, req.p.uid))) {
+      refuseNotConversationOwner(res);
+      return;
     }
 
     // Generate unique key for this statement

@@ -48,7 +48,9 @@ pub struct Config {
     /// The label the math engine writes, for its lag.
     pub math_env: String,
     pub live_days: u64,
+    /// The floor: of the comments a run lays out (the selection's, with text).
     pub min_comments: i64,
+    /// The cap: of the comments a run embeds (every comment with text).
     pub max_comments: i64,
     pub daily_runs: u32,
     pub rerun_after: Duration,
@@ -66,6 +68,8 @@ pub struct Config {
     /// the pacing and the storage budget. (The featured set, the open-data
     /// conversations, and the current set, the live ones, need no setting.)
     pub benchmark: Vec<String>,
+    /// An explicit public-comment allowlist. Empty means no graph work.
+    pub graph: Option<super::graph::Config>,
     /// How often the roster (the benchmark and featured sets, read once a UTC
     /// day) is read again at most after a read that failed.
     pub roster_retry: Duration,
@@ -325,6 +329,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             return err(why);
         }
     }
+    let graph = super::graph::Config::load(&get, &env)?;
     let benchmark = benchmark_codes(&get("DELPHI_SHADOW_BENCHMARK").unwrap_or_default())?;
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
@@ -359,6 +364,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         )?),
         twin_every: number(&get, "DELPHI_SHADOW_TWIN_EVERY", 0, 0, 1_000_000)? as u32,
         benchmark,
+        graph,
         roster_retry: Duration::from_secs(number(
             &get,
             "DELPHI_SHADOW_ROSTER_RETRY_SECONDS",

@@ -44,7 +44,9 @@ class ForwardProof(unittest.TestCase):
             '000041_create_delphi_run_record.sql', '000042_tid_auto_transaction_lock.sql',
             '000043_add_conversation_activity_indexes.sql',
             '000044_pid_auto_transaction_lock.sql', '000045_page_ids_width.sql',
-            '000046_add_granite_embedding_model.sql'})
+            '000046_add_granite_embedding_model.sql',
+            '000047_extend_graph_embedding_and_labels.sql',
+            '000048_create_delphi_entitlements.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')

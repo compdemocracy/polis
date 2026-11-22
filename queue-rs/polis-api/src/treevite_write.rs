@@ -310,11 +310,20 @@ pub(crate) async fn handle(app: &App, req: &Request, body: &Js, res: Res) -> Out
     if matches!(evidence, Evidence::Converted) {
         return fail(refusal(403, "polis_err_treevite_identity_conversion"));
     }
+    // Once the process is stopping nothing more is dispatched
+    // (`crate::shutdown`): nothing has been written, so the answer is the one
+    // this route gives when it cannot take a dispatch. A dispatch begun
+    // before the stop is counted until it ends, so the stop waits for it.
+    let Some(dispatched) = crate::shutdown::Dispatched::begin() else {
+        return fail(UNAVAILABLE);
+    };
     let receipt = Arc::new(Mutex::new(None));
     let receipt_task = receipt.clone();
-    // Detached on deadline/disconnect. Keep the dispatch permit through all work.
+    // Detached on deadline/disconnect. Keep the dispatch permit and the
+    // stop's count through all work.
     let task = tokio::spawn(async move {
         let _permit = permit;
+        let _dispatched = dispatched;
         dispatch(
             writer,
             operation,

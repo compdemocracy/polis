@@ -11,8 +11,8 @@ the shipped lock's revision, into a directory under the Hugging Face cache, and
 that directory is checked against the lock before every load the same way. Any
 other model name is loaded from the hub as given, unchecked.
 
-Every load keeps the first 384 dimensions (``truncate_dim``) and every encode
-returns unit vectors (``normalize_embeddings``): granite is 768 wide and
+Every load keeps the first 384 dimensions (``truncate_dim``) and encode defaults to
+unit vectors (``normalize_embeddings``): granite is 768 wide and
 Matryoshka-trained, and 384 is the width Delphi has always stored. A run's
 model is named once (``resolve``), as ``repo@revision:384`` when the revision
 is known, and that name goes to the run record, the DynamoDB rows and the
@@ -41,10 +41,11 @@ from typing import Dict, List, NamedTuple, Optional
 LOCK_SCHEMA = "delphi-embedding-model/1"
 # The default model and the revision a by-name load is pinned to. The lock
 # names the same repository and revision (tests/test_embedding_model.py).
-DEFAULT_MODEL = "ibm-granite/granite-embedding-311m-multilingual-r2"
-DEFAULT_REVISION = "44399559930365213510b1ee2eb15ded83374f0e"
-# The stored width: every load truncates to it, every encode normalizes after.
-DIMS = 384
+_CATALOG = json.loads(Path(__file__).with_name("job-models.json").read_text())
+DEFAULT_IDENTITY = next(row["model"] for row in _CATALOG if row["id"] == "Granite")
+DEFAULT_MODEL, _REVISION_WIDTH = DEFAULT_IDENTITY.split("@", 1)
+DEFAULT_REVISION, _WIDTH = _REVISION_WIDTH.rsplit(":", 1)
+DIMS = int(_WIDTH)
 # The shipped lock: beside this package in a source checkout, and where the
 # image installs it (delphi/Dockerfile, the embedding-model stage). In the image
 # this module may be imported from /app or from site-packages, so the copy next
@@ -166,6 +167,18 @@ def resolve() -> Resolved:
     """
     path = os.environ.get("DELPHI_EMBED_MODEL_PATH", "").strip()
     configured = os.environ.get("SENTENCE_TRANSFORMER_MODEL", "").strip()
+    selection = os.environ.get("DELPHI_EMBED_MODEL_BY_ENV", "")
+    if selection:
+        mapping = json.loads(selection)
+        if not isinstance(mapping, dict) or any(not isinstance(k, str) or not isinstance(v, str) for k, v in mapping.items()):
+            raise ModelMismatch("invalid per-environment embedding model setting")
+        environment = os.environ.get("DELPHI_RESULT_ENV", os.environ.get("QUEUE_ENV", ""))
+        chosen = mapping.get(environment)
+        if chosen is not None:
+            if not any(row["step"] == "embeddings" and row["model"] == chosen for row in _CATALOG):
+                raise ModelMismatch("unknown embedding model for environment")
+            configured = chosen
+
     if path:
         lock_path = os.environ.get("DELPHI_EMBED_MODEL_LOCK", "").strip()
         if not lock_path:
@@ -179,6 +192,8 @@ def resolve() -> Resolved:
                 f"SENTENCE_TRANSFORMER_MODEL={configured} but {path} holds {model}")
         return Resolved(path, True, None, lock_path, model)
     configured = configured or DEFAULT_MODEL
+    if configured == DEFAULT_IDENTITY:
+        configured = DEFAULT_MODEL
     if configured != DEFAULT_MODEL:
         return Resolved(configured, False, None, None, configured)
     lock_path = Path(DEFAULT_LOCK)
@@ -225,7 +240,7 @@ def _fetched(lock_path, lock) -> Path:
     return dest
 
 
-def load(device: Optional[str] = None):
+def load(device: Optional[str] = None, *, resolved: Optional[Resolved] = None):
     """(SentenceTransformer truncated to DIMS, Resolved). Files under a lock are
     checked against it before any model is built, and read with no network: the
     directory DELPHI_EMBED_MODEL_PATH names, or the default model's files fetched
@@ -233,7 +248,7 @@ def load(device: Optional[str] = None):
     name is loaded from the hub as given, unchecked."""
     from sentence_transformers import SentenceTransformer
 
-    resolved = resolve()
+    resolved = resolved or resolve()
     arg, local = resolved.arg, resolved.local
     if resolved.lock:
         lock = read_lock(resolved.lock)
@@ -247,9 +262,13 @@ def load(device: Optional[str] = None):
     return SentenceTransformer(arg, **kwargs), resolved
 
 
-def encode(model, texts: List[str], **kwargs):
-    """Unit vectors, DIMS wide: sentence-transformers truncates, then normalizes."""
-    return model.encode(texts, normalize_embeddings=True, **kwargs)
+def encode(model, texts: List[str], *, normalize_embeddings: bool = True, **kwargs):
+    """Unit vectors by default; truncation happens before normalization.
+
+    The legacy MiniLM graph explicitly disables normalization to preserve its
+    existing stored bytes. Granite callers keep the default.
+    """
+    return model.encode(texts, normalize_embeddings=normalize_embeddings, **kwargs)
 
 
 def encode_digest(model_arg: str, texts: List[str], local_files_only: bool,

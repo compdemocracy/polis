@@ -313,6 +313,87 @@ fn signing_failure_returns_committed_recovery_and_never_retries_admission() {
     );
 }
 
+/// The stop (`crate::shutdown`): a stopping process dispatches no
+/// acceptance, answers as it does when it cannot take a dispatch, and writes
+/// nothing; an acceptance dispatched before the stop is counted by the stop
+/// past its 202, until it commits, so the drain waits for it.
+#[cfg(feature = "db-tests")]
+#[test]
+fn a_stopping_process_dispatches_no_acceptance_and_counts_one_dispatched_until_it_ends() {
+    let mut f = admission_fixture::Fixture::new();
+    f.db.batch_execute(
+        "CREATE TABLE zinvites(zid int,zinvite text); INSERT INTO zinvites VALUES(1,'fixture')",
+    )
+    .unwrap();
+    let w = database_writer(&f);
+    let cfg = config::Config {
+        listen: String::new(),
+        math_env: "test".into(),
+        cache_size: 1,
+        pca_cache_size: 1,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
+        dev_mode: false,
+        use_network_host: false,
+        production: true,
+        pool: limits(1),
+    };
+    let mut app = App::new(&cfg, w.pool.clone());
+    app.treevite_write = Some(w.clone());
+    let app = Arc::new(app);
+    let req = || Request {
+        method: "POST".into(),
+        target: contract::ACCEPT_PATH.into(),
+        headers: crate::http::Headers::from_raw([
+            ("content-type", "application/json"),
+            ("content-length", "48"),
+            ("x-forwarded-proto", "https"),
+        ]),
+        body: br#"{"conversation_id":"fixture","invite_code":"invite"}"#.to_vec(),
+    };
+    let participants = |f: &mut admission_fixture::Fixture| {
+        f.db.query_one("SELECT count(*) FROM participants", &[])
+            .unwrap()
+            .get::<_, i64>(0)
+    };
+    let rt = tokio::runtime::Runtime::new().unwrap();
+    let stopping = crate::shutdown::Stop::for_test();
+    stopping.stop();
+    let response = rt.block_on(crate::shutdown::scoped(
+        stopping,
+        crate::dispatch(app.clone(), None, req()),
+    ));
+    assert_eq!(response.status, 503);
+    assert_eq!(stopping.handed_back(), 1);
+    assert_eq!(stopping.dispatched(), 0);
+    assert_eq!(w.dispatches.available_permits(), DISPATCH_LIMIT);
+    assert_eq!(participants(&mut f), 0, "nothing is written");
+    // Dispatched, then held by a lock past its deadline: counted after the
+    // caller's 202, until it commits.
+    let running = crate::shutdown::Stop::for_test();
+    let mut blocker = f.connect();
+    let mut tx = blocker.transaction().unwrap();
+    tx.query_one("SELECT id FROM treevite_invites WHERE id=1 FOR UPDATE", &[])
+        .unwrap();
+    let response = rt.block_on(crate::shutdown::scoped(
+        running,
+        crate::dispatch(app, None, req()),
+    ));
+    assert_eq!(response.status, 202);
+    assert_eq!(running.dispatched(), 1, "counted after its answer");
+    tx.commit().unwrap();
+    rt.block_on(async {
+        tokio::time::timeout(Duration::from_secs(3), async {
+            while running.dispatched() != 0 {
+                tokio::task::yield_now().await;
+            }
+        })
+        .await
+        .unwrap();
+    });
+    assert_eq!(running.handed_back(), 0);
+    assert_eq!(participants(&mut f), 1);
+}
+
 #[cfg(feature = "db-tests")]
 #[test]
 fn dispatched_deadline_is_terminal_and_retains_capacity_until_commit() {

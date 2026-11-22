@@ -109,6 +109,7 @@ mod reports_read;
 mod robots;
 mod route;
 mod shadow;
+mod shutdown;
 mod startup_routes;
 mod votes_famous;
 mod votes_read;
@@ -1986,13 +1987,24 @@ async fn startup() -> Result<Startup> {
     })
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()?;
+    let result = runtime.block_on(run());
+    // Tasks still running are dropped; blocking work still running (a write
+    // the drain left) is not waited for past this bound (see `shutdown`).
+    runtime.shutdown_timeout(shutdown::RUNTIME_BOUND);
+    result
+}
+
+async fn run() -> Result<()> {
     // The shadow role is its own process with its own listener; it shares
     // nothing below with the main role.
     if shadow::role()? == shadow::Role::Shadow {
         return shadow::run().await;
     }
+    let mut signals = shutdown::Signals::install()?;
     let Startup {
         cfg,
         app,
@@ -2009,11 +2021,25 @@ async fn main() -> Result<()> {
         )
         .ok())
     );
-    let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
-    let result = tokio::select! {
-        r = http::serve(listener, handler) => r,
-        _ = tokio::signal::ctrl_c() => Ok(()),
+    let pending = {
+        let app = app.clone();
+        move || shutdown::Pending {
+            requests: http::in_progress(),
+            dispatches: shutdown::dispatched(),
+            background: post_votes::notifications_in_flight(&app)
+                + post_comments::notifications_in_flight(&app),
+        }
     };
+    let handler = Arc::new(move |req: Request| dispatch(app.clone(), owner.clone(), req));
+    let stop = async move {
+        let signal = signals.recv().await;
+        shutdown::stopping();
+        eprintln!("{{\"event\":\"polis_api_stopping\",\"signal\":\"{signal}\"}}");
+    };
+    let result = http::serve_until(listener, handler, http::Listener::Main, stop).await;
+    if result.is_ok() {
+        shutdown::drain(shutdown::DRAIN_BOUND, pending).await;
+    }
     if let Some(task) = refresh_task {
         task.abort();
         let _ = task.await;

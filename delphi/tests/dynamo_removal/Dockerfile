@@ -4,6 +4,7 @@
 ARG DELPHI_BASE=polis-dynamo-deps:local
 FROM ${DELPHI_BASE}
 COPY delphi/ /app/
+COPY delphi/tests/job_graph/graph_test_models.py delphi/tests/job_graph/job-test-models.json /app/scripts/
 COPY --from=queue-binary polis-jobs /usr/local/bin/polis-jobs
 RUN python -m pip install --no-cache-dir pytest==8.3.5 pytest-cov==6.0.0
 ENV PYTHONPATH=/app:/app/scripts PYTHONDONTWRITEBYTECODE=1

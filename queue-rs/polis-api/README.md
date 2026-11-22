@@ -217,6 +217,14 @@ connections are kept.
   `Content-Encoding` or a non-UTF-8 charset is answered 502. nginx sends
   polis-api no request with a body, so none of these is reachable through
   it; the route reads no body field that a client sends in practice.
+- A request head this process cannot parse (a header value that is not
+  UTF-8, more than 128 header lines, a control byte in a value, a header name
+  that is not a token, a `Content-Length` that is not a number or two that
+  differ, an unknown HTTP version, a head over 1 MB) is answered 502 and the
+  connection closed, never dropped; on `POST /api/v3/votes` and
+  `POST /api/v3/comments` the 502 is marked as a hand-back. Node reads some of
+  these (a value with bytes above 127, more than 128 headers) and answers
+  them; through nginx the 502 gives them to Node.
 
 ## Running the checks
 
@@ -1603,6 +1611,27 @@ An all-off stop uses the existing drained switch helper with an empty list;
 profile-enabled project `--profile rust-api down` removes it with the other
 services; a plain `down` can leave it running. The web AfterInstall hook enables
 that profile for teardown, even when the next start flag is `0`.
+
+On SIGTERM (what `docker stop`, `down` and the deploy send) or SIGINT, the main
+process stops accepting connections, serves the connections the kernel had
+already completed, and hands back (502, marked on `POST /api/v3/votes` and
+`POST /api/v3/comments`) any write it has not yet dispatched. It exits as soon
+as no request is being read or answered, no dispatched write is running and no
+notification is queued, or after 5 s, printing `polis_api_stopping` and then
+`polis_api_stopped` (whether it drained, and what it left). The shadow role
+prints `shadow_stopping`, stops accepting copies, and waits at most 7.5 s for
+the observations it has begun to print their lines: a copy's line follows its
+read-back of what Node stored, 2 s after the copy arrived, or 10 s after when
+Node's row is not there at the first look. Each observation still in flight at
+7.5 s gets one line of its route with `outcome: "stopped"` and where it was in
+`reason` (`in_handler`, `before_readback`, `before_retry`), carrying nothing
+the observation had found; then `shadow_stopped` gives the counts (`kept`,
+`stopped` by where, connections still being read). A copy whose row Node has
+stored by the first look is always kept, and of those waiting for the second
+look, the ones that arrived at least 2.5 s before the stop: three in four, with
+copies arriving evenly. Blocking work still running is not waited for more
+than 0.5 s after that, so a stop ends inside Compose's 10 s window before
+SIGKILL.
 
 Before rolling back to a release at or before 2.42.2, stop the service explicitly
 on each web host, using the current Compose files and project:

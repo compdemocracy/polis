@@ -268,6 +268,24 @@ pub fn frame(claim: &Claim, adm: &Admission, phase: &str, batch_id: Option<&str>
     }))
 }
 
+/// The selection the admission names (`config.selection`), when it names
+/// one: the run then embeds every comment and lays out, clusters and names
+/// only the comments the selection keeps (`run_pipeline.py --selection`; the
+/// selections are the input bundle contract's, `SELECTIONS`). Absent or null,
+/// the run is what it was and its arguments are byte for byte today's. Any
+/// other value is refused before a child starts.
+pub fn selection(adm: &Admission) -> Result<Option<&'static str>> {
+    match adm.config.get("selection") {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(name)) => super::inputs::contract::SELECTIONS
+            .into_iter()
+            .find(|n| n == name)
+            .map(Some)
+            .ok_or_else(|| anyhow!("selection_unknown")),
+        Some(_) => bail!("selection_not_a_string"),
+    }
+}
+
 fn py_bool(v: Option<&Value>, default: bool) -> &'static str {
     // The scripts parse Python's str(bool), as job_poller.py passes it today.
     if v.and_then(Value::as_bool).unwrap_or(default) {
@@ -300,6 +318,9 @@ pub fn command_args(
                     py_bool(c.get("exclude_comment_selections"), true)
                 ),
             ];
+            if let Some(name) = selection(adm)? {
+                args.push(format!("--selection={name}"));
+            }
             if let Some(rid) = &adm.report_id {
                 args.push(format!("--rid={rid}"));
             }
@@ -381,6 +402,7 @@ const GRAPH_ENVIRONMENT: &[&str] = &[
     "XDG_CACHE_HOME",
     "NUMBA_CACHE_DIR",
     "DELPHI_EMBED_MODEL_PATH",
+    "DELPHI_EMBED_MODEL_LOCK",
     // Existing process-boundary proof fixture paths; neither carries credentials.
     "GRAPH_PROOF_ROOT",
     "GRAPH_STAGE_SOURCE",
@@ -595,6 +617,7 @@ mod tests {
             "POLIS_JOBS_PASSWORD_FILE",
             "UNRECOGNIZED_DATABASE_DSN",
             "DELPHI_EMBED_MODEL_PATH",
+            "DELPHI_EMBED_MODEL_LOCK",
             "OMP_NUM_THREADS",
             "PATH",
         ]
@@ -611,12 +634,16 @@ mod tests {
             .lines()
             .filter_map(|line| line.split_once('=').map(|(key, _)| key))
             .collect();
-        assert_eq!(keys.len(), 3);
-        assert!(
-            keys.iter().all(|key| {
-                ["DELPHI_EMBED_MODEL_PATH", "OMP_NUM_THREADS", "PATH"].contains(key)
-            })
-        );
+        assert_eq!(keys.len(), 4);
+        assert!(keys.iter().all(|key| {
+            [
+                "DELPHI_EMBED_MODEL_PATH",
+                "DELPHI_EMBED_MODEL_LOCK",
+                "OMP_NUM_THREADS",
+                "PATH",
+            ]
+            .contains(key)
+        }));
         Ok(())
     }
     #[test]
@@ -723,6 +750,44 @@ mod tests {
         assert!(script.ends_with("umap_narrative/803_check_batch_status.py"));
         assert_eq!(args, vec!["--job-id=j"]);
         assert!(command_args(app, &claim("delphi_full_pipeline"), &adm, "recheck").is_err());
+    }
+
+    /// The shadow's admission names its selection: the pipeline is told, and
+    /// the bundle carries the two columns it reads. An admission that names
+    /// none (every served one) runs with today's arguments; one that names a
+    /// selection the contract does not define starts no child.
+    #[test]
+    fn a_named_selection_reaches_the_pipeline_and_nothing_else_does() -> Result<()> {
+        let shadow = |selection: Value| Admission {
+            zid: 42,
+            report_id: None,
+            config: json!({"selection": selection, "exclude_comment_selections": false,
+                "embeddings_table": true, "shadow": {"schema": "delphi-shadow/2"}}),
+            inputs: json!({}),
+        };
+        let app = Path::new("/app");
+        let named = shadow(json!("participant_visible/1"));
+        assert_eq!(selection(&named)?, Some("participant_visible/1"));
+        let (_, args) = command_args(app, &claim("delphi_full_pipeline"), &named, "run")?;
+        assert_eq!(
+            args,
+            vec![
+                "--zid=42",
+                "--include_moderation=False",
+                "--exclude_comment_selections=False",
+                "--selection=participant_visible/1"
+            ]
+        );
+        let none = shadow(Value::Null);
+        assert_eq!(selection(&none)?, None);
+        let (_, args) = command_args(app, &claim("delphi_full_pipeline"), &none, "run")?;
+        assert!(!args.iter().any(|a| a.starts_with("--selection")));
+        for refused in [json!("all/1"), json!(1), json!(["participant_visible/1"])] {
+            let adm = shadow(refused);
+            assert!(selection(&adm).is_err());
+            assert!(command_args(app, &claim("delphi_full_pipeline"), &adm, "run").is_err());
+        }
+        Ok(())
     }
 
     fn math_config() -> Value {

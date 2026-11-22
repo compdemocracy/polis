@@ -3,9 +3,9 @@
 //!
 //! The database is the record of what ran (every admission is a job with its
 //! run record); this file only says what the scheduler last saw and admitted
-//! per conversation, so an unchanged comment set is not run again, and holds
+//! per conversation, so an unchanged selection is not run again, and holds
 //! the counts of the report. Losing it costs at most one more run per live
-//! conversation: an admission's idempotency key is the comment set's digest,
+//! conversation: an admission's idempotency key is the selection's digest,
 //! and the queue answers `existing` to the same key for a day.
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
@@ -16,9 +16,20 @@ pub const SCHEMA: &str = "polis-delphi-shadow-state/1";
 pub struct Seen {
     /// The newest `comments.modified` of the conversation when last read.
     pub last_modified: i64,
-    /// The comment set's digest (`polis-jobs.comment-set/1`) when last read.
+    /// The selection's digest (`polis-jobs.selection/1`) when last read. An
+    /// entry an earlier build wrote holds the comment set's here
+    /// (`polis-jobs.comment-set/1`), and in `admitted_digest`.
     pub digest: String,
     pub comments: i64,
+    /// The selection `digest` and `admitted_digest` are of
+    /// (`participant_visible/1`); None in an entry an earlier build wrote,
+    /// whose runs laid out every comment: such an entry is read again and
+    /// its conversation admitted once more.
+    #[serde(default)]
+    pub selection: Option<String>,
+    /// The comments the selection kept that have text, when last read.
+    #[serde(default)]
+    pub selected: i64,
     /// The digest of the last admitted run, and when (ms since the epoch).
     pub admitted_digest: Option<String>,
     pub admitted_at_ms: Option<i64>,
@@ -31,7 +42,13 @@ pub struct Seen {
 pub struct InFlight {
     pub zid: i32,
     pub job_id: String,
+    /// The selection's digest it was admitted under (an earlier build's: the
+    /// comment set's).
     pub digest: String,
+    /// The comment set's digest it was admitted under, which its census
+    /// records; None from an earlier build, whose `digest` is that.
+    #[serde(default)]
+    pub comment_set_sha256: Option<String>,
     pub comments: i64,
     pub admitted_at_ms: i64,
     /// Set on a twin run: the job it repeats.
@@ -46,6 +63,7 @@ pub struct InFlight {
 pub struct PendingTwin {
     pub zid: i32,
     pub first_job_id: String,
+    /// The first run's selection digest: the twin runs only on the same one.
     pub digest: String,
     pub comments: i64,
     /// The first run's assignments: comment id → one cluster id per layer.
@@ -96,6 +114,25 @@ pub struct State {
     pub env: String,
     pub conversations: BTreeMap<i32, Seen>,
     pub in_flight: Option<InFlight>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub graph_flight: Option<super::graph::Flight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_deferred: Vec<super::graph::Flight>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_recovery_envs: Vec<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_seen: BTreeMap<i32, String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_observed: BTreeMap<i32, super::graph::Observation>,
+    /// Graphs whose publication this scheduler gave up (`graph::PUBLISH_ATTEMPTS`
+    /// failed, or a definite refusal), newest last: recovery does not take
+    /// them up again, and their snapshots are not remembered as seen.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub graph_unpublished: Vec<String>,
+    /// Per graph env, the graphs let go there because nothing claimed them
+    /// and the hold on admission that follows (`graph::Unclaimed`).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub graph_unclaimed: BTreeMap<String, super::graph::Unclaimed>,
     pub pending_twin: Option<PendingTwin>,
     /// The UTC day (days since the epoch) the daily count is for.
     pub day: i64,
@@ -119,6 +156,13 @@ impl State {
             env: env.into(),
             conversations: BTreeMap::new(),
             in_flight: None,
+            graph_flight: None,
+            graph_deferred: Vec::new(),
+            graph_recovery_envs: Vec::new(),
+            graph_seen: BTreeMap::new(),
+            graph_observed: BTreeMap::new(),
+            graph_unpublished: Vec::new(),
+            graph_unclaimed: BTreeMap::new(),
             pending_twin: None,
             day: 0,
             day_runs: 0,
@@ -229,6 +273,38 @@ mod tests {
         assert_eq!(s.in_flight.as_ref().map(|f| f.set), Some(None));
         assert_eq!(s.storage.pending[0].set, None);
         std::fs::remove_dir_all(&dir)?;
+        Ok(())
+    }
+
+    #[test]
+    fn with_no_graph_the_state_file_carries_no_graph_field() -> anyhow::Result<()> {
+        // With the graph list empty nothing graph-shaped is ever written, so
+        // the file is what the full-pipeline shadow wrote before.
+        let v = serde_json::to_value(State::new("shadow-delphi-1"))?;
+        let keys: Vec<&String> = v
+            .as_object()
+            .map(|o| o.keys().collect())
+            .unwrap_or_default();
+        assert!(!keys.iter().any(|k| k.starts_with("graph_")), "{keys:?}");
+        // A flight that has made no publication attempt carries no count.
+        let flight = crate::shadow::graph::Flight {
+            env: "shadow-graph-1".into(),
+            graph_id: "g".into(),
+            zid: 1,
+            digest: "d".into(),
+            comments: 5,
+            admitted_at_ms: 1,
+            generation: 0,
+            nodes: vec![],
+            publish_attempts: 0,
+        };
+        let f = serde_json::to_value(&flight)?;
+        assert!(f.get("publish_attempts").is_none(), "{f}");
+        let earlier: crate::shadow::graph::Flight = serde_json::from_value(f)?;
+        assert_eq!(
+            earlier, flight,
+            "a flight an earlier build wrote loads with no attempts"
+        );
         Ok(())
     }
 

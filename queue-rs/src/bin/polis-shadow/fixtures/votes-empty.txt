@@ -46,6 +46,7 @@ window: 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z (UTC, end excluded)
    queue p99 n/a; admission p50 n/a, p99 n/a, largest n/a; selection p50 n/a, p99 n/a; total p50 n/a, p99 n/a, largest n/a; readback p99 n/a s
 
 7. The stop rule
+   read over 2026-11-09T00:00:00Z to 2026-11-10T00:00:00Z; rules 3, 4 and 5 against the same span a week earlier, 2026-11-02T00:00:00Z to 2026-11-03T00:00:00Z
    1. database CPU: largest 5-minute average 20.0 %; two consecutive above 60 %: no
    2. the copy's hold: no copies
    3. load balancer p99, all routes: 0 of 24 hours more than 20 % and 100 ms above the same hour a week earlier, longest run 0; stops at 3 in a row

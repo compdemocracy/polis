@@ -19,7 +19,14 @@
 //! response carries the headers only.
 
 use anyhow::{Result, anyhow, bail};
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{
+    future::Future,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering::SeqCst},
+    },
+    time::Duration,
+};
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     net::{TcpListener, TcpStream},
@@ -379,8 +386,9 @@ pub enum Listener {
     Shadow,
 }
 
-/// A request head this server could not parse: the connection is dropped
-/// without an answer. Displays as the parse error itself.
+/// A request head this server could not parse: answered 502 and closed on
+/// the main listener, dropped on the shadow's (`refuse_head`). Displays as the
+/// parse error itself.
 #[derive(Debug)]
 pub struct HeadRefused(anyhow::Error);
 
@@ -409,39 +417,103 @@ impl HeadRefused {
     }
 }
 
-/// Accepts connections forever, answering each request with `handler`.
-pub async fn serve<H, F>(listener: TcpListener, handler: Arc<H>) -> Result<()>
-where
-    H: Fn(Request) -> F + Send + Sync + 'static,
-    F: Future<Output = Outgoing> + Send + 'static,
-{
-    serve_as(listener, handler, Listener::Main).await
+/// Connections with a request in progress: from accept until the connection
+/// waits for another request (keep-alive) or closes, and again from the first
+/// byte of that next request. The stop waits for this to reach zero.
+static IN_PROGRESS: AtomicUsize = AtomicUsize::new(0);
+
+pub(crate) fn in_progress() -> usize {
+    IN_PROGRESS.load(SeqCst)
 }
 
-/// `serve`, for the listener of `role`.
-pub async fn serve_as<H, F>(listener: TcpListener, handler: Arc<H>, role: Listener) -> Result<()>
+/// One connection's place in [`IN_PROGRESS`]. Raised before its task is
+/// spawned, so a stop that begins after the accept always counts it.
+struct Busy(bool);
+
+impl Busy {
+    fn new() -> Self {
+        IN_PROGRESS.fetch_add(1, SeqCst);
+        Self(true)
+    }
+
+    fn set(&mut self, busy: bool) {
+        if busy != self.0 {
+            if busy {
+                IN_PROGRESS.fetch_add(1, SeqCst);
+            } else {
+                IN_PROGRESS.fetch_sub(1, SeqCst);
+            }
+            self.0 = busy;
+        }
+    }
+}
+
+impl Drop for Busy {
+    fn drop(&mut self) {
+        self.set(false);
+    }
+}
+
+/// Accepts connections until `stop` completes, answering each request with
+/// `handler`. Then it accepts nothing new: the connections the kernel had
+/// already completed are accepted and served (closing the listener would
+/// reset them, and a request sent on one would get no answer), and the
+/// listener is closed. Connections being served keep running; waiting for
+/// them is the caller's (`shutdown`).
+pub async fn serve_until<H, F>(
+    listener: TcpListener,
+    handler: Arc<H>,
+    role: Listener,
+    stop: impl Future<Output = ()>,
+) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
 {
+    tokio::pin!(stop);
     loop {
-        let (socket, _) = listener.accept().await?;
-        let handler = handler.clone();
-        tokio::spawn(async move {
-            if let Err(e) = connection_as(socket, handler, role).await {
-                match role {
-                    Listener::Main => eprintln!(
-                        "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
-                        e.to_string()
-                    ),
-                    Listener::Shadow => match e.downcast_ref::<HeadRefused>() {
-                        Some(refused) => crate::shadow::head_refused(refused.class()),
-                        None => crate::shadow::connection_error(&e.to_string()),
-                    },
-                }
-            }
-        });
+        let (socket, _) = tokio::select! {
+            biased;
+            () = &mut stop => break,
+            accepted = listener.accept() => accepted?,
+        };
+        spawn_connection(socket, handler.clone(), role);
     }
+    // Without blocking: the first error (none left to accept, or any other)
+    // ends the sweep, never the stop that follows.
+    let Ok(listener) = listener.into_std() else {
+        return Ok(());
+    };
+    while let Ok((socket, _)) = listener.accept() {
+        if socket.set_nonblocking(true).is_ok()
+            && let Ok(socket) = TcpStream::from_std(socket)
+        {
+            spawn_connection(socket, handler.clone(), role);
+        }
+    }
+    Ok(())
+}
+
+fn spawn_connection<H, F>(socket: TcpStream, handler: Arc<H>, role: Listener)
+where
+    H: Fn(Request) -> F + Send + Sync + 'static,
+    F: Future<Output = Outgoing> + Send + 'static,
+{
+    let busy = Busy::new();
+    tokio::spawn(async move {
+        if let Err(e) = connection_as(socket, handler, role, busy).await {
+            match role {
+                Listener::Main => eprintln!(
+                    "{{\"event\":\"http_connection_error\",\"detail\":{:?}}}",
+                    e.to_string()
+                ),
+                Listener::Shadow => match e.downcast_ref::<HeadRefused>() {
+                    Some(refused) => crate::shadow::head_refused(refused.class()),
+                    None => crate::shadow::connection_error(&e.to_string()),
+                },
+            }
+        }
+    });
 }
 
 #[cfg(test)]
@@ -450,10 +522,62 @@ where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
 {
-    connection_as(socket, handler, Listener::Main).await
+    connection_as(socket, handler, Listener::Main, Busy::new()).await
 }
 
-async fn connection_as<H, F>(mut socket: TcpStream, handler: Arc<H>, role: Listener) -> Result<()>
+/// The method and target of a request line, when the head's first line can
+/// be read that far; nothing else of the head is trusted.
+fn request_line(input: &[u8]) -> (Option<&str>, Option<&str>) {
+    let line = input.split(|b| *b == b'\n').next().unwrap_or_default();
+    let mut parts = line.split(|b| *b == b' ');
+    let mut part = || parts.next().and_then(|p| std::str::from_utf8(p).ok());
+    (part(), part())
+}
+
+/// A request head this server cannot read (`error`). The main listener
+/// answers it as the hand-back it is: no body is decoded and nothing is
+/// dispatched, so a 502, marked on the vote and comment write paths as the
+/// parser's other hand-backs are, with `Connection: close`. Through nginx the
+/// marked 502 sends the whole request to Node, and any other 502 reaches Node
+/// through a read location's fallback, where a dropped connection did too.
+/// The shadow listener answers nothing, as before, and counts it. Either way
+/// the connection then closes and `error` is reported as before.
+async fn refuse_head(
+    socket: &mut TcpStream,
+    role: Listener,
+    input: &[u8],
+    started: Option<Instant>,
+    error: anyhow::Error,
+) -> Result<()> {
+    if role == Listener::Main {
+        let (method, target) = request_line(input);
+        let path = target.and_then(|t| t.split('?').next());
+        let mut response = crate::route::bad_gateway();
+        if method == Some("POST") && path == Some(crate::post_votes::PATH) {
+            crate::post_votes::mark_handback(&mut response);
+            crate::post_votes::observe(&response);
+        }
+        if method == Some("POST") && path == Some(crate::post_comments::PATH) {
+            crate::post_comments::mark_handback(&mut response);
+            crate::post_comments::observe(&response);
+        }
+        response.close = true;
+        let bytes =
+            write_response_for(&response, method == Some("HEAD"), false, false, &date_now())?;
+        let deadline = started.unwrap_or_else(Instant::now) + REQUEST_DEADLINE;
+        if let Ok(Ok(())) = tokio::time::timeout_at(deadline, socket.write_all(&bytes)).await {
+            socket.shutdown().await.ok();
+        }
+    }
+    Err(error)
+}
+
+async fn connection_as<H, F>(
+    mut socket: TcpStream,
+    handler: Arc<H>,
+    role: Listener,
+    mut busy: Busy,
+) -> Result<()>
 where
     H: Fn(Request) -> F + Send + Sync + 'static,
     F: Future<Output = Outgoing> + Send + 'static,
@@ -461,6 +585,7 @@ where
     socket.set_nodelay(true)?;
     let mut input: Vec<u8> = Vec::new();
     let mut buf = vec![0u8; 16 * 1024];
+    let mut first = true;
     loop {
         // Wait for the next request head within the keep-alive window; once a
         // byte of it has arrived, the whole exchange has one deadline.
@@ -469,11 +594,20 @@ where
         } else {
             Some(Instant::now())
         };
+        // Between requests a kept-alive connection is idle: a stop does not
+        // wait for it. A new connection's first request is awaited.
+        if started.is_none() && !first {
+            busy.set(false);
+        }
+        first = false;
         let head = loop {
-            if let Some(head) =
-                parse_head(&input).map_err(|e| anyhow::Error::new(HeadRefused(e)))?
-            {
-                break head;
+            match parse_head(&input) {
+                Ok(Some(head)) => break head,
+                Ok(None) => {}
+                Err(e) => {
+                    let refused = anyhow::Error::new(HeadRefused(e));
+                    return refuse_head(&mut socket, role, &input, started, refused).await;
+                }
             }
             let read = match started {
                 None => match tokio::time::timeout(KEEP_ALIVE, socket.read(&mut buf)).await {
@@ -492,10 +626,12 @@ where
             if read == 0 {
                 return Ok(());
             }
+            busy.set(true);
             started.get_or_insert_with(Instant::now);
             input.extend_from_slice(&buf[..read]);
             if input.len() > LIMIT {
-                bail!("request over limit");
+                let over = anyhow!("request over limit");
+                return refuse_head(&mut socket, role, &input, started, over).await;
             }
         };
         let deadline = started.unwrap_or_else(Instant::now) + REQUEST_DEADLINE;
@@ -745,6 +881,200 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    /// What the server writes back, and how the connection ended, for one
+    /// raw request on a fresh connection whose handler must never run.
+    async fn exchange_refused(raw: Vec<u8>) -> (String, Result<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (socket, _) = listener.accept().await.unwrap();
+            connection(
+                socket,
+                Arc::new(|_| async { panic!("a refused head must never reach the handler") }),
+            )
+            .await
+        });
+        let mut client = TcpStream::connect(address).await.unwrap();
+        client.write_all(&raw).await.unwrap();
+        let mut response = Vec::new();
+        tokio::time::timeout(Duration::from_secs(5), client.read_to_end(&mut response))
+            .await
+            .unwrap()
+            .unwrap();
+        let ended = server.await.unwrap();
+        (String::from_utf8(response).unwrap(), ended)
+    }
+
+    /// The response with its Date line removed.
+    fn without_date(response: &str) -> String {
+        response
+            .split("\r\n")
+            .filter(|line| !line.starts_with("Date: "))
+            .collect::<Vec<_>>()
+            .join("\r\n")
+    }
+
+    /// Every way a request head can fail to parse: what follows the request
+    /// line (and its `Host`), or the whole head for the last two.
+    fn refused_heads(method: &str, path: &str) -> Vec<(&'static str, Vec<u8>)> {
+        let head = |extra: &[u8]| {
+            let mut raw = format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\n").into_bytes();
+            raw.extend_from_slice(extra);
+            raw.extend_from_slice(b"\r\n");
+            raw
+        };
+        let many: String = (0..128).map(|i| format!("X-Extra-{i}: v\r\n")).collect();
+        let mut over_limit =
+            format!("{method} {path} HTTP/1.1\r\nHost: localhost\r\nX-Long: ").into_bytes();
+        // No end of head: the server reads all of it and then refuses it.
+        over_limit.resize(LIMIT + 1, b'a');
+        vec![
+            (
+                "a header value that is not UTF-8",
+                head(b"X-Name: caf\xe9\r\n"),
+            ),
+            ("more than 128 header lines", head(many.as_bytes())),
+            (
+                "a control byte in a header value",
+                head(b"X-Name: a\x01b\r\n"),
+            ),
+            ("a header name that is not a token", head(b"X Name: v\r\n")),
+            (
+                "a Content-Length that is not a number",
+                head(b"Content-Length: ten\r\n"),
+            ),
+            (
+                "a Content-Length no size can hold",
+                head(b"Content-Length: 99999999999999999999999\r\n"),
+            ),
+            (
+                "two different Content-Lengths",
+                head(b"Content-Length: 2\r\nContent-Length: 3\r\n"),
+            ),
+            (
+                "a request line with an unknown version",
+                format!("{method} {path} HTTP/7.1\r\nHost: localhost\r\n\r\n").into_bytes(),
+            ),
+            ("a head longer than the limit", over_limit),
+        ]
+    }
+
+    /// A vote whose head this server cannot parse is answered, never dropped:
+    /// the same marked 502 the parser's own hand-back gives (a chunked vote),
+    /// with `Connection: close`, and nothing reaches the handler. Through
+    /// nginx the marker hands the whole request to Node, which reads it with
+    /// its own parser and records the vote. Dropping the connection instead
+    /// gave nginx's own 502, and the vote was never recorded.
+    #[tokio::test]
+    async fn votes_whose_head_does_not_parse_hand_back_marked_before_dispatch() {
+        let (marked, _) = exchange_refused(
+            b"POST /api/v3/votes HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n"
+                .to_vec(),
+        )
+        .await;
+        let marked = without_date(&marked);
+        assert!(
+            marked.contains("X-Polis-Vote-Dispatch: not-started\r\n"),
+            "{marked}"
+        );
+        for suffix in ["", "?unsupported=true"] {
+            let path = format!("{}{suffix}", crate::post_votes::PATH);
+            for (case, raw) in refused_heads("POST", &path) {
+                let (response, ended) = exchange_refused(raw).await;
+                assert_eq!(without_date(&response), marked, "{case} {suffix}");
+                assert!(
+                    ended.is_err_and(|e| e.downcast_ref::<HeadRefused>().is_some()
+                        || e.to_string() == "request over limit"),
+                    "{case}: the refusal is still reported"
+                );
+            }
+        }
+    }
+
+    /// The comment write path's refusal carries its own marker; any other
+    /// request this server cannot parse is answered 502 with no marker (a read
+    /// location's fallback sends every 502 to Node, as it did the drop).
+    #[tokio::test]
+    async fn other_requests_whose_head_does_not_parse_are_answered_502() {
+        for (method, path, marker) in [
+            (
+                "POST",
+                crate::post_comments::PATH,
+                Some("X-Polis-Comment-Dispatch: not-started\r\n"),
+            ),
+            ("GET", crate::post_votes::PATH, None),
+            ("GET", "/api/v3/math/pca2?conversation_id=2fixture", None),
+            ("POST", "/api/v3/other", None),
+        ] {
+            for (case, raw) in refused_heads(method, path) {
+                let (response, _) = exchange_refused(raw).await;
+                assert!(
+                    response.starts_with("HTTP/1.1 502 Bad Gateway\r\n"),
+                    "{method} {path} {case}: {response:?}"
+                );
+                assert!(response.contains("Connection: close\r\n"), "{case}");
+                assert!(response.ends_with("\r\n\r\nBad Gateway\n"), "{case}");
+                assert!(!response.contains("X-Polis-Vote-Dispatch"), "{case}");
+                match marker {
+                    Some(marker) => assert!(response.contains(marker), "{case}"),
+                    None => assert!(!response.contains("-Dispatch:"), "{case}"),
+                }
+            }
+        }
+    }
+
+    /// Connections the kernel completed before the stop and that the accept
+    /// loop never took (here: all of them, because the stop is already
+    /// complete when the loop first polls) are swept: each is answered, and a
+    /// connection after the sweep is refused.
+    #[tokio::test]
+    async fn the_sweep_answers_every_connection_queued_at_the_stop() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let mut clients = Vec::new();
+        for i in 0..64 {
+            let mut c = TcpStream::connect(address).await.unwrap();
+            let request = if i % 2 == 0 {
+                format!("GET /queued/{i} HTTP/1.0\r\nHost: h\r\n\r\n")
+            } else {
+                // A body that has fully arrived before the stop.
+                format!("POST /queued/{i} HTTP/1.0\r\nHost: h\r\nContent-Length: 4\r\n\r\nbody")
+            };
+            c.write_all(request.as_bytes()).await.unwrap();
+            clients.push(c);
+        }
+        let handler = Arc::new(|req: Request| async move {
+            let body = req.target.clone().into_bytes();
+            Outgoing {
+                status: 200,
+                headers: vec![("Content-Length".into(), body.len().to_string())],
+                body: Body::Fixed(body),
+                close: false,
+            }
+        });
+        serve_until(listener, handler, Listener::Main, std::future::ready(()))
+            .await
+            .unwrap();
+        let refused = TcpStream::connect(address).await;
+        for (i, mut c) in clients.into_iter().enumerate() {
+            let mut response = Vec::new();
+            tokio::time::timeout(Duration::from_secs(5), c.read_to_end(&mut response))
+                .await
+                .unwrap()
+                .unwrap();
+            let response = String::from_utf8(response).unwrap();
+            assert!(
+                response.starts_with("HTTP/1.1 200 OK\r\n"),
+                "{i}: {response:?}"
+            );
+            assert!(
+                response.ends_with(&format!("/queued/{i}")),
+                "{i}: {response:?}"
+            );
+        }
+        assert!(refused.is_err(), "the listener is closed after the sweep");
     }
 
     #[test]

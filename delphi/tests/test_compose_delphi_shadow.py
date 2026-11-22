@@ -9,7 +9,11 @@ test_compose_math_env.py. What this pins:
     either container (a key not listed never reaches it: no env_file);
   * the daemon claims only the shadow env, the full pipeline, one job at a
     time, with the visualization pages skipped, the embedding model read from
-    the image offline, and its scratch on tmpfs; its limits are 2 CPUs and 6 GiB;
+    the image offline, and its scratch on tmpfs;
+  * the daemon yields: the lowest CPU weight of any service, a 2-CPU limit
+    unless the document sets another (DELPHI_SHADOW_CONTAINER_CPUS; 0
+    removes it), a 16 GiB memory ceiling, and the first process the kernel
+    kills when memory runs out;
   * the scheduler and the daemon name the same env, and that env is a shadow env;
   * the deploy hook's read-back of the two services passes this file as it
     is, and names the settings when one line of the environment document
@@ -108,9 +112,14 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     for key in ("POLIS_JOBS_WORK_DIR", "HF_HOME", "NUMBA_CACHE_DIR", "TMPDIR"):
         assert env[key].startswith("/tmp"), key
     assert env["POLIS_JOBS_JOURNAL_DIR"].startswith("/var/lib/delphi-shadow/")
+    # A 2-CPU limit by default and the lowest CPU weight, a memory ceiling,
+    # and the first to go when the box runs out of memory.
     limits = service["deploy"]["resources"]["limits"]
     assert _interpolate(str(limits["cpus"]), {}) == "2"
-    assert _interpolate(str(limits["memory"]), {}) == "6g"
+    assert _interpolate(str(limits["memory"]), {}) == "16g"
+    assert service["cpu_shares"] == 2
+    assert service["oom_score_adj"] == 1000
+    assert "reservations" not in service["deploy"]["resources"]
 
 
 @requires_checkout
@@ -215,3 +224,49 @@ def test_the_deploy_hooks_read_back_passes_this_file_and_refuses_a_served_env(ex
     assert proc.returncode == 0, proc.stderr
     assert proc.stdout == named + "\n"
     assert "import-example-1" not in proc.stdout
+
+
+# Docker's defaults for a service that sets neither: cgroup v2 cpu.weight 100
+# (cpu_shares 1024 on cgroup v1) and oom_score_adj 0.
+DEFAULT_CPU_SHARES = 1024
+DEFAULT_OOM_SCORE_ADJ = 0
+
+
+@requires_checkout
+def test_the_shadow_yields_cpu_and_memory_to_every_other_service():
+    # Every other service, the math engine, the report service and the web
+    # services included, keeps Docker's default weight and OOM adjustment (or
+    # sets a higher weight and a lower adjustment), so under contention the
+    # shadow gets the smallest share of a CPU, and when the box runs out of
+    # memory it is killed first. The optional graph executor is shadow work
+    # too: it carries exactly the shadow's weight and OOM adjustment, and every
+    # other service outranks both.
+    services, _ = _services()
+    shadow = services["delphi-shadow"]
+    shadow_daemons = ("delphi-shadow", "delphi-shadow-graph")
+    for name in shadow_daemons:
+        assert services[name]["cpu_shares"] == shadow["cpu_shares"], name
+        assert services[name]["oom_score_adj"] == shadow["oom_score_adj"], name
+    for name, service in services.items():
+        if name in shadow_daemons:
+            continue
+        assert service.get("cpu_shares", DEFAULT_CPU_SHARES) > shadow["cpu_shares"], name
+        assert service.get("oom_score_adj", DEFAULT_OOM_SCORE_ADJ) < shadow["oom_score_adj"], name
+    # Neither the math engine nor the report service is capped or weighted by
+    # this file on the shadow's account: the math engine has no CPU cap.
+    assert "cpus" not in services["math-python"]["deploy"]["resources"]["limits"]
+    assert "cpu_shares" not in services["math-python"]
+
+
+@requires_checkout
+def test_an_operator_may_resize_or_remove_the_cpu_limit_and_size_the_ceiling():
+    services, _ = _services()
+    limits = services["delphi-shadow"]["deploy"]["resources"]["limits"]
+    sized = {"DELPHI_SHADOW_CONTAINER_CPUS": "4", "DELPHI_SHADOW_CONTAINER_MEMORY": "6g"}
+    assert _interpolate(str(limits["cpus"]), sized) == "4"
+    assert _interpolate(str(limits["memory"]), sized) == "6g"
+    # 0 removes the limit (Compose sets no CPU limit for 0); an empty line in
+    # the document is the default 2-CPU limit, as unset is.
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": "0"}) == "0"
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": ""}) == "2"
+    assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": "2"}) == "2"

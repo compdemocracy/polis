@@ -24,6 +24,7 @@
 pub mod config;
 pub mod daemon;
 pub mod db;
+pub mod graph;
 pub mod plan;
 pub mod scheduler;
 pub mod state;

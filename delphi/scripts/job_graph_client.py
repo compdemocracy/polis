@@ -8,6 +8,9 @@ import argparse
 from contextlib import closing
 import json
 import os
+from pathlib import Path
+import subprocess
+import sys
 import psycopg2
 
 
@@ -23,7 +26,25 @@ class GraphClient:
                 return cursor.fetchone()[0]
 
     def admit(self, zid, scope, request_key, specification, supersedes=None):
-        return self._call('pd_graph_admit',zid,scope,request_key,json.dumps(specification),supersedes)
+        # The Rust process owns the admission transaction. Release this client's
+        # idle read transaction first; keep credentials out of argv and stdin.
+        if self.connection.get_transaction_status() != 0:
+            raise ValueError('graph admission requires an idle client connection')
+        environment = dict(os.environ, DELPHI_APP_PATH=str(Path(__file__).resolve().parents[1]),
+                           POLIS_JOBS_PYTHON=sys.executable)
+        if 'QUEUE_DATABASE_URL' not in environment:
+            raise ValueError('queue connection setting is required')
+        from polismath.delphi_storage.production_import import _daemon_queue_url
+        if environment.get('POLIS_JOBS_TRANSPORT', 'tls') == 'tls':
+            environment['QUEUE_DATABASE_URL'] = _daemon_queue_url(environment['QUEUE_DATABASE_URL'])
+        request = dict(env=self.environment, zid=zid, scope=scope, request_key=request_key,
+                       specification=specification, supersedes=supersedes)
+        result = subprocess.run([environment.get('POLIS_JOBS_BIN', 'polis-jobs'), 'graph-admit'],
+                                input=json.dumps(request), text=True, capture_output=True,
+                                env=environment, timeout=150, check=False)
+        if result.returncode:
+            raise ValueError('graph admission refused or outcome unknown')
+        return json.loads(result.stdout)
 
     def status(self, graph_id):
         return self._call('pd_graph_view',graph_id)
@@ -37,7 +58,7 @@ class GraphClient:
 
 
 
-def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256, *, max_attempts=3, narrative_context=None):
+def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256, *, max_attempts=3, narrative_context=None, embedding_model=None, naming_model=None):
     """Build four independent jobs; pg computes snapshot_sha256 with pd_graph_hash.
 
     Result families use the daemon spool; numerical artifacts retain a strict
@@ -58,7 +79,7 @@ def numerical_spec(texts, comment_ids, report_id, snapshot_sha256, model_sha256,
                               ('t','graph_topics',[dict(node='c',role='clusters')]),
                               ('n','graph_narrative',[dict(node='t',role='topics')])]:
         nodes.append(dict(key=key,stage=stage,**{'class':'delphi'},
-            declared=dict(snapshot=snapshot,code=code,model=MODELS[stage],runtime='python-'+sys.version.split()[0],
+            declared=dict(snapshot=snapshot,code=code,model=(embedding_model if stage == 'graph_embed' and embedding_model else naming_model if stage == 'graph_narrative' and naming_model else MODELS[stage]),runtime='python-'+sys.version.split()[0],
                           seed=42,config=({**config, 'narrative_context': narrative_context} if stage == 'graph_narrative' and narrative_context is not None else config),mode='full',memory_bytes=4294967296,work_units=len(texts)),
             inputs=inputs,max_attempts=max_attempts))
     return dict(schema='polis-job-graph/1',nodes=nodes)
@@ -84,6 +105,7 @@ def main():
             with connection.cursor() as cursor:
                 cursor.execute('SELECT public.pd_graph_hash(%s::jsonb)',(json.dumps(dict(texts=snapshot['texts'])),))
                 snapshot_sha = cursor.fetchone()[0]
+            connection.commit()
             spec = numerical_spec(snapshot['texts'],snapshot['comment_ids'],snapshot['report_id'],snapshot_sha,
                                   model_digest(args.model_path))
             result = client.admit(args.zid,args.scope,args.request_key,spec)

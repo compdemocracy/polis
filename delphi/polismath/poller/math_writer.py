@@ -26,6 +26,7 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 from polismath.database.postgres import encode_math_blob
+from polismath.poller import recompute_line
 from polismath.utils.clj_hash import clojure_hash_map_key_order
 
 logger = logging.getLogger(__name__)
@@ -266,6 +267,7 @@ class MathWriter:
             raise ValueError("before_publish is not supported with a publisher")
         if self._publisher is not None:
             self._publisher.stage("after_worker_compute")
+        encode_start = time.perf_counter()  # for the recompute line only
         data = conv.to_dict()
         last_vote_timestamp = data.get("lastVoteTimestamp")
         if last_vote_timestamp is None:
@@ -282,12 +284,16 @@ class MathWriter:
         main_json = encode_math_blob(data)
         bidtopid_json = encode_math_blob(bidtopid)
         ptptstats_json = encode_math_blob(ptptstats)
+        payload_bytes = len(main_json) + len(bidtopid_json) + len(ptptstats_json)
         if report is not None:
-            report["payload_bytes"] = (
-                len(main_json) + len(bidtopid_json) + len(ptptstats_json)
-            )
+            report["payload_bytes"] = payload_bytes
+        write_start = time.perf_counter()
         if self._publisher is not None:
-            return self._publisher.publish(zid, main_json, bidtopid_json, ptptstats_json)
+            math_tick = self._publisher.publish(zid, main_json, bidtopid_json, ptptstats_json)
+            recompute_line.note(encode_s=write_start - encode_start,
+                                write_s=time.perf_counter() - write_start,
+                                payload_bytes=payload_bytes, math_tick=math_tick)
+            return math_tick
         with self._pg.transaction() as connection:
             # The tick upsert locks this (zid, math_env) until all three writes
             # commit. Other zids use independent connections on the shared client.
@@ -311,6 +317,9 @@ class MathWriter:
                 math_tick=math_tick, connection=connection,
             )
 
+        recompute_line.note(encode_s=write_start - encode_start,
+                            write_s=time.perf_counter() - write_start,
+                            payload_bytes=payload_bytes, math_tick=math_tick)
         if report is not None:
             report["math_tick"] = math_tick
         logger.info(

@@ -9,6 +9,10 @@ This module provides:
 - Session-scoped conversation cache for efficient test execution
 """
 
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).parent / "job_graph"))
+
 import contextlib
 import os
 from copy import deepcopy
