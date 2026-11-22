@@ -21,6 +21,7 @@ location = /api/v3/delphi {
     error_page 502 503 504 = @polis_node_api;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header Host $host;
+    proxy_set_header Connection close;
     proxy_connect_timeout 100ms;
     proxy_send_timeout 100ms;
     proxy_read_timeout 1s;

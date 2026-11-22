@@ -18,5 +18,5 @@ services:
       RUST_API_UPSTREAM: driver:5101
     depends_on: [server, driver, client-participation-alpha]
   client-participation-alpha:
-    image: nginx:1.21.5-alpine
+    image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
     networks: [sealed]

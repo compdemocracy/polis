@@ -2,3 +2,4 @@
 # serves them from STATIC_FILES_HOST (the file-server in development, the static asset origin in
 # production). Production web boxes run no file-server container, so nginx cannot reach one directly.
 include /etc/nginx/node-proxy.conf;
+proxy_set_header Connection close;
