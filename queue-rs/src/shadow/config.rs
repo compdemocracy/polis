@@ -19,10 +19,12 @@ pub const ACTOR: &str = "delphi-shadow";
 pub const BENCHMARK_MAX: usize = 10_000;
 /// The most conversation codes each comment-rule list may name.
 pub const RULE_LIST_MAX: usize = BENCHMARK_MAX;
-/// The settings that choose a conversation's comment rule (the selection its
-/// runs name), each with the rule it chooses, in the order they are read. A
-/// conversation listed in none has `participant_visible/1`, what participants
-/// are shown. A conversation may be listed in at most one.
+/// The settings that add a comment rule's runs for the conversations they
+/// list, each with the rule it adds, in the order they are read. Every
+/// conversation the shadow runs is run under `participant_visible/1`, what
+/// participants are shown, as without them; a listed one is also run under
+/// the list's rule, each (conversation, rule) its own job. A conversation may
+/// be on both lists.
 pub const RULE_LISTS: [(&str, &str); 2] = [
     (
         "DELPHI_SHADOW_ALL_COMMENTS",
@@ -34,12 +36,14 @@ pub const RULE_LISTS: [(&str, &str); 2] = [
     ),
 ];
 
-/// One comment-rule list: its setting, the rule it chooses, and its codes.
+/// One comment-rule list: its setting, the rule it adds, its codes, and how
+/// many entries repeated an earlier one (kept once).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RuleList {
     pub key: &'static str,
     pub selection: &'static str,
     pub codes: Vec<String>,
+    pub repeated: usize,
 }
 /// Settings an earlier build of this scheduler read, refused when set so a
 /// stale line is never silently ignored: the benchmark list's old name, and
@@ -92,15 +96,16 @@ pub struct Config {
     /// the pacing and the storage budget. (The featured set, the open-data
     /// conversations, and the current set, the live ones, need no setting.)
     pub benchmark: Vec<String>,
-    /// The conversations whose runs lay out another comment rule than what
-    /// participants are shown (`contract::PARTICIPANT_VISIBLE`, every other
-    /// conversation's): one list per rule, in [`RULE_LISTS`] order,
-    /// conversation codes as the benchmark list names them, each empty by
-    /// default: `DELPHI_SHADOW_ALL_COMMENTS` (every comment,
-    /// `all_comments/1`) and `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` (every
-    /// comment but the moderated-out ones, `all_but_moderated_out/1`). They
-    /// choose a rule for a conversation, not whether it runs: a listed one is
-    /// run only when one of the three sets picks it, under the same bounds.
+    /// The conversations whose runs under another comment rule are added to
+    /// their run under what participants are shown
+    /// (`contract::PARTICIPANT_VISIBLE`, which every conversation keeps): one
+    /// list per rule, in [`RULE_LISTS`] order, conversation codes as the
+    /// benchmark list names them, each empty by default:
+    /// `DELPHI_SHADOW_ALL_COMMENTS` (every comment, `all_comments/1`) and
+    /// `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` (every comment but the
+    /// moderated-out ones, `all_but_moderated_out/1`). A code may be on both.
+    /// They add runs, not candidates: a listed conversation is run only when
+    /// one of the three sets picks it, under the same bounds.
     pub rule_lists: Vec<RuleList>,
     /// An explicit public-comment allowlist. Empty means no graph work.
     pub graph: Option<super::graph::Config>,
@@ -274,26 +279,20 @@ fn entries(raw: &str) -> impl Iterator<Item = &str> {
 }
 
 /// The comment-rule lists ([`RULE_LISTS`]), each read as the benchmark list
-/// is. A code a list names that an earlier list already names is refused by
-/// its list and position: a conversation has one comment rule at a time.
+/// is: an entry that is not a code is refused by its list and position; a
+/// repeated code is kept once (and counted, for the log). A code on both
+/// lists is on both: its conversation runs under both rules.
 pub fn rule_lists<F: Fn(&str) -> Option<String>>(get: &F) -> Result<Vec<RuleList>, ConfigError> {
     let mut out: Vec<RuleList> = Vec::new();
     for (key, selection) in RULE_LISTS {
         let raw = get(key).unwrap_or_default();
         let codes = conversation_codes(key, &raw, RULE_LIST_MAX)?;
-        for (i, entry) in entries(&raw).enumerate() {
-            if let Some(other) = out.iter().find(|l| l.codes.iter().any(|c| c == entry)) {
-                return err(format!(
-                    "{key} entry {} is also listed in {}: a conversation has one comment rule",
-                    i + 1,
-                    other.key
-                ));
-            }
-        }
+        let repeated = entries(&raw).count() - codes.len();
         out.push(RuleList {
             key,
             selection,
             codes,
+            repeated,
         });
     }
     Ok(out)
@@ -658,25 +657,24 @@ mod tests {
             let many: Vec<String> = (0..=RULE_LIST_MAX).map(|i| format!("c{i}")).collect();
             assert!(with(&[(key, Some(&many.join(",")))]).is_err());
         }
-        // Both lists at once, each conversation in one.
+        // Both lists at once, and a code on both: valid, on both.
         let c = ready(&[
             ("DELPHI_SHADOW_ALL_COMMENTS", Some("69abcd,2xyz")),
-            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", Some("3def")),
+            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", Some("3def 2xyz")),
         ]);
         assert_eq!(codes(&c, "DELPHI_SHADOW_ALL_COMMENTS"), ["69abcd", "2xyz"]);
-        assert_eq!(codes(&c, "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT"), ["3def"]);
-        // A conversation listed under two rules is refused, by the later
-        // list and its position, never its code.
-        let Err(e) = with(&[
-            ("DELPHI_SHADOW_ALL_COMMENTS", Some("69abcd,2xyz")),
-            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", Some("3def 2xyz")),
-        ]) else {
-            panic!("a conversation under two rules was accepted");
-        };
         assert_eq!(
-            e.0,
-            "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT entry 2 is also listed in DELPHI_SHADOW_ALL_COMMENTS: a conversation has one comment rule"
+            codes(&c, "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT"),
+            ["3def", "2xyz"]
         );
+        // A code repeated within one list is one entry, counted.
+        let c = ready(&[(
+            "DELPHI_SHADOW_ALL_COMMENTS",
+            Some("69abcd 69abcd,2xyz 69abcd"),
+        )]);
+        let list = &c.rule_lists[0];
+        assert_eq!((list.codes.len(), list.repeated), (2, 2));
+        assert_eq!(c.rule_lists[1].repeated, 0);
         // The benchmark list's own messages are what they were.
         let Err(e) = with(&[("DELPHI_SHADOW_BENCHMARK", Some("2abc,3def;"))]) else {
             panic!("a bad benchmark entry was accepted");

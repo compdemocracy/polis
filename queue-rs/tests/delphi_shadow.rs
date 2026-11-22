@@ -682,199 +682,503 @@ fn three_states(f: &Fixture, zid: i32) {
         .unwrap();
 }
 
-/// The last job's conversation, its selection (the run record's
-/// `config_effective`, read through `pd_run_record`) and the shadow block.
-fn last_record(f: &Fixture) -> (i32, Value) {
-    let jobs = f.jobs();
-    let (_, zid, job, _) = jobs.last().unwrap().clone();
+/// Admit, record and cancel the next run, as `next_admitted`; its
+/// conversation, job and run record's `config_effective` (None: nothing).
+fn next_run(f: &Fixture, s: &mut Scheduler<'_>) -> Option<(i32, String, Value)> {
+    s.cycle().unwrap();
+    let flight = s.state.in_flight.clone()?;
     let record: Value = f
         .superuser()
-        .query_one("SELECT pd_run_record($1,$2::text::uuid)", &[&ENV, &job])
+        .query_one(
+            "SELECT pd_run_record($1,$2::text::uuid)",
+            &[&ENV, &flight.job_id],
+        )
         .unwrap()
         .get(0);
-    (zid, record["config_effective"].clone())
+    f.cancel(&flight.job_id);
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_none());
+    Some((
+        flight.zid,
+        flight.job_id,
+        record["config_effective"].clone(),
+    ))
 }
 
-/// A conversation's comment rule is an input of its runs, chosen per
-/// conversation by the two lists: every comment (`DELPHI_SHADOW_ALL_COMMENTS`),
-/// every comment but the moderated-out ones
-/// (`DELPHI_SHADOW_ALL_BUT_MODERATED_OUT`), or, listed in neither, what
-/// participants are shown. Each run's record names its rule, with the digest
-/// and count of what it lays out; a moderation that does not change what a
-/// rule keeps runs nothing under it; and moving a conversation from any rule
-/// to another runs it again.
+/// Every run until nothing is left to admit, as (zid, selection, job, config).
+fn drain(f: &Fixture, s: &mut Scheduler<'_>) -> Vec<(i32, String, String, Value)> {
+    let mut out = Vec::new();
+    while let Some((zid, job, config)) = next_run(f, s) {
+        let selection = config["selection"].as_str().unwrap().to_owned();
+        out.push((zid, selection, job, config));
+        assert!(
+            out.len() <= 16,
+            "{:?}",
+            out.iter().map(|r| (r.0, &r.1)).collect::<Vec<_>>()
+        );
+    }
+    out
+}
+
+fn pairs(runs: &[(i32, String, String, Value)]) -> Vec<(i32, &str)> {
+    runs.iter().map(|r| (r.0, r.1.as_str())).collect()
+}
+
+/// The lists add runs and replace none. Every conversation runs under what
+/// participants are shown, as without them; one on both lists also runs under
+/// every comment and under every comment but the moderated-out ones: three
+/// jobs, three run records naming their rules with the digest and count of
+/// what each lays out, three publication scopes, and no shared "unchanged":
+/// a moderation reruns exactly the rules whose selection it changes.
 #[test]
-fn each_conversation_runs_under_its_own_comment_rule_and_a_changed_rule_runs_it_again() {
+fn a_conversation_on_both_lists_runs_under_all_three_rules_each_its_own_job() {
     let f = Fixture::new();
-    for zid in [321, 322, 323, 324] {
+    for zid in [321, 322, 323] {
         three_states(&f, zid);
     }
     let mut c = f.superuser();
-    let first = f.config(&[
-        ("DELPHI_SHADOW_ALL_COMMENTS", "c323"),
-        ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", "c324"),
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_ALL_COMMENTS", "c321 c322"),
+        ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", "c321"),
         ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
     ]);
-    let mut s = Scheduler::new(&first).unwrap();
-    let mut order = Vec::new();
-    while let Some(zid) = next_admitted(&f, &mut s) {
-        order.push(zid);
-        assert!(order.len() <= 8, "{order:?}");
-        let (job_zid, config) = last_record(&f);
-        assert_eq!(job_zid, zid);
-        let rule = match zid {
-            323 => "all_comments/1",
-            324 => "all_but_moderated_out/1",
-            _ => "participant_visible/1",
-        };
-        let (tids, digest) = expected_under(&mut c, zid, rule);
-        assert_eq!(config["selection"], rule, "{zid}");
-        assert_eq!(config["exclude_comment_selections"], false);
-        let shadow = &config["shadow"];
-        assert_eq!(shadow["schema"], "delphi-shadow/2");
-        assert_eq!(shadow["selection"], rule, "{zid}");
-        assert_eq!(shadow["selection_sha256"], digest.as_str(), "{zid}");
-        assert_eq!(shadow["selected"], tids.len() as i64, "{zid}");
-        assert_eq!(shadow["comments"], 40, "every comment is embedded");
-    }
-    assert_eq!(order, [321, 322, 323, 324]);
-    let selected: Vec<Value> = f
-        .jobs()
-        .iter()
-        .map(|j| j.3["shadow"]["selected"].clone())
-        .collect();
+    let mut s = Scheduler::new(&cfg).unwrap();
+    let runs = drain(&f, &mut s);
     assert_eq!(
-        selected,
-        [23, 23, 40, 30].map(Value::from),
-        "three rules, three sets"
+        pairs(&runs),
+        [
+            (321, "participant_visible/1"),
+            (322, "participant_visible/1"),
+            (323, "participant_visible/1"),
+            (321, "all_comments/1"),
+            (321, "all_but_moderated_out/1"),
+            (322, "all_comments/1"),
+        ],
+        "every conversation's own run first, then the runs the lists add"
     );
-    // The moderated-out comments are laid out under all_comments/1 only; the
-    // unmoderated ones under both report rules, and not shown under strict
-    // moderation.
-    let (every, _) = expected_under(&mut c, 323, "all_comments/1");
-    let (not_out, _) = expected_under(&mut c, 324, "all_but_moderated_out/1");
-    let (visible, _) = expected_under(&mut c, 321, "participant_visible/1");
-    assert!((0..10).all(|t| every.contains(&t) && !not_out.contains(&t) && !visible.contains(&t)));
-    assert!((35..40).all(|t| every.contains(&t) && not_out.contains(&t) && !visible.contains(&t)));
-
-    // A moderation that keeps what its rule keeps runs nothing: under
-    // all_comments/1 a comment moderated out; under all_but_moderated_out/1
-    // an unmoderated comment moderated in. The same moderation of a comment
-    // participants are shown runs the conversation under that rule.
-    let before = s.state.totals.unchanged;
-    c.batch_execute(&format!(
-        "UPDATE comments SET mod = {REJECTED_COMMENT_MOD}, modified = now_as_millis() WHERE zid IN (322, 323) AND tid = 20;
-         UPDATE comments SET mod = 1, modified = now_as_millis() WHERE zid = 324 AND tid = 35;"
-    ))
-    .unwrap();
-    assert_eq!(next_admitted(&f, &mut s), Some(322));
-    assert_eq!(last_record(&f).1["selection"], "participant_visible/1");
-    assert_eq!(next_admitted(&f, &mut s), None);
-    assert_eq!(
-        s.state.totals.unchanged,
-        before + 2,
-        "323 and 324 read, unchanged"
-    );
-    assert_eq!(f.jobs().len(), 5);
-
-    // Every rule moved, none of the comments: 321 from what participants are
-    // shown to every comment, 323 from every comment to every comment but the
-    // moderated-out ones, 324 from that to what participants are shown, 322
-    // left where it was. A restart with the new lists, on the same state
-    // file, runs exactly the three again, each under its new rule.
-    s.state.save(&first.state_path).unwrap();
-    let second = f.config(&[
-        ("DELPHI_SHADOW_ALL_COMMENTS", "c321"),
-        ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", "c323"),
-        ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
-    ]);
-    let mut again = Scheduler::new(&second).unwrap();
-    let mut moved = Vec::new();
-    while let Some(zid) = next_admitted(&f, &mut again) {
-        moved.push(zid);
-        assert!(moved.len() <= 8, "{moved:?}");
-        let (_, config) = last_record(&f);
-        let rule = match zid {
-            321 => "all_comments/1",
-            323 => "all_but_moderated_out/1",
-            _ => "participant_visible/1",
-        };
-        let (tids, digest) = expected_under(&mut c, zid, rule);
-        assert_eq!(config["selection"], rule, "{zid}");
+    for (zid, selection, _, config) in &runs {
+        let (tids, digest) = expected_under(&mut c, *zid, selection);
+        assert_eq!(config["shadow"]["selection"], selection.as_str());
         assert_eq!(
             config["shadow"]["selection_sha256"],
             digest.as_str(),
-            "{zid}"
+            "{zid} {selection}"
         );
-        assert_eq!(config["shadow"]["selected"], tids.len() as i64, "{zid}");
+        assert_eq!(
+            config["shadow"]["selected"],
+            tids.len() as i64,
+            "{zid} {selection}"
+        );
+        assert_eq!(config["shadow"]["comments"], 40, "every comment embedded");
+        assert_eq!(config["exclude_comment_selections"], false);
+        let scope = match selection.as_str() {
+            "participant_visible/1" => "delphi",
+            "all_comments/1" => "delphi:all_comments",
+            _ => "delphi:all_but_moderated_out",
+        };
+        assert_eq!(config["result_scope"], scope, "{zid} {selection}");
+        if selection == "participant_visible/1" {
+            assert!(
+                config["shadow"].get("follows").is_none(),
+                "today's run, as it was"
+            );
+        } else {
+            assert_eq!(
+                config["shadow"]["follows"],
+                Value::Null,
+                "the first of its rule"
+            );
+        }
     }
-    assert_eq!(moved, [321, 323, 324], "322 kept its rule: not run");
-    let selected: Vec<Value> = f.jobs()[5..]
+    let selected: Vec<i64> = runs
         .iter()
-        .map(|j| j.3["shadow"]["selected"].clone())
+        .map(|r| r.3["shadow"]["selected"].as_i64().unwrap())
         .collect();
-    assert_eq!(selected, [40, 29, 24].map(Value::from));
-    for (zid, rule) in [
-        (321, "all_comments/1"),
-        (322, "participant_visible/1"),
-        (323, "all_but_moderated_out/1"),
-        (324, "participant_visible/1"),
-    ] {
-        let seen = again.state.conversations.get(&zid).unwrap();
-        assert_eq!(seen.selection.as_deref(), Some(rule), "{zid}");
-    }
-    // The lines say which rule each run named, and count the lists; never a
-    // code (the fixture's own check at its end).
-    let lines = scheduler::kept_lines();
-    assert!(lines.iter().any(|l| l.contains(r#""event":"rules""#)
-        && l.contains(r#""all_comments":1"#)
-        && l.contains(r#""all_but_moderated_out_found":1"#)));
-    assert!(lines.iter().any(|l| l.contains(r#""event":"admitted""#)
-        && l.contains(r#""selection":"all_but_moderated_out/1""#)));
-    f.lines.borrow_mut().extend(lines);
-}
-
-/// With no comment-rule list set, no rule is resolved and every run names
-/// what participants are shown, as before the lists existed; one
-/// conversation reached by two codes in the two lists admits nothing.
-#[test]
-fn no_list_reads_nothing_and_one_conversation_under_two_rules_admits_nothing() {
-    let f = Fixture::new();
-    three_states(&f, 331);
-    let cfg = f.config(&[("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0")]);
-    let mut s = Scheduler::new(&cfg).unwrap();
-    assert_eq!(next_admitted(&f, &mut s), Some(331));
-    assert!(s.rules.is_none(), "nothing resolved");
-    assert_eq!(f.jobs()[0].3["selection"], "participant_visible/1");
+    assert_eq!(
+        selected,
+        [23, 23, 23, 40, 30, 40],
+        "three rules, three sets of 321"
+    );
+    let jobs: std::collections::BTreeSet<&str> = runs.iter().map(|r| r.2.as_str()).collect();
+    assert_eq!(jobs.len(), 6, "six jobs");
+    // The conversation's own state entry is its run under what participants
+    // are shown, whatever else ran.
+    let seen = s.state.conversations.get(&321).unwrap();
+    assert_eq!(seen.selection.as_deref(), Some("participant_visible/1"));
+    assert_eq!(seen.job_id.as_deref(), Some(runs[0].2.as_str()));
+    assert!(drain(&f, &mut s).is_empty(), "nothing changed");
     let lines = scheduler::kept_lines();
     assert!(
-        !lines.iter().any(|l| l.contains(r#""event":"rules"#)
-            || l.contains("all_comments")
-            || l.contains("all_but_moderated_out")),
+        lines.iter().any(|l| l.contains(r#""event":"rules""#)
+            && l.contains(r#""all_comments":2"#)
+            && l.contains(r#""all_comments_found":2"#)
+            && l.contains(r#""all_but_moderated_out_found":1"#)),
         "{lines:?}"
     );
     f.lines.borrow_mut().extend(lines);
 
-    three_states(&f, 332);
-    f.superuser()
-        .execute(
-            "INSERT INTO zinvites(zid,zinvite) VALUES(332,'c332second')",
-            &[],
-        )
-        .unwrap();
-    f.codes.borrow_mut().push("c332second".into());
-    let two = f.config(&[
-        ("DELPHI_SHADOW_ALL_COMMENTS", "c332"),
-        ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", "c332second"),
+    // 321: a moderated-in comment moderated out. What participants are shown
+    // changes, and every comment but the moderated-out ones; every comment
+    // does not. 322: an unmoderated comment moderated in (strict): what
+    // participants are shown changes; every comment does not.
+    let lines = scheduler::kept_lines();
+    f.lines.borrow_mut().extend(lines);
+    c.batch_execute(&format!(
+        "UPDATE comments SET mod = {REJECTED_COMMENT_MOD}, modified = now_as_millis() WHERE zid = 321 AND tid = 20;
+         UPDATE comments SET mod = 1, modified = now_as_millis() WHERE zid = 322 AND tid = 35;"
+    ))
+    .unwrap();
+    let again = drain(&f, &mut s);
+    assert_eq!(
+        pairs(&again),
+        [
+            (321, "participant_visible/1"),
+            (322, "participant_visible/1"),
+            (321, "all_but_moderated_out/1"),
+        ]
+    );
+    assert_eq!(
+        again[2].3["shadow"]["follows"],
+        runs[4].2.as_str(),
+        "it follows its rule's last run"
+    );
+    let lines = scheduler::kept_lines();
+    let unchanged = |rule: &str| {
+        lines
+            .iter()
+            .filter(|l| {
+                l.contains(r#""event":"unchanged""#)
+                    && l.contains(&format!(r#""selection":"{rule}""#))
+            })
+            .count()
+    };
+    assert_eq!(
+        unchanged("all_comments/1"),
+        2,
+        "321 and 322 under every comment: read once each, unchanged"
+    );
+    assert_eq!(
+        unchanged("all_but_moderated_out/1"),
+        1,
+        "321's new run, read once after it"
+    );
+    f.lines.borrow_mut().extend(lines);
+}
+
+/// A code taken off a list and put back, at a rerun interval of zero and at
+/// the default, for each rule: put back with nothing changed, nothing runs
+/// (its last run is its rule's current one); put back after a comment
+/// changed, it runs; and a selection that changed and came back runs again,
+/// as a new job, never the superseded one that the queue's binding would hand
+/// back. The decision is read from the run history in Postgres: losing the
+/// state file changes none of it.
+#[test]
+fn a_code_taken_off_and_put_back_runs_only_when_its_selection_changed() {
+    for rule in ["all_comments/1", "all_but_moderated_out/1"] {
+        for rerun in ["0", "86400"] {
+            let f = Fixture::new();
+            three_states(&f, 331);
+            let mut c = f.superuser();
+            let key = if rule == "all_comments/1" {
+                "DELPHI_SHADOW_ALL_COMMENTS"
+            } else {
+                "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT"
+            };
+            let listed = f.config(&[(key, "c331"), ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", rerun)]);
+            let off = f.config(&[("DELPHI_SHADOW_RERUN_AFTER_SECONDS", rerun)]);
+            // Past the rerun window, at the default: the runs made so far are
+            // set two days back, as if two days had passed (the run records,
+            // and the state entry of the conversation's own run).
+            let wait = |c: &mut Client, s: &mut Scheduler<'_>| {
+                if rerun != "0" {
+                    c.batch_execute(
+                        "UPDATE delphi_jobs SET created_at = created_at - interval '2 days' WHERE zid = 331",
+                    )
+                    .unwrap();
+                    if let Some(seen) = s.state.conversations.get_mut(&331) {
+                        seen.admitted_at_ms = seen.admitted_at_ms.map(|t| t - 2 * 86_400_000);
+                    }
+                }
+            };
+            fn restart<'a>(cfg: &'a config::Config, s: Scheduler<'_>) -> Scheduler<'a> {
+                s.state.save(&cfg.state_path).unwrap();
+                Scheduler::new(cfg).unwrap()
+            }
+            let rule_runs = |f: &Fixture| -> Vec<(String, Value)> {
+                f.jobs()
+                    .into_iter()
+                    .filter(|j| j.3["selection"] == rule)
+                    .map(|j| (j.2, j.3))
+                    .collect()
+            };
+            let case = format!("{rule} rerun {rerun}");
+
+            let mut s = Scheduler::new(&listed).unwrap();
+            assert_eq!(
+                pairs(&drain(&f, &mut s)),
+                [(331, "participant_visible/1"), (331, rule)],
+                "{case}"
+            );
+            let first = rule_runs(&f);
+            assert_eq!(first.len(), 1);
+            // Off the list, then back on, nothing changed: nothing runs.
+            let mut s = restart(&off, s);
+            assert!(drain(&f, &mut s).is_empty(), "{case}: off");
+            wait(&mut c, &mut s);
+            let mut s = restart(&listed, s);
+            assert!(drain(&f, &mut s).is_empty(), "{case}: back, unchanged");
+            assert_eq!(rule_runs(&f).len(), 1, "{case}");
+
+            // Off the list, a comment's text changes, back on: it runs.
+            let mut s = restart(&off, s);
+            c.batch_execute(
+                "UPDATE comments SET txt = txt || ' (edited)', modified = now_as_millis() WHERE zid = 331 AND tid = 20",
+            )
+            .unwrap();
+            wait(&mut c, &mut s);
+            assert_eq!(
+                pairs(&drain(&f, &mut s)),
+                [(331, "participant_visible/1")],
+                "{case}: off, changed"
+            );
+            wait(&mut c, &mut s);
+            let mut s = restart(&listed, s);
+            assert_eq!(
+                pairs(&drain(&f, &mut s)),
+                [(331, rule)],
+                "{case}: back, changed"
+            );
+            let second = rule_runs(&f);
+            assert_eq!(second.len(), 2);
+            assert_eq!(second[1].1["shadow"]["follows"], first[0].0.as_str());
+            assert_ne!(
+                second[1].1["shadow"]["selection_sha256"],
+                first[0].1["shadow"]["selection_sha256"]
+            );
+
+            // The text changes back: the first run's selection again, which
+            // the second has superseded. A new job, not the first one.
+            c.batch_execute(
+                "UPDATE comments SET txt = replace(txt, ' (edited)', ''), modified = now_as_millis() WHERE zid = 331 AND tid = 20",
+            )
+            .unwrap();
+            wait(&mut c, &mut s);
+            assert_eq!(
+                pairs(&drain(&f, &mut s)),
+                [(331, "participant_visible/1"), (331, rule)],
+                "{case}: came back"
+            );
+            let third = rule_runs(&f);
+            assert_eq!(third.len(), 3, "{case}: a new job");
+            assert_ne!(third[2].0, first[0].0);
+            assert_eq!(
+                third[2].1["shadow"]["selection_sha256"], first[0].1["shadow"]["selection_sha256"],
+                "{case}: the same selection as the first run"
+            );
+            assert_eq!(third[2].1["shadow"]["follows"], second[1].0.as_str());
+
+            // The state file lost: the rule's decision is the same, read from
+            // the run history (the conversation's own run is read again and
+            // the queue hands back its last job, as today).
+            wait(&mut c, &mut s);
+            drop(s);
+            std::fs::remove_file(&listed.state_path).unwrap();
+            let mut lost = Scheduler::new(&listed).unwrap();
+            let after = drain(&f, &mut lost);
+            assert!(
+                after.iter().all(|r| r.1 == "participant_visible/1"),
+                "{case}: {:?}",
+                pairs(&after)
+            );
+            assert_eq!(
+                rule_runs(&f).len(),
+                3,
+                "{case}: nothing run again under the rule"
+            );
+            let lines = scheduler::kept_lines();
+            f.lines.borrow_mut().extend(lines);
+        }
+    }
+}
+
+/// A run a list added whose admission committed but whose scheduler lost
+/// track of it (a crash, a lost reply, a lost state file) is taken up from
+/// its run record and watched, not run a second time beside it.
+#[test]
+fn a_rule_run_already_in_the_queue_is_taken_up_not_run_twice() {
+    let f = Fixture::new();
+    three_states(&f, 341);
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_ALL_COMMENTS", "c341"),
         ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
     ]);
-    let mut t = Scheduler::new(&two).unwrap();
-    for _ in 0..3 {
-        let e = t.cycle().unwrap_err().to_string();
-        assert!(e.contains("one_conversation_two_rules"), "{e}");
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(next_run(&f, &mut s).map(|r| r.0), Some(341));
+    s.cycle().unwrap();
+    let flight = s.state.in_flight.clone().unwrap();
+    let jobs = f.jobs().len();
+    // The scheduler forgets it.
+    s.state.in_flight = None;
+    s.state.save(&cfg.state_path).unwrap();
+    let mut again = Scheduler::new(&cfg).unwrap();
+    again.cycle().unwrap();
+    let taken = again.state.in_flight.clone().unwrap();
+    assert_eq!(taken.job_id, flight.job_id, "the same job, taken up");
+    assert_eq!(f.jobs().len(), jobs, "nothing admitted beside it");
+    f.cancel(&taken.job_id);
+    again.cycle().unwrap();
+    assert!(again.state.in_flight.is_none());
+    assert!(drain(&f, &mut again).is_empty());
+    assert_eq!(f.jobs().len(), jobs);
+}
+
+/// The resolved codes only nominate. A code that names another conversation
+/// by the time a run would be admitted (here moved to 352) queues nothing on
+/// the old one: the admission's census snapshot finds no listed code naming
+/// it, the resolution is read again, and the run goes to the conversation the
+/// code names now. A code that names no conversation at first and later
+/// does (an alias added) adds its rule at the next resolution; a second code
+/// of a conversation already on the same list is one job, said in the log.
+#[test]
+fn a_stale_code_queues_nothing_and_aliases_are_one_job_per_list() {
+    let f = Fixture::new();
+    three_states(&f, 351);
+    three_states(&f, 352);
+    let mut c = f.superuser();
+    c.batch_execute(
+        "INSERT INTO zinvites(zid,zinvite) VALUES(351,'moved351');
+         INSERT INTO zinvites(zid,zinvite) VALUES(351,'alias351');",
+    )
+    .unwrap();
+    for code in ["moved351", "alias351", "later351"] {
+        f.codes.borrow_mut().push(code.into());
     }
-    assert!(t.state.in_flight.is_none());
-    assert_eq!(f.jobs().len(), 1, "nothing admitted, 332 nor any other");
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_ALL_COMMENTS", "moved351 alias351 c351"),
+        ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", "later351"),
+        ("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    assert_eq!(
+        pairs(&drain(&f, &mut s)),
+        [
+            (351, "participant_visible/1"),
+            (352, "participant_visible/1"),
+            (351, "all_comments/1"),
+        ],
+        "three codes of 351 in one list: one job; later351 names nothing yet"
+    );
+    let lines = scheduler::kept_lines();
+    assert!(
+        lines.iter().any(|l| l.contains(r#""event":"rules""#)
+            && l.contains(r#""all_comments":3"#)
+            && l.contains(r#""all_comments_found":1"#)
+            && l.contains(r#""all_comments_repeated":2"#)
+            && l.contains(r#""all_but_moderated_out_found":0"#)),
+        "{lines:?}"
+    );
+    f.lines.borrow_mut().extend(lines);
+
+    // Every code of 351 but one is removed and the one left is moved to 352;
+    // 351's comments change. The resolution held is a day old in nothing but
+    // the codes: 351 is nominated, refused at its census, and nothing is
+    // queued under the rule for it.
+    c.batch_execute(
+        "DELETE FROM zinvites WHERE zinvite IN ('alias351', 'c351');
+         UPDATE zinvites SET zid = 352 WHERE zinvite = 'moved351';
+         UPDATE comments SET txt = txt || ' (edited)', modified = now_as_millis() WHERE zid = 351 AND tid = 20;",
+    )
+    .unwrap();
+    // The cycle that finds it stale queues nothing; the next reads the codes
+    // again and runs the conversation the code names now.
+    assert_eq!(pairs(&drain(&f, &mut s)), [(351, "participant_visible/1")]);
+    let lines = scheduler::kept_lines();
+    assert!(
+        lines.iter().any(|l| l.contains(r#""event":"rules_stale""#)),
+        "{lines:?}"
+    );
+    f.lines.borrow_mut().extend(lines);
+    assert_eq!(pairs(&drain(&f, &mut s)), [(352, "all_comments/1")]);
+    assert!(
+        !f.jobs().iter().any(|j| j.1 == 351
+            && j.3["selection"] == "all_comments/1"
+            && j.3["shadow"]["follows"] != Value::Null),
+        "nothing for 351 under the rule after the code moved"
+    );
+    let lines = scheduler::kept_lines();
+    assert_eq!(
+        lines
+            .iter()
+            .filter(|l| l.contains(r#""event":"rules""#))
+            .count(),
+        1
+    );
+    f.lines.borrow_mut().extend(lines);
+
+    // An alias added later: at the next resolution it adds its rule.
+    c.batch_execute("INSERT INTO zinvites(zid,zinvite) VALUES(352,'later351')")
+        .unwrap();
+    if let Some((day, _)) = s.rules.as_mut() {
+        *day -= 1;
+    }
+    assert_eq!(
+        pairs(&drain(&f, &mut s)),
+        [(352, "all_but_moderated_out/1")]
+    );
+    let lines = scheduler::kept_lines();
+    f.lines.borrow_mut().extend(lines);
+}
+
+/// With both lists absent or empty nothing is resolved and nothing is read
+/// for them, no line names them, and every run's admission is what it was:
+/// the same configuration, scope and key as the admission without them.
+#[test]
+fn with_no_list_every_run_is_as_before_and_nothing_is_read_for_them() {
+    let mut configs = Vec::new();
+    for lists in [
+        &[][..],
+        &[
+            ("DELPHI_SHADOW_ALL_COMMENTS", ""),
+            ("DELPHI_SHADOW_ALL_BUT_MODERATED_OUT", " "),
+        ][..],
+    ] {
+        let f = Fixture::new();
+        three_states(&f, 361);
+        let mut extra = vec![("DELPHI_SHADOW_RERUN_AFTER_SECONDS", "0")];
+        extra.extend_from_slice(lists);
+        let cfg = f.config(&extra);
+        let mut s = Scheduler::new(&cfg).unwrap();
+        let census =
+            db::read_only(&mut f.superuser(), 30_000, |tx| db::comment_set(tx, 361)).unwrap();
+        let expected = plan::admission(361, &census, Some(plan::Set::Current), None);
+        assert_eq!(expected.scope, config::SCOPE);
+        assert_eq!(
+            expected.key,
+            format!("shadow:first:361:{}", &census.selection_digest[..48])
+        );
+        let runs = drain(&f, &mut s);
+        assert_eq!(pairs(&runs), [(361, "participant_visible/1")]);
+        assert!(s.rules.is_none(), "nothing resolved");
+        let mut stored = runs[0].3.clone();
+        let o = stored.as_object_mut().unwrap();
+        assert_eq!(o.remove("result_scope"), Some(Value::from("delphi")));
+        assert_eq!(o.remove("result_backend"), Some(Value::from("postgres")));
+        assert_eq!(
+            stored, expected.config,
+            "the run record's configuration is the admission's"
+        );
+        let lines = scheduler::kept_lines();
+        assert!(
+            !lines.iter().any(|l| l.contains(r#""event":"rules"#)
+                || l.contains("all_comments")
+                || l.contains("all_but_moderated_out")
+                || l.contains("follows")),
+            "{lines:?}"
+        );
+        f.lines.borrow_mut().extend(lines);
+        configs.push(stored);
+    }
+    assert_eq!(configs[0], configs[1], "absent and empty are the same");
 }
 
 /// Admit, record and cancel the next run; the zid admitted (None: nothing).

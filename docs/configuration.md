@@ -331,28 +331,45 @@ cancels unfinished nodes through the queue's fenced management operation.
 
 ### Delphi Shadow Comment Rules
 
-Every Delphi shadow run embeds every comment of its conversation, and lays out
-(UMAP), clusters (EVoC) and names the comments of one rule. A conversation has
-one rule at a time, chosen by the scheduler's two lists of conversation codes
-(read as `DELPHI_SHADOW_BENCHMARK` is: commas or white space, a repeat kept at
-its first place, an entry that is not 1 to 64 letters and digits refused at
-startup by its position). Both are empty by default, and then every run is as
-it was.
+Every Delphi shadow full-pipeline run embeds every comment of its
+conversation, and lays out (UMAP), clusters (EVoC) and names the comments of
+one rule. Every conversation the shadow runs is run under
+`participant_visible/1`. Two lists of conversation codes add runs under the
+other rules; they replace nothing. Both are read as `DELPHI_SHADOW_BENCHMARK`
+is: commas or white space, a repeat kept at its first place, an entry that is
+not 1 to 64 letters and digits refused at startup by its position. Both are
+empty by default, and then every run is as it was.
 
-| Rule | Lays out | Chosen by |
+| Rule | Lays out | Run for |
 |---|---|---|
-| `participant_visible/1` | what participants are shown (the server's participant comment list) | being in neither list |
-| `all_comments/1` | every comment: unmoderated, moderated in and moderated out | `DELPHI_SHADOW_ALL_COMMENTS` |
-| `all_but_moderated_out/1` | every comment but the moderated-out ones, whatever strict moderation says | `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` |
+| `participant_visible/1` | what participants are shown (the server's participant comment list) | every conversation the shadow runs |
+| `all_comments/1` | every comment: unmoderated, moderated in and moderated out | the conversations `DELPHI_SHADOW_ALL_COMMENTS` lists, as well |
+| `all_but_moderated_out/1` | every comment but the moderated-out ones, whatever strict moderation says | the conversations `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT` lists, as well |
 
-A code in both lists is refused at startup; two codes of one conversation in
-the two lists stop admission until one is removed. A list chooses a
-conversation's rule, not whether it runs: it still runs only when the
+A conversation on both lists runs under all three rules. Each (conversation,
+rule) is its own job:
+- its own admission key and run record, which names the rule
+  (`config_effective.selection`, with the digest and count of what it lays
+  out);
+- its own publication scope (`delphi`, `delphi:all_comments`,
+  `delphi:all_but_moderated_out`), so no rule's results replace another's;
+- its own decision whether anything changed, read from its newest run in the
+  database.
+
+A run under a list's rule is made when what that rule keeps has changed since
+its newest run, within the same rerun interval. A moderation that does not
+change what a rule keeps runs nothing under it. A selection that changed and
+changed back runs again, because the run it would return to has been
+superseded. Two codes of one conversation in one list are one run.
+
+A list adds runs, not candidates: a listed conversation is run only when the
 benchmark, featured or current set picks it, within the same comment cap,
-pacing, time and storage limits. Each run's record names its rule
-(`config_effective.selection`). Moving a conversation to another rule runs it
-again at its next turn (after the rerun window); a moderation that does not
-change what its rule keeps runs nothing. No reader serves these runs.
+pacing, time and storage limits, after the sets' own runs. Taking a code off a
+list stops new runs under that rule and deletes nothing. Every run under a
+list's rule checks, in the same database snapshot as its census, that a code
+of that list still names the conversation; when none does, nothing is queued
+and the codes are read again. The job-graph path is separate and follows none
+of these rules. No reader serves these runs.
 
 ### Delphi Shadow Resources
 
