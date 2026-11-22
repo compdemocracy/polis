@@ -69,15 +69,30 @@ def project_and_cluster(document_vectors, seed=DEFAULT_SEED):
     # Generate 2D projection with UMAP
     logger.info("Generating 2D projection with UMAP...")
     with step_log.step("umap", n_comments=int(len(document_vectors))):
-        document_map = UMAP(n_components=2, metric="cosine", random_state=seed).fit_transform(
-            document_vectors
-        )
+        reducer = UMAP(n_components=2, metric="cosine", random_state=seed)
+        document_map = reducer.fit_transform(document_vectors)
+    _note_umap(reducer)
     with step_log.step("evoc", n_comments=int(len(document_vectors))) as facts:
         cluster_layers = _cluster(document_vectors, seed, facts)
         facts["layers"] = len(cluster_layers)
         facts["clusters"] = [int(len(np.unique(layer[layer >= 0]))) for layer in cluster_layers]
         facts["numba_threading_layer"] = _threading_layer()
     return document_map, cluster_layers
+
+
+def _note_umap(reducer):
+    """The parameters UMAP ran with, read back from it, for the run's record
+    (step_log.note: kept only while a caller records the run's steps)."""
+    from polismath import step_log
+
+    if not step_log.recording():
+        return
+    import umap
+
+    params = reducer.get_params()
+    step_log.note("umap", package_version=getattr(umap, "__version__", None),
+                  **{k: params.get(k) for k in ("n_components", "metric", "n_neighbors", "min_dist", "spread",
+                                                 "init", "n_epochs", "learning_rate", "random_state")})
 
 
 def _threading_layer():
@@ -94,7 +109,11 @@ def _cluster(document_vectors, seed, facts):
     """EVōC's layers (KMeans and agglomerative layers if EVōC fails), seeded."""
     import evoc
 
+    from polismath import step_log
+
     facts["fallback"] = False
+    step_log.note("clustering", algorithm="evoc", package_version=getattr(evoc, "__version__", None),
+                  min_samples=5, seed=seed)
 
     # Cluster with EVōC. It is built and seeded before the try: an argument it
     # refuses, or a failure to seed it, raises instead of falling back to KMeans.
@@ -120,6 +139,8 @@ def _cluster(document_vectors, seed, facts):
 
         logger.info("Falling back to KMeans clustering...")
         facts["fallback"] = True
+        step_log.note("clustering", algorithm="kmeans+agglomerative fallback", seed=seed,
+                      kmeans_clusters=5, agglomerative_clusters=[3, 2])
         kmeans = KMeans(n_clusters=5, random_state=seed)
         cluster_labels = kmeans.fit_predict(document_vectors)
 
@@ -160,6 +181,10 @@ def characterize_comment_clusters(cluster_layer, comment_texts):
     unique_clusters = unique_clusters[unique_clusters >= 0]  # Remove noise points (-1)
 
     # Create TF-IDF vectorizer
+    from polismath import step_log
+
+    step_log.note("keywords", vectorizer="CountVectorizer", max_features=1000, stop_words="english",
+                  weighting="TfidfTransformer")
     vectorizer = CountVectorizer(max_features=1000, stop_words="english")
     transformer = TfidfTransformer()
 

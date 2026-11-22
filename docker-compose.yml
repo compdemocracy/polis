@@ -494,6 +494,10 @@ services:
       - DELPHI_SKIP_DATAMAPPLOT=1
       - DELPHI_LOCAL_OUTPUT_CLEANUP=1
       - DELPHI_STEP_LOG=1
+      # Off unless exactly 1: each run then stores its topic map in its own
+      # result batch (polismath/delphi_storage/topic_map.py; needs migration
+      # 000049 applied).
+      - DELPHI_TOPIC_MAP_DOCUMENT=${DELPHI_TOPIC_MAP_DOCUMENT:-0}
     volumes:
       - delphi-shadow-state:/var/lib/delphi-shadow
     tmpfs:

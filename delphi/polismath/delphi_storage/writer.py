@@ -13,8 +13,8 @@ from pathlib import Path
 import re
 import sqlite3
 from types import SimpleNamespace
-from .codec import FAMILIES, dumps, encode_family, item_from_python, to_python, encode_item
-from .postgres import RESULT_FAMILIES, decode_rows
+from .codec import dumps, encode_family, item_from_python, key_of, to_python, encode_item
+from .postgres import RESULT_FAMILIES, TOPIC_MAP_FAMILY, decode_rows
 from .resource import _clauses
 
 EMBEDDINGS_FAMILY = 'Delphi_CommentEmbeddings'
@@ -55,6 +55,10 @@ class WriterResource:
             if row is None:
                 self.connection.execute('INSERT INTO binding VALUES(?)',(binding,))
                 for family, rows in base['families'].items():
+                    # A map an earlier run stored is that run's: this run's
+                    # scratch never holds it (the step writes this run's own).
+                    if family == TOPIC_MAP_FAMILY:
+                        continue
                     if family not in RESULT_FAMILIES:
                         raise ValueError('unsupported base family')
                     # With the flag on, embeddings live in the per-row table; never
@@ -75,10 +79,10 @@ class WriterResource:
 
     @staticmethod
     def key(family, item):
-        return dumps([item[name] for name,_ in FAMILIES[family]['key']])
+        return dumps([item[name] for name,_ in key_of(family)])
 
     def Table(self, name):
-        if name not in RESULT_FAMILIES and name != 'Delphi_JobQueue':
+        if name not in RESULT_FAMILIES and name not in ('Delphi_JobQueue', TOPIC_MAP_FAMILY):
             raise ValueError('unsupported writer family')
         return WriterTable(self,name)
 
@@ -108,9 +112,8 @@ class WriterResource:
         # alone is not copied: readers serve it from the nearest earlier batch
         # that holds it, so each batch names the run that produced its families.
         produced = {row[0] for row in self.connection.execute('SELECT family FROM dirty')}
-        for family in sorted(RESULT_FAMILIES & produced):
-            rows = [json.loads(row[0]) for row in self.connection.execute('SELECT item FROM items WHERE family=?',(family,))]
-            wire = encode_family(family,[item_from_python(row) for row in [row for tagged in rows for row in decode_rows(family,[tagged])]])
+        for family in sorted((RESULT_FAMILIES | {TOPIC_MAP_FAMILY}) & produced):
+            wire = self.family_wire(family)
             total += len(wire)
             if len(wire)>67108864 or total>268435456:
                 raise ValueError('result spool byte limit')
@@ -120,6 +123,12 @@ class WriterResource:
                 f.write(wire)
             result[family] = dict(file=filename,sha256=hashlib.sha256(wire).hexdigest())
         return result
+
+    def family_wire(self, family):
+        """The codec file of one family as this attempt holds it now: the bytes
+        `spool()` writes for it."""
+        rows = [json.loads(row[0]) for row in self.connection.execute('SELECT item FROM items WHERE family=?',(family,))]
+        return encode_family(family,[item_from_python(row) for row in [row for tagged in rows for row in decode_rows(family,[tagged])]])
 
     def put_comment_embeddings(self, rows, model, dims):
         """Collect this run's embeddings for the per-row table (flag on only).
@@ -180,7 +189,7 @@ class WriterTable:
         return self.resource.describe_table(TableName=self.name)
 
     def _writable(self, kwargs):
-        if self.name not in RESULT_FAMILIES:
+        if self.name not in RESULT_FAMILIES and self.name != TOPIC_MAP_FAMILY:
             raise RuntimeError('queue state belongs to polis-jobs')
         if kwargs.get('ConditionExpression'):
             raise ValueError('conditional result writes are not supported')
@@ -245,7 +254,7 @@ class WriterTable:
         tagged = [json.loads(row[0]) for row in self.resource.connection.execute('SELECT item FROM items WHERE family=?',(self.name,))]
         items = [row for item in tagged for row in decode_rows(self.name,[item])]
         items = [item for item in items if matches(item,conditions)]
-        keys = [k for k,_ in FAMILIES[self.name]['key']]
+        keys = [k for k,_ in key_of(self.name)]
         indexes={'ConversationIndex':'created_at','ReportIdTimestampIndex':'timestamp','zid-created_at-index':'created_at'}
         index=params.get('IndexName')
         if index and index not in indexes:raise ValueError('unsupported result index')

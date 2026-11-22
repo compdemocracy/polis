@@ -529,7 +529,8 @@ impl ResultFamily {
                 | RunFamily::CommentClustersFeatures
                 | RunFamily::CommentClustersLlmTopicNames
                 | RunFamily::TopicStats
-                | RunFamily::Visualizations,
+                | RunFamily::Visualizations
+                | RunFamily::TopicMapDocument,
             )
             | Self::Legacy(
                 LegacyFamily::PcaConversationConfig

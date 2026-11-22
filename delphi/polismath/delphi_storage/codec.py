@@ -79,6 +79,15 @@ FAMILIES: Dict[str, Dict[str, Any]] = {
     "report_narrative_store": {"id": "T20", "key": [("rid_section_model", "S"), ("timestamp", "S")]},
 }
 
+# Result families PostgreSQL stores that never had a DynamoDB table, written
+# and read by the same rules. Kept apart from FAMILIES, which is the DynamoDB
+# catalogue: the importers, the cross-language golden files and the DynamoDB
+# round trips enumerate it, and none of these families can come from DynamoDB.
+POSTGRES_FAMILIES: Dict[str, Dict[str, Any]] = {
+    # The topic map a run stores (catalog row 000049): one row per part.
+    "Delphi_TopicMapDocument": {"key": [("conversation_id", "S"), ("part", "S")]},
+}
+
 _TAGS = ("S", "N", "B", "BOOL", "NULL", "L", "M", "SS", "NS", "BS")
 _NUMBER = re.compile(r"^([+-]?)([0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE]([+-]?[0-9]+))?$")
 _B64 = re.compile(r"^[A-Za-z0-9+/]*={0,2}$")
@@ -297,6 +306,8 @@ def _unb64(s: Any) -> bytes:
 
 
 def _family(name: str) -> Dict[str, Any]:
+    if name in POSTGRES_FAMILIES:
+        return POSTGRES_FAMILIES[name]
     if name not in FAMILIES:
         raise CodecError(f"unknown family {name!r}")
     return FAMILIES[name]
@@ -325,6 +336,11 @@ def encode_item(family: str, item: Dict[str, Any]) -> str:
         tagged[k] = _encode_av(v)
     _key_json(family, tagged)
     return dumps(tagged)
+
+
+def key_of(family: str) -> List[Tuple[str, str]]:
+    """A family's key, (attribute name, key type) in order."""
+    return _family(family)["key"]
 
 
 def header(family: str) -> str:
@@ -358,7 +374,8 @@ def decode_family(data: bytes) -> Tuple[str, List[Dict[str, Any]]]:
     lines = text[:-1].split("\n")
     head = json.loads(lines[0])
     family = head.get("family") if isinstance(head, dict) else None
-    if not isinstance(head, dict) or head.get("codec") != CODEC_VERSION or family not in FAMILIES:
+    if (not isinstance(head, dict) or head.get("codec") != CODEC_VERSION
+            or (family not in FAMILIES and family not in POSTGRES_FAMILIES)):
         raise CodecError(f"bad header {lines[0]!r}")
     if lines[0] != header(family):
         raise CodecError("header is not canonical")

@@ -291,6 +291,7 @@ def generate_cluster_topic_labels(
     max_wait_seconds: Optional[float] = None,
     sleep: Callable[[float], None] = None,
     use_ollama=False,  # Deprecated alias — forces the ollama provider.
+    origins: Optional[Dict[int, str]] = None,
 ):
     """
     Generate topic labels for clusters.
@@ -301,14 +302,28 @@ def generate_cluster_topic_labels(
     on any LLM failure, conventional keyword-based labels are returned.
 
     Returns a dict mapping cluster_id -> topic label string.
+
+    When ``origins`` is a dict, it is filled with how each returned label was
+    made, decided here where the label is: ``"model"`` when the provider's
+    response, cleaned, is the label, and ``"fallback"`` when the label is a
+    fallback (``Topic <n>`` after a missing or empty response, or a
+    conventional keyword label). The labels returned are the same either way.
     """
+
+    def _conventional():
+        labels = _conventional_labels(cluster_characteristics)
+        if origins is not None:
+            origins.clear()
+            origins.update({cluster_id: "fallback" for cluster_id in labels})
+        return labels
+
     if use_ollama:
         # Backwards-compatible alias: force the ollama provider for this call.
         provider_type = "ollama"
         name_topics = True
 
     if not (name_topics and comment_texts is not None and layer is not None):
-        return _conventional_labels(cluster_characteristics)
+        return _conventional()
 
     provider_type = resolve_provider_type(provider_type)
 
@@ -329,7 +344,7 @@ def generate_cluster_topic_labels(
         )
 
         if not prompts:
-            return _conventional_labels(cluster_characteristics)
+            return _conventional()
 
         if provider.supports_batching:
             logger.info(
@@ -350,8 +365,12 @@ def generate_cluster_topic_labels(
         for cluster_id in prompts:
             raw = raw_labels.get(cluster_id)
             fallback = f"Topic {cluster_id}"
-            cleaned = clean_topic_name(raw, fallback) if raw else fallback
-            cluster_labels[cluster_id] = _prefixed(layer_idx, cluster_id, cleaned)
+            cleaned = clean_topic_name(raw, "") if raw else ""
+            if origins is not None:
+                origins[cluster_id] = "model" if cleaned else "fallback"
+            cluster_labels[cluster_id] = _prefixed(
+                layer_idx, cluster_id, cleaned or fallback
+            )
 
         logger.info(
             f"Generated {len(cluster_labels)} topic names for layer {layer_idx} "
@@ -365,4 +384,4 @@ def generate_cluster_topic_labels(
             "falling back to conventional labels",
             exc_info=True,
         )
-        return _conventional_labels(cluster_characteristics)
+        return _conventional()

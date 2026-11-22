@@ -11,11 +11,18 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY --from=queue-rs . .
+# polis-topic-map, the topic map's generator, is built beside them: a run
+# whose daemon sets DELPHI_TOPIC_MAP_DOCUMENT=1 calls it to store its map
+# (polismath/delphi_storage/topic_map.py); `polis-topic-map from-run` makes
+# the map of a run stored before that.
 RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
-    cargo build --release --locked --bin polis-jobs --bin polis-delphi-shadow \
+    cargo build --release --locked -p polis-queue-adapter -p polis-topic-map \
+      --bin polis-jobs --bin polis-delphi-shadow --bin polis-topic-map \
  && cp target/release/polis-jobs /polis-jobs \
  && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
- && /polis-jobs --version && /polis-delphi-shadow --version
+ && cp target/release/polis-topic-map /polis-topic-map \
+ && /polis-jobs --version && /polis-delphi-shadow --version \
+ && /polis-topic-map 2>&1 | grep -q "polis-topic-map store"
 
 # Explicit reference binary; never copied into the final image.
 FROM polis-jobs AS polis-jobs-test
@@ -158,6 +165,9 @@ COPY --from=polis-jobs /polis-jobs /usr/local/bin/polis-jobs
 # the profile-gated delphi-shadow-scheduler service; it exits 0 at once unless
 # DELPHI_SHADOW_ENABLED=1.
 COPY --from=polis-jobs /polis-delphi-shadow /usr/local/bin/polis-delphi-shadow
+# The topic map's generator. Nothing runs it unless a run's daemon sets
+# DELPHI_TOPIC_MAP_DOCUMENT=1.
+COPY --from=polis-jobs /polis-topic-map /usr/local/bin/polis-topic-map
 
 # Copy source code from builder stage (already built into the package)
 COPY --from=builder /app/polismath/ ./polismath/
