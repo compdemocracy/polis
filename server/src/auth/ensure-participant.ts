@@ -61,6 +61,29 @@ interface ParticipantCreationResult {
   conversationId?: string;
 }
 
+/**
+ * What this middleware did for one request, as the `participant_reply` line
+ * reports it. Each field is set by a plain assignment at the point the fact
+ * becomes true; nothing here is read back by the middleware itself, so
+ * recording it changes no decision.
+ */
+interface ParticipantReplyFacts {
+  /** The token's conversation against this one; unset until decided. */
+  tokenScope?: "this" | "other" | "none";
+  /** This request inserted a users row (createAnonUser returned). */
+  newUser: boolean;
+  /** This request inserted the participant row. */
+  newParticipant: boolean;
+  /** This request wrote an xid binding, or a read found one. */
+  xid: "bound" | "existing" | "none";
+  /** The kind of participant token this request issued. */
+  token: "none" | "anonymous" | "xid" | "standard_user";
+}
+
+function _newParticipantReplyFacts(): ParticipantReplyFacts {
+  return { newUser: false, newParticipant: false, xid: "none", token: "none" };
+}
+
 interface EnsureParticipantOptions {
   /**
    * Whether to create a new participant if one doesn't exist
@@ -208,7 +231,8 @@ async function _requireXidAllowed(
  */
 async function _handleUserIdentification(
   req: RequestWithP,
-  zid: number
+  zid: number,
+  facts: ParticipantReplyFacts = _newParticipantReplyFacts()
 ): Promise<number> {
   const uid = req.p.uid;
 
@@ -231,6 +255,7 @@ async function _handleUserIdentification(
 
     if (existingXidRecords && existingXidRecords.length > 0) {
       // XID user already exists
+      facts.xid = "existing";
       return existingXidRecords[0].uid;
     }
 
@@ -239,12 +264,14 @@ async function _handleUserIdentification(
     // exist yet, so the FK (zid, pid) → participants(zid, pid) can't be
     // satisfied. xid registration happens after participant creation below.
     const newUid = await createAnonUser();
+    facts.newUser = true;
 
     return newUid;
   }
 
   // Create anonymous user
   const newUid = await createAnonUser();
+  facts.newUser = true;
   req.p.uid = newUid; // Set uid in request for subsequent middleware
   return newUid;
 }
@@ -316,7 +343,8 @@ async function _issueJWTIfNeeded(
   pid: number,
   zid: number,
   isNewlyCreated: boolean,
-  needsNewJWT: boolean
+  needsNewJWT: boolean,
+  facts: ParticipantReplyFacts = _newParticipantReplyFacts()
 ): Promise<{ token?: string; conversationId?: string }> {
   // Only issue JWT for:
   // 1. Newly created participants
@@ -385,6 +413,12 @@ async function _issueJWTIfNeeded(
       oidc_sub: req.p.oidc_sub,
     });
 
+    facts.token =
+      tokenType === "StandardUser"
+        ? "standard_user"
+        : tokenType === "XID"
+        ? "xid"
+        : "anonymous";
     return { token, conversationId };
   } catch (error) {
     logger.error("Failed to issue JWT:", error);
@@ -397,7 +431,8 @@ async function _issueJWTIfNeeded(
  */
 async function _ensureParticipantInternal(
   req: RequestWithP,
-  options: EnsureParticipantOptions = {}
+  options: EnsureParticipantOptions = {},
+  facts: ParticipantReplyFacts = _newParticipantReplyFacts()
 ): Promise<ParticipantCreationResult> {
   const { createIfMissing = true, issueJWT = true, assigner } = options;
 
@@ -436,6 +471,12 @@ async function _ensureParticipantInternal(
     req,
     zid
   );
+  facts.tokenScope =
+    req.p.jwt_conversation_id === undefined
+      ? "none"
+      : req.p.jwt_conversation_mismatch
+      ? "other"
+      : "this";
   await _handleJWTConversationMismatch(req);
 
   if (req.p.jwt_conversation_mismatch) {
@@ -473,15 +514,16 @@ async function _ensureParticipantInternal(
       const existingXidRecords = await getXidRecord(req.p.xid, zid);
       if (existingXidRecords && existingXidRecords.length > 0) {
         uid = existingXidRecords[0].uid;
+        facts.xid = "existing";
       } else {
         // XID users should always be created on first visit, even in optional middleware
         // This is different from anonymous users because XIDs are explicit identifiers
-        uid = await _handleUserIdentification(req, zid);
+        uid = await _handleUserIdentification(req, zid, facts);
         isNewlyCreatedUser = true;
       }
     } else if (createIfMissing) {
       // For non-XID users, only create if createIfMissing is true
-      uid = await _handleUserIdentification(req, zid);
+      uid = await _handleUserIdentification(req, zid, facts);
       isNewlyCreatedUser = true;
     }
   }
@@ -546,6 +588,7 @@ async function _ensureParticipantInternal(
     const participantResult = await _getOrCreateParticipant(zid, uid, pid, req);
     pid = participantResult.pid;
     isNewlyCreatedParticipant = participantResult.isNewlyCreated;
+    facts.newParticipant = participantResult.isNewlyCreated;
 
     // Register the xid record now that the participant row exists.
     // This mirrors the order used by _joinWithZidOrSuzinvite and ensures
@@ -564,6 +607,9 @@ async function _ensureParticipantInternal(
           req.p.x_name,
           req.p.x_email
         );
+        facts.xid = "bound";
+      } else {
+        facts.xid = "existing";
       }
     }
   } else if ((pid === undefined || pid === -1) && uid !== undefined) {
@@ -587,7 +633,8 @@ async function _ensureParticipantInternal(
       pid,
       zid,
       isNewlyCreatedParticipant || isNewlyCreatedUser,
-      needsNewJWT
+      needsNewJWT,
+      facts
     );
     token = jwtResult.token;
     conversationId = jwtResult.conversationId;
@@ -615,6 +662,131 @@ async function _ensureParticipantInternal(
   };
 }
 
+/** The two routes whose requests the `participant_reply` line describes. */
+const PARTICIPANT_REPLY_ROUTES: Record<string, string> = {
+  "/api/v3/votes": "POST /api/v3/votes",
+  "/api/v3/comments": "POST /api/v3/comments",
+};
+
+type ParticipantReplyIdentity =
+  | "none"
+  | "xid"
+  | "anonymous_token"
+  | "xid_token"
+  | "standard_user_token"
+  | "account";
+
+/**
+ * How the request identified itself when it reached this middleware, before
+ * anything here changed req.p: a participant token by its kind, else a
+ * signed-in account (a uid set by the account middleware), else an xid in
+ * the request (an empty or whitespace-only one names nothing), else none.
+ * Reads req.p only; never throws.
+ */
+function _participantReplyIdentity(
+  req: RequestWithP
+): ParticipantReplyIdentity | undefined {
+  try {
+    const p = req.p;
+    if (p.xid_participant) return "xid_token";
+    if (p.anonymous_participant) return "anonymous_token";
+    if (p.standard_user_participant) return "standard_user_token";
+    if (p.uid !== undefined) return "account";
+    if (typeof p.xid === "string" && p.xid.trim() !== "") return "xid";
+    return "none";
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The refusal the middleware answered, from the error it caught, by the same
+ * tests its catch applies: the xid account refusal, the three 4xx refusals,
+ * and anything else (passed on to the error handler) as "error".
+ */
+function _participantReplyRefusal(error: unknown): string {
+  if (isXidAccountError(error)) return "xid_account";
+  const message = error instanceof Error ? error.message : undefined;
+  if (message === "polis_err_xid_required") return "xid_required";
+  if (message === "polis_err_xid_not_allowed") return "xid_not_allowed";
+  if (message === "polis_err_treevite_auth_required") return "treevite";
+  return "error";
+}
+
+const NO_REFUSAL = Symbol("no_refusal");
+
+/**
+ * One `participant_reply` line for a vote or a comment that nginx also
+ * copied to the read-only shadow service (the request carries nginx's
+ * X-Request-Id, 32 lowercase hex, the rule the `vote_reply` line applies):
+ * what this middleware decided about the person, so the copy's would-be
+ * decision can be compared with it. Written after the decision (the reply
+ * to a refusal, or `next()` on success), with no await and no database work;
+ * it never throws. It carries the request id, the route, the conversation
+ * number and a closed set of facts: how the request identified itself
+ * (`node_identity`), the token's conversation against this one
+ * (`node_token_scope`), whether this request inserted a users row
+ * (`node_new_user`) or the participant row (`node_new_participant`), whether
+ * it wrote an xid binding or found one (`node_xid`), the kind of token it
+ * issued (`node_token`), and on a refusal which one (`node_refusal`). A value
+ * that does not exist is left out, never written as null. Never a user or
+ * participant number, an xid, a token or any part of one, an email, an
+ * address, a user agent or any text.
+ */
+function _participantReply(
+  req: RequestWithP,
+  identity: ParticipantReplyIdentity | undefined,
+  facts: ParticipantReplyFacts,
+  refused: unknown
+): void {
+  try {
+    const request_id = (req.headers as Record<string, unknown> | undefined)?.[
+      "x-request-id"
+    ];
+    if (typeof request_id !== "string" || !/^[0-9a-f]{32}$/.test(request_id)) {
+      return;
+    }
+    const routePath = (req as { route?: { path?: unknown } }).route?.path;
+    const route =
+      req.method === "POST" &&
+      typeof routePath === "string" &&
+      Object.prototype.hasOwnProperty.call(PARTICIPANT_REPLY_ROUTES, routePath)
+        ? PARTICIPANT_REPLY_ROUTES[routePath]
+        : undefined;
+    if (route === undefined) {
+      return;
+    }
+    const line: Record<string, unknown> = {
+      listener: "shadow",
+      route,
+      request_id,
+    };
+    const zid = req.p?.zid;
+    if (typeof zid === "number" && Number.isInteger(zid)) {
+      line.zid = zid;
+    }
+    if (identity !== undefined) {
+      line.node_identity = identity;
+    }
+    if (facts.tokenScope !== undefined) {
+      line.node_token_scope = facts.tokenScope;
+    }
+    line.node_new_user = facts.newUser;
+    line.node_new_participant = facts.newParticipant;
+    line.node_xid = facts.xid;
+    line.node_token = facts.token;
+    if (refused === NO_REFUSAL) {
+      logger.info("participant_reply", line);
+      return;
+    }
+    line.node_refusal = _participantReplyRefusal(refused);
+    if (line.node_refusal === "error") logger.error("participant_reply", line);
+    else logger.warn("participant_reply", line);
+  } catch {
+    // A log line never changes or fails a reply.
+  }
+}
+
 /**
  * Express middleware factory for ensuring participant exists
  *
@@ -627,8 +799,13 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
     res: Response,
     next: NextFunction
   ) {
+    // Captured for the participant_reply line before anything below changes
+    // req.p; neither is read by the middleware's own decisions.
+    const replyIdentity = _participantReplyIdentity(req);
+    const replyFacts = _newParticipantReplyFacts();
+    let replyRefused: unknown = NO_REFUSAL;
     try {
-      const result = await _ensureParticipantInternal(req, options);
+      const result = await _ensureParticipantInternal(req, options, replyFacts);
 
       // Store the result for use in the route handler
       req.p = req.p || {};
@@ -646,6 +823,7 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
 
       next();
     } catch (error) {
+      replyRefused = error;
       if (isXidAccountError(error)) {
         return respondToXidAccountError(res, error);
       }
@@ -680,6 +858,9 @@ export function ensureParticipant(options: EnsureParticipantOptions = {}) {
       } else {
         next(new Error("polis_err_participant_creation"));
       }
+    } finally {
+      // After the decision has been answered or handed on; never throws.
+      _participantReply(req, replyIdentity, replyFacts, replyRefused);
     }
   };
 }
