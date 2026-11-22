@@ -1196,9 +1196,16 @@ sleep 6
 expect_upstream server GET '/api/v3/delphi/topicMap?report_id=r1'
 handback=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/topicMap?report_id=r1' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
 [[ $handback == "HTTP/1.1 404" ]] || fail "Topic map handoff answered '$handback', expected Node's 404"
-docker rm -f "$p-node" >/dev/null
+# Its 503 (busy with another run, retry) reaches the client, not Node.
+docker rm -f "$p-rust" >/dev/null
+stub "$p-rust" polis-api 5100 503 "busy"
+sleep 6
+busy=$(docker exec "$p-proxy" wget -S -qO- 'http://127.0.0.1/api/v3/delphi/topicMap?report_id=r1' 2>&1 | grep -o 'HTTP/1.1 [0-9]*' | head -1 || true)
+[[ $busy == "HTTP/1.1 503" ]] || fail "Topic map busy answered '$busy', expected polis-api's 503"
+docker rm -f "$p-node" "$p-rust" >/dev/null
 stub "$p-node" server 5000 200 node
-echo "ok report topic map: off, unselected beside the Delphi reads, on/deduplicated, its template to the byte, methods/body, 502 hands back to Node's 404"
+stub "$p-rust" polis-api 5100 200 rust
+echo "ok report topic map: off, unselected beside the Delphi reads, on/deduplicated, its template to the byte, methods/body, 502 hands back to Node's 404, its 503 reaches the client"
 
 docker rm -f "$p-rust" >/dev/null
 stub "$p-rust" polis-api 5100 200 rust

@@ -41,6 +41,10 @@ postgres = "0.19"
 ryu-js = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
 
+# The report topic map's thread lowers its own CPU priority (delphi_topic_map.rs).
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
 [dev-dependencies]
 openssl = "0.10"
 serde = { version = "1", features = ["derive"] }

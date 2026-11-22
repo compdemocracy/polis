@@ -952,6 +952,7 @@ dependencies = [
  "cc",
  "httparse",
  "jsonwebtoken",
+ "libc",
  "md5",
  "openssl",
  "polis-auth",

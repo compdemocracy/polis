@@ -1323,8 +1323,11 @@ report_id`; a `job_id` that is not a canonical job id, names no run, or names
 another conversation's run is 404 `Job not found`. A report with nothing to
 draw is 200 `{"status":"success",…,"reason":…}` with one of `no_run`,
 `run_not_ready`, `no_positions`, `no_topics` or `too_few_comments` (the first
-view has no area: always so for one or two comments). A run over the bounds is
-422 `polis_err_topic_map_too_large`, never a truncated map.
+view has no area: always so for one or two comments). A run over the bounds
+(layer ids past 15 and an oversized run record included) is 422
+`polis_err_topic_map_too_large`, never a truncated map. When the route is full
+it answers 503 `polis_err_topic_map_busy` with `Retry-After: 1`, which nginx
+passes to the client.
 
 The map is computed when first asked, from three families the run already
 stores (`Delphi_UMAPGraph` node rows, `Delphi_CommentHierarchicalClusterAssignments`,
@@ -1334,23 +1337,43 @@ pointer, and kept in memory by job id (32 MiB and 256 runs at most): a run's
 families never change. The document carries no comment text (`points.text` is
 empty; the page fills it from the comments it holds) and an empty `title` and
 `attribution`, so it depends only on the run. The same run answers the same
-bytes, with the weak ETag every Express answer has. Bounds: 20,000 comments,
+bytes, with the weak ETag every Express answer has (computed once per run).
+Bounds: 20,000 comments,
 200,000 position rows, 20,000 topic rows, 16 layers, 32 MiB per stored family
-(checked in the statement), an 8 MiB run record and an 8 MiB document.
+(checked in the statement), an 8 MiB run record (checked in the statement) and
+a 2 MiB document; the cache counts each document with its compressed forms.
+Each answer in flight holds a copy of its document until it is written, as
+every route's answers do.
 
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
 `POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
 a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout and
-a 2 s statement timeout; the whole request is bounded at 4 s. Every read
-returns its connection before the map is computed; the computation runs on a
-blocking thread, one at a time in the process, and waiting for it holds neither
-a thread nor a connection. Nothing is shared with votes, comments or the next
-comment; the isolation test is
-`connection_bounds_topic_map_flood_leaves_participation_clear`.
+a 2 s statement timeout; a request's answer is bounded at 4 s.
+
+Admission comes before any read. A run that is not in memory is read and
+computed by one request at a time in the process; every other request for a
+run not in memory is answered 503 at once, having read nothing, and requests
+for the run already being read wait for it holding only a receiver. A request
+that finds no connection within 50 ms is answered 503 too. So at most one run's
+stored families (at most three 32 MiB codec files) are held outside the cache
+at any moment. The read returns its connection before anything is decoded.
+Decoding, the generator, the document's ETag and its gzip and deflate forms
+run on the route's own thread (`polis-topic-map`), one job at a time, at the
+lowest CPU priority on Linux (nice 19, its own thread only), so in a process
+with a CPU quota the participation routes' threads come first. A map in memory
+is answered by copying its prepared bytes: nothing proportional to its size is
+hashed or compressed on the runtime's threads (`route::json_prepared`, the
+same status, headers and bytes as `json_text`, which a test holds byte for
+byte). The run's read and computation run to their end whatever the request
+does, and keep their answer. Nothing is shared with votes, comments or the
+next comment; the isolation tests are
+`connection_bounds_topic_map_flood_leaves_participation_clear` and
+`connection_bounds_warm_topic_map_answers_leave_participation_clear`.
 `delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap`
-(computations, the most at once, cache entries and bytes) are on `/health`.
+(computations, the most at once, busy refusals, family bytes held now and at
+most, cache entries and bytes) are on `/health`.
 
 ### Statement importance (off by default)
 

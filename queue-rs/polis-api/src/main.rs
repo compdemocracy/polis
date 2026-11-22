@@ -2090,7 +2090,8 @@ mod health_tests {
             assert_eq!(body["delphiTopicMapFallback"], 0);
             assert_eq!(
                 body["delphiTopicMap"],
-                json!({"computed":0,"maxInFlight":0,"cacheEntries":0,"cacheBytes":0})
+                json!({"computed":0,"maxInFlight":0,"busy":0,"familyBytes":0,"maxFamilyBytes":0,
+                    "cacheEntries":0,"cacheBytes":0})
             );
             // The featured-participants route: its two counters, and every
             // hand-back reason by name, at zero.

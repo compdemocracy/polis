@@ -702,13 +702,32 @@ enum Ending {
 /// The compression middleware's `onHeaders` hook (`compression@1.5.2`, the
 /// copy connect resolves), then Node's framing. `installed` is false for the
 /// responses sent before `express.compress()` is in the chain.
-fn finish(req: &Request, mut res: Res, ending: Ending, installed: bool) -> Outgoing {
-    let (chunk, length) = match &ending {
+fn finish(req: &Request, res: Res, ending: Ending, installed: bool) -> Outgoing {
+    finish_with(req, res, ending, installed, |coding, chunk| match coding {
+        Coding::Identity => None,
+        Coding::Gzip => compress::node_stream(chunk, true).ok(),
+        Coding::Deflate => compress::node_stream(chunk, false).ok(),
+    })
+}
+
+/// [`finish`], with the compressed body the negotiated coding needs supplied
+/// by `compressed`: [`finish`] compresses the body there and then;
+/// [`json_prepared`] hands over the forms it computed ahead of time.
+fn finish_with(
+    req: &Request,
+    mut res: Res,
+    ending: Ending,
+    installed: bool,
+    compressed: impl FnOnce(Coding, &[u8]) -> Option<Vec<Vec<u8>>>,
+) -> Outgoing {
+    // The body is moved, not copied: `Ending::End`'s bytes are the ones sent
+    // when nothing is compressed, and what is compressed otherwise.
+    let (chunk, length, write_head) = match ending {
         Ending::End(chunk) => {
             let estimate = res.get("Content-Length").is_none().then_some(chunk.len());
-            (chunk.clone(), estimate)
+            (chunk, estimate, false)
         }
-        Ending::WriteHeadThenEnd => (Vec::new(), None),
+        Ending::WriteHeadThenEnd => (Vec::new(), None, true),
     };
     let mut coding = Coding::Identity;
     if installed && res.get("Content-Type").is_some_and(compressible) {
@@ -742,15 +761,14 @@ fn finish(req: &Request, mut res: Res, ending: Ending, installed: bool) -> Outgo
     }
     let compressed = match coding {
         Coding::Identity => None,
-        Coding::Gzip => compress::node_stream(&chunk, true).ok(),
-        Coding::Deflate => compress::node_stream(&chunk, false).ok(),
+        coding => compressed(coding, &chunk),
     };
-    let body = match (compressed, ending) {
+    let body = match (compressed, write_head) {
         (Some(chunks), _) => Body::Chunked(chunks),
-        (None, Ending::WriteHeadThenEnd) => Body::Chunked(Vec::new()),
-        (None, Ending::End(chunk)) if res.get("Content-Length").is_some() => Body::Fixed(chunk),
-        (None, Ending::End(chunk)) if chunk.is_empty() => Body::Empty,
-        (None, Ending::End(chunk)) => {
+        (None, true) => Body::Chunked(Vec::new()),
+        (None, false) if res.get("Content-Length").is_some() => Body::Fixed(chunk),
+        (None, false) if chunk.is_empty() => Body::Empty,
+        (None, false) => {
             // Node measures a lone `res.end(chunk)` itself.
             res.set("Content-Length", chunk.len().to_string());
             Body::Fixed(chunk)
@@ -958,6 +976,98 @@ fn json_text_observed(
         res.set("Content-Type", "application/json");
     }
     send(req, res, Payload::Text(body))
+}
+
+/// A JSON answer whose ETag and compressed forms were computed ahead of time,
+/// off the runtime's threads: [`json_prepared`] answers exactly as
+/// [`json_text`] would for the same body, without hashing or compressing it.
+pub(crate) struct Prepared {
+    text: String,
+    etag: String,
+    /// `None` below the size the compression middleware leaves alone.
+    gzip: Option<Vec<Vec<u8>>>,
+    deflate: Option<Vec<Vec<u8>>>,
+}
+
+impl Prepared {
+    /// The ETag and both compressions of `text`: work proportional to its
+    /// size, for a caller that is not on the runtime's threads.
+    pub(crate) fn new(text: String) -> Option<Self> {
+        let bytes = text.as_bytes();
+        let (gzip, deflate) = if bytes.len() < 1024 {
+            (None, None)
+        } else {
+            (
+                Some(compress::node_stream(bytes, true).ok()?),
+                Some(compress::node_stream(bytes, false).ok()?),
+            )
+        };
+        Some(Self {
+            etag: weak_etag(bytes),
+            text,
+            gzip,
+            deflate,
+        })
+    }
+    #[cfg(test)]
+    pub(crate) fn text(&self) -> &str {
+        &self.text
+    }
+    /// Bytes held: the text and its compressed forms.
+    pub(crate) fn bytes(&self) -> usize {
+        let chunks = |c: &Option<Vec<Vec<u8>>>| c.iter().flatten().map(Vec::len).sum::<usize>();
+        self.text.len() + chunks(&self.gzip) + chunks(&self.deflate)
+    }
+}
+
+/// [`json_text`] for a [`Prepared`] body: the same status, headers and bytes,
+/// with the ETag and the compressed body taken from it. What remains per
+/// request is copying the bytes sent.
+pub(crate) fn json_prepared(
+    req: &Request,
+    mut res: Res,
+    status: u16,
+    prepared: &Prepared,
+) -> Outgoing {
+    res.status = status;
+    if res.get("Content-Type").is_none() {
+        res.set("Content-Type", "application/json");
+    }
+    if let Some(t) = res.get("Content-Type") {
+        let t = with_utf8_charset(t);
+        res.set("Content-Type", t);
+    }
+    if res.get("Content-Length").is_none() {
+        res.set("Content-Length", prepared.text.len().to_string());
+    }
+    if res.get("ETag").is_none() {
+        res.set("ETag", prepared.etag.clone());
+    }
+    if fresh(req, &res) {
+        res.status = 304;
+    }
+    if res.status == 204 || res.status == 304 {
+        res.remove("Content-Type");
+        res.remove("Content-Length");
+        res.remove("Transfer-Encoding");
+        return finish(req, res, Ending::End(Vec::new()), true);
+    }
+    finish_with(
+        req,
+        res,
+        Ending::End(prepared.text.as_bytes().to_vec()),
+        true,
+        |coding, _| match coding {
+            Coding::Gzip => prepared.gzip.clone(),
+            Coding::Deflate => prepared.deflate.clone(),
+            Coding::Identity => None,
+        },
+    )
+}
+
+#[cfg(test)]
+pub(crate) fn res_for_tests(status: u16) -> Res {
+    Res::new(status)
 }
 
 /// Operations refusals use private cache headers before Express JSON encoding.

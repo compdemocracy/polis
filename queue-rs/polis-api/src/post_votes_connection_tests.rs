@@ -424,15 +424,18 @@ fn connection_bounds_topic_map_flood_leaves_participation_clear() {
             );
         }
         let mut handed_back = 0;
+        let mut shed = 0;
         for task in flood {
             let out = task.await.unwrap();
-            assert_eq!(
-                out.status, 502,
-                "a topic map request that cannot read goes back to Node"
-            );
-            handed_back += 1;
+            // The two holding the stuck connections go back to Node at the
+            // deadline; the rest found no connection and were told to retry.
+            match out.status {
+                502 => handed_back += 1,
+                503 => shed += 1,
+                status => panic!("a topic map request that cannot read answered {status}"),
+            }
         }
-        assert_eq!(handed_back, 64);
+        assert_eq!((handed_back, shed), (2, 62));
         let stuck = topic_map.evidence.snapshot();
         eprintln!("topic map pool {stuck:?}");
         assert_eq!(stuck[0], 2, "only the route's own two slots were taken");
@@ -441,6 +444,153 @@ fn connection_bounds_topic_map_flood_leaves_participation_clear() {
             "the rest of the flood timed out on the route's own pool: {stuck:?}"
         );
         peer.stop().await;
+    });
+}
+
+/// Warm report topic map answers of about 1.8 MB, gzip, identity and
+/// deflate, sixty-four at once: a vote is written and the next comment, the
+/// comments and the votes are read meanwhile, each on its own pool with no
+/// wait for a slot, and this single-threaded runtime's 1 ms timer is never
+/// held back by preparing, hashing or compressing a map.
+#[test]
+fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
+    use crate::delphi_topic_map::tests::{database_tests, large, lateness};
+    let database = Database::new("topic_map_warm");
+    let (mut app, vote) = setup(&database);
+    let stored = large(1);
+    {
+        let mut c = database.connect();
+        database_tests::stand_ins(&mut c, false);
+        c.batch_execute(
+            "INSERT INTO reports(report_id, zid) VALUES('r1', 1);
+             INSERT INTO delphi_result_publications VALUES('test',1,'delphi',1,NULL,'00000000-0000-4000-8000-000000007000');",
+        )
+        .unwrap();
+        database_tests::store(
+            &mut c,
+            "00000000-0000-4000-8000-000000007000",
+            1,
+            "succeeded",
+            &[
+                (
+                    "Delphi_UMAPGraph",
+                    Some(&stored.umap_wire()),
+                    stored.umap_wire().1,
+                ),
+                (
+                    "Delphi_CommentHierarchicalClusterAssignments",
+                    Some(&stored.assignments_wire()),
+                    stored.assignments_wire().1,
+                ),
+                (
+                    "Delphi_CommentClustersLLMTopicNames",
+                    Some(&stored.topics_wire()),
+                    stored.topics_wire().1,
+                ),
+            ],
+        );
+    }
+    runtime().block_on(async {
+        let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+        {
+            let app = Arc::get_mut(&mut app).unwrap();
+            app.delphi_topic_map_db = Some(healthy(crate::delphi_topic_map::pool_limits()));
+            app.delphi_topic_map_env = "test".into();
+            app.delphi_topic_map_scope = Some("delphi".into());
+            app.next_comment_db = Some(healthy(next_comment::pool_limits()));
+            app.next_comment_plain = true;
+            app.comments_db = Some(healthy(db::Limits {
+                size: 2,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            }));
+            app.comments_count_db = Some(healthy(db::Limits {
+                size: 1,
+                acquire_timeout: Duration::from_millis(100),
+                statement_timeout: Duration::from_millis(1000),
+                max_lifetime: Duration::from_secs(300),
+            }));
+            app.votes_read_db = Some(healthy(crate::votes_read::pool_limits()));
+            app.votes_read_auth_db = Some(healthy(crate::votes_read::pool_limits()));
+        }
+        warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
+        warm_pool(app.next_comment_db.as_ref().unwrap(), 2).await;
+        warm_pool(app.comments_db.as_ref().unwrap(), 2).await;
+        warm_pool(app.comments_count_db.as_ref().unwrap(), 1).await;
+        warm_pool(app.votes_read_db.as_ref().unwrap(), 1).await;
+        warm_pool(app.votes_read_auth_db.as_ref().unwrap(), 1).await;
+        let map = |coding: &'static str| Request {
+            method: "GET".into(),
+            target: "/api/v3/delphi/topicMap?report_id=r1".into(),
+            headers: Headers::from_raw([
+                ("host", "localhost"),
+                ("x-forwarded-proto", "https"),
+                ("accept-encoding", coding),
+            ]),
+            body: vec![],
+        };
+        // The map, computed once.
+        let first = crate::dispatch(app.clone(), None, map("gzip")).await;
+        assert_eq!(first.status, 200);
+        let reads = [
+            ("/api/v3/nextComment?conversation_id=2fixture", app.next_comment_db.clone().unwrap()),
+            ("/api/v3/comments?conversation_id=2fixture", app.comments_db.clone().unwrap()),
+            ("/api/v3/votes?conversation_id=2fixture", app.votes_read_db.clone().unwrap()),
+        ];
+        let before: Vec<_> = reads.iter().map(|(_, pool)| pool.evidence.snapshot()).collect();
+        let writer = app.post_votes.as_ref().unwrap();
+        let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let ((maps, voted, statuses), late) = lateness(async {
+            let maps: Vec<_> = ["gzip", "identity", "deflate", "gzip, deflate"]
+                .iter()
+                .cycle()
+                .take(64)
+                .map(|coding| tokio::spawn(crate::dispatch(app.clone(), None, map(coding))))
+                .collect();
+            let voted = handle_after_admission(app.clone(), vote).await.status;
+            let mut statuses = Vec::new();
+            for (path, _) in &reads {
+                statuses.push(
+                    crate::dispatch(app.clone(), None, Request {
+                        method: "GET".into(),
+                        target: (*path).into(),
+                        headers: Headers::from_raw([("host", "localhost"), ("x-forwarded-proto", "https")]),
+                        body: vec![],
+                    })
+                    .await
+                    .status,
+                );
+            }
+            let mut answered = Vec::new();
+            for task in maps {
+                answered.push(task.await.unwrap().status);
+            }
+            (answered, voted, statuses)
+        })
+        .await;
+        wait_for_idle(app.post_votes.as_ref().unwrap()).await;
+        eprintln!("warm topic map flood: timer lateness {late:?}, participation {statuses:?}, vote {voted}");
+        assert_eq!(voted, 200, "the vote is written beside the maps");
+        // The route sheds what its two connections cannot take at once (503,
+        // retry); every map it answers is whole.
+        assert!(maps.iter().all(|s| *s == 200 || *s == 503), "{maps:?}");
+        assert!(maps.contains(&200), "{maps:?}");
+        for ((path, pool), before) in reads.iter().zip(&before) {
+            let after = pool.evidence.snapshot();
+            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "{path} waited for a slot");
+        }
+        assert!(statuses.iter().all(|s| *s == 200), "{statuses:?}");
+        let writer_after = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        for (before, after) in writer_before.iter().zip(&writer_after) {
+            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
+        }
+        // Sixty-four whole answers are copied out back to back (about a
+        // millisecond each on this box); before the map's ETag and compressed
+        // forms were prepared off the runtime this timer waited seconds (6.9 s
+        // measured), and a single large answer now holds it under 25 ms
+        // (`a_large_answer_leaves_the_runtime_free`).
+        assert!(late < Duration::from_millis(500), "the runtime's thread was held {late:?}");
     });
 }
 

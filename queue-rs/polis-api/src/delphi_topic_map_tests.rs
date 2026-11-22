@@ -51,6 +51,7 @@ fn topic(zid: i32, layer: u32, cluster: i64, name: Option<&str>, key: &str, mode
 
 pub(crate) fn wires(zid: i32, nodes: &[Value], assignments: &[Value], topics: &[Value]) -> Wires {
     Wires {
+        _held: None,
         zid,
         created_at: Some("2026-11-11T02:48:21.639910".into()),
         umap: wire(UMAP, &["conversation_id", "edge_id"], nodes),
@@ -134,7 +135,7 @@ pub(crate) fn fixture(set: &str) -> (Wires, String, String) {
 
 fn map(outcome: Result<Outcome, Invalid>) -> String {
     match outcome {
-        Ok(Outcome::Map(doc)) => doc.to_string(),
+        Ok(Outcome::Map(doc)) => doc.text().to_owned(),
         Ok(Outcome::NoMap(reason)) => panic!("no map: {reason:?}"),
         Ok(_) => panic!("refused"),
         Err(e) => panic!("invalid: {e:?}"),
@@ -328,9 +329,6 @@ fn stored_rows_that_do_not_agree_are_not_drawn() {
         "clusters without a position",
         wires(ZID, &nodes(), &a, &named()),
     ));
-    let mut a = clustered();
-    a[0] = assignment(ZID, 0, &[(16, 0)]);
-    cases.push(("a layer past the bound", wires(ZID, &nodes(), &a, &named())));
     let mut t = named();
     t.push(topic(ZID, 0, 0, Some("again"), "k2", "m"));
     cases.push((
@@ -374,6 +372,92 @@ fn stored_rows_that_do_not_agree_are_not_drawn() {
 }
 
 #[test]
+fn a_layer_past_the_bound_is_refused_as_too_large_not_as_unreadable() {
+    let nodes = [
+        node(ZID, 0, 0.0, 0.0),
+        node(ZID, 1, 1.0, 2.0),
+        node(ZID, 2, 3.0, 1.0),
+    ];
+    let named = [topic(ZID, 0, 0, Some("0_0: a"), "k#0#0", "m")];
+    let deep: Vec<_> = (0..3)
+        .map(|t| assignment(ZID, t, &[(0, 0), (16, 0)]))
+        .collect();
+    assert!(matches!(
+        build("j", wires(ZID, &nodes, &deep, &named)),
+        Ok(Outcome::TooLarge)
+    ));
+    let clustered: Vec<_> = (0..3).map(|t| assignment(ZID, t, &[(0, 0)])).collect();
+    let deep_name = [
+        topic(ZID, 0, 0, Some("0_0: a"), "k#0#0", "m"),
+        topic(ZID, 16, 0, Some("16_0: deep"), "k#16#0", "m"),
+    ];
+    assert!(matches!(
+        build("j", wires(ZID, &nodes, &clustered, &deep_name)),
+        Ok(Outcome::TooLarge)
+    ));
+    // Layer 15 is inside the bound.
+    let fifteen: Vec<_> = (0..3)
+        .map(|t| assignment(ZID, t, &[(0, 0), (15, 0)]))
+        .collect();
+    assert!(matches!(
+        build("j", wires(ZID, &nodes, &fifteen, &named)),
+        Ok(Outcome::Map(_))
+    ));
+}
+
+#[cfg(feature = "db-tests")]
+/// A legal run whose document is about 1.8 MB, near the 2 MiB bound: 300
+/// comments in three topics, one of them named with 1,800,000 letters that
+/// compress poorly.
+pub(crate) fn large(zid: i32) -> Wires {
+    let mut nodes = Vec::new();
+    let mut assignments = Vec::new();
+    for tid in 0..300u32 {
+        nodes.push(node(zid, tid, f64::from(tid % 20), f64::from(tid / 20)));
+        assignments.push(assignment(zid, tid, &[(0, i64::from(tid % 3))]));
+    }
+    let mut seed: u64 = 0x2545_f491_4f6c_dd1d;
+    let name: String = (0..1_800_000)
+        .map(|_| {
+            seed = seed.wrapping_mul(6_364_136_223_846_793_005).wrapping_add(1);
+            char::from(b'a' + ((seed >> 33) % 26) as u8)
+        })
+        .collect();
+    let topics = [
+        topic(zid, 0, 0, Some(&name), "k#0#0", "m"),
+        topic(zid, 0, 1, Some("0_1: b"), "k#0#1", "m"),
+        topic(zid, 0, 2, Some("0_2: c"), "k#0#2", "m"),
+    ];
+    wires(zid, &nodes, &assignments, &topics)
+}
+
+#[cfg(feature = "db-tests")]
+/// The longest a 1 ms timer on this runtime waited past its time while
+/// `work` ran: what the runtime's own thread was kept from doing.
+pub(crate) async fn lateness<F: std::future::Future>(work: F) -> (F::Output, Duration) {
+    let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let worst = Arc::new(Mutex::new(Duration::ZERO));
+    let ticker = tokio::spawn({
+        let (stop, worst) = (stop.clone(), worst.clone());
+        async move {
+            while !stop.load(Ordering::SeqCst) {
+                let start = std::time::Instant::now();
+                tokio::time::sleep(Duration::from_millis(1)).await;
+                let late = start.elapsed().saturating_sub(Duration::from_millis(1));
+                let mut w = worst.lock().unwrap();
+                *w = (*w).max(late);
+            }
+        }
+    });
+    tokio::task::yield_now().await;
+    let out = work.await;
+    stop.store(true, Ordering::SeqCst);
+    ticker.await.unwrap();
+    let worst = *worst.lock().unwrap();
+    (out, worst)
+}
+
+#[test]
 fn a_run_over_the_comment_bound_is_refused_not_cut() {
     let count = MAX_COMMENTS as u32 + 1;
     let nodes: Vec<_> = (0..count)
@@ -398,7 +482,8 @@ fn the_cache_keeps_runs_within_its_byte_bound() {
     let entry = |n: usize| {
         Arc::new(Entry {
             zid: ZID,
-            outcome: Outcome::Map("x".repeat(n).into()),
+            // Below 1,024 bytes nothing is compressed: the entry is n bytes.
+            outcome: Outcome::Map(Arc::new(route::Prepared::new("x".repeat(n)).unwrap())),
         })
     };
     let mut cache = Cache::default();
@@ -422,6 +507,64 @@ fn the_cache_keeps_runs_within_its_byte_bound() {
     assert_eq!(cache.entries.len(), 2);
 }
 
+/// An answer's status, headers, body kind and bytes.
+fn parts(out: Outgoing) -> (u16, Vec<(String, String)>, &'static str, Vec<u8>) {
+    let (kind, bytes) = match out.body {
+        crate::http::Body::Empty => ("empty", Vec::new()),
+        crate::http::Body::Fixed(bytes) => ("fixed", bytes),
+        crate::http::Body::Chunked(chunks) => ("chunked", chunks.join(&b"|"[..])),
+    };
+    (out.status, out.headers, kind, bytes)
+}
+
+#[test]
+fn a_prepared_answer_is_the_json_answer_to_the_byte() {
+    let (stored, job, expected) = fixture("biodiversity");
+    let Ok(Outcome::Map(prepared)) = build(&job, stored) else {
+        panic!("a map")
+    };
+    let small = route::Prepared::new("[1]".into()).unwrap();
+    let ask = |method: &str, headers: &[(&str, &str)]| Request {
+        method: method.into(),
+        target: format!("{PATH}?report_id=r1"),
+        headers: crate::http::Headers::from_raw(headers.iter().copied()),
+        body: vec![],
+    };
+    let etag = parts(route::json_text(
+        &ask("GET", &[]),
+        route::res_for_tests(200),
+        200,
+        expected.clone(),
+    ))
+    .1
+    .into_iter()
+    .find(|(k, _)| k == "ETag")
+    .unwrap()
+    .1;
+    let cases: Vec<Request> = vec![
+        ask("GET", &[]),
+        ask("GET", &[("accept-encoding", "gzip")]),
+        ask("GET", &[("accept-encoding", "deflate")]),
+        ask("GET", &[("accept-encoding", "gzip, deflate")]),
+        ask("GET", &[("accept-encoding", "br")]),
+        ask("GET", &[("accept-encoding", "identity;q=1, *;q=0")]),
+        ask("HEAD", &[("accept-encoding", "gzip")]),
+        ask("GET", &[("if-none-match", &etag)]),
+        ask(
+            "GET",
+            &[("if-none-match", "W/\"0-x\""), ("accept-encoding", "gzip")],
+        ),
+    ];
+    for req in &cases {
+        let text = route::json_text(req, route::res_for_tests(200), 200, expected.clone());
+        let prepared_answer = route::json_prepared(req, route::res_for_tests(200), 200, &prepared);
+        assert_eq!(parts(text), parts(prepared_answer), "{:?}", req.headers);
+        let text = route::json_text(req, route::res_for_tests(200), 200, "[1]".into());
+        let small_answer = route::json_prepared(req, route::res_for_tests(200), 200, &small);
+        assert_eq!(parts(text), parts(small_answer), "small {:?}", req.headers);
+    }
+}
+
 #[test]
 fn bounds_and_pool_are_the_ones_the_note_states() {
     let limits = pool_limits();
@@ -429,15 +572,15 @@ fn bounds_and_pool_are_the_ones_the_note_states() {
     assert_eq!(limits.acquire_timeout, Duration::from_millis(50));
     assert_eq!(limits.statement_timeout, Duration::from_millis(2000));
     assert_eq!(DEADLINE, Duration::from_millis(4000));
-    assert_eq!(COMPUTE_SLOTS, 1);
+    assert_eq!(ADMITTED, 1);
     assert_eq!(MAX_COMMENTS, 20_000);
-    assert_eq!(MAX_DOCUMENT_BYTES, 8 * 1024 * 1024);
+    assert_eq!(MAX_DOCUMENT_BYTES, 2 * 1024 * 1024);
     assert_eq!(CACHE_BYTES, 32 * 1024 * 1024);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn concurrent_requests_for_one_run_compute_it_once_one_at_a_time() {
-    let state = State::new(CACHE_BYTES, CACHE_ENTRIES, COMPUTE_SLOTS);
+    let state = State::new(CACHE_BYTES, CACHE_ENTRIES, ADMITTED);
     let (_, job, expected) = fixture("biodiversity");
     let mut tasks = Vec::new();
     for _ in 0..8 {
@@ -453,7 +596,7 @@ async fn concurrent_requests_for_one_run_compute_it_once_one_at_a_time() {
         let Outcome::Map(doc) = &entry.outcome else {
             panic!("a map")
         };
-        assert_eq!(doc.as_ref(), expected);
+        assert_eq!(doc.text(), expected);
     }
     assert_eq!(state.max_in_flight(), 1);
     assert_eq!(
@@ -560,4 +703,4 @@ async fn a_missing_report_is_refused_before_any_read_and_a_failed_read_hands_bac
 
 #[cfg(feature = "db-tests")]
 #[path = "delphi_topic_map_database_tests.rs"]
-mod database_tests;
+pub(crate) mod database_tests;

@@ -14,7 +14,7 @@
 //! - 200, [`NoMap`]: the report exists and there is nothing to draw, with the
 //!   reason from a closed set ([`NoMapReason`]); the neighbouring reads answer
 //!   200 with an empty set for a conversation with no run.
-//! - 400, 404, 404, 422: the closed set of refusals ([`Refused`]).
+//! - 400, 404, 404, 422, 503: the closed set of refusals ([`Refused`]).
 //!
 //! The document carries no comment text: `points.text` is empty. A page that
 //! shows the text in the tooltip fills `points.text` from the comments it
@@ -73,10 +73,19 @@ pub enum Refused {
     /// 422: the run is larger than this route computes or serves. The map is
     /// refused, never truncated.
     TooLarge,
+    /// 503 with `Retry-After: 1`: the route is full (another run's map is
+    /// being read or computed and this one is not in memory, or all the
+    /// route's connections are in use). Nothing was read for this run;
+    /// asking again later is safe.
+    Busy,
 }
 
 /// The code a too-large refusal carries as its message.
 pub const TOO_LARGE: &str = "polis_err_topic_map_too_large";
+/// The code a busy refusal carries as its message.
+pub const BUSY: &str = "polis_err_topic_map_busy";
+/// The seconds a busy refusal asks the client to wait.
+pub const RETRY_AFTER: &str = "1";
 
 impl Refused {
     pub fn status(&self) -> u16 {
@@ -84,6 +93,7 @@ impl Refused {
             Self::MissingReport => 400,
             Self::UnknownReport(_) | Self::JobNotFound => 404,
             Self::TooLarge => 422,
+            Self::Busy => 503,
         }
     }
     pub fn body(&self) -> Refusal {
@@ -95,6 +105,7 @@ impl Refused {
             ),
             Self::JobNotFound => ("Job not found", None),
             Self::TooLarge => (TOO_LARGE, None),
+            Self::Busy => (BUSY, None),
         };
         Refusal {
             status: Status::Error,
@@ -266,6 +277,11 @@ mod tests {
                 Refused::TooLarge,
                 422,
                 r#"{"status":"error","message":"polis_err_topic_map_too_large"}"#,
+            ),
+            (
+                Refused::Busy,
+                503,
+                r#"{"status":"error","message":"polis_err_topic_map_busy"}"#,
             ),
         ];
         for (refused, status, body) in cases {
