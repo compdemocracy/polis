@@ -222,11 +222,21 @@ impl State {
     /// stopped answering would, until [`State::open_reads`].
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn close_reads(&self) {
-        *self.0.reads_held.0.lock().unwrap_or_else(|e| e.into_inner()) = true;
+        *self
+            .0
+            .reads_held
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = true;
     }
     #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn open_reads(&self) {
-        *self.0.reads_held.0.lock().unwrap_or_else(|e| e.into_inner()) = false;
+        *self
+            .0
+            .reads_held
+            .0
+            .lock()
+            .unwrap_or_else(|e| e.into_inner()) = false;
         self.0.reads_held.1.notify_all();
     }
     #[cfg(all(test, feature = "db-tests"))]

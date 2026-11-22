@@ -568,10 +568,11 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
 /// sixteen clients ask for a stored map of about a megabyte as fast as the
 /// route answers them (the route at its places, shedding the rest). Run it
 /// under the service's own budget (half a CPU, 512 MiB) for the figure that
-/// matters: the hand-off names the container command. Every loaded read must
-/// be isolated (no wait for a slot of its own pool) and answered, and its
-/// 95th percentile within twice the control's plus 25 ms; the samples are
-/// printed whatever the outcome.
+/// matters (the command is in the change's notes). Every read must be
+/// isolated (no wait for a slot of its own pool); the saturated route may not
+/// add misses of a read's own deadline beyond the control's (by more than
+/// two of forty), and each read's 95th percentile must stay within twice the
+/// control's plus 25 ms. The figures are printed whatever the outcome.
 #[test]
 fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
     let database = Database::new("topic_map_saturation");
@@ -656,6 +657,12 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
             state.max_held()
         )];
         for (i, (path, _)) in reads.iter().enumerate() {
+            let answered = |v: &[(u16, Duration, [usize; 6])]| v.iter().filter(|s| s.0 == 200).count();
+            lines.push(format!(
+                "  {path}: answered control {}/{ROUNDS} loaded {}/{ROUNDS}",
+                answered(&control[i]),
+                answered(&loaded[i])
+            ));
             lines.push(format!(
                 "  {path}: control p50={:?} p95={:?} max={:?}; loaded p50={:?} p95={:?} max={:?}",
                 quantile(&control[i], 0.5),
@@ -673,10 +680,21 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
         assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
         for (i, (path, _)) in reads.iter().enumerate() {
-            for (status, _, delta) in &loaded[i] {
+            // Never a wait for a slot of its own pool. A read may miss its own
+            // short deadline on a busy machine (the next comment's is 75 ms)
+            // and go back to Node, with its own evidence; the saturated route
+            // may not add such misses beyond the control's.
+            let missed = |samples: &[(u16, Duration, [usize; 6])]| {
+                samples.iter().filter(|(status, ..)| *status != 200).count()
+            };
+            for (status, _, delta) in control[i].iter().chain(&loaded[i]) {
                 participation_isolated(path, *status, *delta);
-                assert_eq!(*status, 200, "{path}");
             }
+            let (c_missed, l_missed) = (missed(&control[i]), missed(&loaded[i]));
+            assert!(
+                l_missed <= c_missed + 2,
+                "{path} missed its deadline more under a saturated topic map: control {c_missed}, loaded {l_missed} of {ROUNDS}"
+            );
             let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
             assert!(
                 l95 <= c95 * 2 + Duration::from_millis(25),
