@@ -1,4 +1,4 @@
-FROM docker.io/nginx:1.21.5-alpine
+FROM docker.io/nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
 
 # Mozilla's October 2026 eMudhra advisory includes the Sectigo cross-sign path.
 RUN apk add --no-cache ca-certificates \

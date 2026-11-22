@@ -1790,13 +1790,15 @@ for shadow in votesReadShadow commentsReadShadow nextCommentShadow; do
   named=$(block "@polis_shadow_$shadow")
   diversion=$(block "= $epath")
   # The path's location: the read diversion, then Node exactly as the API
-  # location sends it; nothing else.
+  # location sends it (HTTP/1.0 with Connection: close as its last header);
+  # nothing else.
   [[ $diversion == "location = $path {
 $(read_diversion_lines "$shadow")
     include /etc/nginx/node-proxy.conf;
+    proxy_set_header Connection close;
 }" ]] || fail "$shadow: the path's location is not the diversion and Node: $diversion"
   # The named location: the mirror without a body, the shadowed access line
-  # and edge line, Node, and the request id.
+  # and edge line, Node, the request id, and Connection: close last.
   [[ $named == "location @polis_shadow_$shadow {
     mirror /_polis_shadow/$shadow;
     mirror_request_body off;
@@ -1804,6 +1806,7 @@ $(read_diversion_lines "$shadow")
     access_log /var/log/nginx/access.log polis_shadow_edge;
     include /etc/nginx/node-proxy.conf;
     proxy_set_header X-Request-Id \$request_id;
+    proxy_set_header Connection close;
 }" ]] || fail "$shadow: the named location is not the one expected: $named"
   # The copy's location, line by line: internal, its own line, the rate, the
   # map again, the literal target, the path and the request's query string,

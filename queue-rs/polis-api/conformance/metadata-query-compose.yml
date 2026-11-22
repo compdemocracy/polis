@@ -23,7 +23,7 @@ services:
       POLIS_API_FIXTURE_CLOCK: "1700000000000"
 
   metadata-query-proxy:
-    image: nginx:1.21.5-alpine
+    image: nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3
     networks: [sealed]
     volumes:
       - ../../queue-rs/polis-api/conformance/metadata-query-proxy.conf:/etc/nginx/conf.d/default.conf:ro

@@ -78,7 +78,7 @@ docker logs "$proof_server" 2>&1 | grep 'Server started on port' >/dev/null
 docker run -d --name "$proof_web" --network "$proof_network" --label polis.proof=dynamo1424 \
  -p "127.0.0.1:$proof_port:8080" \
  -v "$DYNAMO_PROOF_OUTPUT/nginx.conf:/etc/nginx/nginx.conf:ro" \
- -v "$repo_root/client-report/dist:/report:ro" nginx:1.21.5-alpine > "$DYNAMO_PROOF_OUTPUT/web-container.txt"
+ -v "$repo_root/client-report/dist:/report:ro" nginx:1.30.7-alpine@sha256:caf4e1e032a20f9c3c5e28fc7f25ffd768ad8677b4975c54193075997b3a97e3 > "$DYNAMO_PROOF_OUTPUT/web-container.txt"
 export DYNAMO_PROOF_REPORT_URL="http://127.0.0.1:$proof_port"
 for _ in $(seq 1 30); do curl -fsS "$DYNAMO_PROOF_REPORT_URL/" >/dev/null && break; sleep 1; done
 node ci/dynamo-removal/report-proof.cjs > "$DYNAMO_PROOF_OUTPUT/browser.log" 2>&1

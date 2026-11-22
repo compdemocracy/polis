@@ -22,6 +22,7 @@ shadow-stubs.py.
   test-shadow-mirror.py read-unchanged PREFIX BASE          reads answered as with nothing selected
   test-shadow-mirror.py read-beside PREFIX MODE RBASE VBASE CBASE  every shadow selected
   test-shadow-mirror.py read-load PREFIX OUT                16 keepalive connections of next-comment reads
+  test-shadow-mirror.py upstream PREFIX                     what every upstream receives: HTTP/1.0, Connection: close
 
 SHADOW is votesShadow (the default) or commentsShadow. Containers:
 PREFIX-proxy (nginx, port 80 published on loopback), PREFIX-node (Node's
@@ -1678,10 +1679,86 @@ def read_keepalive(prefix, state):
           flush=True)
 
 
+# The headers nginx itself writes first on each kind of upstream request, in
+# its order, ending with "Connection: close": the configured ones, then the
+# Connection header where nginx 1.21.5 wrote its default one. Content-Length
+# (for a body) and the client's own headers follow.
+NODE_FIRST = ['x-forwarded-proto', 'host', 'connection']
+SHADOWED_FIRST = ['x-forwarded-proto', 'host', 'x-request-id', 'connection']
+COPY_FIRST = ['x-forwarded-proto', 'host', 'x-request-id', 'x-polis-shadow', 'connection']
+
+
+def upstream(prefix):
+    """Every kind of request nginx sends upstream is HTTP/1.0 with
+    "Connection: close", each on a connection of its own: what nginx sent
+    before 1.29.7 made HTTP/1.1, no Connection header and upstream keepalive
+    the defaults. Node (an API path, a page, a static asset, a chunked body,
+    and the request polis-api hands back), the participation client,
+    polis-api (pca2), and the vote, the comment and the next-comment read with
+    their shadows selected: the request Node answers and the copy each shadow
+    receives. Selected: pca2,votesShadow,commentsShadow,nextCommentShadow;
+    PREFIX-api is polis-api's stand-in, PREFIX-alpha the participation
+    client's, both recording."""
+    port = proxy_port(prefix)
+    forwarded = [f'X-Forwarded-For: {FORWARDED_FOR}']
+    kinds = [
+        # label, method, path, body, chunked, {stand-in: first headers}
+        ('an API path', 'GET', '/api/v3/participationInit?conversation_id=2fixture', b'', False,
+         {'node': NODE_FIRST}),
+        ('a page', 'GET', '/', b'', False, {'node': NODE_FIRST}),
+        ('a static asset', 'GET', '/static/js/upstream-test.js', b'', False, {'node': NODE_FIRST}),
+        ('a chunked body', 'POST', '/api/v3/conversations', b'{"topic":"upstream"}', True,
+         {'node': NODE_FIRST + ['content-length']}),
+        ('the participation client', 'GET', '/alpha/2fixture', b'', False, {'alpha': NODE_FIRST}),
+        ('its assets', 'GET', '/_astro/upstream-test.js', b'', False, {'alpha': NODE_FIRST}),
+        ('pca2 at polis-api', 'GET', '/api/v3/math/pca2?conversation_id=2fixture', b'', False,
+         {'api': NODE_FIRST}),
+        ('pca2 handed to Node', 'POST', '/api/v3/math/pca2', b'{"conversation_id":"2fixture"}', False,
+         {'node': NODE_FIRST + ['content-length']}),
+        ('a vote', 'POST', '/api/v3/votes', None, False,
+         {'node': SHADOWED_FIRST + ['content-length'], 'shadow': COPY_FIRST + ['content-length']}),
+        ('a comment', 'POST', '/api/v3/comments', None, False,
+         {'node': SHADOWED_FIRST + ['content-length'], 'shadow': COPY_FIRST + ['content-length']}),
+        ('a next-comment read', 'GET', '/api/v3/nextComment?conversation_id=2fixture', b'', False,
+         {'node': SHADOWED_FIRST, 'reads': COPY_FIRST}),
+    ]
+    for label, method, path, body, chunked, expected in kinds:
+        peers = {name: [] for name in expected}
+        for _ in range(2):
+            # Under every copy rate (the read copies' is 4 a second, with no
+            # burst), so the second request is copied too.
+            time.sleep(0.3)
+            case = uuid.uuid4().hex
+            if body is None:
+                body_now = vote(case) if path.endswith('votes') else comment(case)
+                headers = case_headers(case, ROUTES['votesShadow' if path.endswith('votes') else 'commentsShadow'])
+            else:
+                body_now = body
+                headers = [f'X-Test-Case: {case}', *forwarded] + (['Content-Type: application/json'] if body else [])
+            status, _, _ = raw(port, method, path, headers, body_now, chunked=chunked)
+            assert status == 200, (label, status)
+            for name, first in expected.items():
+                (seen,) = wait_for(lambda: find(records(f'{prefix}-{name}'), case), f'{label} at {name}')
+                names = [k for k, _ in seen['headers']]
+                assert seen['version'] == 'HTTP/1.0', (label, name, seen['version'])
+                assert header(seen, 'connection') == ['close'], (label, name, seen['headers'])
+                assert names[:len(first)] == first, (label, name, names)
+                assert 'transfer-encoding' not in names and 'keep-alive' not in names, (label, name, names)
+                for request_id in header(seen, 'x-request-id'):
+                    assert HEX32.fullmatch(request_id), (label, name, request_id)
+                peers[name].append(seen['peer'])
+        for name, ports in peers.items():
+            assert len(set(ports)) == len(ports), f'{label}: nginx reused a connection to {name}: {ports}'
+    print(f'ok upstream: {len(kinds)} kinds of request, twice each, reached Node, the participation client, '
+          'polis-api and the shadows as HTTP/1.0 with "Connection: close" after nginx\'s own headers, '
+          'each on a new connection', flush=True)
+
+
 if __name__ == '__main__':
     command, *args = sys.argv[1:]
     {'baseline': baseline, 'behaviour': behaviour, 'load': load, 'compare': compare, 'read': read,
      'rate': rate, 'keepalive': keepalive, 'bodies': bodies, 'same-bodies': same_bodies, 'measure': measure,
      'measured': measured, 'read-baseline': read_baseline, 'read-behaviour': read_behaviour,
      'read-hold': read_hold, 'read-rate': read_rate, 'read-keepalive': read_keepalive,
-     'read-unchanged': read_unchanged, 'read-beside': read_beside, 'read-load': read_load}[command](*args)
+     'read-unchanged': read_unchanged, 'read-beside': read_beside, 'read-load': read_load,
+     'upstream': upstream}[command](*args)

@@ -64,6 +64,11 @@
 # long as nginx says it lived; and with every shadow selected each copy goes
 # to its own service and nowhere else.
 #
+# Then what every upstream receives (test-shadow-mirror.py `upstream`): Node,
+# the participation client, polis-api (pca2) and each shadow get HTTP/1.0 and
+# "Connection: close" after nginx's own headers, each request on a connection
+# of its own, as nginx sent them before 1.29.7 changed those defaults.
+#
 # With --measure it prints what the mirror costs a comment: the time until
 # Node has the request's first byte, until Node has the whole body, and the
 # client's total, for each body size, with and without the shadow. Run it on
@@ -91,7 +96,7 @@ image=${X54_NGINX_IMAGE:-$p:local}
 python_image=${NGINX_SHADOW_PYTHON_IMAGE:-python:3.11-slim}
 work=""
 cleanup() {
-  docker rm -f "$p-proxy" "$p-node" "$p-shadow" "$p-reads" "$p-alpha" >/dev/null 2>&1 || true
+  docker rm -f "$p-proxy" "$p-node" "$p-shadow" "$p-reads" "$p-alpha" "$p-api" >/dev/null 2>&1 || true
   docker network rm "$net" >/dev/null 2>&1 || true
   [[ -z $work ]] || rm -rf "$work"
 }
@@ -107,9 +112,10 @@ stubs="$root/file-server/nginx/shadow-stubs.py"
 driver=(python3 "$root/file-server/nginx/test-shadow-mirror.py")
 docker run -d --name "$p-node" --network "$net" --network-alias server \
   -v "$stubs:/stubs.py:ro" "$python_image" python3 -u /stubs.py node 5000 >/dev/null
-# nginx resolves the participation client's static upstream at startup.
-docker run -d --name "$p-alpha" --network "$net" --network-alias client-participation-alpha --entrypoint sh \
-  nginx:1.21.5-alpine -c "printf 'server { listen 4321; location / { return 200 alpha; } }' > /etc/nginx/conf.d/default.conf && exec nginx -g 'daemon off;'" >/dev/null
+# nginx resolves the participation client's static upstream at startup. Its
+# stand-in records what it receives, as Node's does (the upstream test).
+docker run -d --name "$p-alpha" --network "$net" --network-alias client-participation-alpha \
+  -v "$stubs:/stubs.py:ro" "$python_image" python3 -u /stubs.py node 4321 >/dev/null
 
 shadow() { # mode: the shadow stand-in, or none (absent) or a container with no listener (refuse)
   docker rm -f "$p-shadow" >/dev/null 2>&1 || true
@@ -141,6 +147,7 @@ start() { # routes
     if docker exec "$p-proxy" wget -qO- http://127.0.0.1/api/v3/testConnection >/dev/null 2>&1; then
       local shadow
       for shadow in ${1//,/ }; do
+        [[ $shadow == *Shadow ]] || continue
         docker exec "$p-proxy" grep -q "location @polis_shadow_$shadow" /etc/nginx/rust-api/locations.conf \
           || { docker logs "$p-proxy" >&2; fail "the shadow selection was not rendered"; }
       done
@@ -240,6 +247,18 @@ start ""
 "${driver[@]}" read-keepalive "$p" unselected
 "${driver[@]}" read-unchanged "$p" "$work/baseline-reads.json"
 echo "ok read shadows: replies never wait for a copy; the rate; every shadow together; one keepalive connection"
+
+# What every upstream receives: HTTP/1.0 and "Connection: close" after nginx's
+# own headers, each request on a new connection (nginx-ssl.site.default.conf).
+# polis-api's stand-in is started for this run only, so the runs above keep
+# their Rust paths unanswered.
+docker run -d --name "$p-api" --network "$net" --network-alias polis-api \
+  -v "$stubs:/stubs.py:ro" "$python_image" python3 -u /stubs.py node 5100 >/dev/null
+shadow answer
+reads answer
+start "pca2,votesShadow,commentsShadow,nextCommentShadow"
+"${driver[@]}" upstream "$p"
+docker rm -f "$p-api" >/dev/null
 
 if [[ $load == 1 ]]; then
   shadow silent
