@@ -56,3 +56,45 @@ a fresh RSA pair, mints all three kinds with `issueParticipantJWT`, and compares
 their complete headers and payloads with the valid recordings. Added, renamed
 or retyped claims therefore fail without regeneration. Regenerate deliberately
 when changing the claim contract or JWT dependencies.
+
+## Participant minter byte contract
+
+`participant-mint.json` records ten inputs with two clock samples each. Every
+normal run of `participant-jwt-mint.test.ts` re-mints every input with the real
+Node issuer and a fresh in-memory key, and compares its **encoded header and
+payload bytes** to the recording. Rust independently re-mints and compares those
+same bytes. Decoded-object equality alone would not detect a header or claim
+order change. The normal run needs no private fixture key and writes no files.
+The identity-recordings entry point includes both Jest files.
+
+The blank-XID case records Node's low-level helper behavior only: the Node
+identity path never issues it, and the Rust identity constructor must refuse it.
+It therefore has `rust_refused: true` instead of a Rust token. The other nine
+cases include both signatures and are verified in both languages. Standard-user
+subjects and nonblank XIDs preserve their original bytes, including whitespace.
+
+Run the byte contract from `server`:
+
+```sh
+npm run test:unit -- --config __tests__/fixtures/participant-jwt/jest.config.json --runInBand
+```
+
+Regenerate the minter recording from the repository root:
+
+```sh
+record_dir=$(mktemp -d)
+trap 'rm -rf "$record_dir"' EXIT
+export POLIS_MINT_RECORD_INPUT="$record_dir/input.json"
+(cd queue-rs && cargo test --locked -p polis-auth --test participant_jwt_interop participant_minter_node_recordings_and_fresh_signatures -- --exact)
+(cd server && npm run test:unit -- --config __tests__/fixtures/participant-jwt/jest.config.json --runTestsByPath __tests__/unit/participant-jwt-mint.test.ts --runInBand)
+unset POLIS_MINT_RECORD_INPUT
+(cd queue-rs && cargo test --locked -p polis-auth --test participant_jwt_interop)
+(cd server && npm run test:unit -- --config __tests__/fixtures/participant-jwt/jest.config.json --runInBand)
+```
+
+Rust first checks the existing recording, then writes an exclusive mode-0600
+exchange file containing a disposable key. Node signs with the same key and
+requires full-token equality for the nine accepted Rust cases before publishing
+the public recording. The blank-XID case stays a Node-only helper recording.
+Never commit the exchange file. Regeneration does not bypass Rust's regression
+assertions: investigate any mismatch before intentionally updating the contract.
