@@ -9,4 +9,5 @@ location = ${SHADOW_PATH} {
         return 421;
     }
     include /etc/nginx/node-proxy.conf;
+    proxy_set_header Connection close;
 }

@@ -15,10 +15,11 @@ Each runs in its own container on the test network:
                                               shadow service does not serve)
                                      status500  500 at once
 
-Every request read is appended to /tmp/requests.jsonl: method, path, headers
-in order (repeats kept), the body's length and SHA-256, and two times on this
-container's clock: `head` when the request's headers had been read, `at` when
-its body had. No vote and no comment is read.
+Every request read is appended to /tmp/requests.jsonl: method, path, the
+request line's HTTP version, the peer's port (one port per connection nginx
+opened), headers in order (repeats kept), the body's length and SHA-256, and
+two times on this container's clock: `head` when the request's headers had
+been read, `at` when its body had. No vote and no comment is read.
 """
 import hashlib
 import json
@@ -62,6 +63,7 @@ class Handler(BaseHTTPRequestHandler):
         body = read_body(self)
         digest = hashlib.sha256(body).hexdigest()
         record({'method': self.command, 'path': self.path,
+                'version': self.request_version, 'peer': self.client_address[1],
                 'headers': [[name.lower(), value] for name, value in self.headers.items()],
                 'length': len(body), 'sha256': digest, 'head': head, 'at': time.time()})
         if self.mode == 'node':
