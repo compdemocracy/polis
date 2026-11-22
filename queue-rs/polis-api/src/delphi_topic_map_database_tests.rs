@@ -430,7 +430,8 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
             "INSERT INTO reports VALUES('r0',0),('rnull',NULL),('none',11),('before',12),
                ('carried',13),('large',14),('few',15),('odd',16),('huge',17),('long',18),
                ('badsha',19),('nogz',20),('twice',21),('foreign',22),('zeros',23),('badgz',24),
-               ('otherdoc',25),('othergz',26),('slow',27)",
+               ('otherdoc',25),('othergz',26),('slow',27),('badcrc',28),('badflag',29),
+               ('trailing',30),('badhcrc',31)",
         )
         .unwrap();
         let p = "participant_visible/1";
@@ -554,6 +555,34 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
             p,
             Some(&map_family(24, &badgz)),
         );
+        // The document's own gzip, made one a conforming decoder refuses: a
+        // wrong trailer CRC, a reserved flag bit, a byte after the member,
+        // and a wrong header CRC. Each inflates to exactly the document.
+        let good = stored(document(5, "j")).gzip;
+        let n = good.len();
+        let mut badcrc = good.clone();
+        badcrc[n - 8] ^= 1;
+        let mut badflag = good.clone();
+        badflag[3] |= 0x20;
+        let trailing = [&good[..], &[0]].concat();
+        let mut header = good[..10].to_vec();
+        header[3] |= 2;
+        let check = (!(crate::delphi_topic_map::crc32(&header) as u16)).to_le_bytes();
+        let badhcrc = [&header[..], &check, &good[10..]].concat();
+        for (zid, gzip) in [(28, badcrc), (29, badflag), (30, trailing), (31, badhcrc)] {
+            let bad = Stored {
+                gzip,
+                ..stored(document(5, "j"))
+            };
+            served(
+                &mut c,
+                "test",
+                zid,
+                "delphi",
+                p,
+                Some(&map_family(zid, &bad)),
+            );
+        }
         // The digest names the run's job, the document (or the gzip) another.
         let other = uuid(0x8000);
         for (zid, row) in [(25, 0), (26, 1)] {
@@ -613,7 +642,7 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
         // the document, and a part naming another job are refused whatever
         // the client holds: with no ETag, with the stored one, and with `*`.
         let unreadable = r#"{"status":"error","message":"polis_err_topic_map_unreadable"}"#;
-        for report in ["odd", "badsha", "nogz", "twice", "foreign", "zeros", "badgz", "otherdoc", "othergz"] {
+        for report in ["odd", "badsha", "nogz", "twice", "foreign", "zeros", "badgz", "otherdoc", "othergz", "badcrc", "badflag", "trailing", "badhcrc"] {
             for coding in ["gzip", "identity"] {
                 for tag in [None, Some("*".to_owned()), Some(format!("\"{}\"", "0".repeat(64))), Some(format!("W/\"{}\"", map.sha256))] {
                     let mut headers = vec![("accept-encoding", coding)];

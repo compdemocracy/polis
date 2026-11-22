@@ -615,7 +615,7 @@ async fn answer(
         }
     }
     let found = match found {
-        Found::Unverified(u) => match verify(&app.delphi_topic_map, *u).await {
+        Found::Unverified(u) => match verify(&app.delphi_topic_map, *u, place.clone()).await {
             Ok(found) => found,
             Err(r) => return refused(r),
         },
@@ -1069,12 +1069,20 @@ fn read_part(
 /// after its connection has gone back: the document's SHA-256 must be the
 /// stored digest and the gzip must inflate to exactly the document. The
 /// verdict is kept (a stored family never changes); the bytes are not. Only
-/// one family is checked at a time; another request meanwhile is shed.
-async fn verify(state: &State, u: Unverified) -> Result<Found, Refused> {
+/// one family is checked at a time; another request meanwhile waits.
+///
+/// The blocking check owns the bytes it reads and, with them, the checker's
+/// permit, their count and a clone of the request's place, and hands all of
+/// them back with its result. A request that gives up while its check is
+/// queued or running (the route's deadline drops this future) therefore
+/// frees none of the three bounds until the detached check, and the bytes
+/// it holds, are gone: the discipline of the database work (`db.rs`, the
+/// permit moves into the blocking closure).
+async fn verify(state: &State, u: Unverified, place: Place) -> Result<Found, Refused> {
     // One check at a time; a request for a family being checked waits for
     // that check (holding its place, so at most the places wait) and uses
     // its verdict.
-    let Ok(_checking) = state.0.checking.clone().acquire_owned().await else {
+    let Ok(checking) = state.0.checking.clone().acquire_owned().await else {
         return Err(Refused::Busy);
     };
     let Unverified {
@@ -1084,22 +1092,29 @@ async fn verify(state: &State, u: Unverified) -> Result<Found, Refused> {
         mut sha,
         mut document,
         mut gzip,
-        held,
+        mut held,
         send_gzip,
         matched,
     } = u;
     let good = match state.verdict(&key) {
-        Some(good) => good,
+        Some(good) => {
+            drop(checking);
+            good
+        }
         None => {
             let checked = tokio::task::spawn_blocking(move || {
                 let good = stored_parts_agree(&document, &gzip, &sha);
-                (good, document, gzip, sha)
+                (good, document, gzip, sha, held, checking, place)
             })
             .await;
-            let Ok((good, d, g, h)) = checked else {
+            // A check that panicked dropped its permit, count and place with its bytes.
+            let Ok((good, d, g, h, kept, checking, _place)) = checked else {
                 return Err(Refused::Busy);
             };
-            (document, gzip, sha) = (d, g, h);
+            (document, gzip, sha, held) = (d, g, h, kept);
+            // The bytes stay counted (`held`, and the request's own place);
+            // the next family may be checked.
+            drop(checking);
             state.0.checked.fetch_add(1, Ordering::Relaxed);
             state.remember(key, good);
             good
@@ -1135,21 +1150,33 @@ pub(crate) fn stored_parts_agree(document: &[u8], gzip: &[u8], sha: &str) -> boo
     digest == sha && gunzip(gzip, document.len()).as_deref() == Some(document)
 }
 
-/// The data of one gzip member (RFC 1952), at most `limit` bytes, when its
-/// trailer's length is that data's.
+/// The data of a gzip file (RFC 1952) that is exactly one valid member, at
+/// most `limit` bytes; otherwise none. Valid means: the magic and DEFLATE
+/// method; no reserved flag bit; the optional fields within the member; the
+/// header checksum, when the header carries one; a DEFLATE stream that ends
+/// exactly where the 8-byte trailer begins (so nothing, not even a second
+/// member, follows it: one member is the only form this route serves); and a
+/// trailer whose CRC-32 and length are the data's. A conforming gzip decoder
+/// accepts every gzip this accepts.
 fn gunzip(member: &[u8], limit: usize) -> Option<Vec<u8>> {
+    use miniz_oxide::inflate::stream::{InflateState, inflate};
+    use miniz_oxide::{DataFormat, MZFlush, MZStatus};
     const FHCRC: u8 = 2;
     const FEXTRA: u8 = 4;
     const FNAME: u8 = 8;
     const FCOMMENT: u8 = 16;
+    const RESERVED: u8 = 0xe0;
     if member.len() < 18 || member[..3] != [0x1f, 0x8b, 8] {
         return None;
     }
     let flags = member[3];
+    if flags & RESERVED != 0 {
+        return None;
+    }
     let mut at = 10;
     if flags & FEXTRA != 0 {
         let n = usize::from(u16::from_le_bytes([*member.get(at)?, *member.get(at + 1)?]));
-        at += 2 + n;
+        at = at.checked_add(2 + n)?;
     }
     for flag in [FNAME, FCOMMENT] {
         if flags & flag != 0 {
@@ -1157,13 +1184,54 @@ fn gunzip(member: &[u8], limit: usize) -> Option<Vec<u8>> {
         }
     }
     if flags & FHCRC != 0 {
+        let stored = u16::from_le_bytes([*member.get(at)?, *member.get(at + 1)?]);
+        if crc32(member.get(..at)?) as u16 != stored {
+            return None;
+        }
         at += 2;
     }
     let end = member.len().checked_sub(8)?;
-    let data =
-        miniz_oxide::inflate::decompress_to_vec_with_limit(member.get(at..end)?, limit).ok()?;
+    let stream = member.get(at..end)?;
+    // One byte more than the limit, so data over it cannot end the stream.
+    let mut data = vec![0u8; limit.checked_add(1)?];
+    let mut state = InflateState::new_boxed(DataFormat::Raw);
+    let out = inflate(&mut state, stream, &mut data, MZFlush::Finish);
+    if out.status != Ok(MZStatus::StreamEnd)
+        || out.bytes_consumed != stream.len()
+        || out.bytes_written > limit
+    {
+        return None;
+    }
+    data.truncate(out.bytes_written);
+    let crc = u32::from_le_bytes(member[end..end + 4].try_into().ok()?);
     let size = u32::from_le_bytes(member[end + 4..].try_into().ok()?);
-    (size as usize == data.len()).then_some(data)
+    (crc32(&data) == crc && size as usize == data.len()).then_some(data)
+}
+
+/// The CRC-32 of RFC 1952 (the ISO 3309 polynomial, reflected).
+fn crc32(bytes: &[u8]) -> u32 {
+    const TABLE: [u32; 256] = {
+        let mut table = [0u32; 256];
+        let mut n = 0;
+        while n < 256 {
+            let mut c = n as u32;
+            let mut k = 0;
+            while k < 8 {
+                c = if c & 1 != 0 {
+                    0xedb8_8320 ^ (c >> 1)
+                } else {
+                    c >> 1
+                };
+                k += 1;
+            }
+            table[n] = c;
+            n += 1;
+        }
+        table
+    };
+    !bytes.iter().fold(!0u32, |c, b| {
+        TABLE[((c ^ u32::from(*b)) & 0xff) as usize] ^ (c >> 8)
+    })
 }
 
 #[cfg(test)]

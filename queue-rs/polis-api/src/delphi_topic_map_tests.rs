@@ -367,6 +367,222 @@ fn a_stored_family_is_checked_against_its_digest_and_its_gzip() {
     assert!(stored_parts_agree(&doc, &named, &sha));
 }
 
+/// The stored gzip is served as `Content-Encoding: gzip`, so it is certified
+/// only when a conforming decoder would accept it: one whole member, every
+/// checksum right, no reserved flag, nothing after it.
+#[test]
+fn a_stored_topic_map_gzip_is_one_whole_valid_member() {
+    use sha2::{Digest, Sha256};
+    assert_eq!(crc32(b"123456789"), 0xcbf4_3926, "the RFC 1952 CRC-32");
+    let doc = document(300, "j").into_bytes();
+    let sha: String = Sha256::digest(&doc)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let gz = crate::compress::gzip(&doc).unwrap();
+    let n = gz.len();
+    assert!(stored_parts_agree(&doc, &gz, &sha));
+    let refused = |bytes: &[u8], why: &str| {
+        assert!(gunzip(bytes, doc.len()).is_none(), "{why}");
+        assert!(!stored_parts_agree(&doc, bytes, &sha), "{why}");
+    };
+    // The trailer's CRC-32 (one bit of its first and last byte) and length.
+    for at in [n - 8, n - 5] {
+        let mut bad = gz.clone();
+        bad[at] ^= 1;
+        refused(&bad, "a wrong trailer CRC");
+    }
+    let mut bad = gz.clone();
+    bad[n - 4] ^= 1;
+    refused(&bad, "a wrong trailer length");
+    // Reserved flag bits.
+    for bit in [0x20, 0x40, 0x80] {
+        let mut bad = gz.clone();
+        bad[3] |= bit;
+        refused(&bad, "a reserved flag");
+    }
+    // A header checksum: read when right, refused when wrong.
+    let mut header = gz[..10].to_vec();
+    header[3] |= 2;
+    let check = (crc32(&header) as u16).to_le_bytes();
+    let with_check = [&header[..], &check, &gz[10..]].concat();
+    assert!(
+        stored_parts_agree(&doc, &with_check, &sha),
+        "a right header CRC"
+    );
+    let mut bad = with_check.clone();
+    bad[10] ^= 1;
+    refused(&bad, "a wrong header CRC");
+    // An extra field longer than the member.
+    let mut extra = gz[..10].to_vec();
+    extra[3] |= 4;
+    extra.extend_from_slice(&[0xff, 0xff]);
+    extra.extend_from_slice(&gz[10..]);
+    refused(&extra, "an extra field past the end");
+    // Anything after the member: a byte, a second member, or bytes between
+    // the DEFLATE stream's end and the trailer.
+    refused(&[&gz[..], &[0]].concat(), "a byte after the member");
+    let empty = crate::compress::gzip(b"").unwrap();
+    refused(&[&gz[..], &empty[..]].concat(), "a second member");
+    refused(
+        &[&gz[..n - 8], &[0], &gz[n - 8..]].concat(),
+        "bytes between the stream and its trailer",
+    );
+    // Data longer than the limit, whatever its trailer says.
+    let longer = crate::compress::gzip(&[&doc[..], b" "].concat()).unwrap();
+    assert!(gunzip(&longer, doc.len()).is_none(), "over the limit");
+}
+
+/// A runtime whose one blocking thread is taken until the returned sender is
+/// sent to, so a check given to it waits in the queue.
+fn topic_map_runtime_with_its_blocking_thread_taken() -> (
+    tokio::runtime::Runtime,
+    std::sync::mpsc::Sender<()>,
+    tokio::task::JoinHandle<()>,
+) {
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .max_blocking_threads(1)
+        .build()
+        .unwrap();
+    let (release, wait) = std::sync::mpsc::channel::<()>();
+    let (started, ready) = tokio::sync::oneshot::channel();
+    let blocker = {
+        let _runtime = rt.enter();
+        tokio::task::spawn_blocking(move || {
+            started.send(()).unwrap();
+            let _ = wait.recv();
+        })
+    };
+    rt.block_on(ready).unwrap();
+    (rt, release, blocker)
+}
+
+/// A family to check: its parts, counted as a first read counts them.
+fn topic_map_unverified(state: &State, key: &str) -> (Unverified, usize) {
+    use sha2::{Digest, Sha256};
+    let document = document(300, "j").into_bytes();
+    let gzip = crate::compress::gzip(&document).unwrap();
+    let sha = Sha256::digest(&document)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let bytes = document.len() + gzip.len();
+    let u = Unverified {
+        key: key.to_owned(),
+        job: "j".into(),
+        scope: None,
+        sha,
+        document,
+        gzip,
+        held: state.hold(bytes),
+        send_gzip: false,
+        matched: false,
+    };
+    (u, bytes)
+}
+
+fn topic_map_held(state: &State) -> usize {
+    state.0.held.load(Ordering::SeqCst)
+}
+
+fn topic_map_in_flight(state: &State) -> usize {
+    state.0.in_flight.load(Ordering::SeqCst)
+}
+
+/// A check that waits behind a busy blocking pool keeps its place, its
+/// bytes' count and the checker's permit the whole time it waits, and hands
+/// the count of the bytes it answers with on to the answer.
+#[test]
+fn topic_map_check_queued_behind_the_blocking_pool_keeps_its_bounds() {
+    let (rt, release, blocker) = topic_map_runtime_with_its_blocking_thread_taken();
+    rt.block_on(async {
+        let state = State::new(MAX_IN_FLIGHT);
+        let request = state.admit().unwrap();
+        let (u, bytes) = topic_map_unverified(&state, "queued");
+        let copy = state.clone();
+        let task = tokio::spawn(async move {
+            let out = verify(&copy, u, request.clone()).await;
+            drop(request);
+            out
+        });
+        for _ in 0..3 {
+            tokio::time::sleep(Duration::from_millis(50)).await;
+            assert_eq!(state.0.checking.available_permits(), 0);
+            assert_eq!(topic_map_in_flight(&state), 1);
+            assert_eq!(topic_map_held(&state), bytes);
+            assert_eq!(state.checked(), 0);
+        }
+        release.send(()).unwrap();
+        blocker.await.unwrap();
+        let Ok(Ok(Found::Map {
+            body: Some((body, held)),
+            ..
+        })) = task.await
+        else {
+            panic!("the queued check answers the map");
+        };
+        assert_eq!(body, document(300, "j").into_bytes());
+        assert_eq!(state.checked(), 1);
+        assert_eq!(state.0.checking.available_permits(), 1);
+        assert_eq!(topic_map_in_flight(&state), 0, "the request has ended");
+        assert_eq!(topic_map_held(&state), body.len(), "the answer's bytes");
+        drop(held);
+        assert_eq!(topic_map_held(&state), 0);
+    });
+}
+
+/// A request that gives up (the route's deadline drops its future) while its
+/// check is queued frees none of the three bounds until the detached check
+/// has run and dropped its bytes: with the other places taken, a fifth
+/// request is shed, and no other family can be checked, until then.
+#[test]
+fn topic_map_check_given_up_keeps_its_bounds_until_the_detached_check_ends() {
+    let (rt, release, blocker) = topic_map_runtime_with_its_blocking_thread_taken();
+    rt.block_on(async {
+        let state = State::new(MAX_IN_FLIGHT);
+        let others: Vec<Place> = (1..MAX_IN_FLIGHT).map(|_| state.admit().unwrap()).collect();
+        let request = state.admit().unwrap();
+        let (u, bytes) = topic_map_unverified(&state, "given-up");
+        let copy = state.clone();
+        let gave_up = tokio::spawn(async move {
+            let check = verify(&copy, u, request.clone());
+            let out = tokio::time::timeout(Duration::from_millis(50), check).await;
+            drop(request);
+            out.is_err()
+        })
+        .await
+        .unwrap();
+        assert!(gave_up, "the waiter was dropped at its deadline");
+        for _ in 0..4 {
+            assert_eq!(
+                topic_map_in_flight(&state),
+                MAX_IN_FLIGHT,
+                "the detached check's place"
+            );
+            assert_eq!(topic_map_held(&state), bytes, "its bytes");
+            assert_eq!(state.0.checking.available_permits(), 0, "the checker");
+            assert!(state.admit().is_none(), "a fifth request is shed");
+            tokio::time::sleep(Duration::from_millis(50)).await;
+        }
+        // The blocking thread is free: the detached check runs, ends and
+        // drops everything it held, and only then do the bounds come back.
+        release.send(()).unwrap();
+        blocker.await.unwrap();
+        for _ in 0..400 {
+            if topic_map_in_flight(&state) < MAX_IN_FLIGHT {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(5)).await;
+        }
+        assert_eq!(topic_map_in_flight(&state), MAX_IN_FLIGHT - 1);
+        assert_eq!(topic_map_held(&state), 0);
+        assert_eq!(state.0.checking.available_permits(), 1);
+        assert!(state.admit().is_some(), "the next request is admitted");
+        drop(others);
+    });
+}
+
 #[test]
 fn the_test_document_is_the_contracts() {
     let doc: contract::TopicMap = serde_json::from_str(&document(3, "j")).unwrap();
