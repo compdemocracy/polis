@@ -530,10 +530,18 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
                 other => panic!("a stored map answered {other}"),
             }
         }
-        assert!(
-            maps.iter().filter(|(s, ..)| *s == 200).count() >= 4,
-            "{maps:?}"
+        // How many are answered depends on the machine: the route has more
+        // places than read connections, so a request holding a place is shed
+        // too when it waits longer than its pool's acquire timeout while two
+        // others read. What the route guarantees is that one is answered: a
+        // request is shed at the pool only while others hold its connections,
+        // and the last of those to read is never shed there.
+        let answered = maps.iter().filter(|(s, ..)| *s == 200).count();
+        eprintln!(
+            "warm topic map flood: {answered} of {} answered",
+            maps.len()
         );
+        assert!(answered > 0, "{maps:?}");
         let writer_after = [
             writer.pool.evidence.snapshot(),
             writer.reads.evidence.snapshot(),
@@ -552,6 +560,37 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
             "stored bytes held at once are bounded by the places: {}",
             state.max_held()
         );
+        // The flood gives back every place and every byte it held, and the
+        // route then serves again: one request, alone, is answered with the
+        // whole document as stored, within the route's deadline.
+        wait_for("the flood's places and bytes given back", || {
+            state.in_flight() == 0 && state.held_now() == 0
+        })
+        .await;
+        let started = std::time::Instant::now();
+        let again = crate::dispatch(
+            app.clone(),
+            None,
+            forwarded(
+                "/api/v3/delphi/topicMap?report_id=r1",
+                &[("accept-encoding", "identity")],
+            ),
+        )
+        .await;
+        let took = started.elapsed();
+        assert_eq!(again.status, 200, "the route serves again after the flood");
+        match &again.body {
+            crate::http::Body::Fixed(b) => assert!(
+                b[..] == map.document.as_bytes()[..],
+                "the map after the flood is the stored document"
+            ),
+            _ => panic!("the map after the flood is not a whole body"),
+        }
+        assert!(
+            took < crate::delphi_topic_map::DEADLINE,
+            "answered after {took:?}"
+        );
+        drop(again);
         // Nothing here hashes, compresses or builds a map: the runtime's
         // thread only copies bytes it was handed.
         assert!(
@@ -1597,8 +1636,19 @@ fn connection_bounds_held_topic_map_answers_keep_their_places_until_written() {
         let _ = sample(&app, &reads).await;
         let control = sample(&app, &reads).await;
         let busy_before = state.busy();
+        let doc = map.document.len();
+        // The four that are answered arrive one at a time, each once the one
+        // before holds its answer, so none of them waits for a read
+        // connection: the route has more places than read connections, and a
+        // request reading beside two others can be shed at its pool on a slow
+        // machine, which is not what this test is about. Then eight more,
+        // which find every place taken.
         let mut clients = Vec::new();
-        for _ in 0..12 {
+        for n in 1..=crate::delphi_topic_map::MAX_IN_FLIGHT {
+            clients.push(stalled(address).await);
+            wait_for("one more answer held", || state.in_flight() == n && state.held_now() == n * doc).await;
+        }
+        for _ in 0..8 {
             clients.push(stalled(address).await);
         }
         wait_for("four answers held, eight shed", || {
@@ -1606,7 +1656,6 @@ fn connection_bounds_held_topic_map_answers_keep_their_places_until_written() {
         })
         .await;
         tokio::time::sleep(Duration::from_millis(300)).await;
-        let doc = map.document.len();
         let (held_places, held_bytes) = (state.in_flight(), state.held_now());
         eprintln!("held topic map answers: places {held_places}, bytes {held_bytes}, shed {}", state.busy() - busy_before);
         assert_eq!(held_places, crate::delphi_topic_map::MAX_IN_FLIGHT, "the places last while the answers are written");
