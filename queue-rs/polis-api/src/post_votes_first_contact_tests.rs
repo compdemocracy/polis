@@ -122,6 +122,17 @@ fn vote(
     body: Value,
     token: Option<&str>,
 ) -> (u16, String) {
+    vote_with(rt, app, body, token, &[])
+}
+
+/// `vote`, with more request headers.
+fn vote_with(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    body: Value,
+    token: Option<&str>,
+    extra: &[(&str, &str)],
+) -> (u16, String) {
     let mut request = req(&body.to_string());
     let bearer = token.map(|t| format!("Bearer {t}"));
     let mut headers = vec![
@@ -132,6 +143,7 @@ fn vote(
     if let Some(bearer) = &bearer {
         headers.push(("authorization", bearer));
     }
+    headers.extend_from_slice(extra);
     request.headers = Headers::from_raw(headers);
     let out = rt.block_on(crate::route::handle(app.clone(), request));
     let body = match &out.body {
@@ -798,4 +810,261 @@ fn with_the_first_contact_switch_on_a_tokenless_treevite_request_is_not_created(
     );
     assert_eq!(rows(&stage), before, "nothing is created");
     assert_eq!(xids(), bound, "no external id is bound");
+}
+
+/// `stage`, with the published migration that adds the extended row's
+/// `origin` column (the fixture database applies only the migrations the
+/// vote writer's other tests need).
+fn stage_with_origin(label: &str) -> Stage {
+    let stage = stage(label);
+    stage
+        .db
+        .connect()
+        .batch_execute(include_str!(
+            "../../../server/postgres/migrations/000003_add_origin_permanent_cookie_columns.sql"
+        ))
+        .unwrap();
+    stage
+}
+
+/// Waits until the notification lane has finished everything it admitted:
+/// the extended-row write and the vote's notification state.
+fn lane_idle(rt: &tokio::runtime::Runtime, app: &Arc<App>) {
+    rt.block_on(async {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while notifications_in_flight(app) > 0 {
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            }
+        })
+        .await
+        .expect("the notification lane never went idle");
+    });
+}
+
+/// The newest user's extended row in conversation 1: referrer and origin.
+fn extended(stage: &Stage) -> (Option<String>, Option<String>) {
+    let row = stage
+        .db
+        .connect()
+        .query_one(
+            "select referrer, origin from participants_extended
+             where zid=1 and uid=(select max(uid) from users)",
+            &[],
+        )
+        .unwrap();
+    (row.get(0), row.get(1))
+}
+
+fn extended_dropped(app: &Arc<App>) -> u64 {
+    app.post_votes
+        .as_ref()
+        .unwrap()
+        .background
+        .extended_info_dropped
+        .load(Ordering::Relaxed)
+}
+
+#[test]
+fn a_first_contact_records_its_referrer_and_origin_as_node_does() {
+    let stage = stage_with_origin("first_contact_extended");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let some = |s: &str| Some(s.to_owned());
+    // Over the columns' 9999 characters before its query, and within them
+    // after it is dropped.
+    let long_path = format!("https://example.org/{}", "p".repeat(9990));
+    let long_query = format!("https://example.org/embed?{}", "q".repeat(10_000));
+    let long_origin = format!("https://{}.example.org", "o".repeat(9990));
+    // Each case: the request's headers, then the row Node's
+    // `addParticipantAndMetadata` leaves (participant.ts), and whether its
+    // one update fails (a value longer than its column).
+    type Case<'a> = (
+        Vec<(&'a str, &'a str)>,
+        (Option<String>, Option<String>),
+        bool,
+    );
+    let cases: Vec<Case> = vec![
+        (
+            vec![
+                (
+                    "referer",
+                    "https://example.org/embed/2plain?xid=x1&ui=0#top",
+                ),
+                ("origin", "https://example.org"),
+            ],
+            (
+                some("https://example.org/embed/2plain"),
+                some("https://example.org"),
+            ),
+            false,
+        ),
+        (
+            vec![("referer", "https://example.org/page")],
+            (some("https://example.org/page"), None),
+            false,
+        ),
+        (
+            vec![("origin", "https://example.org")],
+            (None, some("https://example.org")),
+            false,
+        ),
+        (vec![], (None, None), false),
+        // Node reads `referrer` when `referer` is absent or empty, and stops
+        // at the first `?` or `#`, whichever comes first.
+        (
+            vec![("referrer", "https://example.org/a#b?c")],
+            (some("https://example.org/a"), None),
+            false,
+        ),
+        (
+            vec![("referer", ""), ("referrer", "https://example.org/b?c")],
+            (some("https://example.org/b"), None),
+            false,
+        ),
+        // A referrer that is only a query is stored empty; an empty origin is
+        // not stored.
+        (
+            vec![("referer", "?xid=x2"), ("origin", "")],
+            (some(""), None),
+            false,
+        ),
+        (
+            vec![("referer", long_query.as_str())],
+            (some("https://example.org/embed"), None),
+            false,
+        ),
+        // Too long for its column: the update fails and neither is written.
+        (
+            vec![
+                ("referer", long_path.as_str()),
+                ("origin", "https://example.org"),
+            ],
+            (None, None),
+            true,
+        ),
+        (
+            vec![
+                ("referer", "https://example.org/c"),
+                ("origin", long_origin.as_str()),
+            ],
+            (None, None),
+            true,
+        ),
+    ];
+    for (headers, expected, fails) in cases {
+        let dropped = extended_dropped(&app);
+        let before = rows(&stage);
+        let (status, body) = vote_with(&rt, &app, ballot("2plain"), None, &headers);
+        assert_eq!(status, 200, "{body}");
+        assert!(body.ends_with(AUTH_TAIL), "{body}");
+        assert_eq!(
+            rows(&stage),
+            before.iter().map(|n| n + 1).collect::<Vec<_>>()
+        );
+        lane_idle(&rt, &app);
+        assert_eq!(extended(&stage), expected, "{:?}", headers.len());
+        assert_eq!(extended_dropped(&app), dropped + u64::from(fails));
+    }
+    // A member's vote writes no extended row, whatever its headers say.
+    let member = member_token(&stage, 2, 0);
+    let (status, _) = vote_with(
+        &rt,
+        &app,
+        ballot("2plain"),
+        Some(&member),
+        &[
+            ("referer", "https://example.org/member"),
+            ("origin", "https://example.org"),
+        ],
+    );
+    assert_eq!(status, 200);
+    lane_idle(&rt, &app);
+    assert_eq!(
+        stage
+            .db
+            .connect()
+            .query_one(
+                "select count(*) from participants_extended where uid=2",
+                &[]
+            )
+            .unwrap()
+            .get::<_, i64>(0),
+        0
+    );
+}
+
+#[test]
+fn with_the_lane_full_a_first_vote_answers_with_its_token_and_counts_the_drop() {
+    let stage = stage_with_origin("first_contact_extended_full");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let lane = &app.post_votes.as_ref().unwrap().background;
+    // Every admission permit of the notification lane is taken.
+    let held = lane.admitted.clone().try_acquire_many_owned(64).unwrap();
+    let before = rows(&stage);
+    let (status, body) = vote_with(
+        &rt,
+        &app,
+        ballot("2plain"),
+        None,
+        &[
+            ("referer", "https://example.org/full?xid=x3"),
+            ("origin", "https://example.org"),
+        ],
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(body.ends_with(AUTH_TAIL), "{body}");
+    assert_eq!(
+        rows(&stage),
+        before.iter().map(|n| n + 1).collect::<Vec<_>>()
+    );
+    assert_eq!(extended_dropped(&app), 1);
+    let Js::Obj(health) = health(&app) else {
+        unreachable!()
+    };
+    assert_eq!(
+        health.get("firstContactExtendedInfoDropped"),
+        Some(&Js::Num(1.0))
+    );
+    drop(held);
+    lane_idle(&rt, &app);
+    assert_eq!(
+        extended(&stage),
+        (None, None),
+        "a dropped write is not retried"
+    );
+}
+
+#[test]
+fn with_the_first_contact_switch_off_no_extended_row_is_written() {
+    let stage = stage_with_origin("first_contact_extended_off");
+    let rt = runtime();
+    let off = app(&stage, &rt, false);
+    let before = rows(&stage);
+    let headers = [
+        ("referer", "https://example.org/off?xid=x4"),
+        ("origin", "https://example.org"),
+    ];
+    assert_eq!(
+        vote_with(&rt, &off, ballot("2plain"), None, &headers).0,
+        502
+    );
+    assert_eq!(rows(&stage), before);
+    let member = member_token(&stage, 2, 0);
+    assert_eq!(
+        vote_with(&rt, &off, ballot("2plain"), Some(&member), &headers).0,
+        200
+    );
+    lane_idle(&rt, &off);
+    let mut c = stage.db.connect();
+    assert_eq!(
+        c.query_one("select count(*) from participants_extended", &[])
+            .unwrap()
+            .get::<_, i64>(0),
+        before[2]
+    );
+    let Js::Obj(health) = health(&off) else {
+        unreachable!()
+    };
+    assert!(health.get("firstContactExtendedInfoDropped").is_none());
 }

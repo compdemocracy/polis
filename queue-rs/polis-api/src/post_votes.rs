@@ -130,6 +130,7 @@ impl Writer {
             pool: background_pool,
             admitted: _,
             dropped: _,
+            extended_info_dropped: _,
         } = background.as_ref();
         [pool, background_pool, reads]
     }
@@ -1550,6 +1551,12 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
             Ok(created) => {
                 admitted.pid = created.pid.0 as i32;
                 admitted.uid = created.uid.0;
+                // Where the person came from, after the creating commit and
+                // not waited for, as Node records it: on the notification
+                // lane, never on a pool the vote uses.
+                if let Some(info) = ExtendedInfo::of(req) {
+                    schedule_extended_info(&writer.background, admitted.zid, admitted.uid, info);
+                }
                 issue(lane, &created, new).await
             }
             Err(reason) => {
@@ -1699,6 +1706,64 @@ async fn create(
 }
 
 const FIRST_CONTACT_COMMIT_UNKNOWN: &str = "first_contact_commit_unknown";
+
+/// Where a person came from, as Node's participant middleware records it
+/// when it creates a participant (`addParticipantAndMetadata`): the `Referer`
+/// header (or `Referrer` when that is absent or empty) up to its first `?` or
+/// `#`, and the `Origin` header, each only when the request carries it
+/// non-empty. Neither is truncated to its column. Node's encrypted address,
+/// written only by a deployment named `PolisWebServer`, is not written here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ExtendedInfo {
+    referrer: Option<String>,
+    origin: Option<String>,
+}
+
+impl ExtendedInfo {
+    /// None when the request carries neither: Node then writes nothing.
+    fn of(req: &Request) -> Option<Self> {
+        let header = |name| req.headers.get(name).filter(|value| !value.is_empty());
+        let referrer = header("referer")
+            .or_else(|| header("referrer"))
+            .map(|referrer| {
+                referrer
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned()
+            });
+        let origin = header("origin").map(str::to_owned);
+        (referrer.is_some() || origin.is_some()).then_some(Self { referrer, origin })
+    }
+}
+
+/// Writes `info` to the extended row of the participant just created, best
+/// effort and not waited for, as Node does: on the notification lane, whose
+/// admission bound and pool no vote waits on. One statement, so a value longer
+/// than its column fails it and nothing is written, as in Node. Not admitted
+/// (the lane full) or failed, it is counted and logged with the count only;
+/// the values never reach a line.
+fn schedule_extended_info(
+    lane: &Arc<NotificationPool>,
+    zid: i32,
+    uid: i32,
+    info: ExtendedInfo,
+) -> bool {
+    // Node stamps the row with its own clock when it sends the update.
+    let modified = crate::clock::now_ms() as i64;
+    lane.schedule_reporting(
+        move |c| {
+            c.execute(
+                "update participants_extended
+                 set referrer=coalesce($3,referrer), origin=coalesce($4,origin), modified=$5
+                 where zid=$1 and uid=$2",
+                &[&zid, &uid, &info.referrer, &info.origin, &modified],
+            )?;
+            Ok(())
+        },
+        NotificationPool::record_extended_info_drop,
+    )
+}
 
 /// A first contact handed back. A commit whose acknowledgement was lost may
 /// have created a participant that Node, given the request, creates again:
@@ -2070,6 +2135,9 @@ struct NotificationPool {
     pool: Arc<db::Pool>,
     admitted: Arc<tokio::sync::Semaphore>,
     dropped: std::sync::atomic::AtomicU64,
+    /// A first contact's extended-row writes not admitted or failed
+    /// (`schedule_extended_info`).
+    extended_info_dropped: std::sync::atomic::AtomicU64,
 }
 
 impl NotificationPool {
@@ -2078,6 +2146,7 @@ impl NotificationPool {
             pool,
             admitted: Arc::new(tokio::sync::Semaphore::new(64)),
             dropped: std::sync::atomic::AtomicU64::new(0),
+            extended_info_dropped: std::sync::atomic::AtomicU64::new(0),
         })
     }
 
@@ -2085,8 +2154,16 @@ impl NotificationPool {
     where
         F: FnOnce(&mut Client) -> Result<()> + Send + 'static,
     {
+        self.schedule_reporting(work, Self::record_drop)
+    }
+
+    /// `schedule`, with the counter a drop is reported to.
+    fn schedule_reporting<F>(self: &Arc<Self>, work: F, dropped: fn(&Self)) -> bool
+    where
+        F: FnOnce(&mut Client) -> Result<()> + Send + 'static,
+    {
         let Ok(permit) = self.admitted.clone().try_acquire_owned() else {
-            self.record_drop();
+            dropped(self);
             return false;
         };
         let lane = self.clone();
@@ -2102,10 +2179,19 @@ impl NotificationPool {
                 })
                 .await;
             if result.is_err() {
-                lane.record_drop();
+                dropped(&lane);
             }
         });
         true
+    }
+
+    fn record_extended_info_drop(&self) {
+        let dropped = self.extended_info_dropped.fetch_add(1, Ordering::Relaxed) + 1;
+        if dropped.is_power_of_two() {
+            eprintln!(
+                "{{\"event\":\"post_votes_first_contact_extended_info_dropped\",\"count\":{dropped}}}"
+            );
+        }
     }
 
     fn record_drop(&self) {
@@ -2219,14 +2305,18 @@ pub(crate) fn health(app: &App) -> Js {
         body.set(key, Js::Num(value.load(Ordering::Relaxed) as f64));
     }
     // Only with the first-contact switch on: off, the body is unchanged.
-    if app
+    if let Some(writer) = app
         .post_votes
         .as_ref()
-        .is_some_and(|w| w.first_contact.is_some())
+        .filter(|w| w.first_contact.is_some())
     {
         for (key, value) in [
             ("firstContactHandedBack", &FIRST_CONTACT_HANDED_BACK),
             ("firstContactCommitUnknown", &FIRST_CONTACT_UNKNOWN),
+            (
+                "firstContactExtendedInfoDropped",
+                &writer.background.extended_info_dropped,
+            ),
         ] {
             body.set(key, Js::Num(value.load(Ordering::Relaxed) as f64));
         }
