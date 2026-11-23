@@ -364,17 +364,23 @@ fn with_the_first_contact_switch_off_nothing_changes() {
             "firstContactCommitUnknown",
             "firstContactExtendedInfoDropped",
             "firstContactVoteNotWritten",
+            "firstContactCommitConfirmed",
+            "firstContactCommitUnresolved",
         ]
         .map(|key| body.get(key).is_some())
     };
     assert_eq!(
         keys(&off),
-        [false; 4],
+        [false; 6],
         "the health body is unchanged with the switch off"
     );
-    // On: the three first-contact counts. A person without their vote can no
-    // longer be written, so there is no count of one.
-    assert_eq!(keys(&app(&stage, &rt, true)), [true, true, true, false]);
+    // On: the first-contact counts, the second look's two among them. A
+    // person without their vote can no longer be written, so there is no
+    // count of one.
+    assert_eq!(
+        keys(&app(&stage, &rt, true)),
+        [true, true, true, false, true, true]
+    );
 }
 
 #[test]
@@ -1268,7 +1274,8 @@ fn after(before: [i64; 5], both: bool) -> [i64; 5] {
 enum Counted {
     HandedBack,
     FirstContactHandedBack,
-    CommitUnknown,
+    Confirmed,
+    Unresolved,
     Degraded,
     Served,
 }
@@ -1280,7 +1287,8 @@ impl Counted {
         match self {
             Self::HandedBack => &HANDED_BACK,
             Self::FirstContactHandedBack => &FIRST_CONTACT_HANDED_BACK,
-            Self::CommitUnknown => &FIRST_CONTACT_UNKNOWN,
+            Self::Confirmed => &FIRST_CONTACT_CONFIRMED,
+            Self::Unresolved => &FIRST_CONTACT_UNRESOLVED,
             Self::Degraded => &DEGRADED,
             Self::Served => &SERVED,
         }
@@ -1293,8 +1301,8 @@ impl Counted {
 /// person and the vote together or neither (users, participants,
 /// participants_extended, votes and votes_latest_unique), and asserts its
 /// answer, the pre-dispatch marker (on a hand-back only) and what it is
-/// counted as. A COMMIT whose acknowledgement is lost is still handed back
-/// and counted as such.
+/// counted as. A COMMIT refused at its end is looked at again and handed
+/// back as nothing written.
 #[test]
 fn every_state_of_a_first_vote_writes_its_person_and_vote_together_or_neither() {
     let stage = stage("first_contact_states");
@@ -1361,12 +1369,12 @@ fn every_state_of_a_first_vote_writes_its_person_and_vote_together_or_neither() 
             Counted::FirstContactHandedBack,
         ),
         (
-            "the COMMIT refused: its outcome unknown to the writer",
+            "the COMMIT refused: the second look finds it aborted",
             None,
             on(9),
             Answer::HandedBack,
             false,
-            Counted::CommitUnknown,
+            Counted::FirstContactHandedBack,
         ),
         (
             "the worker unwinds after the acknowledged COMMIT",
@@ -1808,4 +1816,194 @@ fn a_first_vote_through_a_second_code_gets_the_code_node_signs() {
         "the second code: handed back"
     );
     assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// The writer's pools' evidence: the members' admission (reads) pool, the
+/// append pool, the first contact's pool and the identity read pool.
+fn second_look_pools(app: &Arc<App>) -> [[usize; 6]; 4] {
+    let writer = app.post_votes.as_ref().unwrap();
+    [
+        writer.reads.evidence.snapshot(),
+        writer.pool.evidence.snapshot(),
+        writer
+            .first_contact
+            .as_ref()
+            .unwrap()
+            .pool
+            .evidence
+            .snapshot(),
+        writer.identity_reads.as_ref().unwrap().evidence.snapshot(),
+    ]
+}
+
+/// A COMMIT whose acknowledgement is lost, with its transaction id, is looked
+/// at again on the identity read pool. Landed: the degraded 200, with a token
+/// that verifies for the one person and vote the transaction wrote, counted
+/// as confirmed and never handed back; the look takes one identity read
+/// connection and none of the members' admission pool, the append pool or the
+/// first contact's pool. Not landed (refused at COMMIT, or the session ended
+/// during it): a marked hand-back with nothing written and no token.
+#[test]
+fn a_lost_commit_acknowledgement_is_answered_by_what_the_database_says_it_did() {
+    let stage = stage("first_contact_second_look");
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN RAISE EXCEPTION 'fixture'; END $$;
+             CREATE CONSTRAINT TRIGGER refuse_at_commit AFTER INSERT ON votes
+             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+             WHEN (NEW.tid = 9) EXECUTE FUNCTION refuse_vote();
+             CREATE FUNCTION end_session() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN PERFORM pg_terminate_backend(pg_backend_pid()); RETURN NULL; END $$;
+             CREATE CONSTRAINT TRIGGER end_at_commit AFTER INSERT ON votes
+             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+             WHEN (NEW.tid = 10) EXECUTE FUNCTION end_session();",
+        )
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let on = |tid: u64| json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
+
+    // Landed, its acknowledgement lost.
+    let before = person_and_vote(&stage);
+    let confirmed = Counted::Confirmed.read();
+    let pools = second_look_pools(&app);
+    let (out, reply, _) = first_vote_with(&rt, &app, on(7), Some(Fault::AckLostAfterCommit));
+    assert_eq!(answer_of(&out, &reply), Answer::Degraded, "{reply}");
+    assert!(!marked_for_node(&out));
+    assert_eq!(person_and_vote(&stage), after(before, true));
+    assert!(
+        Counted::Confirmed.read() > confirmed,
+        "counted as confirmed"
+    );
+    let (kind, uid, pid, _) = claims(&stage, reply_token(&reply));
+    assert_eq!(kind, participant::Kind::Anonymous);
+    assert_eq!(uid, newest_user(&stage), "the token names the new user");
+    let pid = i32::try_from(pid).unwrap();
+    assert_eq!(stored_votes(&stage, pid, 7), vec![agree()]);
+    let value: Value = serde_json::from_str(&reply).unwrap();
+    assert_eq!(value["currentPid"], json!(pid));
+    assert_eq!(value["vote"]["tid"], json!(7));
+    let after_pools = second_look_pools(&app);
+    let acquired = |i: usize| after_pools[i][0] - pools[i][0];
+    assert_eq!(
+        [acquired(0), acquired(1), acquired(2), acquired(3)],
+        [0, 0, 1, 2],
+        "members' reads, append, first contact, identity reads (admission and the second look)"
+    );
+
+    // Not landed: refused at COMMIT, and the session ended during COMMIT.
+    for (state, tid) in [
+        ("refused at COMMIT", 9),
+        ("the session ended during COMMIT", 10),
+    ] {
+        let before = person_and_vote(&stage);
+        let handed_back = Counted::FirstContactHandedBack.read();
+        let (out, reply, _) = first_vote_with(&rt, &app, on(tid), None);
+        assert_eq!(answer_of(&out, &reply), Answer::HandedBack, "{state}");
+        assert!(!reply.contains("token"), "{state}: no token");
+        assert_eq!(person_and_vote(&stage), after(before, false), "{state}");
+        assert!(
+            Counted::FirstContactHandedBack.read() > handed_back,
+            "{state}: counted as handed back"
+        );
+    }
+}
+
+/// A second look that cannot tell (its read fails, or the transaction is
+/// still in progress after every read) hands the vote back, marked, and
+/// counts it as unresolved: the case in which a person whose COMMIT landed is
+/// counted twice.
+#[test]
+fn a_second_look_that_cannot_tell_is_handed_back_and_counted_unresolved() {
+    let stage = stage("first_contact_unresolved");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    for fault in [Fault::StatusReadFails, Fault::StatusInProgress] {
+        let before = person_and_vote(&stage);
+        let unresolved = Counted::Unresolved.read();
+        let (out, reply, _) = first_vote_with(&rt, &app, ballot("2plain"), Some(fault));
+        assert_eq!(answer_of(&out, &reply), Answer::HandedBack, "{fault:?}");
+        assert!(!reply.contains("token"), "{fault:?}: no token");
+        // The COMMIT landed: Node, given the request, creates the person
+        // again. That is what the count and the line are for.
+        assert_eq!(person_and_vote(&stage), after(before, true), "{fault:?}");
+        assert!(Counted::Unresolved.read() > unresolved, "{fault:?}");
+    }
+}
+
+/// A second look on a database that has stopped answering is cut at its
+/// bound: the first vote is handed back, counted unresolved, well before the
+/// look's work ends; and a member's vote during the stall, which reads on the
+/// members' pools, is answered without waiting on it.
+#[test]
+fn a_stalled_second_look_keeps_its_bound_and_never_delays_a_members_vote() {
+    let stage = stage("first_contact_stalled_look");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let member = member_token(&stage, 2, 0);
+    let before = person_and_vote(&stage);
+    let unresolved = Counted::Unresolved.read();
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(Fault::StatusReadStalls);
+    std::thread::scope(|scope| {
+        let first = scope.spawn(|| {
+            let started = std::time::Instant::now();
+            let app = app.clone();
+            let out = rt.block_on(async {
+                let mut route = Box::pin(crate::route::handle(app, first_request()));
+                std::future::poll_fn(|cx| {
+                    observing_dispatch(&observation, || {
+                        std::future::Future::poll(route.as_mut(), cx)
+                    })
+                })
+                .await
+            });
+            (out, started.elapsed())
+        });
+        assert!(
+            eventually(|| observation.lock().unwrap().worker_paused),
+            "the second look reached its stall"
+        );
+        let started = std::time::Instant::now();
+        let (status, reply) = vote(
+            &rt,
+            &app,
+            json!({"conversation_id": "2plain", "tid": 3, "vote": crate::votes::WIRE_AGREE}),
+            Some(&member),
+        );
+        let member_took = started.elapsed();
+        assert_eq!(status, 200, "{reply}");
+        let (out, first_took) = first.join().unwrap();
+        assert!(
+            !observation.lock().unwrap().worker_released,
+            "both answered while the second look stalled"
+        );
+        assert!(marked_for_node(&out) && out.status == 502);
+        assert!(
+            first_took < Duration::from_secs(1),
+            "the first vote waited {first_took:?} on a stalled second look"
+        );
+        assert!(
+            member_took < Duration::from_secs(1),
+            "a member's vote waited {member_took:?} during a stalled second look"
+        );
+        observation.lock().unwrap().worker_released = true;
+    });
+    assert!(Counted::Unresolved.read() > unresolved);
+    // The first vote's person and vote (its COMMIT landed), and the member's
+    // vote.
+    let [users, participants, extended, votes, latest] = before;
+    assert_eq!(
+        person_and_vote(&stage),
+        [
+            users + 1,
+            participants + 1,
+            extended + 1,
+            votes + 2,
+            latest + 2
+        ]
+    );
 }

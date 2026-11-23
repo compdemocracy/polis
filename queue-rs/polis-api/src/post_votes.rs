@@ -1665,6 +1665,10 @@ enum FirstVote {
     /// Nothing was written, or the COMMIT's outcome is unknown: counted and
     /// logged by the task.
     HandedBack,
+    /// The COMMIT's acknowledgement was lost and the second look found it
+    /// committed: the person and the vote are in the record, and the request
+    /// answers from it as for any failure after a commit.
+    Confirmed,
 }
 
 /// A first contact's person and vote, committed together: recorded inside
@@ -1683,11 +1687,14 @@ struct Committed {
 
 /// Why a first contact is handed back, with nothing written. When the
 /// COMMIT's acknowledgement was lost, the transaction's id
-/// (`txid_current()`, read before COMMIT): what a second look at whether it
-/// committed would ask about. Nothing of the person.
+/// (`txid_current()`, read before COMMIT), which the second look asks
+/// about (`second_look`), and the person and vote the transaction returned
+/// before its COMMIT: what the reply is built from if the second look finds
+/// it committed. Nothing of it is minted, logged or answered otherwise.
 struct HandBack {
     reason: &'static str,
     transaction: Option<i64>,
+    staged: Option<Box<Committed>>,
 }
 
 impl HandBack {
@@ -1695,6 +1702,7 @@ impl HandBack {
         Self {
             reason,
             transaction: None,
+            staged: None,
         }
     }
 }
@@ -1737,6 +1745,7 @@ async fn serve_first_contact(
     let observation = lane.active_dispatch.observation.clone();
     let _task = tokio::spawn(first_contact_vote(
         first.clone(),
+        writer.identity_reads.clone(),
         writer.admins.clone(),
         new,
         ExtendedInfo::of(req),
@@ -1755,6 +1764,8 @@ async fn serve_first_contact(
     let ended = match tokio::time::timeout_at(wait_until, done_rx).await {
         Ok(Ok(FirstVote::Served(body))) => return accepted(req, res, body),
         Ok(Ok(FirstVote::HandedBack)) => return route::bad_gateway(),
+        // The second look found the COMMIT: answered from the record, below.
+        Ok(Ok(FirstVote::Confirmed)) => true,
         // The task ended without a word: a panic, or the task dropped.
         Ok(Err(_)) => true,
         Err(_) => false,
@@ -1803,6 +1814,7 @@ async fn serve_first_contact(
 #[allow(clippy::too_many_arguments)]
 async fn first_contact_vote(
     lane: FirstContact,
+    status_reads: Option<Arc<db::Pool>>,
     admins: Vec<i32>,
     new: NewParticipant,
     info: Option<ExtendedInfo>,
@@ -1832,10 +1844,44 @@ async fn first_contact_vote(
     .await
     {
         Ok(person) => person,
-        // Nothing written, or a COMMIT whose acknowledgement was lost: handed
-        // back, as before. The lost acknowledgement's transaction id
-        // (`HandBack::transaction`) is here, where a second look at its
-        // status would decide instead.
+        // A COMMIT whose acknowledgement was lost, with its transaction id:
+        // the database is asked once more whether it committed.
+        Err(HandBack {
+            transaction: Some(transaction),
+            staged: Some(staged),
+            ..
+        }) => {
+            let zid = admitted.zid;
+            match second_look(
+                status_reads.as_ref(),
+                transaction,
+                #[cfg(all(test, feature = "db-tests"))]
+                dispatch.active_dispatch.observation.clone(),
+            )
+            .await
+            {
+                SecondLook::Committed => {
+                    // Both exist: the reply is the one any failure after a
+                    // commit gives, from the ids the transaction returned.
+                    *dispatch.receipt.lock().unwrap_or_else(|e| e.into_inner()) =
+                        Some(staged.vote.clone());
+                    *committed.lock().unwrap_or_else(|e| e.into_inner()) = Some(*staged);
+                    first_contact_commit_confirmed(zid, transaction);
+                    let _ = done.send(FirstVote::Confirmed);
+                }
+                SecondLook::Aborted => {
+                    first_contact_handed_back(FIRST_CONTACT_COMMIT_ABORTED, zid, Some(transaction));
+                    let _ = done.send(FirstVote::HandedBack);
+                }
+                SecondLook::Unresolved(status) => {
+                    first_contact_commit_unresolved(zid, transaction, status);
+                    let _ = done.send(FirstVote::HandedBack);
+                }
+            }
+            return;
+        }
+        // Nothing written, or a lost acknowledgement with no transaction id:
+        // handed back, as before.
         Err(handback) => {
             first_contact_handed_back(handback.reason, admitted.zid, handback.transaction);
             let _ = done.send(FirstVote::HandedBack);
@@ -1954,6 +2000,11 @@ async fn create(
             ] {
                 tests::inject_in_creation(&observation, at, &pool);
             }
+            // The person and vote the transaction returned, kept past a
+            // COMMIT whose acknowledgement is lost, for the second look.
+            let mut staged = None;
+            #[cfg(all(test, feature = "db-tests"))]
+            let mut lost = None;
             let outcome = join::admit_then(
                 c,
                 &join::Request {
@@ -1980,9 +2031,27 @@ async fn create(
                     );
                     voter.pid = person.pid.0 as i32;
                     voter.uid = person.uid.0;
-                    append_in_transaction(tx, &voter, &fields).map_err(|_| InTransaction::Vote)
+                    let vote = append_in_transaction(tx, &voter, &fields)
+                        .map_err(|_| InTransaction::Vote)?;
+                    #[cfg(all(test, feature = "db-tests"))]
+                    if tests::loses_acknowledgement(&observation) {
+                        lost = tx
+                            .query_one("select txid_current()", &[])
+                            .ok()
+                            .map(|row| row.get::<_, i64>(0));
+                    }
+                    staged = Some(Committed {
+                        uid: person.uid,
+                        pid: person.pid,
+                        code: code.clone(),
+                        vote: vote.clone(),
+                        auth: None,
+                    });
+                    Ok(vote)
                 },
             );
+            #[cfg(all(test, feature = "db-tests"))]
+            let outcome = tests::lose_acknowledgement(&observation, outcome, lost);
             if let Ok(join::Then::Created {
                 admitted: person,
                 value: vote,
@@ -2005,16 +2074,16 @@ async fn create(
             ] {
                 tests::inject_in_creation(&observation, at, &pool);
             }
-            Ok(Some(outcome))
+            Ok(Some((outcome, staged)))
         })
         .await;
-    let outcome = match result {
+    let (outcome, staged) = match result {
         // No connection within 100 ms, none could be opened, the code could
         // not be read, or the blocking work unwound.
-        Err(_) => None,
+        Err(_) => (None, None),
         // The conversation has no code left to name: nothing was written.
         Ok(None) => return Err(HandBack::of("first_contact_no_code")),
-        Ok(Some(outcome)) => Some(outcome),
+        Ok(Some((outcome, staged))) => (Some(outcome), staged),
     };
     // An acknowledged COMMIT is the record, however the operation returned.
     if let Some(person) = committed.lock().unwrap_or_else(|e| e.into_inner()).clone() {
@@ -2039,11 +2108,102 @@ async fn create(
         Some(Err(join::ThenError::CommitUnknown { transaction })) => HandBack {
             reason: FIRST_CONTACT_COMMIT_UNKNOWN,
             transaction: Some(transaction),
+            staged: staged.map(Box::new),
         },
     })
 }
 
 const FIRST_CONTACT_COMMIT_UNKNOWN: &str = "first_contact_commit_unknown";
+/// A lost acknowledgement whose transaction the second look found aborted:
+/// nothing was written.
+const FIRST_CONTACT_COMMIT_ABORTED: &str = "first_contact_commit_aborted";
+
+/// The whole second look, every read and every wait between them.
+const SECOND_LOOK_BOUND: Duration = Duration::from_millis(250);
+/// At most this many reads, while the transaction is still in progress.
+const SECOND_LOOK_READS: usize = 3;
+/// The wait between two reads that found it in progress.
+const SECOND_LOOK_PAUSE: Duration = Duration::from_millis(20);
+
+/// What the second look found of a transaction whose COMMIT acknowledgement
+/// was lost.
+enum SecondLook {
+    Committed,
+    Aborted,
+    /// It cannot tell: still in progress after its reads, an id too old to
+    /// answer for, a failed read (the pool full among them), or the bound
+    /// passed. One word of a closed set.
+    Unresolved(&'static str),
+}
+
+/// Asks the database whether a first contact's transaction committed, after
+/// its COMMIT's acknowledgement was lost: `SELECT txid_status($1)`, on a
+/// connection of the identity read pool (never the first contact's pool,
+/// whose connection failed, and never a members' pool), read again while it
+/// is in progress, up to `SECOND_LOOK_READS`, all inside
+/// `SECOND_LOOK_BOUND`. Absence of the person's row would not prove
+/// anything: the old session may still be finishing its COMMIT.
+async fn second_look(
+    pool: Option<&Arc<db::Pool>>,
+    transaction: i64,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+) -> SecondLook {
+    let Some(pool) = pool else {
+        return SecondLook::Unresolved("unconfigured");
+    };
+    let look = async {
+        for read in 0..SECOND_LOOK_READS {
+            if read > 0 {
+                tokio::time::sleep(SECOND_LOOK_PAUSE).await;
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            let observation = observation.clone();
+            let status = pool
+                .with(move |c| {
+                    #[cfg(all(test, feature = "db-tests"))]
+                    if let Some(status) = tests::second_look_fault(&observation) {
+                        return status;
+                    }
+                    Ok(c.query_one("SELECT txid_status($1)", &[&transaction])?
+                        .try_get::<_, Option<String>>(0)?)
+                })
+                .await;
+            match status.as_ref().map(Option::as_deref) {
+                Ok(Some("committed")) => return SecondLook::Committed,
+                Ok(Some("aborted")) => return SecondLook::Aborted,
+                Ok(Some("in progress")) => {}
+                Ok(Some(_)) => return SecondLook::Unresolved("unrecognized"),
+                Ok(None) => return SecondLook::Unresolved("unknown_transaction"),
+                Err(_) => return SecondLook::Unresolved("read_failed"),
+            }
+        }
+        SecondLook::Unresolved("in_progress")
+    };
+    tokio::time::timeout(SECOND_LOOK_BOUND, look)
+        .await
+        .unwrap_or(SecondLook::Unresolved("bound"))
+}
+
+/// A lost acknowledgement the second look found committed: answered with the
+/// person's token and the vote's receipt. Every one is a line and a count
+/// (`/health`), with the conversation and the transaction's id only.
+fn first_contact_commit_confirmed(zid: i32, transaction: i64) {
+    let count = FIRST_CONTACT_CONFIRMED.fetch_add(1, Ordering::Relaxed) + 1;
+    eprintln!(
+        "{{\"event\":\"post_votes_first_contact_commit_confirmed\",\"zid\":{zid},\"transaction\":{transaction},\"count\":{count}}}"
+    );
+}
+
+/// A lost acknowledgement the second look could not resolve: handed back,
+/// where a person whose COMMIT did land is created again by Node and counted
+/// twice. Every one is a line and a count (`/health`), with the
+/// conversation, the transaction's id and what the look found.
+fn first_contact_commit_unresolved(zid: i32, transaction: i64, status: &'static str) {
+    let count = FIRST_CONTACT_UNRESOLVED.fetch_add(1, Ordering::Relaxed) + 1;
+    eprintln!(
+        "{{\"event\":\"post_votes_first_contact_commit_unresolved\",\"zid\":{zid},\"transaction\":{transaction},\"status\":\"{status}\",\"count\":{count}}}"
+    );
+}
 
 /// Whether an admission's person is this first contact's: a new anonymous
 /// user and its participant, or, for an account, a new participant of that
@@ -2130,10 +2290,10 @@ fn schedule_extended_info(
     )
 }
 
-/// A first contact handed back. A commit whose acknowledgement was lost may
-/// have created a participant and its vote that Node, given the request,
-/// creates again: every one is a line and a count (`/health`), never silent,
-/// with the transaction's id when it is known.
+/// A first contact handed back. A commit whose outcome is unknown with no
+/// transaction id to look at (the request's wait ran out) may have created a
+/// participant and its vote that Node, given the request, creates again:
+/// every one is a line and a count (`/health`), never silent.
 fn first_contact_handed_back(reason: &'static str, zid: i32, transaction: Option<i64>) {
     if reason == FIRST_CONTACT_COMMIT_UNKNOWN {
         let count = FIRST_CONTACT_UNKNOWN.fetch_add(1, Ordering::Relaxed) + 1;
@@ -2656,6 +2816,8 @@ static UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static ACQUIRE_ALARM_HITS: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_HANDED_BACK: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_CONFIRMED: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_UNRESOLVED: AtomicU64 = AtomicU64::new(0);
 /// Extended-row writes not sent for the server's logging settings; each is
 /// also counted in `firstContactExtendedInfoDropped`.
 static EXTENDED_INFO_NOT_SENT: AtomicU64 = AtomicU64::new(0);
@@ -2719,6 +2881,8 @@ pub(crate) fn health(app: &App) -> Js {
         for (key, value) in [
             ("firstContactHandedBack", &FIRST_CONTACT_HANDED_BACK),
             ("firstContactCommitUnknown", &FIRST_CONTACT_UNKNOWN),
+            ("firstContactCommitConfirmed", &FIRST_CONTACT_CONFIRMED),
+            ("firstContactCommitUnresolved", &FIRST_CONTACT_UNRESOLVED),
             (
                 "firstContactExtendedInfoDropped",
                 &writer.background.extended_info_dropped,

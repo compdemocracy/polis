@@ -487,6 +487,91 @@ pub(super) enum Fault {
     AfterCommit,
     /// The task panics after the follow-on, before the request is told.
     AfterFollowOn,
+    /// The COMMIT lands and its acknowledgement is reported lost, with the
+    /// transaction's id: what a connection dropped after COMMIT was sent, and
+    /// after the server committed, looks like to the writer.
+    AckLostAfterCommit,
+    /// `AckLostAfterCommit`, and the second look's read fails.
+    StatusReadFails,
+    /// `AckLostAfterCommit`, and every read of the second look finds the
+    /// transaction still in progress.
+    StatusInProgress,
+    /// `AckLostAfterCommit`, and the second look's blocking work waits, as
+    /// on a database that has stopped answering, until the test lets it go
+    /// on.
+    StatusReadStalls,
+}
+
+#[cfg(feature = "db-tests")]
+fn fault_of(observation: &Option<DispatchObservation>) -> Option<Fault> {
+    observation
+        .as_ref()
+        .and_then(|observation| observation.lock().unwrap().fault)
+}
+
+/// Waits until the test lets a paused worker go on.
+#[cfg(feature = "db-tests")]
+fn pause(observation: &DispatchObservation) {
+    observation.lock().unwrap().worker_paused = true;
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !observation.lock().unwrap().worker_released {
+        assert!(
+            std::time::Instant::now() < until,
+            "the paused worker was never let go on"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// Whether this caller's COMMIT is to land with its acknowledgement
+/// reported lost.
+#[cfg(feature = "db-tests")]
+pub(super) fn loses_acknowledgement(observation: &Option<DispatchObservation>) -> bool {
+    matches!(
+        fault_of(observation),
+        Some(
+            Fault::AckLostAfterCommit
+                | Fault::StatusReadFails
+                | Fault::StatusInProgress
+                | Fault::StatusReadStalls
+        )
+    )
+}
+
+/// A committed first contact, reported to the writer as a COMMIT whose
+/// acknowledgement was lost, for a caller that asks for it: the
+/// transaction committed, and the writer sees only its id.
+#[cfg(feature = "db-tests")]
+pub(super) fn lose_acknowledgement<T, E>(
+    observation: &Option<DispatchObservation>,
+    outcome: Result<polis_auth::admission::Then<T>, polis_auth::admission::ThenError<E>>,
+    transaction: Option<i64>,
+) -> Result<polis_auth::admission::Then<T>, polis_auth::admission::ThenError<E>> {
+    match (outcome, transaction) {
+        (Ok(polis_auth::admission::Then::Created { .. }), Some(transaction))
+            if loses_acknowledgement(observation) =>
+        {
+            Err(polis_auth::admission::ThenError::CommitUnknown { transaction })
+        }
+        (outcome, _) => outcome,
+    }
+}
+
+/// Inside the second look's blocking work: what a fault makes its read
+/// answer instead of the database, or a wait before the read.
+#[cfg(feature = "db-tests")]
+pub(super) fn second_look_fault(
+    observation: &Option<DispatchObservation>,
+) -> Option<anyhow::Result<Option<String>>> {
+    match fault_of(observation)? {
+        Fault::StatusReadFails => Some(Err(anyhow::anyhow!("injected status read failure"))),
+        Fault::StatusInProgress => Some(Ok(Some("in progress".into()))),
+        Fault::StatusReadStalls => {
+            pause(observation.as_ref().unwrap());
+            None
+        }
+        _ => None,
+    }
 }
 
 /// Panics when this caller asked for a fault at `at`. The observation's lock
@@ -510,25 +595,13 @@ pub(super) fn inject_in_creation(
     at: Fault,
     pool: &crate::db::Pool,
 ) {
-    let fault = observation
-        .as_ref()
-        .and_then(|observation| observation.lock().unwrap().fault);
-    if fault != Some(at) {
+    if fault_of(observation) != Some(at) {
         return;
     }
     match at {
         Fault::PoolErrorAfterCommit => pool.poison_idle(),
         Fault::PauseBeforeCommit | Fault::PauseInTransaction | Fault::PauseAfterCommit => {
-            let observation = observation.as_ref().unwrap();
-            observation.lock().unwrap().worker_paused = true;
-            let until = std::time::Instant::now() + Duration::from_secs(10);
-            while !observation.lock().unwrap().worker_released {
-                assert!(
-                    std::time::Instant::now() < until,
-                    "the paused worker was never let go on"
-                );
-                std::thread::sleep(Duration::from_millis(2));
-            }
+            pause(observation.as_ref().unwrap());
         }
         _ => panic!("injected fault in a first contact's creation: {at:?}"),
     }
