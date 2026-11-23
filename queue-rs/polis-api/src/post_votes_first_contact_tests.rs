@@ -1254,14 +1254,29 @@ fn faulted_first_vote(
     app: &Arc<App>,
     fault: Fault,
 ) -> (Outgoing, String, DispatchObservation) {
-    let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = Some(fault);
+    first_vote_at(rt, app, Some(fault))
+}
+
+/// A first vote with no token, as a new person sends it.
+fn first_request() -> Request {
     let mut request = req(&ballot("2plain").to_string());
     request.headers = Headers::from_raw([
         ("host", "localhost"),
         ("content-type", "application/json"),
         ("x-forwarded-proto", "https"),
     ]);
+    request
+}
+
+/// `faulted_first_vote`, with no fault when `fault` is None.
+fn first_vote_at(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    fault: Option<Fault>,
+) -> (Outgoing, String, DispatchObservation) {
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = fault;
+    let request = first_request();
     let app = app.clone();
     let out = rt.block_on(async {
         let mut route = Box::pin(crate::route::handle(app, request));
@@ -1347,6 +1362,185 @@ fn a_first_contact_task_that_fails_after_its_creating_commit_is_never_handed_bac
     let (status, body) = vote(&rt, &app, ballot("2plain"), None);
     assert_eq!(status, 200, "{body}");
     assert!(eventually(|| rows(&stage)[3] == before[3] + 1));
+}
+
+/// What a first contact's lifecycle answers, writes and counts when it fails
+/// at each of its states, from before the person is created to the reply.
+#[derive(Debug, PartialEq, Eq)]
+enum Answer {
+    /// 502 with the pre-dispatch marker: nginx gives the request to Node.
+    HandedBack,
+    /// Node's 500 for a failed vote, unmarked and with no token.
+    VoteFailed,
+    /// 202 of unknown acceptance, unmarked, with the person's token.
+    Unknown,
+    /// 200, unmarked, with the person's token.
+    Served,
+}
+
+fn answer_of(out: &Outgoing, body: &str) -> Answer {
+    let marked = marked_for_node(out);
+    match out.status {
+        502 if marked => Answer::HandedBack,
+        500 if !marked && body == node_refusal(500, "polis_err_vote") => Answer::VoteFailed,
+        202 if !marked
+            && body.contains(r#""acceptance":"unknown""#)
+            && !reply_token(body).is_empty() =>
+        {
+            Answer::Unknown
+        }
+        200 if !marked && !reply_token(body).is_empty() => Answer::Served,
+        status => panic!("unexpected answer {status}: {body}"),
+    }
+}
+
+/// Every state of a first contact's lifecycle, each with a fault injected at
+/// that point: the answer, the rows written (a person is a user, a
+/// participant and its extended row; then the vote) and the vote-not-written
+/// count. Once the creating COMMIT is acknowledged, no state is handed back,
+/// and a person whose vote is not written is counted once.
+#[test]
+fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says() {
+    let stage = stage("first_contact_states");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let lane = || {
+        app.post_votes
+            .as_ref()
+            .unwrap()
+            .first_contact
+            .as_ref()
+            .unwrap()
+            .pool
+            .clone()
+    };
+    // (state, fault, answer, person written, vote written, counted)
+    let table = [
+        (
+            "task, before creation",
+            Some(Fault::BeforeCreate),
+            Answer::HandedBack,
+            0,
+            0,
+            0,
+        ),
+        (
+            "worker, before the transaction",
+            Some(Fault::InWorkerBeforeCommit),
+            Answer::HandedBack,
+            0,
+            0,
+            0,
+        ),
+        (
+            "worker unwinds after the acknowledged COMMIT",
+            Some(Fault::InWorkerAfterCommit),
+            Answer::VoteFailed,
+            1,
+            0,
+            1,
+        ),
+        (
+            "pool fails after the operation succeeded",
+            Some(Fault::PoolErrorAfterCommit),
+            Answer::VoteFailed,
+            1,
+            0,
+            1,
+        ),
+        (
+            "creation returned, before the request is told",
+            Some(Fault::AfterCreate),
+            Answer::VoteFailed,
+            1,
+            0,
+            1,
+        ),
+        (
+            "request told, before dispatch",
+            Some(Fault::AfterReport),
+            Answer::Unknown,
+            1,
+            0,
+            1,
+        ),
+        (
+            "vote written, before the request is told",
+            Some(Fault::AfterDispatch),
+            Answer::Served,
+            1,
+            1,
+            0,
+        ),
+        ("no fault", None, Answer::Served, 1, 1, 0),
+    ];
+    for (state, fault, answer, person, vote, counted) in table {
+        let before = rows(&stage);
+        let (out, body, observation) = first_vote_at(&rt, &app, fault);
+        if fault == Some(Fault::PoolErrorAfterCommit) {
+            lane().clear_idle_poison();
+        }
+        assert_eq!(answer_of(&out, &body), answer, "{state}: {body}");
+        assert!(
+            eventually(|| rows(&stage)[3] == before[3] + vote),
+            "{state}: the vote"
+        );
+        assert_eq!(
+            rows(&stage),
+            vec![
+                before[0] + person,
+                before[1] + person,
+                before[2] + person,
+                before[3] + vote
+            ],
+            "{state}: users, participants, participants_extended, votes"
+        );
+        assert_eq!(
+            observation.lock().unwrap().vote_not_written,
+            counted as u64,
+            "{state}: counted as not written"
+        );
+    }
+
+    // The task dropped (its runtime stopped) while the creating operation is
+    // still on its way back from an acknowledged COMMIT: no answer at all,
+    // never a hand-back; the person is counted once.
+    let stopping = runtime();
+    let stopped = app_with_lane_lifetime(&stage, &stopping, true, Duration::from_secs(300));
+    let before = rows(&stage);
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(Fault::StallAfterCommit);
+    let watched = observation.clone();
+    let answered = Arc::new(Mutex::new(None));
+    let reply = answered.clone();
+    stopping.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(stopped, first_request()));
+        let out = std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await;
+        *reply.lock().unwrap() = Some(out.status);
+    });
+    assert!(
+        eventually(|| rows(&stage)[1] == before[1] + 1),
+        "the person is committed"
+    );
+    stopping.shutdown_background();
+    assert!(
+        eventually(|| observation.lock().unwrap().vote_not_written == 1),
+        "a dropped task after the acknowledged COMMIT is counted"
+    );
+    assert_eq!(
+        *answered.lock().unwrap(),
+        None,
+        "no answer, so no hand-back"
+    );
+    std::thread::sleep(Duration::from_millis(1200));
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+        "users, participants, participants_extended, votes"
+    );
 }
 
 /// Every new session of the stage's database logs every statement with its

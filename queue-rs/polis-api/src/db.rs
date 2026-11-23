@@ -461,6 +461,26 @@ impl Pool {
         .map_err(unavailable)?
     }
 
+    /// Poisons the lock on the idle connections, as a thread that panics
+    /// while holding it would: every operation then fails at that lock until
+    /// `clear_idle_poison`.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn poison_idle(&self) {
+        std::thread::scope(|scope| {
+            let _ = scope
+                .spawn(|| {
+                    let _held = self.idle.lock();
+                    panic!("poisoning the idle connections' lock");
+                })
+                .join();
+        });
+    }
+
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn clear_idle_poison(&self) {
+        self.idle.clear_poison();
+    }
+
     #[cfg(all(test, feature = "db-tests"))]
     fn idle_len(&self) -> usize {
         self.idle.lock().unwrap().len()

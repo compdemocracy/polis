@@ -15,7 +15,7 @@ use postgres::Client;
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -1622,8 +1622,9 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                         Box::pin(async move { done_rx.await.map_err(drop) });
                     (auth, pid, reply_deadline, outcome)
                 }
-                // The person was committed and the task ended (a panic, an
-                // unwind, the task dropped) before it could say so: counted
+                // The person was committed and the task ended (the creating
+                // operation's result lost on its way back from the worker, a
+                // panic, an unwind, the task dropped) before it could say so: counted
                 // and logged as a vote not written (`CommittedPerson`). Never
                 // a hand-back, which would let Node create a second person:
                 // Node's answer to a vote that failed, a 500 nginx gives to
@@ -1724,34 +1725,47 @@ async fn first_contact_vote(
     created: tokio::sync::oneshot::Sender<Result<Created, NotCreated>>,
     done: tokio::sync::oneshot::Sender<Result<Outcome>>,
 ) {
+    // Made before anything is written, and armed by the creating operation
+    // itself, inside its blocking work, the moment the creating COMMIT is
+    // acknowledged: whatever ends this task after that point (an error or an
+    // unwind on the way back from the worker, the pool failing after the
+    // operation succeeded, a panic, the task dropped) reads it, and is never a
+    // hand-back.
+    let mut committed = CommittedPerson {
+        zid: admitted.zid,
+        receipt: dispatch.receipt.clone(),
+        created: Some(created),
+        acknowledged: Arc::new(AtomicBool::new(false)),
+        settled: false,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation: dispatch.active_dispatch.observation.clone(),
+    };
     #[cfg(all(test, feature = "db-tests"))]
-    tests::inject(
-        &dispatch.active_dispatch.observation,
-        tests::Fault::BeforeCreate,
-    );
+    tests::inject(&committed.observation, tests::Fault::BeforeCreate);
     let (person, code) = match create(
         &lane,
         &admins,
         admitted.zid,
         new.account.as_ref().map(|(uid, _)| *uid),
+        committed.acknowledged.clone(),
+        #[cfg(all(test, feature = "db-tests"))]
+        committed.observation.clone(),
     )
     .await
     {
         Ok(created) => created,
+        // The COMMIT was acknowledged and its result was lost on the way
+        // back: never a hand-back, which would let Node create a second
+        // person. Dropping `committed` answers the request (Node's 500 for a
+        // failed vote) and counts the vote as not written.
+        Err(_) if committed.acknowledged() => return,
+        // No COMMIT acknowledged: nothing was written, or the COMMIT's
+        // outcome is unknown (handed back, logged and counted there).
         Err(reason) => {
             first_contact_handed_back(reason, admitted.zid);
-            let _ = created.send(Err(NotCreated::HandedBack));
+            committed.handed_back();
             return;
         }
-    };
-    // Committed: from here on the task never ends unaccounted for.
-    let mut committed = CommittedPerson {
-        zid: admitted.zid,
-        receipt: dispatch.receipt.clone(),
-        created: Some(created),
-        armed: true,
-        #[cfg(all(test, feature = "db-tests"))]
-        observation: dispatch.active_dispatch.observation.clone(),
     };
     #[cfg(all(test, feature = "db-tests"))]
     tests::inject(&committed.observation, tests::Fault::AfterCreate);
@@ -1773,6 +1787,8 @@ async fn first_contact_vote(
     tests::inject(&committed.observation, tests::Fault::AfterReport);
     let (zid, receipt) = (admitted.zid, dispatch.receipt.clone());
     let outcome = dispatch.run(admitted, fields, reply_deadline).await;
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(&committed.observation, tests::Fault::AfterDispatch);
     if let Err(outcome) = done.send(outcome) {
         let written = matches!(outcome, Ok(Outcome::Success(_)))
             || receipt.lock().unwrap_or_else(|e| e.into_inner()).is_some();
@@ -1796,22 +1812,43 @@ enum NotCreated {
     AfterCommit,
 }
 
-/// A value armed at a first contact's creating commit and disarmed
-/// (`settled`) once the vote's outcome is dealt with. Dropped while armed (a
-/// panic or an unwind in the task, or the task dropped), it tells a request
-/// still waiting for the person that the person was committed, so the
-/// request is not handed back, and, unless the vote's receipt was published,
-/// counts and logs the person's vote as not written.
+/// A value made before a first contact's person is created, armed by the
+/// creating operation at the moment its COMMIT is acknowledged
+/// (`acknowledged`, set inside the blocking work), and disarmed (`settled`)
+/// once the vote's outcome is dealt with, or once the request is handed back
+/// before any acknowledged COMMIT. Dropped while armed (an error or an unwind
+/// on the way back from the creating operation, a panic in the task, or the
+/// task dropped), it tells a request still waiting for the person that the
+/// person was committed, so the request is not handed back, and, unless the
+/// vote's receipt was published, counts and logs the person's vote as not
+/// written. Dropped before any acknowledged COMMIT, it says nothing: the
+/// request, if still waiting, is handed back, as nothing was written.
 struct CommittedPerson {
     zid: i32,
     receipt: Arc<Mutex<Option<AcceptedVote>>>,
     created: Option<tokio::sync::oneshot::Sender<Result<Created, NotCreated>>>,
-    armed: bool,
+    /// The creating COMMIT was acknowledged: the one record of it, written
+    /// in the creating operation and read on every way this task ends.
+    acknowledged: Arc<AtomicBool>,
+    settled: bool,
     #[cfg(all(test, feature = "db-tests"))]
     observation: Option<tests::DispatchObservation>,
 }
 
 impl CommittedPerson {
+    fn acknowledged(&self) -> bool {
+        self.acknowledged.load(Ordering::SeqCst)
+    }
+
+    /// No COMMIT was acknowledged: the request, if still waiting, is handed
+    /// back.
+    fn handed_back(mut self) {
+        if let Some(created) = self.created.take() {
+            let _ = created.send(Err(NotCreated::HandedBack));
+        }
+        self.settled = true;
+    }
+
     /// The person, to the request if it is still waiting.
     fn report(&mut self, person: Created) {
         if let Some(created) = self.created.take() {
@@ -1820,13 +1857,13 @@ impl CommittedPerson {
     }
 
     fn settled(mut self) {
-        self.armed = false;
+        self.settled = true;
     }
 }
 
 impl Drop for CommittedPerson {
     fn drop(&mut self) {
-        if !self.armed {
+        if self.settled || !self.acknowledged() {
             return;
         }
         if let Some(created) = self.created.take() {
@@ -1901,7 +1938,10 @@ fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
 /// extended row and the participant under the participant-number lock, in
 /// one transaction (`polis_auth::admission`), with the conversation code the
 /// person's token names. Err is the reason it is handed back; nothing was
-/// committed, except for the commit whose outcome is unknown.
+/// committed, except for the commit whose outcome is unknown. A person this
+/// request created is recorded in `acknowledged` inside the blocking work, as
+/// soon as the COMMIT that created it is acknowledged and before anything
+/// else can fail, so an Err after that point is never read as nothing written.
 ///
 /// The code is the one Node signs with: `getZinvite` takes the first row of
 /// `select * from zinvites where zid = ($1);`, so for a conversation with more
@@ -1912,8 +1952,12 @@ async fn create(
     admins: &[i32],
     zid: i32,
     account: Option<Uid>,
+    acknowledged: Arc<AtomicBool>,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
 ) -> Result<(join::Admitted, String), &'static str> {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    #[cfg(all(test, feature = "db-tests"))]
+    let pool = lane.pool.clone();
     let admitted = lane
         .pool
         .with(move |c| {
@@ -1925,25 +1969,39 @@ async fn create(
             let Some(code) = code else {
                 return Ok(None);
             };
-            Ok(Some((
-                code,
-                join::admit_within(
-                    c,
-                    &join::Request {
-                        zid: Zid(zid),
-                        identity: account
-                            .map_or(join::Identity::Anonymous, join::Identity::Account),
-                        entry: join::Entry::Participation {
-                            create_if_missing: true,
-                        },
-                        admin_uids: &admin_uids,
-                        x_name: None,
-                        x_email: None,
-                        x_profile_image_url: None,
+            #[cfg(all(test, feature = "db-tests"))]
+            tests::inject_in_creation(&observation, tests::Fault::InWorkerBeforeCommit, &pool);
+            let admitted = join::admit_within(
+                c,
+                &join::Request {
+                    zid: Zid(zid),
+                    identity: account.map_or(join::Identity::Anonymous, join::Identity::Account),
+                    entry: join::Entry::Participation {
+                        create_if_missing: true,
                     },
-                    &FIRST_CONTACT_BOUNDS,
-                ),
-            )))
+                    admin_uids: &admin_uids,
+                    x_name: None,
+                    x_email: None,
+                    x_profile_image_url: None,
+                },
+                &FIRST_CONTACT_BOUNDS,
+            );
+            // A successful return is an acknowledged COMMIT. Recorded here,
+            // before the operation returns through the pool.
+            if let Ok(Some(person)) = &admitted
+                && created_by_this_request(person, account)
+            {
+                acknowledged.store(true, Ordering::SeqCst);
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            for at in [
+                tests::Fault::InWorkerAfterCommit,
+                tests::Fault::PoolErrorAfterCommit,
+                tests::Fault::StallAfterCommit,
+            ] {
+                tests::inject_in_creation(&observation, at, &pool);
+            }
+            Ok(Some((code, admitted)))
         })
         .await;
     match admitted {
@@ -1954,13 +2012,7 @@ async fn create(
         Ok(None) => Err("first_contact_no_code"),
         // A new anonymous user and its participant; for an account, a new
         // participant of that user. Anything else was not this request's.
-        Ok(Some((code, Ok(Some(admitted)))))
-            if admitted.new_participant
-                && match account {
-                    None => admitted.new_user,
-                    Some(uid) => !admitted.new_user && admitted.uid == uid,
-                } =>
-        {
+        Ok(Some((code, Ok(Some(admitted))))) if created_by_this_request(&admitted, account) => {
             Ok((admitted, code))
         }
         Ok(Some((_, Ok(_)))) => Err("first_contact_not_created"),
@@ -1973,6 +2025,17 @@ async fn create(
 }
 
 const FIRST_CONTACT_COMMIT_UNKNOWN: &str = "first_contact_commit_unknown";
+
+/// Whether an admission's person is this first contact's: a new anonymous
+/// user and its participant, or, for an account, a new participant of that
+/// user.
+fn created_by_this_request(admitted: &join::Admitted, account: Option<Uid>) -> bool {
+    admitted.new_participant
+        && match account {
+            None => admitted.new_user,
+            Some(uid) => !admitted.new_user && admitted.uid == uid,
+        }
+}
 
 /// Where a person came from, as Node's participant middleware records it
 /// when it creates a participant (`addParticipantAndMetadata`): the `Referer`

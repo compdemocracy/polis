@@ -464,6 +464,21 @@ pub(super) enum Fault {
     AfterCreate,
     /// After the request is told of the person, before the vote's dispatch.
     AfterReport,
+    /// Inside the creating operation's blocking work, before its
+    /// transaction: the worker unwinds.
+    InWorkerBeforeCommit,
+    /// Inside the creating operation's blocking work, after its COMMIT is
+    /// acknowledged: the worker unwinds.
+    InWorkerAfterCommit,
+    /// Inside the creating operation's blocking work, after its COMMIT is
+    /// acknowledged: the pool's lock on its idle connections is poisoned, so
+    /// the pool fails the operation after it succeeded.
+    PoolErrorAfterCommit,
+    /// Inside the creating operation's blocking work, after its COMMIT is
+    /// acknowledged: the worker waits a second before it returns.
+    StallAfterCommit,
+    /// After the vote's dispatch has its outcome, before the request is told.
+    AfterDispatch,
 }
 
 /// Panics when this caller asked for a fault at `at`. The observation's lock
@@ -475,6 +490,28 @@ pub(super) fn inject(observation: &Option<DispatchObservation>, at: Fault) {
         .and_then(|observation| observation.lock().unwrap().fault);
     if fault == Some(at) {
         panic!("injected fault in a first-contact task: {at:?}");
+    }
+}
+
+/// `inject`, inside the creating operation's blocking work, where `pool` is
+/// the first contact's pool: a fault there is a panic, the pool's idle lock
+/// poisoned, or a wait.
+#[cfg(feature = "db-tests")]
+pub(super) fn inject_in_creation(
+    observation: &Option<DispatchObservation>,
+    at: Fault,
+    pool: &crate::db::Pool,
+) {
+    let fault = observation
+        .as_ref()
+        .and_then(|observation| observation.lock().unwrap().fault);
+    if fault != Some(at) {
+        return;
+    }
+    match at {
+        Fault::PoolErrorAfterCommit => pool.poison_idle(),
+        Fault::StallAfterCommit => std::thread::sleep(Duration::from_secs(1)),
+        _ => panic!("injected fault in a first contact's creation: {at:?}"),
     }
 }
 
