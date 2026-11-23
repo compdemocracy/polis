@@ -19,11 +19,26 @@
 # response cut short after that reaches the client as a truncated reply
 # (shorter than its Content-Length), which an HTTP client reports as a failed
 # request.
+#
+# The requests that reach polis-api are bounded here, before it: at most 200
+# a second for the whole location on this box, and 200 more at once (the zone,
+# polis_topic_map, is in upstreams.conf). A request over the bound is answered
+# by nginx itself and never reaches polis-api or Node: 503 with Retry-After: 1
+# and the body polis-api sheds with (@polis_topic_map_over_bound below), so a
+# page sees the same answer either way. It costs polis-api nothing, so a flood
+# of map requests cannot take the CPU the participation routes need. 429 is
+# only the internal hand-over to that location, never sent; polis-api never
+# answers this route with 429. A request handed to Node above (not GET or
+# HEAD, or with a body) is not counted: the limit runs after that hand-over.
 location = /api/v3/delphi/topicMap {
     error_page 418 = @polis_node_api;
     if ($polis_api_plain = 0) {
         return 418;
     }
+    limit_req zone=polis_topic_map burst=200 nodelay;
+    limit_req_status 429;
+    limit_req_log_level info;
+    error_page 429 = @polis_topic_map_over_bound;
     proxy_pass http://$polis_api_target;
     proxy_intercept_errors on;
     error_page 502 504 = @polis_node_api;
@@ -41,4 +56,15 @@ location = /api/v3/delphi/topicMap {
     proxy_busy_buffers_size 128k;
     proxy_max_temp_file_size 0;
     proxy_request_buffering off;
+}
+
+# nginx's own answer to a map request over the bound: what polis-api answers
+# when the route sheds its own load, status, headers and body. A refusal is
+# kept out of the error log (limit_req_log_level info above), whose lines name
+# the peer address.
+location @polis_topic_map_over_bound {
+    default_type application/json;
+    add_header Retry-After 1 always;
+    add_header Cache-Control no-store always;
+    return 503 '{"status":"error","message":"polis_err_topic_map_busy"}';
 }

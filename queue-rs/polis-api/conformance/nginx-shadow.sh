@@ -69,6 +69,12 @@
 # "Connection: close" after nginx's own headers, each request on a connection
 # of its own, as nginx sent them before 1.29.7 changed those defaults.
 #
+# Then the topic map route's rate bound (test-shadow-mirror.py
+# `topic-map-rate`): a burst of map requests well above it is answered partly
+# by polis-api and the rest by nginx itself (503, Retry-After: 1); polis-api
+# receives no more than the bound allows, Node none, and requests to other
+# locations in the same burst are answered as without it.
+#
 # With --measure it prints what the mirror costs a comment: the time until
 # Node has the request's first byte, until Node has the whole body, and the
 # client's total, for each body size, with and without the shadow. Run it on
@@ -258,6 +264,10 @@ shadow answer
 reads answer
 start "pca2,votesShadow,commentsShadow,nextCommentShadow"
 "${driver[@]}" upstream "$p"
+# The topic map route's rate bound: a burst above it is answered partly by
+# polis-api and the rest by nginx's own 503, beside other locations.
+start pca2,delphiTopicMap
+"${driver[@]}" topic-map-rate "$p"
 docker rm -f "$p-api" >/dev/null
 
 if [[ $load == 1 ]]; then

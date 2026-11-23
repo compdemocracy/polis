@@ -484,6 +484,11 @@ elif [ -n "$rust_api_locations$rust_api_shadows$rust_api_read_shadows" ]; then
   if [ -n "$rust_api_read_shadows" ]; then
     cat /etc/nginx/rust-api-templates/shadow-read-http.conf.template >>${1}/upstreams.conf
   fi
+  # The topic map's rate zone, used by its location alone.
+  case " $rust_api_locations " in
+    *" delphiTopicMap "*)
+      cat /etc/nginx/rust-api-templates/delphiTopicMap-rate.conf.template >>${1}/upstreams.conf ;;
+  esac
   # A read route's own location, with its shadow's diversion first (a POST
   # the shadow is sent a copy of, and no other request): name, path, template.
   shadow_diverted() {
