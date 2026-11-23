@@ -452,6 +452,14 @@ pub(super) struct DispatchState {
     /// Votes this caller's first-contact task counted as not written when it
     /// ended before its outcome.
     pub(super) vote_not_written: u64,
+    /// The log line of each of those, as written.
+    pub(super) vote_not_written_lines: Vec<String>,
+    /// This caller's first-contact task, for a test that drops it.
+    pub(super) task: Option<tokio::task::AbortHandle>,
+    /// The creating operation's blocking work is waiting at a pause.
+    pub(super) worker_paused: bool,
+    /// The test lets that work go on.
+    pub(super) worker_released: bool,
 }
 
 /// Where a first-contact task panics, for a caller that asks for it.
@@ -479,6 +487,16 @@ pub(super) enum Fault {
     StallAfterCommit,
     /// After the vote's dispatch has its outcome, before the request is told.
     AfterDispatch,
+    /// Inside the creating operation's blocking work, before its
+    /// transaction: the worker waits until the test lets it go on.
+    PauseBeforeCommit,
+    /// Inside the creating operation's blocking work, after its COMMIT is
+    /// acknowledged and before the acknowledgement is recorded: the worker
+    /// waits until the test lets it go on.
+    PauseAfterCommit,
+    /// Inside the creating operation's blocking work, after the acknowledged
+    /// COMMIT is recorded: the worker waits until the test lets it go on.
+    PauseAfterRecord,
 }
 
 /// Panics when this caller asked for a fault at `at`. The observation's lock
@@ -511,6 +529,18 @@ pub(super) fn inject_in_creation(
     match at {
         Fault::PoolErrorAfterCommit => pool.poison_idle(),
         Fault::StallAfterCommit => std::thread::sleep(Duration::from_secs(1)),
+        Fault::PauseBeforeCommit | Fault::PauseAfterCommit | Fault::PauseAfterRecord => {
+            let observation = observation.as_ref().unwrap();
+            observation.lock().unwrap().worker_paused = true;
+            let until = std::time::Instant::now() + Duration::from_secs(10);
+            while !observation.lock().unwrap().worker_released {
+                assert!(
+                    std::time::Instant::now() < until,
+                    "the paused worker was never let go on"
+                );
+                std::thread::sleep(Duration::from_millis(2));
+            }
+        }
         _ => panic!("injected fault in a first contact's creation: {at:?}"),
     }
 }

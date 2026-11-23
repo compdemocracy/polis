@@ -1500,6 +1500,7 @@ fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says()
             counted as u64,
             "{state}: counted as not written"
         );
+        assert_alarm_logged(&observation, counted as u64, state);
     }
 
     // The task dropped (its runtime stopped) while the creating operation is
@@ -1541,6 +1542,171 @@ fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says()
         vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
         "users, participants, participants_extended, votes"
     );
+    assert_alarm_logged(&observation, 1, "runtime stopped after the recorded COMMIT");
+
+    // The task dropped while the creating operation's blocking work holds the
+    // first contact: in flight before its transaction, with its COMMIT
+    // acknowledged but not yet recorded, and with it recorded. The worker
+    // goes on after the task is gone and commits the person; the request
+    // still waiting gets Node's 500 for a failed vote, never a hand-back, and
+    // the person without their vote is counted and logged once, by the
+    // worker itself in the first two.
+    for (state, pause) in [
+        (
+            "task dropped while the worker is in flight",
+            Fault::PauseBeforeCommit,
+        ),
+        (
+            "task dropped after the COMMIT is acknowledged, before it is recorded",
+            Fault::PauseAfterCommit,
+        ),
+        (
+            "task dropped after the acknowledged COMMIT is recorded",
+            Fault::PauseAfterRecord,
+        ),
+    ] {
+        let before = rows(&stage);
+        let (out, body, observation) = first_vote_with_task_dropped_at(&rt, &app, pause);
+        assert_eq!(
+            answer_of(&out, &body),
+            Answer::VoteFailed,
+            "{state}: {body}"
+        );
+        assert_eq!(
+            rows(&stage),
+            vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+            "{state}: users, participants, participants_extended, votes"
+        );
+        assert_eq!(
+            observation.lock().unwrap().vote_not_written,
+            1,
+            "{state}: counted as not written"
+        );
+        assert_alarm_logged(&observation, 1, state);
+    }
+
+    // A real runtime shutdown while the worker is in flight before its
+    // transaction: the shutdown drops the task (and the request), and the
+    // worker finishes during the shutdown's grace for blocking work. No
+    // answer, so no hand-back; the person is counted and logged once, by the
+    // worker.
+    let stopping = runtime();
+    let stopped = app_with_lane_lifetime(&stage, &stopping, true, Duration::from_secs(300));
+    let before = rows(&stage);
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(Fault::PauseBeforeCommit);
+    let watched = observation.clone();
+    let answered = Arc::new(Mutex::new(None));
+    let reply = answered.clone();
+    stopping.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(stopped, first_request()));
+        let out = std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await;
+        *reply.lock().unwrap() = Some(out.status);
+    });
+    assert!(
+        eventually(|| observation.lock().unwrap().worker_paused),
+        "the worker is in flight"
+    );
+    let release = observation.clone();
+    let releaser = std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(100));
+        release.lock().unwrap().worker_released = true;
+    });
+    stopping.shutdown_timeout(Duration::from_millis(500));
+    releaser.join().unwrap();
+    assert!(
+        observation.lock().unwrap().finished,
+        "the shutdown dropped the task"
+    );
+    assert!(
+        eventually(|| observation.lock().unwrap().vote_not_written == 1),
+        "the worker that finished during the shutdown's grace counted the person"
+    );
+    assert_eq!(
+        *answered.lock().unwrap(),
+        None,
+        "no answer, so no hand-back"
+    );
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+        "users, participants, participants_extended, votes"
+    );
+    assert_alarm_logged(
+        &observation,
+        1,
+        "runtime shutdown while the worker is in flight",
+    );
+}
+
+/// A first vote whose creating operation waits at `pause` while the test
+/// drops its task, then goes on: the answer the request, still waiting, gets
+/// and what was recorded.
+fn first_vote_with_task_dropped_at(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    pause: Fault,
+) -> (Outgoing, String, DispatchObservation) {
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(pause);
+    let watched = observation.clone();
+    let app = app.clone();
+    let route = rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(app, first_request()));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await
+    });
+    assert!(
+        eventually(|| observation.lock().unwrap().worker_paused),
+        "the worker reached its pause"
+    );
+    let task = observation.lock().unwrap().task.take();
+    task.expect("the first-contact task").abort();
+    assert!(
+        eventually(|| observation.lock().unwrap().finished),
+        "the task was dropped"
+    );
+    assert_eq!(
+        observation.lock().unwrap().vote_not_written,
+        0,
+        "nothing decided while the worker holds the first contact"
+    );
+    observation.lock().unwrap().worker_released = true;
+    let out = rt.block_on(route).unwrap();
+    let body = match &out.body {
+        Body::Empty => String::new(),
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        Body::Chunked(chunks) => String::from_utf8(chunks.concat()).unwrap(),
+    };
+    (out, body, observation)
+}
+
+/// The vote-not-written alarm was logged `counted` times, each as its own
+/// event naming conversation 1 and nothing of the person.
+fn assert_alarm_logged(observation: &DispatchObservation, counted: u64, state: &str) {
+    let lines = observation.lock().unwrap().vote_not_written_lines.clone();
+    assert_eq!(lines.len() as u64, counted, "{state}: logged {lines:?}");
+    for line in lines {
+        let event: Value = serde_json::from_str(&line).unwrap();
+        let mut keys: Vec<&str> = event
+            .as_object()
+            .unwrap()
+            .keys()
+            .map(String::as_str)
+            .collect();
+        keys.sort_unstable();
+        assert_eq!(keys, ["count", "ended", "event", "zid"], "{state}: {line}");
+        assert_eq!(
+            event["event"], "post_votes_first_contact_vote_not_written",
+            "{state}: {line}"
+        );
+        assert_eq!(event["zid"], 1, "{state}: {line}");
+    }
 }
 
 /// Every new session of the stage's database logs every statement with its

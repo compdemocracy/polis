@@ -15,7 +15,7 @@ use postgres::Client;
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -1605,7 +1605,9 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         (Some(new), Some(first)) => {
             let (created_tx, created_rx) = tokio::sync::oneshot::channel();
             let (done_tx, done_rx) = tokio::sync::oneshot::channel();
-            tokio::spawn(first_contact_vote(
+            #[cfg(all(test, feature = "db-tests"))]
+            let observation = lane.active_dispatch.observation.clone();
+            let _task = tokio::spawn(first_contact_vote(
                 first.clone(),
                 writer.admins.clone(),
                 new,
@@ -1616,6 +1618,11 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                 created_tx,
                 done_tx,
             ));
+            // A test drops the task itself, as a stopping runtime would.
+            #[cfg(all(test, feature = "db-tests"))]
+            if let Some(observation) = &observation {
+                observation.lock().unwrap().task = Some(_task.abort_handle());
+            }
             match created_rx.await {
                 Ok(Ok((auth, pid, reply_deadline))) => {
                     let outcome: DispatchOutcome =
@@ -1624,8 +1631,9 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                 }
                 // The person was committed and the task ended (the creating
                 // operation's result lost on its way back from the worker, a
-                // panic, an unwind, the task dropped) before it could say so: counted
-                // and logged as a vote not written (`CommittedPerson`). Never
+                // panic, an unwind, the task dropped, before or after the
+                // worker acknowledged the COMMIT) before it could say so:
+                // counted and logged as a vote not written (`Lifecycle`). Never
                 // a hand-back, which would let Node create a second person:
                 // Node's answer to a vote that failed, a 500 nginx gives to
                 // the client and never to Node. No token was issued to carry.
@@ -1633,8 +1641,10 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                     return route::fail_json(req, res, 500, Js::Str("polis_err_vote".into()));
                 }
                 // Handed back before the creating commit (or its outcome is
-                // unknown), counted and logged there; or the task ended
-                // without a word before the commit, which only a panic does.
+                // unknown), counted and logged there; or the task and the
+                // creating operation both ended without a word and with no
+                // acknowledged COMMIT, which only a panic or a dropped task
+                // does: nothing was written, and nothing can be any more.
                 Ok(Err(NotCreated::HandedBack)) | Err(_) => return route::bad_gateway(),
             }
         }
@@ -1712,7 +1722,8 @@ impl Dispatch {
 /// gets the vote's outcome. A vote this person did not get written, with
 /// nobody left waiting for that outcome, is counted and logged as its own
 /// event: never silent. So is a task that ends any other way once the person
-/// is committed (`CommittedPerson`).
+/// is committed (`Lifecycle`), even when the task is gone before the creating
+/// operation ends.
 #[allow(clippy::too_many_arguments)]
 async fn first_contact_vote(
     lane: FirstContact,
@@ -1725,39 +1736,44 @@ async fn first_contact_vote(
     created: tokio::sync::oneshot::Sender<Result<Created, NotCreated>>,
     done: tokio::sync::oneshot::Sender<Result<Outcome>>,
 ) {
-    // Made before anything is written, and armed by the creating operation
-    // itself, inside its blocking work, the moment the creating COMMIT is
-    // acknowledged: whatever ends this task after that point (an error or an
-    // unwind on the way back from the worker, the pool failing after the
-    // operation succeeded, a panic, the task dropped) reads it, and is never a
+    // Made before anything is written, held by this task and by the creating
+    // operation's blocking work, and marked acknowledged by that work the
+    // moment the creating COMMIT is acknowledged. Whichever of the two lets
+    // go of it last decides (`Lifecycle`'s drop): after an acknowledged
+    // COMMIT, whatever ends this task (an error or an unwind on the way back
+    // from the worker, the pool failing after the operation succeeded, a
+    // panic, the task dropped while the worker is still creating) is never a
     // hand-back.
     let mut committed = CommittedPerson {
-        zid: admitted.zid,
-        receipt: dispatch.receipt.clone(),
-        created: Some(created),
-        acknowledged: Arc::new(AtomicBool::new(false)),
-        settled: false,
-        #[cfg(all(test, feature = "db-tests"))]
-        observation: dispatch.active_dispatch.observation.clone(),
+        lifecycle: Arc::new(Lifecycle {
+            zid: admitted.zid,
+            receipt: dispatch.receipt.clone(),
+            state: Mutex::new(LifecycleState {
+                created: Some(created),
+                acknowledged: false,
+                settled: false,
+            }),
+            #[cfg(all(test, feature = "db-tests"))]
+            observation: dispatch.active_dispatch.observation.clone(),
+        }),
     };
     #[cfg(all(test, feature = "db-tests"))]
-    tests::inject(&committed.observation, tests::Fault::BeforeCreate);
+    tests::inject(&committed.lifecycle.observation, tests::Fault::BeforeCreate);
     let (person, code) = match create(
         &lane,
         &admins,
         admitted.zid,
         new.account.as_ref().map(|(uid, _)| *uid),
-        committed.acknowledged.clone(),
-        #[cfg(all(test, feature = "db-tests"))]
-        committed.observation.clone(),
+        committed.lifecycle.clone(),
     )
     .await
     {
         Ok(created) => created,
         // The COMMIT was acknowledged and its result was lost on the way
         // back: never a hand-back, which would let Node create a second
-        // person. Dropping `committed` answers the request (Node's 500 for a
-        // failed vote) and counts the vote as not written.
+        // person. The worker has let go of the lifecycle, so dropping
+        // `committed` answers the request (Node's 500 for a failed vote) and
+        // counts the vote as not written.
         Err(_) if committed.acknowledged() => return,
         // No COMMIT acknowledged: nothing was written, or the COMMIT's
         // outcome is unknown (handed back, logged and counted there).
@@ -1768,7 +1784,7 @@ async fn first_contact_vote(
         }
     };
     #[cfg(all(test, feature = "db-tests"))]
-    tests::inject(&committed.observation, tests::Fault::AfterCreate);
+    tests::inject(&committed.lifecycle.observation, tests::Fault::AfterCreate);
     admitted.pid = person.pid.0 as i32;
     admitted.uid = person.uid.0;
     // Where the person came from, after the creating commit and not waited
@@ -1784,11 +1800,14 @@ async fn first_contact_vote(
     // The request may be gone; the vote is dispatched all the same.
     committed.report((auth, admitted.pid, reply_deadline));
     #[cfg(all(test, feature = "db-tests"))]
-    tests::inject(&committed.observation, tests::Fault::AfterReport);
+    tests::inject(&committed.lifecycle.observation, tests::Fault::AfterReport);
     let (zid, receipt) = (admitted.zid, dispatch.receipt.clone());
     let outcome = dispatch.run(admitted, fields, reply_deadline).await;
     #[cfg(all(test, feature = "db-tests"))]
-    tests::inject(&committed.observation, tests::Fault::AfterDispatch);
+    tests::inject(
+        &committed.lifecycle.observation,
+        tests::Fault::AfterDispatch,
+    );
     if let Err(outcome) = done.send(outcome) {
         let written = matches!(outcome, Ok(Outcome::Success(_)))
             || receipt.lock().unwrap_or_else(|e| e.into_inner()).is_some();
@@ -1812,61 +1831,63 @@ enum NotCreated {
     AfterCommit,
 }
 
-/// A value made before a first contact's person is created, armed by the
-/// creating operation at the moment its COMMIT is acknowledged
-/// (`acknowledged`, set inside the blocking work), and disarmed (`settled`)
-/// once the vote's outcome is dealt with, or once the request is handed back
-/// before any acknowledged COMMIT. Dropped while armed (an error or an unwind
-/// on the way back from the creating operation, a panic in the task, or the
-/// task dropped), it tells a request still waiting for the person that the
-/// person was committed, so the request is not handed back, and, unless the
-/// vote's receipt was published, counts and logs the person's vote as not
-/// written. Dropped before any acknowledged COMMIT, it says nothing: the
-/// request, if still waiting, is handed back, as nothing was written.
-struct CommittedPerson {
+/// A first contact from before its person is created to its vote's outcome,
+/// shared by the task and by the creating operation's blocking work, which
+/// marks it acknowledged the moment its COMMIT is acknowledged. It owns the
+/// request's `created` sender, so a request still waiting is answered only by
+/// whoever settles it or, failing that, by the last of the two to let go of
+/// it: the task, or the worker when the task is already gone (dropped while
+/// the worker was still creating, a runtime stopping while blocking work
+/// finishes). Its drop decides once, with every write of the worker already
+/// made: if the COMMIT was acknowledged and the lifecycle never settled, it
+/// tells a request still waiting that the person was committed, so the
+/// request is not handed back, and, unless the vote's receipt was published,
+/// counts and logs the person's vote as not written, exactly once. If no
+/// COMMIT was acknowledged, nothing was written and nothing can be any more:
+/// the request, if still waiting, is handed back.
+struct Lifecycle {
     zid: i32,
     receipt: Arc<Mutex<Option<AcceptedVote>>>,
-    created: Option<tokio::sync::oneshot::Sender<Result<Created, NotCreated>>>,
-    /// The creating COMMIT was acknowledged: the one record of it, written
-    /// in the creating operation and read on every way this task ends.
-    acknowledged: Arc<AtomicBool>,
-    settled: bool,
+    state: Mutex<LifecycleState>,
     #[cfg(all(test, feature = "db-tests"))]
     observation: Option<tests::DispatchObservation>,
 }
 
-impl CommittedPerson {
-    fn acknowledged(&self) -> bool {
-        self.acknowledged.load(Ordering::SeqCst)
+struct LifecycleState {
+    created: Option<tokio::sync::oneshot::Sender<Result<Created, NotCreated>>>,
+    /// The creating COMMIT was acknowledged: the one record of it, written
+    /// in the creating operation's blocking work.
+    acknowledged: bool,
+    /// The vote's outcome was dealt with, or the request was handed back
+    /// before any acknowledged COMMIT: nothing is left to decide.
+    settled: bool,
+}
+
+impl Lifecycle {
+    fn state(&self) -> std::sync::MutexGuard<'_, LifecycleState> {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
     }
 
-    /// No COMMIT was acknowledged: the request, if still waiting, is handed
-    /// back.
-    fn handed_back(mut self) {
-        if let Some(created) = self.created.take() {
-            let _ = created.send(Err(NotCreated::HandedBack));
-        }
-        self.settled = true;
-    }
-
-    /// The person, to the request if it is still waiting.
-    fn report(&mut self, person: Created) {
-        if let Some(created) = self.created.take() {
-            let _ = created.send(Ok(person));
-        }
-    }
-
-    fn settled(mut self) {
-        self.settled = true;
+    /// Called by the creating operation, inside its blocking work, as soon
+    /// as the COMMIT that created this request's person is acknowledged.
+    fn acknowledge(&self) {
+        self.state().acknowledged = true;
     }
 }
 
-impl Drop for CommittedPerson {
+impl Drop for Lifecycle {
     fn drop(&mut self) {
-        if self.settled || !self.acknowledged() {
+        let state = self.state.get_mut().unwrap_or_else(|e| e.into_inner());
+        if state.settled {
             return;
         }
-        if let Some(created) = self.created.take() {
+        // Dropped unsent when no COMMIT was acknowledged: a request still
+        // waiting sees the closed channel and is handed back.
+        let created = state.created.take();
+        if !state.acknowledged {
+            return;
+        }
+        if let Some(created) = created {
             let _ = created.send(Err(NotCreated::AfterCommit));
         }
         if self
@@ -1877,17 +1898,64 @@ impl Drop for CommittedPerson {
         {
             return;
         }
-        #[cfg(all(test, feature = "db-tests"))]
-        if let Some(observation) = &self.observation
-            && let Ok(mut state) = observation.lock()
-        {
-            state.vote_not_written += 1;
-        }
-        let count = FIRST_CONTACT_VOTE_NOT_WRITTEN.fetch_add(1, Ordering::Relaxed) + 1;
-        eprintln!(
-            "{{\"event\":\"post_votes_first_contact_vote_not_written\",\"zid\":{},\"count\":{count},\"ended\":\"early\"}}",
-            self.zid
+        first_contact_vote_not_written(
+            self.zid,
+            #[cfg(all(test, feature = "db-tests"))]
+            &self.observation,
         );
+    }
+}
+
+/// The alarm for a committed person whose vote was not written: counted,
+/// and logged at once as its own event with the conversation, so a process
+/// that stops still leaves a record of it. Nothing of the person.
+fn first_contact_vote_not_written(
+    zid: i32,
+    #[cfg(all(test, feature = "db-tests"))] observation: &Option<tests::DispatchObservation>,
+) {
+    let count = FIRST_CONTACT_VOTE_NOT_WRITTEN.fetch_add(1, Ordering::Relaxed) + 1;
+    let line = format!(
+        "{{\"event\":\"post_votes_first_contact_vote_not_written\",\"zid\":{zid},\"count\":{count},\"ended\":\"early\"}}"
+    );
+    eprintln!("{line}");
+    #[cfg(all(test, feature = "db-tests"))]
+    if let Some(observation) = observation
+        && let Ok(mut state) = observation.lock()
+    {
+        state.vote_not_written += 1;
+        state.vote_not_written_lines.push(line);
+    }
+}
+
+/// The task's hold on its first contact's `Lifecycle`.
+struct CommittedPerson {
+    lifecycle: Arc<Lifecycle>,
+}
+
+impl CommittedPerson {
+    fn acknowledged(&self) -> bool {
+        self.lifecycle.state().acknowledged
+    }
+
+    /// No COMMIT was acknowledged and the creating operation has ended: the
+    /// request, if still waiting, is handed back.
+    fn handed_back(self) {
+        let mut state = self.lifecycle.state();
+        if let Some(created) = state.created.take() {
+            let _ = created.send(Err(NotCreated::HandedBack));
+        }
+        state.settled = true;
+    }
+
+    /// The person, to the request if it is still waiting.
+    fn report(&mut self, person: Created) {
+        if let Some(created) = self.lifecycle.state().created.take() {
+            let _ = created.send(Ok(person));
+        }
+    }
+
+    fn settled(self) {
+        self.lifecycle.state().settled = true;
     }
 }
 
@@ -1952,14 +2020,19 @@ async fn create(
     admins: &[i32],
     zid: i32,
     account: Option<Uid>,
-    acknowledged: Arc<AtomicBool>,
-    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+    lifecycle: Arc<Lifecycle>,
 ) -> Result<(join::Admitted, String), &'static str> {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     #[cfg(all(test, feature = "db-tests"))]
     let pool = lane.pool.clone();
+    #[cfg(all(test, feature = "db-tests"))]
+    let observation = lifecycle.observation.clone();
     let admitted = lane
         .pool
+        // The blocking work holds `lifecycle` and lets go of it when this
+        // work ends, however it ends, before the pool's future resolves: if
+        // the task is gone by then, this is the last hold, and its drop
+        // decides.
         .with(move |c| {
             let code = c
                 .query("select * from zinvites where zid = ($1);", &[&zid])?
@@ -1970,7 +2043,12 @@ async fn create(
                 return Ok(None);
             };
             #[cfg(all(test, feature = "db-tests"))]
-            tests::inject_in_creation(&observation, tests::Fault::InWorkerBeforeCommit, &pool);
+            for at in [
+                tests::Fault::InWorkerBeforeCommit,
+                tests::Fault::PauseBeforeCommit,
+            ] {
+                tests::inject_in_creation(&observation, at, &pool);
+            }
             let admitted = join::admit_within(
                 c,
                 &join::Request {
@@ -1986,18 +2064,21 @@ async fn create(
                 },
                 &FIRST_CONTACT_BOUNDS,
             );
+            #[cfg(all(test, feature = "db-tests"))]
+            tests::inject_in_creation(&observation, tests::Fault::PauseAfterCommit, &pool);
             // A successful return is an acknowledged COMMIT. Recorded here,
             // before the operation returns through the pool.
             if let Ok(Some(person)) = &admitted
                 && created_by_this_request(person, account)
             {
-                acknowledged.store(true, Ordering::SeqCst);
+                lifecycle.acknowledge();
             }
             #[cfg(all(test, feature = "db-tests"))]
             for at in [
                 tests::Fault::InWorkerAfterCommit,
                 tests::Fault::PoolErrorAfterCommit,
                 tests::Fault::StallAfterCommit,
+                tests::Fault::PauseAfterRecord,
             ] {
                 tests::inject_in_creation(&observation, at, &pool);
             }
