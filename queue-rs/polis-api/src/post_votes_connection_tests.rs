@@ -566,19 +566,30 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
 /// their latency while the report topic map is saturated. Each read is
 /// sampled sequentially, first with the route idle (the control), then while
 /// sixteen clients ask for a stored map of about a megabyte as fast as the
-/// route answers them (the route at its places, shedding the rest). Run it
-/// under the service's own budget (half a CPU, 512 MiB) for the figure that
-/// matters (the command is in the change's notes). Every read must be
-/// isolated (no wait for a slot of its own pool); the saturated route may not
-/// add misses of a read's own deadline beyond the control's (by more than
-/// two of forty), and each read's 95th percentile must stay within twice the
-/// control's plus 25 ms. The figures are printed whatever the outcome.
+/// route answers them (the route at its places, shedding the rest). Each
+/// phase takes at least forty rounds and lasts at least two seconds (twenty
+/// periods of the kernel's CPU quota), and the loaded phase takes at least as
+/// many rounds as the control. Run it from a release build under the
+/// service's own budget (half a CPU, 512 MiB) for the figure that matters
+/// (the command is in the change's notes). Every read must be isolated (no
+/// wait for a slot of its own pool); the saturated route may not add misses
+/// of a read's own deadline beyond the control's (by a share of more than
+/// two in forty of the samples taken), and each read's 95th percentile must
+/// stay within twice the control's plus 25 ms. The figures are printed
+/// whatever the outcome.
 #[test]
 fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
     let database = Database::new("topic_map_saturation");
     let (mut app, _) = setup(&database);
     store_topic_map(&database, 30_000);
+    // The fewest rounds a phase takes, and the misses of a read's own
+    // deadline the saturated route may add in that many samples.
     const ROUNDS: usize = 40;
+    const EXTRA_MISSES: usize = 2;
+    // Each phase samples for at least this long: twenty periods of the
+    // kernel's CPU quota (100 ms each), so that under a quota of half a CPU a
+    // pass means the reads stayed clear across many periods, not a few.
+    const WINDOW: Duration = Duration::from_secs(2);
     // The service's runtime has threads of its own; a test on one thread
     // would only measure that thread's queue.
     let rt = tokio::runtime::Builder::new_multi_thread()
@@ -591,26 +602,36 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
         warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
         let reads = participation_reads(&app);
+        // Rounds of the three reads, one of each per round, until at least
+        // `min_rounds` rounds have been taken and at least `floor` has
+        // passed. Returns the samples and how long they took.
         async fn sample(
             app: &Arc<App>,
             reads: &[(&'static str, Arc<db::Pool>); 3],
-        ) -> Vec<Vec<(u16, Duration, [usize; 6])>> {
+            min_rounds: usize,
+            floor: Duration,
+        ) -> (Vec<Vec<(u16, Duration, [usize; 6])>>, Duration) {
             let mut out = vec![Vec::new(); reads.len()];
-            for _ in 0..ROUNDS {
+            let started = std::time::Instant::now();
+            let mut rounds = 0;
+            while rounds < min_rounds || started.elapsed() < floor {
                 for (i, (path, pool)) in reads.iter().enumerate() {
                     out[i].push(participation_read(app.clone(), path, pool).await);
                 }
+                rounds += 1;
             }
-            out
+            (out, started.elapsed())
         }
         fn quantile(samples: &[(u16, Duration, [usize; 6])], q: f64) -> Duration {
             let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
             d.sort();
             d[((d.len() - 1) as f64 * q).round() as usize]
         }
-        // Warm every path once, then the control.
-        let _ = sample(&app, &reads).await;
-        let control = sample(&app, &reads).await;
+        // Warm every path once, then the control, over the same window floor
+        // as the loaded phase.
+        let _ = sample(&app, &reads, ROUNDS, Duration::ZERO).await;
+        let (control, control_window) = sample(&app, &reads, ROUNDS, WINDOW).await;
+        let control_rounds = control[0].len();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let clients: Vec<_> = (0..16)
             .map(|n| {
@@ -640,7 +661,10 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
             state.max_in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT && state.busy() > 0
         })
         .await;
-        let loaded = sample(&app, &reads).await;
+        // At least as many rounds as the control, and across at least the
+        // window floor, all under the same flood.
+        let (loaded, loaded_window) = sample(&app, &reads, control_rounds, WINDOW).await;
+        let loaded_rounds = loaded[0].len();
         stop.store(true, Ordering::SeqCst);
         let mut maps = std::collections::BTreeMap::<u16, usize>::new();
         for client in clients {
@@ -650,7 +674,7 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         }
         let cgroup = std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into());
         let mut lines = vec![format!(
-            "topic map saturation: cpu.max={} rounds={ROUNDS} maps={maps:?} busy={} max_in_flight={} max_held_bytes={}",
+            "topic map saturation: cpu.max={} control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} busy={} max_in_flight={} max_held_bytes={}",
             cgroup.trim(),
             state.busy(),
             state.max_in_flight(),
@@ -659,7 +683,7 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         for (i, (path, _)) in reads.iter().enumerate() {
             let answered = |v: &[(u16, Duration, [usize; 6])]| v.iter().filter(|s| s.0 == 200).count();
             lines.push(format!(
-                "  {path}: answered control {}/{ROUNDS} loaded {}/{ROUNDS}",
+                "  {path}: answered control {}/{control_rounds} loaded {}/{loaded_rounds}",
                 answered(&control[i]),
                 answered(&loaded[i])
             ));
@@ -690,10 +714,15 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
             for (status, _, delta) in control[i].iter().chain(&loaded[i]) {
                 participation_isolated(path, *status, *delta);
             }
+            // The loaded share of misses may exceed the control's share by
+            // at most EXTRA_MISSES in ROUNDS (two in forty), over all the
+            // samples taken: loaded/n_l <= control/n_c + 2/40, in integers.
+            // With forty samples in each phase this is "control + 2".
             let (c_missed, l_missed) = (missed(&control[i]), missed(&loaded[i]));
+            let (n_c, n_l) = (control[i].len(), loaded[i].len());
             assert!(
-                l_missed <= c_missed + 2,
-                "{path} missed its deadline more under a saturated topic map: control {c_missed}, loaded {l_missed} of {ROUNDS}"
+                l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
+                "{path} missed its deadline more under a saturated topic map: control {c_missed} of {n_c}, loaded {l_missed} of {n_l} (at most {EXTRA_MISSES} in {ROUNDS} more)"
             );
             let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
             assert!(
