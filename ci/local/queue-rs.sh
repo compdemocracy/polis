@@ -30,4 +30,7 @@ python3 "$CHECK_ROOT/ci/host_ports.py" env POLIS_JOBS_TEST_DATABASE_URL
   # The Delphi shadow's scheduler: what it admits, and that its sessions never
   # make a vote, a comment or the next comment wait.
   cargo test --locked --features jobs-integration,graph-test-models --test delphi_shadow -- --test-threads 2
+  # The topic map a run stores: the backfill command reads a run stored
+  # through the release's writer functions and writes the step's bytes.
+  cargo test --locked -p polis-topic-map --features db-tests --test from_run_database
 )

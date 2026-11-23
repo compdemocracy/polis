@@ -251,9 +251,11 @@ closed!(
 closed!(
     /// A family a Delphi run produces: the EVoC and UMAP output, keywords
     /// and features, topic names, topic stats, narratives, collective
-    /// statements and visualizations, after the embeddings they start from.
-    /// Stored families keep their `delphi_result_catalog` names (the
-    /// DynamoDB table names); `topic_stats` and `visualizations` (the
+    /// statements and visualizations, after the embeddings they start from,
+    /// and the topic map document drawn from the run's positions, clusters
+    /// and names. Stored families keep their `delphi_result_catalog` names
+    /// (the DynamoDB table names; `Delphi_TopicMapDocument`, 000049, is
+    /// stored in Postgres only); `topic_stats` and `visualizations` (the
     /// datamapplot pages, S3 `visualizations/{report_id}/{job_id}/`) have no
     /// catalog row yet.
     RunFamily {
@@ -268,6 +270,7 @@ closed!(
         NarrativeReports = "Delphi_NarrativeReports",
         CollectiveStatement = "Delphi_CollectiveStatement",
         Visualizations = "visualizations",
+        TopicMapDocument = "Delphi_TopicMapDocument",
     }
 );
 
@@ -384,6 +387,13 @@ impl RunFamily {
             F::NarrativeReports | F::CollectiveStatement => &[F::CommentClustersLlmTopicNames],
             // The datamapplot draws the UMAP run's map.
             F::Visualizations => &[F::UmapGraph],
+            // The topic map document is drawn from the run's positions, its
+            // clusters at every layer and its topic names (polis-topic-map).
+            F::TopicMapDocument => &[
+                F::UmapGraph,
+                F::CommentHierarchicalClusterAssignments,
+                F::CommentClustersLlmTopicNames,
+            ],
             F::CommentEmbeddings => &[],
         }
     }

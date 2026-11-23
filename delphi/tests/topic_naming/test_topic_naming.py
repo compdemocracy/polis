@@ -276,3 +276,80 @@ def test_real_ollama_provider_binds_a_non_default_endpoint():
     provider = OllamaProvider(model_name="qwen2.5:1.5b", endpoint="http://ollama:11434")
     assert isinstance(provider.ollama, ollama.Client)
     assert str(provider.ollama._client.base_url).rstrip("/") == "http://ollama:11434"
+
+
+# --- each name's origin, decided where the name is made ----------------------
+
+class _NoneProvider(FakeOllamaProvider):
+    """A provider that answers nothing usable: ``None``."""
+
+    def get_response(self, system_message, user_message):
+        self.prompts_seen.append(user_message)
+        return None
+
+
+def _named(monkeypatch, provider, ids):
+    monkeypatch.setattr(topic_naming, "get_model_provider", lambda *a, **k: provider)
+    origins = {}
+    labels = generate_cluster_topic_labels(
+        _characteristics(ids),
+        comment_texts=[f"c{i}" for i in ids],
+        layer=np.array(ids),
+        layer_idx=0,
+        name_topics=True,
+        origins=origins,
+    )
+    plain = generate_cluster_topic_labels(
+        _characteristics(ids),
+        comment_texts=[f"c{i}" for i in ids],
+        layer=np.array(ids),
+        layer_idx=0,
+        name_topics=True,
+    )
+    assert labels == plain  # asking for origins never changes a label
+    return labels, origins
+
+
+def test_a_missing_response_is_a_fallback_though_it_carries_the_prefix(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    labels, origins = _named(monkeypatch, _NoneProvider({}), [0])
+    assert labels == {0: "0_0: Topic 0"}
+    assert origins == {0: "fallback"}
+
+
+def test_a_response_that_cleans_to_nothing_is_a_fallback(monkeypatch):
+    monkeypatch.setenv("LLM_PROVIDER", "ollama")
+    labels, origins = _named(monkeypatch, FakeOllamaProvider({"c0": '"**"', "c1": "Water"}), [0, 1])
+    assert labels == {0: "0_0: Topic 0", 1: "0_1: Water"}
+    assert origins == {0: "fallback", 1: "model"}
+
+
+def test_a_partly_failed_batch_names_each_clusters_origin(monkeypatch):
+    results = [
+        {"custom_id": "layer0_cluster0", "result": {"type": "succeeded", "message": {"content": [{"type": "text", "text": "Good Label"}]}}},
+        {"custom_id": "layer0_cluster1", "result": {"type": "errored", "error": {"type": "server_error"}}},
+    ]
+    labels, origins = _named(monkeypatch, FakeAnthropicProvider(results), [0, 1, 2])
+    assert labels == {0: "0_0: Good Label", 1: "0_1: Topic 1", 2: "0_2: Topic 2"}
+    assert origins == {0: "model", 1: "fallback", 2: "fallback"}
+
+
+def test_conventional_labels_are_fallbacks(monkeypatch):
+    labels, origins = _named(monkeypatch, FakeAnthropicProvider([], fail_create=True), [0, 1])
+    assert all("Keywords" in v for v in labels.values())
+    assert origins == {0: "fallback", 1: "fallback"}
+
+
+def test_origin_facts_list_the_clusters_the_model_named_from_the_recorded_origins(monkeypatch):
+    results = [
+        {"custom_id": "layer0_cluster0", "result": {"type": "succeeded", "message": {"content": [{"type": "text", "text": "Good Label"}]}}},
+        {"custom_id": "layer0_cluster1", "result": {"type": "errored", "error": {"type": "server_error"}}},
+        {"custom_id": "layer0_cluster2", "result": {"type": "succeeded", "message": {"content": [{"type": "text", "text": "Topic 2"}]}}},
+    ]
+    labels, origins = _named(monkeypatch, FakeAnthropicProvider(results), [0, 1, 2])
+    # The model's own "Topic 2" is the model's; the prefixed fallback is not.
+    assert topic_naming.origin_facts(labels, origins) == {
+        "written_by_model": 2, "fallback": 1, "origin_unknown": 0, "model_clusters": [0, 2]}
+    # A label with no recorded origin is never counted as the model's.
+    assert topic_naming.origin_facts({0: "0_0: Water", 1: "0_1: Land"}, {1: "model"}) == {
+        "written_by_model": 1, "fallback": 0, "origin_unknown": 1, "model_clusters": [1]}
