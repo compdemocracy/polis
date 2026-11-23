@@ -1622,10 +1622,19 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                         Box::pin(async move { done_rx.await.map_err(drop) });
                     (auth, pid, reply_deadline, outcome)
                 }
+                // The person was committed and the task ended (a panic, an
+                // unwind, the task dropped) before it could say so: counted
+                // and logged as a vote not written (`CommittedPerson`). Never
+                // a hand-back, which would let Node create a second person:
+                // Node's answer to a vote that failed, a 500 nginx gives to
+                // the client and never to Node. No token was issued to carry.
+                Ok(Err(NotCreated::AfterCommit)) => {
+                    return route::fail_json(req, res, 500, Js::Str("polis_err_vote".into()));
+                }
                 // Handed back before the creating commit (or its outcome is
                 // unknown), counted and logged there; or the task ended
-                // without a word, which only a panic does.
-                Ok(Err(())) | Err(_) => return route::bad_gateway(),
+                // without a word before the commit, which only a panic does.
+                Ok(Err(NotCreated::HandedBack)) | Err(_) => return route::bad_gateway(),
             }
         }
     };
@@ -1698,10 +1707,11 @@ impl Dispatch {
 /// request does not own, so a request cancelled at any point (its deadline,
 /// a closed connection) cannot leave a committed person without the vote's
 /// dispatch. `created` gets the token, the new participant's number and the
-/// reply deadline after the creating commit, or Err when the request is
-/// handed back before it; `done` gets the vote's outcome. A vote this person
-/// did not get written, with nobody left waiting for that outcome, is counted
-/// and logged as its own event: never silent.
+/// reply deadline after the creating commit, or why there is none; `done`
+/// gets the vote's outcome. A vote this person did not get written, with
+/// nobody left waiting for that outcome, is counted and logged as its own
+/// event: never silent. So is a task that ends any other way once the person
+/// is committed (`CommittedPerson`).
 #[allow(clippy::too_many_arguments)]
 async fn first_contact_vote(
     lane: FirstContact,
@@ -1711,9 +1721,14 @@ async fn first_contact_vote(
     dispatch: Dispatch,
     mut admitted: Admitted,
     fields: ParsedFields,
-    created: tokio::sync::oneshot::Sender<Result<Created, ()>>,
+    created: tokio::sync::oneshot::Sender<Result<Created, NotCreated>>,
     done: tokio::sync::oneshot::Sender<Result<Outcome>>,
 ) {
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(
+        &dispatch.active_dispatch.observation,
+        tests::Fault::BeforeCreate,
+    );
     let (person, code) = match create(
         &lane,
         &admins,
@@ -1725,10 +1740,21 @@ async fn first_contact_vote(
         Ok(created) => created,
         Err(reason) => {
             first_contact_handed_back(reason, admitted.zid);
-            let _ = created.send(Err(()));
+            let _ = created.send(Err(NotCreated::HandedBack));
             return;
         }
     };
+    // Committed: from here on the task never ends unaccounted for.
+    let mut committed = CommittedPerson {
+        zid: admitted.zid,
+        receipt: dispatch.receipt.clone(),
+        created: Some(created),
+        armed: true,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation: dispatch.active_dispatch.observation.clone(),
+    };
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(&committed.observation, tests::Fault::AfterCreate);
     admitted.pid = person.pid.0 as i32;
     admitted.uid = person.uid.0;
     // Where the person came from, after the creating commit and not waited
@@ -1742,7 +1768,9 @@ async fn first_contact_vote(
     // dispatch.
     let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
     // The request may be gone; the vote is dispatched all the same.
-    let _ = created.send(Ok((auth, admitted.pid, reply_deadline)));
+    committed.report((auth, admitted.pid, reply_deadline));
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(&committed.observation, tests::Fault::AfterReport);
     let (zid, receipt) = (admitted.zid, dispatch.receipt.clone());
     let outcome = dispatch.run(admitted, fields, reply_deadline).await;
     if let Err(outcome) = done.send(outcome) {
@@ -1754,6 +1782,75 @@ async fn first_contact_vote(
                 "{{\"event\":\"post_votes_first_contact_vote_not_written\",\"zid\":{zid},\"count\":{count}}}"
             );
         }
+    }
+    committed.settled();
+}
+
+/// Why a first contact's task gives the request no person.
+enum NotCreated {
+    /// Before the creating commit, or with its outcome unknown: handed back,
+    /// counted and logged there.
+    HandedBack,
+    /// After the creating commit: the task ended before it could report the
+    /// person. Never a hand-back.
+    AfterCommit,
+}
+
+/// A value armed at a first contact's creating commit and disarmed
+/// (`settled`) once the vote's outcome is dealt with. Dropped while armed (a
+/// panic or an unwind in the task, or the task dropped), it tells a request
+/// still waiting for the person that the person was committed, so the
+/// request is not handed back, and, unless the vote's receipt was published,
+/// counts and logs the person's vote as not written.
+struct CommittedPerson {
+    zid: i32,
+    receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    created: Option<tokio::sync::oneshot::Sender<Result<Created, NotCreated>>>,
+    armed: bool,
+    #[cfg(all(test, feature = "db-tests"))]
+    observation: Option<tests::DispatchObservation>,
+}
+
+impl CommittedPerson {
+    /// The person, to the request if it is still waiting.
+    fn report(&mut self, person: Created) {
+        if let Some(created) = self.created.take() {
+            let _ = created.send(Ok(person));
+        }
+    }
+
+    fn settled(mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for CommittedPerson {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        if let Some(created) = self.created.take() {
+            let _ = created.send(Err(NotCreated::AfterCommit));
+        }
+        if self
+            .receipt
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
+        {
+            return;
+        }
+        #[cfg(all(test, feature = "db-tests"))]
+        if let Some(observation) = &self.observation
+            && let Ok(mut state) = observation.lock()
+        {
+            state.vote_not_written += 1;
+        }
+        let count = FIRST_CONTACT_VOTE_NOT_WRITTEN.fetch_add(1, Ordering::Relaxed) + 1;
+        eprintln!(
+            "{{\"event\":\"post_votes_first_contact_vote_not_written\",\"zid\":{},\"count\":{count},\"ended\":\"early\"}}",
+            self.zid
+        );
     }
 }
 

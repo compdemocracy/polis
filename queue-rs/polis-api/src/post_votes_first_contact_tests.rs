@@ -1247,6 +1247,108 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
     assert_eq!(rows(&stage), before, "handed back before any write");
 }
 
+/// A first vote whose first-contact task panics at `fault`: the answer, its
+/// body, and what the task recorded, once the task has ended.
+fn faulted_first_vote(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    fault: Fault,
+) -> (Outgoing, String, DispatchObservation) {
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(fault);
+    let mut request = req(&ballot("2plain").to_string());
+    request.headers = Headers::from_raw([
+        ("host", "localhost"),
+        ("content-type", "application/json"),
+        ("x-forwarded-proto", "https"),
+    ]);
+    let app = app.clone();
+    let out = rt.block_on(async {
+        let mut route = Box::pin(crate::route::handle(app, request));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&observation, || {
+                std::future::Future::poll(route.as_mut(), cx)
+            })
+        })
+        .await
+    });
+    assert!(
+        eventually(|| observation.lock().unwrap().finished),
+        "the first-contact task never ended"
+    );
+    let body = match &out.body {
+        Body::Empty => String::new(),
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        Body::Chunked(chunks) => String::from_utf8(chunks.concat()).unwrap(),
+    };
+    (out, body, observation)
+}
+
+fn marked_for_node(out: &Outgoing) -> bool {
+    out.headers
+        .iter()
+        .any(|(name, _)| name.eq_ignore_ascii_case("x-polis-vote-dispatch"))
+}
+
+#[test]
+fn a_first_contact_task_that_fails_after_its_creating_commit_is_never_handed_back() {
+    let stage = stage("first_contact_unwind");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+
+    // Before the creating commit: handed back to Node, nothing written, no
+    // alarm.
+    let before = rows(&stage);
+    let (out, _, observation) = faulted_first_vote(&rt, &app, Fault::BeforeCreate);
+    assert_eq!(out.status, 502);
+    assert!(marked_for_node(&out), "a hand-back carries its marker");
+    assert_eq!(rows(&stage), before, "nothing written before the commit");
+    assert_eq!(observation.lock().unwrap().vote_not_written, 0);
+
+    // After the creating commit, before the request is told of the person:
+    // Node's answer to a failed vote, never a hand-back; the person without
+    // their vote raises the alarm once.
+    let alarms = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
+    let before = rows(&stage);
+    let (out, body, observation) = faulted_first_vote(&rt, &app, Fault::AfterCreate);
+    assert_eq!(
+        (out.status, body.as_str()),
+        (500, node_refusal(500, "polis_err_vote").as_str())
+    );
+    assert!(!marked_for_node(&out), "never marked for Node");
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+        "users, participants, participants_extended, votes"
+    );
+    assert_eq!(observation.lock().unwrap().vote_not_written, 1);
+    assert!(FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > alarms);
+
+    // After the request is told of the person, before the vote's dispatch:
+    // the receipt of unknown acceptance with the person's token, never a
+    // hand-back; the alarm is raised once.
+    let alarms = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
+    let before = rows(&stage);
+    let (out, body, observation) = faulted_first_vote(&rt, &app, Fault::AfterReport);
+    assert_eq!(out.status, 202, "{body}");
+    assert!(body.contains(r#""acceptance":"unknown""#), "{body}");
+    assert!(!reply_token(&body).is_empty(), "{body}");
+    assert!(!marked_for_node(&out), "never marked for Node");
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+        "users, participants, participants_extended, votes"
+    );
+    assert_eq!(observation.lock().unwrap().vote_not_written, 1);
+    assert!(FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > alarms);
+
+    // With no fault, the same lane serves a first vote as before.
+    let before = rows(&stage);
+    let (status, body) = vote(&rt, &app, ballot("2plain"), None);
+    assert_eq!(status, 200, "{body}");
+    assert!(eventually(|| rows(&stage)[3] == before[3] + 1));
+}
+
 /// Every new session of the stage's database logs every statement with its
 /// parameters.
 fn log_every_statement(stage: &Stage) {

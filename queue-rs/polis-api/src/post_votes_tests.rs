@@ -447,6 +447,35 @@ pub(super) struct DispatchState {
     pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
     pub(super) notification_scheduled: bool,
     pub(super) selection_started: bool,
+    /// A panic to inject into this caller's first-contact task.
+    pub(super) fault: Option<Fault>,
+    /// Votes this caller's first-contact task counted as not written when it
+    /// ended before its outcome.
+    pub(super) vote_not_written: u64,
+}
+
+/// Where a first-contact task panics, for a caller that asks for it.
+#[cfg(feature = "db-tests")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Fault {
+    /// Before the person is created.
+    BeforeCreate,
+    /// After the creating commit, before the request is told of the person.
+    AfterCreate,
+    /// After the request is told of the person, before the vote's dispatch.
+    AfterReport,
+}
+
+/// Panics when this caller asked for a fault at `at`. The observation's lock
+/// is released first, so nothing that reads it later is poisoned.
+#[cfg(feature = "db-tests")]
+pub(super) fn inject(observation: &Option<DispatchObservation>, at: Fault) {
+    let fault = observation
+        .as_ref()
+        .and_then(|observation| observation.lock().unwrap().fault);
+    if fault == Some(at) {
+        panic!("injected fault in a first-contact task: {at:?}");
+    }
 }
 
 #[cfg(feature = "db-tests")]
