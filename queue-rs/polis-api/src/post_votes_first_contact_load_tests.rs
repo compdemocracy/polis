@@ -523,6 +523,11 @@ struct Cadence {
 const MISS_SHARE_PERCENT: usize = 5;
 const LATENCY_SLACK: Duration = Duration::from_millis(25);
 
+/// The stricter rule beside it: with every phase at one period the control
+/// and a loaded phase are comparable, so a loaded 95th percentile may be at
+/// most this much above the control's.
+const CONTROL_SLACK: Duration = Duration::from_millis(20);
+
 /// The kinds of participation request a round sends, in its order.
 const KINDS: [&str; 5] = [
     "member votes",
@@ -605,22 +610,26 @@ fn p95(answers: &[Answer]) -> Duration {
 /// Each kind of participation in a loaded phase against the idle control:
 /// misses no more than the control's plus `MISS_SHARE_PERCENT` of the
 /// samples, and a 95th percentile within twice the control's plus
-/// `LATENCY_SLACK`. Printed whether or not it holds; the kinds that do not
-/// hold are returned.
+/// `LATENCY_SLACK`; and, the stricter rule, a 95th percentile within the
+/// control's plus `CONTROL_SLACK`. Printed whether or not they hold; the
+/// kinds that do not hold are returned, the first rule's then the stricter
+/// rule's.
 fn latency_failures(
     phase: &str,
     (control, control_cadence): (&[Vec<Answer>], Cadence),
     (loaded, loaded_cadence): (&[Vec<Answer>], Cadence),
-) -> Vec<String> {
+) -> (Vec<String>, Vec<String>) {
     let mut failures = vec![];
+    let mut past_control = vec![];
     let ms = |d: Duration| d.as_secs_f64() * 1000.0;
     for (index, name) in KINDS.iter().enumerate() {
         let (idle, busy) = (kind(control, index), kind(loaded, index));
         let misses = |answers: &[Answer]| answers.iter().filter(|a| !answered(a)).count();
         let allowed = misses(&idle) + (busy.len() * MISS_SHARE_PERCENT).div_ceil(100);
         let bound = p95(&idle) * 2 + LATENCY_SLACK;
+        let strict_bound = p95(&idle) + CONTROL_SLACK;
         report(format!(
-            "latency {phase}: {name}: period_ms={}; control_samples={}; loaded_samples={}; control_p50_ms={:.1}; loaded_p50_ms={:.1}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}; control_overruns={}; loaded_overruns={}",
+            "latency {phase}: {name}: period_ms={}; control_samples={}; loaded_samples={}; control_p50_ms={:.1}; loaded_p50_ms={:.1}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; strict_bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}; control_overruns={}; loaded_overruns={}",
             ROUND_PERIOD.as_millis(),
             idle.len(),
             busy.len(),
@@ -629,6 +638,7 @@ fn latency_failures(
             ms(p95(&idle)),
             ms(p95(&busy)),
             ms(bound),
+            ms(strict_bound),
             misses(&idle),
             misses(&busy),
             control_cadence.overruns,
@@ -647,8 +657,15 @@ fn latency_failures(
                 p95(&idle)
             ));
         }
+        if p95(&busy) > strict_bound {
+            past_control.push(format!(
+                "{name}: p95 {:?} past {strict_bound:?} (control {:?})",
+                p95(&busy),
+                p95(&idle)
+            ));
+        }
     }
-    failures
+    (failures, past_control)
 }
 
 /// The environment variable that makes a run of the loaded test its child:
@@ -993,14 +1010,34 @@ fn participation_under_first_contact_load(stage: &Stage) {
     // Each loaded phase against the idle control, both printed first. All
     // three ran their rounds at the same period.
     let control = (&idle[..], idle_cadence);
-    let slower = [
+    let (slower, past_control): (Vec<_>, Vec<_>) = [
         latency_failures("exhausted", control, (&exhausted[..], exhausted_cadence)),
         latency_failures("parked", control, (&parked[..], parked_cadence)),
-    ];
+    ]
+    .into_iter()
+    .unzip();
     assert!(
         slower.iter().all(Vec::is_empty),
         "participation was slower than when idle (exhausted, parked): {slower:?}"
     );
+    // The stricter rule: each kind's loaded 95th percentile within the
+    // same-period control's plus `CONTROL_SLACK`.
+    assert!(
+        past_control.iter().all(Vec::is_empty),
+        "participation rose past the same-period control plus {CONTROL_SLACK:?} (exhausted, parked): {past_control:?}"
+    );
+    // Every phase kept its period, so the comparison above is fair.
+    for (phase, cadence) in [
+        ("idle", idle_cadence),
+        ("exhausted", exhausted_cadence),
+        ("parked", parked_cadence),
+    ] {
+        assert_eq!(
+            cadence.overruns, 0,
+            "{phase}: a round overran its {ROUND_PERIOD:?} period (longest {:?})",
+            cadence.longest
+        );
+    }
 
     // Free again: a first vote is served, with the next participant number.
     let answer = rt.block_on(send(app.clone(), ballot(0, None)));
