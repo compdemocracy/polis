@@ -737,3 +737,57 @@ fn with_the_first_contact_switch_off_tokens_for_another_conversation_are_handed_
     }
     assert_eq!(rows(&stage), before);
 }
+
+/// With the first-contact switch on, a request with no token into a
+/// Treevite conversation is still not a first contact Rust answers: with no
+/// external id, or one bound to nobody, Node creates a user before its
+/// Treevite refusal, so the request is handed back; with an external id
+/// bound to an ordinary user Node creates nobody and its 401 is answered.
+/// Nothing is written in any case.
+#[test]
+fn with_the_first_contact_switch_on_a_tokenless_treevite_request_is_not_created() {
+    let stage = stage("first_contact_treevite");
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "INSERT INTO conversations(zid,owner,is_active,modified,treevite_enabled)
+               VALUES (3,9,true,0,true);
+             INSERT INTO zinvites(zid,zinvite) VALUES (3,'2tree');
+             INSERT INTO xids(uid,owner,xid) VALUES (3,9,'x3');",
+        )
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let xids = || -> i64 {
+        stage
+            .db
+            .connect()
+            .query_one("select count(*) from xids", &[])
+            .unwrap()
+            .get(0)
+    };
+    let (before, bound) = (rows(&stage), xids());
+    let named = |xid: &str| {
+        let mut body = ballot("2tree");
+        body["xid"] = json!(xid);
+        body
+    };
+    assert_eq!(
+        vote(&rt, &app, ballot("2tree"), None).0,
+        502,
+        "no external id"
+    );
+    assert_eq!(
+        vote(&rt, &app, named("unbound"), None).0,
+        502,
+        "an unbound one"
+    );
+    assert_eq!(
+        vote(&rt, &app, named("x3"), None),
+        (401, node_refusal(401, "polis_err_treevite_auth_required")),
+        "an external id bound to an ordinary user"
+    );
+    assert_eq!(rows(&stage), before, "nothing is created");
+    assert_eq!(xids(), bound, "no external id is bound");
+}

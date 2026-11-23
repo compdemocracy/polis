@@ -598,9 +598,14 @@ enum Turned {
 const TOKENLESS_REFUSALS: [&str; 4] = [
     "polis_err_xid_not_allowed",
     "polis_err_xid_required",
-    "polis_err_treevite_auth_required",
+    TREEVITE_REFUSAL,
     "polis_err_xid_owner_account",
 ];
+
+/// Node's refusal of a request with no token into a Treevite conversation
+/// by someone who is not yet a member. Answered only where Node creates
+/// nobody before it (`decided`).
+const TREEVITE_REFUSAL: &str = "polis_err_treevite_auth_required";
 
 /// The server-side bounds of the tokenless decision's read-only snapshot,
 /// within the admission deadline.
@@ -629,12 +634,8 @@ fn admit(
     };
     let identity = match caller {
         Caller::Member(identity) => identity,
-        Caller::Xid { member, xid } => {
-            if let Err(turned) = xid_member(c, zid, member, xid, admins)? {
-                return Ok(Err(turned));
-            }
-            member
-        }
+        // Its account and the allow-list are checked after membership, below.
+        Caller::Xid { member, .. } => member,
         Caller::Tokenless(xid) => {
             return Ok(Err(tokenless(c, zid, xid.as_deref(), admins, false)));
         }
@@ -685,6 +686,15 @@ fn admit(
     let Some(pid) = pid else {
         return Ok(Err(Turned::Back("not_a_participant")));
     };
+    // A token's member is qualified before any answer is given for it: a
+    // token whose row is gone, or is not the token's, has been handed back
+    // above, whatever its account or the allow-list would say. A member's
+    // account is then checked before the allow-list, as Node does.
+    if let Caller::Xid { member, xid } = caller
+        && let Err(turned) = xid_member(c, zid, member, xid, admins)?
+    {
+        return Ok(Err(turned));
+    }
     let row = c.query_one(
         "select c.is_active, c.xid_required, c.use_xid_whitelist,
          u.site_id is not null and u.site_id = owner_user.site_id
@@ -829,27 +839,40 @@ fn decided(
         admin_uids: &admin_uids,
     });
     snapshot.end();
-    match decision.map(|decision| decision.outcome) {
-        Ok(join::Outcome::Refused(refusal)) if TOKENLESS_REFUSALS.contains(&refusal.code) => {
+    let Ok(decision) = decision else {
+        return Turned::Back("admission_unavailable");
+    };
+    // Node makes the Treevite refusal only after it has created a user for a
+    // request that names no external id, or one bound to nobody: that
+    // refusal is Node's. It is answered only for an external id already
+    // bound to a user here, where Node creates nobody.
+    if matches!(decision.outcome, join::Outcome::Refused(refusal) if refusal.code == TREEVITE_REFUSAL)
+        && !(matches!(identity, join::Identity::Xid { .. })
+            && decision.xid == join::XidSeen::Bound
+            && decision.uid().is_some())
+    {
+        return Turned::Back("treevite_new_user");
+    }
+    match decision.outcome {
+        join::Outcome::Refused(refusal) if TOKENLESS_REFUSALS.contains(&refusal.code) => {
             Turned::Answer(refusal.status, refusal.code)
         }
-        Ok(join::Outcome::CreateUserAndParticipant) if first_contact && !account => {
+        join::Outcome::CreateUserAndParticipant if first_contact && !account => {
             Turned::FirstContact { zid, active: false }
         }
-        Ok(join::Outcome::CreateParticipant) if first_contact && account => {
+        join::Outcome::CreateParticipant if first_contact && account => {
             Turned::FirstContact { zid, active: false }
         }
         // Admission refuses a closed conversation before its other rules;
         // Node creates first and then refuses. Rust refuses first, after the
         // fields (`admit` reads the rules the refusal did not reach).
-        Ok(join::Outcome::Refused(refusal))
+        join::Outcome::Refused(refusal)
             if first_contact && refusal.code == "polis_err_conversation_is_closed" =>
         {
             Turned::FirstContact { zid, active: false }
         }
-        Ok(_) if account => Turned::Back("account_not_created"),
-        Ok(_) => Turned::Back("no_token"),
-        Err(_) => Turned::Back("admission_unavailable"),
+        _ if account => Turned::Back("account_not_created"),
+        _ => Turned::Back("no_token"),
     }
 }
 
@@ -1281,22 +1304,11 @@ async fn prepare(
                 return Err(Refused::handback("token_refused"));
             };
             match (member.kind, xid) {
-                (participant::Kind::Xid, Some(xid)) => {
-                    // Node's hybrid auth refuses an administrator's
-                    // external-id token before it reads the conversation.
-                    if writer.admins.contains(&member.uid().0) {
-                        return Err(Refused::answered(
-                            route::fail_json(
-                                req,
-                                res,
-                                403,
-                                Js::Str("polis_err_xid_owner_account".into()),
-                            ),
-                            "xid_owner_account",
-                        ));
-                    }
-                    Caller::Xid { member, xid }
-                }
+                // Node's hybrid auth refuses an administrator's external-id
+                // token before it reads the conversation. Here that refusal
+                // (`xid_member`) waits for the token's membership: one whose
+                // row is gone, or an unknown conversation, is handed back.
+                (participant::Kind::Xid, Some(xid)) => Caller::Xid { member, xid },
                 (participant::Kind::Xid, None) => return Err(Refused::handback("token_refused")),
                 _ => Caller::Member(member),
             }

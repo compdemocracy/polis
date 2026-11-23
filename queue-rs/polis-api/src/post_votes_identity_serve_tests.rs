@@ -52,6 +52,11 @@ fn stage(label: &str) -> Stage {
 
 /// The live writer, with or without the identity switch, and its pools warm.
 fn app(stage: &Stage, identity_no_write: bool) -> Arc<App> {
+    app_with_admins(stage, identity_no_write, vec![])
+}
+
+/// `app`, with these users as the site's administrators.
+fn app_with_admins(stage: &Stage, identity_no_write: bool, admins: Vec<i32>) -> Arc<App> {
     let connector = || Connector::Plain(Box::new(stage.db.config.clone()));
     let limits = db::Limits {
         size: 4,
@@ -79,7 +84,7 @@ fn app(stage: &Stage, identity_no_write: bool) -> Arc<App> {
             db::Limits { size: 2, ..limits },
         )),
         verifier: participant::Verifier::new(&stage.public, "fixture", "fixture").unwrap(),
-        admins: vec![],
+        admins,
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write,
@@ -201,6 +206,7 @@ fn with_the_identity_switch_off_every_new_case_is_handed_back() {
         (ballot("2listed"), Some(listed.as_str())),
         (ballot("2tree"), Some(tree.as_str())),
         (ballot("2required"), None),
+        (ballot("2tree"), None),
     ] {
         assert_eq!(vote(&app, body, token).0, 502);
     }
@@ -313,14 +319,15 @@ fn refusals_before_any_write_carry_nodes_bytes_and_write_nothing() {
             403,
             "polis_err_xid_not_allowed",
         ),
-        (ballot("2tree"), 401, "polis_err_treevite_auth_required"),
         (named("2plain", "x6"), 403, "polis_err_xid_owner_account"),
     ] {
         assert_eq!(vote(&app, body, None), (status, node_refusal(status, code)));
     }
-    // A first contact writes, and stays Node's.
+    // A first contact writes, and stays Node's. So does the Treevite refusal
+    // of a request with no external id: Node creates a user before it.
     assert_eq!(vote(&app, ballot("2plain"), None).0, 502);
     assert_eq!(vote(&app, named("2plain", "new"), None).0, 502);
+    assert_eq!(vote(&app, ballot("2tree"), None).0, 502);
     assert_eq!(rows(&stage), before, "a refusal writes nothing");
 }
 
@@ -346,4 +353,105 @@ fn identity_reads_never_take_the_vote_append_pools() {
     let xid = token(&stage, 3, 1, "2plain", "xid");
     assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 200);
     assert_eq!(writer.pool.evidence.snapshot()[0], append[0] + 1);
+}
+
+/// The Treevite refusal of a request with no token, asked with no external
+/// id, with one bound to nobody, and with one already bound to an ordinary
+/// user. Node creates a user before refusing the first two, so they are
+/// handed back; for the bound one Node creates nobody, and its 401 is
+/// answered. Nothing is written in any case.
+#[test]
+fn a_tokenless_treevite_refusal_is_answered_only_for_a_bound_external_id() {
+    let stage = stage("identity_treevite_tokenless");
+    let app = app(&stage, true);
+    let before = rows(&stage);
+    let named = |xid: &str| {
+        let mut body = ballot("2tree");
+        body["xid"] = json!(xid);
+        body
+    };
+    assert_eq!(vote(&app, ballot("2tree"), None).0, 502, "no external id");
+    assert_eq!(vote(&app, named("unbound"), None).0, 502, "an unbound one");
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+    assert_eq!(
+        vote(&app, named("x3"), None),
+        (401, node_refusal(401, "polis_err_treevite_auth_required")),
+        "an external id bound to an ordinary user"
+    );
+    assert_eq!(rows(&stage), before, "the refusal writes nothing");
+}
+
+/// Removes the participant row of user `uid` in conversation `zid`.
+fn remove_row(stage: &Stage, zid: i32, uid: i32) {
+    stage
+        .db
+        .connect()
+        .execute(
+            "DELETE FROM participants WHERE zid=$1 AND uid=$2",
+            &[&zid, &uid],
+        )
+        .unwrap();
+}
+
+/// An external-id token whose participant row is gone is handed back, even
+/// where its external id is not on the owner's allow-list: the allow-list
+/// refusal is given only to a member.
+#[test]
+fn a_token_whose_row_is_gone_is_handed_back_before_the_allow_list() {
+    let stage = stage("identity_gone_unlisted");
+    let app = app(&stage, true);
+    let listed = token(&stage, 3, 1, "2listed", "xid");
+    assert_eq!(
+        vote(&app, ballot("2listed"), Some(&listed)),
+        (403, node_refusal(403, "polis_err_xid_not_allowed")),
+        "a member not on the allow-list"
+    );
+    remove_row(&stage, 2, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2listed"), Some(&listed)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// An external-id token whose participant row is gone is handed back, even
+/// where its user's account is privileged: the account refusal is given
+/// only to a member.
+#[test]
+fn a_token_whose_row_is_gone_is_handed_back_before_the_account_check() {
+    let stage = stage("identity_gone_privileged");
+    let app = app(&stage, true);
+    stage
+        .db
+        .connect()
+        .batch_execute("UPDATE users SET is_owner=true WHERE uid=3")
+        .unwrap();
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)),
+        (403, node_refusal(403, "polis_err_xid_owner_account")),
+        "a member whose account is privileged"
+    );
+    remove_row(&stage, 1, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// An administrator's external-id token: refused 403 as Node refuses it
+/// while its participant row is the token's; handed back once the row is
+/// gone, and for a conversation that does not exist.
+#[test]
+fn an_administrators_external_id_token_is_refused_only_as_a_member() {
+    let stage = stage("identity_admin_xid");
+    let app = app_with_admins(&stage, true, vec![3]);
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)),
+        (403, node_refusal(403, "polis_err_xid_owner_account"))
+    );
+    let nowhere = token(&stage, 3, 1, "2nowhere", "xid");
+    assert_eq!(vote(&app, ballot("2nowhere"), Some(&nowhere)).0, 502);
+    remove_row(&stage, 1, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
 }
