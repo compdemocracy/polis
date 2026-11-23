@@ -1068,3 +1068,167 @@ fn with_the_first_contact_switch_off_no_extended_row_is_written() {
     };
     assert!(health.get("firstContactExtendedInfoDropped").is_none());
 }
+
+/// A first vote whose request is cancelled (as the listener's request
+/// deadline cancels it) after `after`, while its person is being created.
+fn cancelled_first_vote(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    body: Value,
+    after: Duration,
+) -> bool {
+    let mut request = req(&body.to_string());
+    request.headers = Headers::from_raw([
+        ("host", "localhost"),
+        ("content-type", "application/json"),
+        ("x-forwarded-proto", "https"),
+    ]);
+    let app = app.clone();
+    rt.block_on(async move {
+        tokio::time::timeout(after, crate::route::handle(app, request))
+            .await
+            .is_err()
+    })
+}
+
+/// Waits, up to five seconds, until `done` holds.
+fn eventually(mut done: impl FnMut() -> bool) -> bool {
+    for _ in 0..250 {
+        if done() {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    done()
+}
+
+/// Votes of participant `pid` on statement `tid` of conversation 1, as stored.
+fn stored_votes(stage: &Stage, pid: i32, tid: i32) -> Vec<Option<i16>> {
+    stage
+        .db
+        .connect()
+        .query(
+            "select vote from votes where zid=1 and pid=$1 and tid=$2",
+            &[&pid, &tid],
+        )
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect()
+}
+
+#[test]
+fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() {
+    let stage = stage("first_contact_cancelled");
+    // Creating the user takes 0.4 s (below the one-second statement bound),
+    // so the request is cancelled while the creating transaction runs, before
+    // its commit and before the vote's dispatch. The vote on statement 8
+    // always fails after the person is committed.
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "CREATE FUNCTION slow_user() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN PERFORM pg_sleep(0.4); RETURN NEW; END $$;
+             CREATE TRIGGER slow_user BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION slow_user();
+             CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN IF NEW.tid = 8 THEN RAISE EXCEPTION 'fixture'; END IF; RETURN NEW; END $$;
+             CREATE TRIGGER refuse_vote BEFORE INSERT ON votes FOR EACH ROW EXECUTE FUNCTION refuse_vote();",
+        )
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+
+    // Cancelled during creation: the person is committed after the request
+    // is gone, and their vote is written exactly once all the same.
+    let before = rows(&stage);
+    assert!(
+        cancelled_first_vote(&rt, &app, ballot("2plain"), Duration::from_millis(100)),
+        "the request must be cancelled before it is answered"
+    );
+    assert!(
+        eventually(|| rows(&stage)[3] == before[3] + 1),
+        "the created person's vote was never written: {:?} -> {:?}",
+        before,
+        rows(&stage)
+    );
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3] + 1],
+        "users, participants, participants_extended, votes"
+    );
+    assert_eq!(stored_votes(&stage, 2, 7), vec![agree()]);
+    let created = newest_user(&stage);
+    assert_eq!(
+        stage
+            .db
+            .connect()
+            .query_one(
+                "select pid from participants where zid=1 and uid=$1",
+                &[&created]
+            )
+            .unwrap()
+            .get::<_, i32>(0),
+        2
+    );
+
+    // Cancelled during creation, and the vote then cannot be written: the
+    // person without their vote is counted and logged as its own event.
+    let not_written = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
+    let before = rows(&stage);
+    let body = json!({"conversation_id": "2plain", "tid": 8, "vote": crate::votes::WIRE_AGREE});
+    assert!(cancelled_first_vote(
+        &rt,
+        &app,
+        body,
+        Duration::from_millis(100)
+    ));
+    assert!(
+        eventually(|| FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > not_written),
+        "a created person without their vote raised no alarm"
+    );
+    assert_eq!(
+        rows(&stage),
+        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+        "users, participants, participants_extended, votes"
+    );
+    assert!(stored_votes(&stage, 3, 8).is_empty());
+
+    // Cancelled before the creating commit with the first-contact pool full:
+    // handed back with nothing written, and no vote dispatched later.
+    let writer = app.post_votes.as_ref().unwrap();
+    let pool = writer.first_contact.as_ref().unwrap().pool.clone();
+    let (release, held): (Vec<_>, Vec<_>) = (0..first_contact_limits().size)
+        .map(|_| {
+            let (ready, wait) = std::sync::mpsc::channel();
+            let (release, hold) = std::sync::mpsc::channel::<()>();
+            let pool = pool.clone();
+            let held = rt.spawn(async move {
+                pool.with(move |_| {
+                    ready.send(()).unwrap();
+                    let _ = hold.recv_timeout(Duration::from_secs(5));
+                    Ok(())
+                })
+                .await
+            });
+            wait.recv_timeout(Duration::from_secs(5)).unwrap();
+            (release, held)
+        })
+        .unzip();
+    let before = rows(&stage);
+    assert!(cancelled_first_vote(
+        &rt,
+        &app,
+        ballot("2plain"),
+        Duration::from_millis(50)
+    ));
+    std::thread::sleep(Duration::from_millis(300));
+    for release in release {
+        release.send(()).unwrap();
+    }
+    for held in held {
+        rt.block_on(held).unwrap().unwrap();
+    }
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(rows(&stage), before, "handed back before any write");
+}

@@ -589,6 +589,89 @@ fn vote_language_startup_requires_provider_off() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 
+#[test]
+fn first_contact_startup_requires_the_signing_key_to_match_the_verifier() {
+    const CHILD: &str = "POLIS_FIRST_CONTACT_KEY_STARTUP_TEST";
+    match std::env::var(CHILD).ok().as_deref() {
+        Some("start") => {
+            assert!(Writer::from_env().unwrap().is_some());
+            return;
+        }
+        Some("refuse") => {
+            let error = Writer::from_env()
+                .err()
+                .expect("mismatched keys must refuse to start");
+            let message = format!("{error:#}");
+            for setting in ["JWT_PRIVATE_KEY", "POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE"] {
+                assert!(message.contains(setting), "{message}");
+            }
+            assert!(!message.contains("BEGIN"), "no key material: {message}");
+            return;
+        }
+        _ => {}
+    }
+    let pem = |rsa: &openssl::rsa::Rsa<openssl::pkey::Private>| {
+        (
+            String::from_utf8(rsa.private_key_to_pem().unwrap()).unwrap(),
+            String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap(),
+        )
+    };
+    let (signing, public) = pem(&openssl::rsa::Rsa::generate(2048).unwrap());
+    let (_, other) = pem(&openssl::rsa::Rsa::generate(2048).unwrap());
+    let dir =
+        std::env::temp_dir().join(format!("first-contact-key-startup-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let matching = dir.join("matching.pem");
+    let mismatched = dir.join("mismatched.pem");
+    std::fs::write(&matching, &public).unwrap();
+    std::fs::write(&mismatched, &other).unwrap();
+    // (first-contact switch, the legacy public key file, what startup does)
+    for (first_contact, file, expect) in [
+        (true, Some(&matching), "start"),
+        (true, None, "start"),
+        (true, Some(&mismatched), "refuse"),
+        // Off, nothing is checked and startup is as before.
+        (false, Some(&mismatched), "start"),
+    ] {
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+        child
+            .args([
+                "--exact",
+                "post_votes::tests::first_contact_startup_requires_the_signing_key_to_match_the_verifier",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env(CHILD, expect)
+            .env("POLIS_API_POST_VOTES", "1")
+            .env("POLIS_API_POST_VOTES_IDENTITY_NO_WRITE", "1")
+            .env("TOPICAL_COMMENT_RATIO", "0")
+            .env("SHOULD_USE_TRANSLATION_API", "false")
+            .env(
+                "POLIS_API_POST_VOTES_DATABASE_URL",
+                "postgres://postgres@127.0.0.1:9/postgres",
+            )
+            .env("POLIS_API_DB_TRANSPORT", "loopback")
+            .env("JWT_PRIVATE_KEY", &signing)
+            .env("JWT_PUBLIC_KEY", &public)
+            .env("POLIS_JWT_ISSUER", "fixture")
+            .env("POLIS_JWT_AUDIENCE", "fixture");
+        if first_contact {
+            child.env(FIRST_CONTACT_SWITCH, "1");
+        }
+        if let Some(file) = file {
+            child.env("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE", file);
+        }
+        let result = child.output().unwrap();
+        assert!(
+            result.status.success(),
+            "first_contact={first_contact} file={file:?} expect={expect}\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
 #[path = "post_votes_observe_tests.rs"]
 mod observe_tests;
 

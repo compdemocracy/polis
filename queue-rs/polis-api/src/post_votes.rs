@@ -69,6 +69,7 @@ pub(crate) struct Writer {
 
 /// What a first contact writes with: a pool of its own on the primary, and the
 /// participant signing key. Nothing else uses this pool.
+#[derive(Clone)]
 pub(crate) struct FirstContact {
     pub(crate) pool: Arc<db::Pool>,
     pub(crate) keys: Arc<polis_auth::keys::Keys>,
@@ -229,6 +230,42 @@ fn first_contact_switch() -> Result<bool> {
     }
 }
 
+/// The first contact signs the tokens this writer later verifies. A signing
+/// key that is not the pair of the verifier's public key would issue tokens
+/// the writer itself refuses, so startup proves the two agree: a token signed
+/// with `keys` must verify with `verifier`. The error names the settings and
+/// never a key.
+fn signer_matches_verifier(
+    keys: &polis_auth::keys::Keys,
+    verifier: &participant::Verifier,
+    issuer: &str,
+    audience: &str,
+) -> Result<()> {
+    const CODE: &str = "startupcheck";
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let token = polis_auth::participant_mint::mint(
+        keys,
+        polis_auth::participant_mint::Identity::anonymous(Uid(1)),
+        CODE,
+        polis_auth::Pid(0),
+        issuer,
+        audience,
+        || now,
+    )
+    .map_err(|_| {
+        anyhow::anyhow!(
+            "{FIRST_CONTACT_SWITCH}=1: the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH) cannot sign a participant token"
+        )
+    })?;
+    anyhow::ensure!(
+        verifier
+            .verify_unobserved(&format!("Bearer {token}"), CODE, now)
+            .is_some(),
+        "{FIRST_CONTACT_SWITCH}=1: the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH) does not match the public key the vote writer verifies with (POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE when set, otherwise JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH): every token it issued would be refused"
+    );
+    Ok(())
+}
+
 pub(crate) enum Configured {
     Off,
     Live(Writer),
@@ -344,6 +381,7 @@ pub(crate) fn configure(
             keys.private_key().is_some(),
             "{FIRST_CONTACT_SWITCH}=1 requires the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH)"
         );
+        signer_matches_verifier(&keys, &verifier, &issuer, &audience)?;
         Some(FirstContact {
             pool: db::Pool::writer(
                 config::connector_for_dsn(&dsn, "polis-api-vote-first-contact/1")?,
@@ -1515,7 +1553,7 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         return route::bad_gateway();
     };
     let Prepared {
-        mut admitted,
+        admitted,
         fields,
         res,
         admission: _,
@@ -1532,60 +1570,67 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     let Some(active_dispatch) = ActiveDispatch::begin() else {
         return route::bad_gateway();
     };
-    // A first contact is written after dispatch has begun, so a stopping
-    // process hands it back before anyone exists. Once the user and the
-    // participant are committed nothing is handed back: Node would make a
-    // second person. Its token is signed at once, so every reply from here
-    // on carries it: the vote's 200, its 406 and 500, and the 202 receipt.
-    let auth = match (&first_contact, &writer.first_contact) {
-        (None, _) => None,
-        (Some(_), None) => return route::bad_gateway(),
-        (Some(new), Some(lane)) => match create(
-            lane,
-            &writer.admins,
-            admitted.zid,
-            new.account.as_ref().map(|(uid, _)| *uid),
-        )
-        .await
-        {
-            Ok(created) => {
-                admitted.pid = created.pid.0 as i32;
-                admitted.uid = created.uid.0;
-                // Where the person came from, after the creating commit and
-                // not waited for, as Node records it: on the notification
-                // lane, never on a pool the vote uses.
-                if let Some(info) = ExtendedInfo::of(req) {
-                    schedule_extended_info(&writer.background, admitted.zid, admitted.uid, info);
-                }
-                issue(lane, &created, new).await
-            }
-            Err(reason) => {
-                first_contact_handed_back(reason, admitted.zid);
-                return route::bad_gateway();
-            }
-        },
-    };
     let receipt = Arc::new(Mutex::new(None));
-    let fallback_pid = admitted.pid;
     let fallback_star = fields.starred.is_some();
     #[cfg(all(test, feature = "db-tests"))]
     if let Some(observation) = &active_dispatch.observation {
         observation.lock().unwrap().receipt = Some(receipt.clone());
     }
-    let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
-    let task = tokio::spawn(dispatch(
-        writer.pool.clone(),
-        writer.reads.clone(),
-        writer.background.clone(),
-        admitted,
-        fields,
-        app.math_env.clone(),
-        next_comment::draw(req),
-        receipt.clone(),
-        reply_deadline,
+    let lane = Dispatch {
+        pool: writer.pool.clone(),
+        reads: writer.reads.clone(),
+        background: writer.background.clone(),
+        env: app.math_env.clone(),
+        unit: next_comment::draw(req),
+        receipt: receipt.clone(),
         active_dispatch,
-    ));
-    match tokio::time::timeout_at(reply_deadline, task).await {
+    };
+    let (auth, fallback_pid, reply_deadline, outcome) = match (first_contact, &writer.first_contact)
+    {
+        (None, _) => {
+            let fallback_pid = admitted.pid;
+            let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
+            let task = tokio::spawn(lane.run(admitted, fields, reply_deadline));
+            let outcome: DispatchOutcome = Box::pin(async move { task.await.map_err(drop) });
+            (None, fallback_pid, reply_deadline, outcome)
+        }
+        (Some(_), None) => return route::bad_gateway(),
+        // A first contact is written after dispatch has begun, so a stopping
+        // process hands it back before anyone exists. Its creation, its token
+        // and its vote run in one task of their own, which a cancelled request
+        // does not stop: once the user and the participant are committed the
+        // vote is always dispatched, and nothing is handed back (Node would
+        // make a second person). The token is signed at once, so every reply
+        // from here on carries it: the vote's 200, its 406 and 500, and the
+        // 202 receipt.
+        (Some(new), Some(first)) => {
+            let (created_tx, created_rx) = tokio::sync::oneshot::channel();
+            let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+            tokio::spawn(first_contact_vote(
+                first.clone(),
+                writer.admins.clone(),
+                new,
+                ExtendedInfo::of(req),
+                lane,
+                admitted,
+                fields,
+                created_tx,
+                done_tx,
+            ));
+            match created_rx.await {
+                Ok(Ok((auth, pid, reply_deadline))) => {
+                    let outcome: DispatchOutcome =
+                        Box::pin(async move { done_rx.await.map_err(drop) });
+                    (auth, pid, reply_deadline, outcome)
+                }
+                // Handed back before the creating commit (or its outcome is
+                // unknown), counted and logged there; or the task ended
+                // without a word, which only a panic does.
+                Ok(Err(())) | Err(_) => return route::bad_gateway(),
+            }
+        }
+    };
+    match tokio::time::timeout_at(reply_deadline, outcome).await {
         Ok(Ok(Ok(Outcome::Success(mut body)))) => {
             body.auth = auth;
             accepted(req, res, body)
@@ -1603,6 +1648,112 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
                     .unwrap_or_else(|_| r#"{"acceptance":"unknown","retry":"same_vote"}"#.into());
                 route::json_text(req, res, 202, body)
             }
+        }
+    }
+}
+
+/// The outcome of a dispatched vote as the request waits for it: Err when the
+/// task that dispatched it ended without one.
+type DispatchOutcome =
+    std::pin::Pin<Box<dyn std::future::Future<Output = Result<Result<Outcome>, ()>> + Send>>;
+
+/// A first contact's person, as the request needs it after the creating
+/// commit: the token, the new participant's number and the reply deadline.
+type Created = (Option<contract::Auth>, i32, tokio::time::Instant);
+
+/// What a vote is dispatched with, gathered before the dispatch is spawned.
+struct Dispatch {
+    pool: Arc<db::Pool>,
+    reads: Arc<db::Pool>,
+    background: Arc<NotificationPool>,
+    env: String,
+    unit: f64,
+    receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    active_dispatch: ActiveDispatch,
+}
+
+impl Dispatch {
+    async fn run(
+        self,
+        admitted: Admitted,
+        fields: ParsedFields,
+        reply_deadline: tokio::time::Instant,
+    ) -> Result<Outcome> {
+        dispatch(
+            self.pool,
+            self.reads,
+            self.background,
+            admitted,
+            fields,
+            self.env,
+            self.unit,
+            self.receipt,
+            reply_deadline,
+            self.active_dispatch,
+        )
+        .await
+    }
+}
+
+/// A first contact from its creation to its vote's outcome, in a task the
+/// request does not own, so a request cancelled at any point (its deadline,
+/// a closed connection) cannot leave a committed person without the vote's
+/// dispatch. `created` gets the token, the new participant's number and the
+/// reply deadline after the creating commit, or Err when the request is
+/// handed back before it; `done` gets the vote's outcome. A vote this person
+/// did not get written, with nobody left waiting for that outcome, is counted
+/// and logged as its own event: never silent.
+#[allow(clippy::too_many_arguments)]
+async fn first_contact_vote(
+    lane: FirstContact,
+    admins: Vec<i32>,
+    new: NewParticipant,
+    info: Option<ExtendedInfo>,
+    dispatch: Dispatch,
+    mut admitted: Admitted,
+    fields: ParsedFields,
+    created: tokio::sync::oneshot::Sender<Result<Created, ()>>,
+    done: tokio::sync::oneshot::Sender<Result<Outcome>>,
+) {
+    let person = match create(
+        &lane,
+        &admins,
+        admitted.zid,
+        new.account.as_ref().map(|(uid, _)| *uid),
+    )
+    .await
+    {
+        Ok(person) => person,
+        Err(reason) => {
+            first_contact_handed_back(reason, admitted.zid);
+            let _ = created.send(Err(()));
+            return;
+        }
+    };
+    admitted.pid = person.pid.0 as i32;
+    admitted.uid = person.uid.0;
+    // Where the person came from, after the creating commit and not waited
+    // for, as Node records it: on the notification lane, never on a pool the
+    // vote uses.
+    if let Some(info) = info {
+        schedule_extended_info(&dispatch.background, admitted.zid, admitted.uid, info);
+    }
+    let auth = issue(&lane, &person, &new).await;
+    // The dispatch budget starts after the token, as a member's starts at
+    // dispatch.
+    let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
+    // The request may be gone; the vote is dispatched all the same.
+    let _ = created.send(Ok((auth, admitted.pid, reply_deadline)));
+    let (zid, receipt) = (admitted.zid, dispatch.receipt.clone());
+    let outcome = dispatch.run(admitted, fields, reply_deadline).await;
+    if let Err(outcome) = done.send(outcome) {
+        let written = matches!(outcome, Ok(Outcome::Success(_)))
+            || receipt.lock().unwrap_or_else(|e| e.into_inner()).is_some();
+        if !written {
+            let count = FIRST_CONTACT_VOTE_NOT_WRITTEN.fetch_add(1, Ordering::Relaxed) + 1;
+            eprintln!(
+                "{{\"event\":\"post_votes_first_contact_vote_not_written\",\"zid\":{zid},\"count\":{count}}}"
+            );
         }
     }
 }
@@ -2253,6 +2404,7 @@ static UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static ACQUIRE_ALARM_HITS: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_HANDED_BACK: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_VOTE_NOT_WRITTEN: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn observe(out: &Outgoing) {
     let (counter, event) = if out.status == 502 {
@@ -2313,6 +2465,10 @@ pub(crate) fn health(app: &App) -> Js {
         for (key, value) in [
             ("firstContactHandedBack", &FIRST_CONTACT_HANDED_BACK),
             ("firstContactCommitUnknown", &FIRST_CONTACT_UNKNOWN),
+            (
+                "firstContactVoteNotWritten",
+                &FIRST_CONTACT_VOTE_NOT_WRITTEN,
+            ),
             (
                 "firstContactExtendedInfoDropped",
                 &writer.background.extended_info_dropped,
