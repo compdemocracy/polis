@@ -1,0 +1,123 @@
+{
+  "cases": [
+    {
+      "sha256": "bdbb0286ffeffef6305028ee08539e1c04d01710c18a16d81b68a19bec03fdcf",
+      "strict_moderation": false,
+      "tids": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        7,
+        8
+      ]
+    },
+    {
+      "sha256": "bdbb0286ffeffef6305028ee08539e1c04d01710c18a16d81b68a19bec03fdcf",
+      "strict_moderation": true,
+      "tids": [
+        0,
+        1,
+        3,
+        4,
+        5,
+        7,
+        8
+      ]
+    }
+  ],
+  "comments": [
+    {
+      "active": true,
+      "created": 1700000003000,
+      "mod": 1,
+      "pid": 4,
+      "tid": 3,
+      "txt": "Accepted, and muted",
+      "velocity": 0.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000000000,
+      "mod": 1,
+      "pid": 1,
+      "tid": 0,
+      "txt": "Accepted",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000001000,
+      "mod": 0,
+      "pid": 2,
+      "tid": 1,
+      "txt": "Not yet moderated",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000002000,
+      "mod": -1,
+      "pid": 3,
+      "tid": 2,
+      "txt": "Rejected",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": false,
+      "created": 1700000004000,
+      "mod": 1,
+      "pid": 5,
+      "tid": 4,
+      "txt": "Accepted, inactive",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000005000,
+      "mod": 0,
+      "pid": 6,
+      "tid": 5,
+      "txt": "Unmoderated, slowed but shown",
+      "velocity": 0.25,
+      "zid": 4242
+    },
+    {
+      "active": false,
+      "created": 1700000006000,
+      "mod": -1,
+      "pid": 7,
+      "tid": 6,
+      "txt": "Rejected and inactive",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000007000,
+      "mod": 1,
+      "pid": 8,
+      "tid": 7,
+      "txt": "Accepted — «café» 🚌",
+      "velocity": 1.0,
+      "zid": 4242
+    },
+    {
+      "active": true,
+      "created": 1700000008000,
+      "mod": 0,
+      "pid": 9,
+      "tid": 8,
+      "txt": "Unmoderated, below zero",
+      "velocity": -1.0,
+      "zid": 4242
+    }
+  ],
+  "selection": "all_but_moderated_out/1"
+}

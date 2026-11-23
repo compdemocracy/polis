@@ -663,6 +663,15 @@ services:
       # open-data conversations; then the current set, the live ones. Each
       # within the bounds and budget.
       - DELPHI_SHADOW_BENCHMARK=${DELPHI_SHADOW_BENCHMARK:-}
+      # Runs under more comment rules (docs/configuration.md, Delphi Shadow
+      # Comment Rules): conversation codes, as above, empty by default. Every
+      # conversation still runs laying out what participants are shown
+      # (participant_visible/1); one listed here also gets a run of its own
+      # laying out every comment (all_comments/1), or every comment but the
+      # moderated-out ones (all_but_moderated_out/1). A code may be on both.
+      # Neither list makes a conversation a candidate.
+      - DELPHI_SHADOW_ALL_COMMENTS=${DELPHI_SHADOW_ALL_COMMENTS:-}
+      - DELPHI_SHADOW_ALL_BUT_MODERATED_OUT=${DELPHI_SHADOW_ALL_BUT_MODERATED_OUT:-}
       # Sealed job graphs (docs/configuration.md, Delphi Shadow Job Graphs):
       # the conversation codes listed here (commas or spaces; empty by
       # default, and empty is off) run as four-node graphs under the granite

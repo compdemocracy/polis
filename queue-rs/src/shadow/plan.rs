@@ -1,8 +1,8 @@
 //! The scheduler's decisions, as pure functions: whether to pause, which
 //! conversation is next, and what its admission says.
 use super::{
-    config::{Config, Share},
-    db::{Admission, CommentSet, Live, Signals},
+    config::{Config, SCOPE, Share},
+    db::{Admission, CommentSet, Live, RuleRun, Signals},
     state::State,
     storage::Ledger,
 };
@@ -14,6 +14,66 @@ use super::{
 /// digest keys the admission, and its run record carries both
 /// (`config_effective.selection`, `config_effective.shadow`).
 pub const SELECTION: &str = crate::jobs::inputs::contract::PARTICIPANT_VISIBLE;
+/// A comment rule a list adds runs under: every comment of the conversation,
+/// whatever its moderation (`contract::all_comments`).
+pub const ALL_COMMENTS: &str = crate::jobs::inputs::contract::ALL_COMMENTS;
+/// A comment rule a list adds runs under: every comment of the conversation
+/// but the moderated-out ones (`contract::all_but_moderated_out`).
+pub const ALL_BUT_MODERATED_OUT: &str = crate::jobs::inputs::contract::ALL_BUT_MODERATED_OUT;
+
+/// The comment rules the operator's lists add (`config::RULE_LISTS`), per
+/// conversation. They add runs and replace none: every conversation of the
+/// three sets runs under [`SELECTION`] exactly as without the lists, and a
+/// conversation a list names also runs under that list's rule, each
+/// (conversation, rule) its own job: its own admission key, run record,
+/// publication scope ([`rule_scope`]) and "unchanged" decision, read from its
+/// own newest run in Postgres ([`rule_look`]). A conversation on both lists
+/// runs under all three rules. The rule is an input of the run: an owner's
+/// request could name one the same way. Held in memory only and read again
+/// at every start; the run records in Postgres are what say which rule made
+/// a run.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Rules {
+    /// The conversations the lists name, each with its added rules in
+    /// `config::RULE_LISTS` order, each once.
+    pub listed: std::collections::BTreeMap<i32, Vec<&'static str>>,
+}
+
+impl Rules {
+    /// The rules a list adds for conversation `zid`, besides [`SELECTION`].
+    pub fn added(&self, zid: i32) -> &[&'static str] {
+        self.listed.get(&zid).map_or(&[], Vec::as_slice)
+    }
+
+    /// Add `selection` for `zid`; false when it was already there (two codes
+    /// of one conversation in one list: one job, not two).
+    pub fn add(&mut self, zid: i32, selection: &'static str) -> bool {
+        let rules = self.listed.entry(zid).or_default();
+        if rules.contains(&selection) {
+            return false;
+        }
+        rules.push(selection);
+        true
+    }
+}
+
+/// A comment rule's word: its selection's name without the version
+/// (`all_comments/1` is `all_comments`).
+pub fn rule_word(selection: &str) -> &str {
+    selection.split('/').next().unwrap_or(selection)
+}
+
+/// The publication scope of runs under `selection`: [`SCOPE`] for
+/// [`SELECTION`], as today; for a rule a list adds, its own
+/// (`delphi:all_comments`, `delphi:all_but_moderated_out`), so each rule's
+/// results and current pointer are its own and never replace another's.
+pub fn rule_scope(selection: &str) -> String {
+    if selection == SELECTION {
+        SCOPE.to_owned()
+    } else {
+        format!("{SCOPE}:{}", rule_word(selection))
+    }
+}
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -384,12 +444,90 @@ pub fn admission(
     let request = json!({"zid": zid, "kind": kind, "config": config});
     Admission {
         zid,
+        scope: SCOPE.to_owned(),
         key,
         request_sha: sha256_hex(request.to_string().as_bytes()),
         job_id: uuid::Uuid::new_v4(),
         run_id: uuid::Uuid::new_v4(),
         config,
     }
+}
+
+/// What a (conversation, rule) a list adds is, before its census is read,
+/// from its own newest run (`history`, read from Postgres, never from the
+/// state file): the bounds and the storage a run would take, as [`look`]
+/// holds them; `Recent` while its newest run is inside the rerun window (its
+/// age by the database's clock);
+/// `Unchanged` when this process already found that run's selection equal to
+/// the census at the same newest comment change (`checked`, memory only: a
+/// restart reads the census once more); otherwise `Read`. A non-terminal
+/// newest run is the caller's to watch, not to admit beside.
+pub fn rule_look(
+    cfg: &Config,
+    state: &State,
+    live: &Live,
+    share: Share,
+    history: Option<&RuleRun>,
+    checked: Option<&(i64, String)>,
+) -> Look {
+    if live.comments < cfg.min_comments {
+        return Look::TooSmall;
+    }
+    if live.comments > cfg.max_comments {
+        return Look::TooLarge;
+    }
+    if state.storage.estimate(live.comments) > cfg.storage_run_max_bytes(share) {
+        return Look::TooCostly;
+    }
+    if let Some(run) = history
+        && run.age_ms < cfg.rerun_after.as_millis() as i64
+    {
+        return Look::Recent;
+    }
+    let newest = history.map_or("", |r| r.job_id.as_str());
+    if checked.is_some_and(|(modified, job)| *modified == live.last_modified && job == newest) {
+        return Look::Unchanged;
+    }
+    Look::Read
+}
+
+/// Whether a (conversation, rule)'s census needs no run: its newest run was
+/// admitted under the same selection digest. Only the newest counts: an older
+/// run of the same digest has been superseded by a later one (the selection
+/// changed and came back), and its results are not the rule's current ones.
+pub fn rule_unchanged(history: Option<&RuleRun>, census: &CommentSet) -> bool {
+    history.is_some_and(|r| r.selection_sha256.as_deref() == Some(census.selection_digest.as_str()))
+}
+
+/// The admission of a run a comment-rule list adds: [`admission`]'s
+/// configuration (naming the rule, both digests and counts, the set), in the
+/// rule's own scope ([`rule_scope`]), keyed by the selection's digest and the
+/// newest run of this (conversation, rule) it follows (`after`, `none` for
+/// the first). The key is derived from the durable run history alone: a
+/// crash and restart that finds the same newest run admits the same key and
+/// gets the same job back (`existing`), and a selection that changed and
+/// came back follows a newer run, so it is a new key and a new job, never the
+/// superseded one. A rule's key cannot equal a run of [`SELECTION`]'s: the
+/// digest's second line is the rule's name, and the shape differs.
+pub fn rule_admission(
+    zid: i32,
+    census: &CommentSet,
+    set: Option<Set>,
+    after: Option<&str>,
+) -> Admission {
+    let mut a = admission(zid, census, set, None);
+    let scope = rule_scope(census.selection);
+    a.config["shadow"]["follows"] = after.map_or(Value::Null, Value::from);
+    let digest = &census.selection_digest;
+    let after_key = after.map_or_else(|| "none".to_owned(), |j| j.replace('-', ""));
+    a.key = format!(
+        "shadow:first:{zid}:{}:{after_key}",
+        &digest[..digest.len().min(48)]
+    );
+    let request = json!({"zid": zid, "kind": "first", "scope": scope, "config": a.config});
+    a.request_sha = sha256_hex(request.to_string().as_bytes());
+    a.scope = scope;
+    a
 }
 
 /// Rest after a run: d·(1−duty)/duty.
@@ -974,6 +1112,189 @@ mod tests {
         assert_eq!(
             admitted_job(&json!({"outcome":"conflict","job_id":"j"})),
             None
+        );
+    }
+
+    #[test]
+    fn the_lists_add_rules_per_conversation_each_once() {
+        assert_eq!(SELECTION, "participant_visible/1");
+        assert_eq!(ALL_COMMENTS, "all_comments/1");
+        assert_eq!(ALL_BUT_MODERATED_OUT, "all_but_moderated_out/1");
+        let mut r = Rules::default();
+        assert!(r.added(7).is_empty(), "no list: no added rule");
+        assert!(r.add(7, ALL_COMMENTS));
+        assert!(r.add(7, ALL_BUT_MODERATED_OUT), "both lists: both rules");
+        assert!(
+            !r.add(7, ALL_COMMENTS),
+            "an alias in the same list: one job"
+        );
+        assert!(r.add(8, ALL_BUT_MODERATED_OUT));
+        assert_eq!(r.added(7), [ALL_COMMENTS, ALL_BUT_MODERATED_OUT]);
+        assert_eq!(r.added(8), [ALL_BUT_MODERATED_OUT]);
+        assert!(r.added(9).is_empty());
+        // Each rule publishes in its own scope; what participants are shown
+        // keeps today's.
+        assert_eq!(rule_scope(SELECTION), "delphi");
+        assert_eq!(rule_scope(ALL_COMMENTS), "delphi:all_comments");
+        assert_eq!(
+            rule_scope(ALL_BUT_MODERATED_OUT),
+            "delphi:all_but_moderated_out"
+        );
+    }
+
+    fn run(job: &str, age_ms: i64, digest: &str) -> RuleRun {
+        RuleRun {
+            job_id: job.into(),
+            status: "succeeded".into(),
+            age_ms,
+            selection_sha256: Some(digest.into()),
+            comment_set_sha256: Some("cs".into()),
+            comments: 40,
+            set: Some(Set::Current),
+        }
+    }
+
+    #[test]
+    fn a_rules_look_is_its_own_newest_run_never_the_state_file() {
+        let c = cfg();
+        let now = 10 * 86_400_000;
+        let live = Live {
+            zid: 7,
+            comments: 40,
+            last_modified: 9,
+        };
+        let mut s = State::new("shadow-delphi-1");
+        // Whatever the state file says of the conversation's other run, it
+        // does not decide this rule's.
+        s.conversations.insert(
+            7,
+            Seen {
+                last_modified: 9,
+                digest: "d".into(),
+                comments: 40,
+                selection: Some(SELECTION.into()),
+                selected: 40,
+                admitted_digest: Some("d".into()),
+                admitted_at_ms: Some(now - 2 * 86_400_000),
+                ..Seen::default()
+            },
+        );
+        assert_eq!(look(&c, &s, &live, now, Share::Whole), Look::Unchanged);
+        let look_at = |history: Option<&RuleRun>, checked: Option<&(i64, String)>, _now: i64| {
+            rule_look(&c, &s, &live, Share::Whole, history, checked)
+        };
+        assert_eq!(look_at(None, None, now), Look::Read, "never run: read");
+        assert_eq!(
+            look_at(None, Some(&(9, String::new())), now),
+            Look::Unchanged,
+            "never run, and found too small at this change: not read again"
+        );
+        let old = run("j1", 2 * 86_400_000, "d1");
+        assert_eq!(look_at(Some(&old), None, now), Look::Read);
+        let recent = run("j1", 3_600_000, "d1");
+        assert_eq!(look_at(Some(&recent), None, now), Look::Recent);
+        // Checked in this process at the same newest change, for this run:
+        // unchanged. A newer comment, or a newer run, reads it again.
+        let seen = (9, "j1".to_owned());
+        assert_eq!(look_at(Some(&old), Some(&seen), now), Look::Unchanged);
+        assert_eq!(
+            look_at(Some(&old), Some(&(8, "j1".to_owned())), now),
+            Look::Read
+        );
+        assert_eq!(
+            look_at(Some(&run("j2", 2 * 86_400_000, "d1")), Some(&seen), now),
+            Look::Read
+        );
+        // The bounds hold as for every run.
+        let large = Live {
+            comments: c.max_comments + 1,
+            ..live.clone()
+        };
+        assert_eq!(
+            rule_look(&c, &s, &large, Share::Whole, None, None),
+            Look::TooLarge
+        );
+        let small = Live {
+            comments: c.min_comments - 1,
+            ..live.clone()
+        };
+        assert_eq!(
+            rule_look(&c, &s, &small, Share::Whole, None, None),
+            Look::TooSmall
+        );
+        // Unchanged only against the newest run: an older run of the same
+        // digest was superseded.
+        let census = census_under(ALL_COMMENTS, "d1");
+        let old = run("j1", 2 * 86_400_000, &census.selection_digest);
+        assert!(rule_unchanged(Some(&old), &census));
+        assert!(!rule_unchanged(Some(&run("j2", 0, "d2")), &census));
+        assert!(!rule_unchanged(None, &census));
+    }
+
+    fn census_under(selection: &'static str, digest: &str) -> CommentSet {
+        CommentSet {
+            digest: "ab".repeat(32),
+            comments: 42,
+            selection,
+            selection_digest: digest.repeat(64 / digest.len().max(1)),
+            selected: 42,
+        }
+    }
+
+    #[test]
+    fn a_rule_run_is_its_own_job_keyed_by_its_selection_and_the_run_it_follows() {
+        let every = census_under(ALL_COMMENTS, "cd");
+        let first = rule_admission(7, &every, Some(Set::Benchmark), None);
+        assert_eq!(first.scope, "delphi:all_comments");
+        assert_eq!(first.config["selection"], "all_comments/1");
+        assert_eq!(first.config["exclude_comment_selections"], false);
+        let shadow = &first.config["shadow"];
+        assert_eq!(shadow["schema"], "delphi-shadow/2");
+        assert_eq!(shadow["selection"], "all_comments/1");
+        assert_eq!(shadow["selection_sha256"], every.selection_digest);
+        assert_eq!(shadow["follows"], Value::Null);
+        assert_eq!(
+            first.key,
+            format!("shadow:first:7:{}:none", &every.selection_digest[..48])
+        );
+        // A crash and restart with the same newest run: the same key and
+        // request, so the queue hands back the same job.
+        let again = rule_admission(7, &every, Some(Set::Benchmark), None);
+        assert_eq!(
+            (again.key.as_str(), again.request_sha.as_str()),
+            (first.key.as_str(), first.request_sha.as_str())
+        );
+        // The same selection after a newer run (it changed and came back): a
+        // new key, so a new job, never the superseded one.
+        let job = "00000000-0000-4000-8000-0000000000aa";
+        let back = rule_admission(7, &every, Some(Set::Benchmark), Some(job));
+        assert_ne!(back.key, first.key);
+        assert_eq!(back.config["shadow"]["follows"], job);
+        assert!(back.key.ends_with(&format!(":{}", job.replace('-', ""))));
+        let widest = rule_admission(i32::MIN, &every, Some(Set::Benchmark), Some(job));
+        assert!(widest.key.len() <= 128, "{}", widest.key.len());
+        // Every conversation's run is unchanged by the lists: today's key,
+        // scope and request.
+        let shown = census_under(SELECTION, "ef");
+        let a = admission(7, &shown, Some(Set::Benchmark), None);
+        assert_eq!(a.scope, "delphi");
+        assert_eq!(
+            a.key,
+            format!("shadow:first:7:{}", &shown.selection_digest[..48])
+        );
+        assert!(a.config["shadow"].get("follows").is_none());
+        // Each rule of one conversation is its own key and scope.
+        let not_out = rule_admission(
+            7,
+            &census_under(ALL_BUT_MODERATED_OUT, "12"),
+            Some(Set::Benchmark),
+            None,
+        );
+        assert_eq!(not_out.scope, "delphi:all_but_moderated_out");
+        assert!(
+            [a.key.as_str(), first.key.as_str()]
+                .iter()
+                .all(|k| *k != not_out.key)
         );
     }
 

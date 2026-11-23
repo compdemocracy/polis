@@ -24,7 +24,9 @@ pub struct Seen {
     /// The selection `digest` and `admitted_digest` are of
     /// (`participant_visible/1`); None in an entry an earlier build wrote,
     /// whose runs laid out every comment: such an entry is read again and
-    /// its conversation admitted once more.
+    /// its conversation admitted once more. Only the conversation's own run
+    /// is recorded here: a run a comment-rule list adds is decided from its
+    /// run history in Postgres and writes nothing to this file.
     #[serde(default)]
     pub selection: Option<String>,
     /// The comments the selection kept that have text, when last read.

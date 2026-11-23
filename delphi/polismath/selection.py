@@ -3,7 +3,12 @@ names one (``run_pipeline.py --selection``).
 
 A run that names a selection embeds every comment of its conversation, then
 lays out (UMAP), clusters (EVoC), labels and stores only the comments the
-selection keeps. ``participant_visible/1`` keeps what participants are shown:
+selection keeps, by the selection's rule in ``RULES`` (the one place a
+selection's name meets its membership). ``all_comments/1`` keeps every comment
+of the conversation, whatever its moderation (``all_comments``);
+``all_but_moderated_out/1`` keeps every comment but the moderated-out ones
+(``all_but_moderated_out``).
+``participant_visible/1`` keeps what participants are shown:
 the rule of the comment list the server gives participants,
 ``participantVisibleClause`` in ``server/src/comment.ts`` (lines 74-81), which
 its plain list and that list's count apply as well. Active, not muted
@@ -26,8 +31,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
 PARTICIPANT_VISIBLE = "participant_visible/1"
-#: Every selection an admission may name.
-SELECTIONS = (PARTICIPANT_VISIBLE,)
+ALL_COMMENTS = "all_comments/1"
+ALL_BUT_MODERATED_OUT = "all_but_moderated_out/1"
 SELECTION_FORMAT = "polis-jobs.selection/1"
 
 #: ``comments.mod`` of a comment a moderator accepted (``polisTypes.mod.ok``).
@@ -48,7 +53,42 @@ def participant_visible(active: Any, velocity: float, mod: int, strict_moderatio
     return bool(active) and velocity > 0 and moderated
 
 
-def _reason(comment: Mapping[str, Any], strict_moderation: bool) -> str:
+def all_comments(active: Any, velocity: float, mod: int, strict_moderation: bool) -> bool:
+    """Every comment of the conversation, whatever its state: every row of
+    ``comments`` for it is kept, in each of the three moderation states
+    (unmoderated, moderated in, moderated out), active or not, muted or not,
+    under strict moderation or not. The Rust one is ``all_comments`` in
+    ``queue-rs/polis-contracts/src/delphi_input_bundle.rs``; the golden files
+    ``tests/fixtures/selection/all_comments.json`` and
+    ``all_but_moderated_out.json`` hold both languages to the same comments
+    and the same digest."""
+    return True
+
+
+def all_but_moderated_out(active: Any, velocity: float, mod: int, strict_moderation: bool) -> bool:
+    """Every comment of the conversation but the moderated-out ones: the
+    unmoderated and the moderated-in are kept whatever the conversation's
+    strict moderation says, active or not, muted or not. The Rust one is
+    ``all_but_moderated_out`` in the same contract file."""
+    return int(mod) != MOD_REJECTED
+
+
+#: Every selection an admission may name, each with its rule, in the Rust
+#: contract's order (``RULES`` there).
+RULES = {
+    PARTICIPANT_VISIBLE: participant_visible,
+    ALL_COMMENTS: all_comments,
+    ALL_BUT_MODERATED_OUT: all_but_moderated_out,
+}
+#: Every selection an admission may name.
+SELECTIONS = tuple(RULES)
+
+
+def _reason(comment: Mapping[str, Any], strict_moderation: bool, name: str) -> str:
+    """Why selection ``name`` left a comment out: the first reason, in
+    ``REASONS`` order, among those its rule tests."""
+    if name == ALL_BUT_MODERATED_OUT:
+        return "rejected"
     if not comment["active"]:
         return "inactive"
     if not comment["velocity"] > 0:
@@ -75,18 +115,19 @@ def select(name: str, comments: Iterable[Mapping[str, Any]], strict_moderation: 
     conversation, each with its ``velocity``) under the conversation's
     ``strict_moderation``. A name that is not a selection, or a comment
     without its velocity, raises ValueError."""
-    if name not in SELECTIONS:
+    if name not in RULES:
         raise ValueError(f"selection {name!r} is not one of {', '.join(SELECTIONS)}")
+    keeps = RULES[name]
     strict = bool(strict_moderation)
     kept: List[Mapping[str, Any]] = []
     left_out = {reason: 0 for reason in REASONS}
     for comment in comments:
         if comment.get("velocity") is None:
             raise ValueError(f"comment {comment.get('tid')!r} has no velocity: the selection needs it")
-        if participant_visible(comment["active"], comment["velocity"], int(comment["mod"]), strict):
+        if keeps(comment["active"], comment["velocity"], int(comment["mod"]), strict):
             kept.append(comment)
         else:
-            left_out[_reason(comment, strict)] += 1
+            left_out[_reason(comment, strict, name)] += 1
     kept.sort(key=lambda c: int(c["tid"]))
     h = hashlib.sha256()
     h.update(f"{SELECTION_FORMAT}\n{name}\n".encode("utf-8"))

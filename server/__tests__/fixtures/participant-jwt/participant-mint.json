@@ -1,0 +1,115 @@
+{
+  "cases": [
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test|subject",
+      "kind": "anonymous",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6ImFub246MyIsImFub255bW91c19wYXJ0aWNpcGFudCI6dHJ1ZX0.i7B-3vX9REpjBG3MIQucAcYUyIMwM6qw-n3R6DKCV-4VNw6wNBTdaWhxaIafJYiyVxwQN8TDaF6lVX2Z7ZjZ32a4TJbprwMNcskCA2WbaoBPdbBQht_MBMUoIhVBavZttebGSm51CS-vLtj-GfbeZl5H1gb2JFs3y6mun6Gs-HfwAMJeT08HcnKXUhz0TOzNb9U4GDadQIzyqmxLebokmws8d055dPCeuqgFYCesHTSEgJ7YZZaYL-2QZ_Qe9fPOjYlqQ4isLhONBbBicMi5nMT_KPyEZOZMS_hzDfX7YIEqozZuCAW4T2GKYmUCtz5yxW7gw_bZXTaop5fsUzYfzw",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6ImFub246MyIsImFub255bW91c19wYXJ0aWNpcGFudCI6dHJ1ZX0.i7B-3vX9REpjBG3MIQucAcYUyIMwM6qw-n3R6DKCV-4VNw6wNBTdaWhxaIafJYiyVxwQN8TDaF6lVX2Z7ZjZ32a4TJbprwMNcskCA2WbaoBPdbBQht_MBMUoIhVBavZttebGSm51CS-vLtj-GfbeZl5H1gb2JFs3y6mun6Gs-HfwAMJeT08HcnKXUhz0TOzNb9U4GDadQIzyqmxLebokmws8d055dPCeuqgFYCesHTSEgJ7YZZaYL-2QZ_Qe9fPOjYlqQ4isLhONBbBicMi5nMT_KPyEZOZMS_hzDfX7YIEqozZuCAW4T2GKYmUCtz5yxW7gw_bZXTaop5fsUzYfzw"
+    },
+    {
+      "conversation": "2jwt-other",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test|subject",
+      "kind": "anonymous",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJhbm9uOjMiLCJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWV9.EyQPuqA6bJYN_xnfK80zCcgH0cA8s2Y1IC0Stx3Y-ZfMIsGDhEKAwlX4jg3SHPz6THeSXVu_7fEGer4VC5L60HNjFffs2ei_EFWuK3HdQyDCgx64PKaOM2FYrfl1s8Iltye7lO9Sj-s9c8GCMQcHq7yxCIsfZkMxkWNTCUuDvCRE_pI2NjlkdJWuKVsaD6ctJ5PDMe5I6P97eV2Uwmb07L-9KiCyZwQDr8nBuD0ccBQxBbGdRkafrQVByOidrg0yGuLoQH8opFZqkRy18KJ0Pwai01xpOyO1tGpjyoEtZe_Vh5XSorSUyshGiNPAW795xC_y2460wfqJxaF-CNWK0A",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJhbm9uOjMiLCJhbm9ueW1vdXNfcGFydGljaXBhbnQiOnRydWV9.EyQPuqA6bJYN_xnfK80zCcgH0cA8s2Y1IC0Stx3Y-ZfMIsGDhEKAwlX4jg3SHPz6THeSXVu_7fEGer4VC5L60HNjFffs2ei_EFWuK3HdQyDCgx64PKaOM2FYrfl1s8Iltye7lO9Sj-s9c8GCMQcHq7yxCIsfZkMxkWNTCUuDvCRE_pI2NjlkdJWuKVsaD6ctJ5PDMe5I6P97eV2Uwmb07L-9KiCyZwQDr8nBuD0ccBQxBbGdRkafrQVByOidrg0yGuLoQH8opFZqkRy18KJ0Pwai01xpOyO1tGpjyoEtZe_Vh5XSorSUyshGiNPAW795xC_y2460wfqJxaF-CNWK0A"
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test-external-id",
+      "kind": "xid",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDp0ZXN0LWV4dGVybmFsLWlkIiwieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.R4po9SbGzR82bUOogASdX8REGyHZKlclLGq2_jDBsh3eIjBHJxUkCblZLLc5ZYJXIKMNpyBFLaQykJij4f2PRN1biMuXJbudl_FKpikNYVZZ1yeyM5ZJv_WNw_XgKFCd4_tnmwHiiaflqTKWHPYQZKgUV0DKFGnSLwdqwNb2O4MQO4vvG4-nMpoyU6_bqIqP18weCmyXqvnlIgGvqEO__77kb6vecPR6LJLV6qCVnEMe7bocoecHKZIbbwYTDxwle88zrC0s9DdFqVKTXqkQCjMh44x1Fsigt655XUjoLBERJoAN_XMe3xY4sTGb_oDoLm6lN1RtuHDPrh40FJ5ysQ",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDp0ZXN0LWV4dGVybmFsLWlkIiwieGlkIjoidGVzdC1leHRlcm5hbC1pZCIsInhpZF9wYXJ0aWNpcGFudCI6dHJ1ZX0.R4po9SbGzR82bUOogASdX8REGyHZKlclLGq2_jDBsh3eIjBHJxUkCblZLLc5ZYJXIKMNpyBFLaQykJij4f2PRN1biMuXJbudl_FKpikNYVZZ1yeyM5ZJv_WNw_XgKFCd4_tnmwHiiaflqTKWHPYQZKgUV0DKFGnSLwdqwNb2O4MQO4vvG4-nMpoyU6_bqIqP18weCmyXqvnlIgGvqEO__77kb6vecPR6LJLV6qCVnEMe7bocoecHKZIbbwYTDxwle88zrC0s9DdFqVKTXqkQCjMh44x1Fsigt655XUjoLBERJoAN_XMe3xY4sTGb_oDoLm6lN1RtuHDPrh40FJ5ysQ"
+    },
+    {
+      "conversation": "2jwt-other",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test-external-id",
+      "kind": "xid",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInhpZCI6InRlc3QtZXh0ZXJuYWwtaWQiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.kpPCXdc-tz0PEeX9frztLLqISD3DB72viKbapbx0WmClh1SutcfjwM0RnXCJw3LnLPvtWYM95nqkuINXt-PY16kP1PDtlpO3ROvsOnoTV_9fifIhh7RJOrTcXqb992ydDq0m-JG5_IgtIR1VxebZnQhdD8yYqcP7oyIn04YJzWDz6z6LCWPygnHFmgu7cq66QnOGsXQmKzgeEW6pLS2o5k7cGJ_wzFvd8IOL8qaza5Q4CqWGCuP4Huy9dKhblnLuPX8KKJN_-gJ6Kx7eQvbnfjiPwz6ztneetfU38wNnMfXtbywASwsCoN9TRDo-ojF87gY9CAglDZFLyPuoHmFpaA",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJ4aWQ6dGVzdC1leHRlcm5hbC1pZCIsInhpZCI6InRlc3QtZXh0ZXJuYWwtaWQiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.kpPCXdc-tz0PEeX9frztLLqISD3DB72viKbapbx0WmClh1SutcfjwM0RnXCJw3LnLPvtWYM95nqkuINXt-PY16kP1PDtlpO3ROvsOnoTV_9fifIhh7RJOrTcXqb992ydDq0m-JG5_IgtIR1VxebZnQhdD8yYqcP7oyIn04YJzWDz6z6LCWPygnHFmgu7cq66QnOGsXQmKzgeEW6pLS2o5k7cGJ_wzFvd8IOL8qaza5Q4CqWGCuP4Huy9dKhblnLuPX8KKJN_-gJ6Kx7eQvbnfjiPwz6ztneetfU38wNnMfXtbywASwsCoN9TRDo-ojF87gY9CAglDZFLyPuoHmFpaA"
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test|subject",
+      "kind": "standard_user",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0Iiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlfQ.lAkoIcrdWVCRkVDz6tWeNOXSyMmiZa40xcnBMXWneUy_bN0Lv10Xxx1onTI-rukwUoyTOufCBXnB4-0jAE8xNpGl3JSni7yzu5YpZ2eGC27QpJqQwSJm9fIsahcUeyjJYoYE_CoJSzQCOYtefQTObkrAFUToKrI0_PSVWTbI_EuXefwIg3BcbMWX1Ok1nfy9KsK1Y24MB4fFpfhF6pdoqwqv_HFsddHCUwVOia2Ariw2qTcDXDPhw6KQETxC1QHx5reD8Zw3ChLxsWtp3c6GplUbX5AU74B3yUCxXCZADxTkbAJJrpJHSF4T69fYw7PFarNnWm7i0VGZfMb8SzSPgA",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6dGVzdHxzdWJqZWN0Iiwib2lkY19zdWIiOiJ0ZXN0fHN1YmplY3QiLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlfQ.lAkoIcrdWVCRkVDz6tWeNOXSyMmiZa40xcnBMXWneUy_bN0Lv10Xxx1onTI-rukwUoyTOufCBXnB4-0jAE8xNpGl3JSni7yzu5YpZ2eGC27QpJqQwSJm9fIsahcUeyjJYoYE_CoJSzQCOYtefQTObkrAFUToKrI0_PSVWTbI_EuXefwIg3BcbMWX1Ok1nfy9KsK1Y24MB4fFpfhF6pdoqwqv_HFsddHCUwVOia2Ariw2qTcDXDPhw6KQETxC1QHx5reD8Zw3ChLxsWtp3c6GplUbX5AU74B3yUCxXCZADxTkbAJJrpJHSF4T69fYw7PFarNnWm7i0VGZfMb8SzSPgA"
+    },
+    {
+      "conversation": "2jwt-other",
+      "exp_now": 1800000000,
+      "iat_now": 1800000000,
+      "identifier": "test|subject",
+      "kind": "standard_user",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJ1c2VyOnRlc3R8c3ViamVjdCIsIm9pZGNfc3ViIjoidGVzdHxzdWJqZWN0Iiwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZX0.CPjOEBTo2HZshbh8NRVvz0nmRlZWgsyVUAnsH6BdugZ9Jo871Mp1XMboOvWTLknNoxslsK9vgRjQ_CI40uk7H-1cnAwktjuMQPLSsySj4_wOv-Yg6wjdy2vQKZlYXZxxCbm57d7oOK_8rEea2tD_gqYrAgckBw1-qjcfm_bb6Ur4Xv7LE7ZeGcVdFfndiK3a25Asal54k4gC89TX_-C3enn7Kgqg8Q1FbtybkNynq0nwkxlaz32RHuvGUXrTXt1nmFjUigEyJwXv2KYDuVU7mFCg8Hz7t4X-5nkiiqpqKrd4UD1nFjETJaBgY3ZvOQGIh7XMFtR6xkBtkp6RHuZr7A",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDAsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3Qtb3RoZXIiLCJzdWIiOiJ1c2VyOnRlc3R8c3ViamVjdCIsIm9pZGNfc3ViIjoidGVzdHxzdWJqZWN0Iiwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZX0.CPjOEBTo2HZshbh8NRVvz0nmRlZWgsyVUAnsH6BdugZ9Jo871Mp1XMboOvWTLknNoxslsK9vgRjQ_CI40uk7H-1cnAwktjuMQPLSsySj4_wOv-Yg6wjdy2vQKZlYXZxxCbm57d7oOK_8rEea2tD_gqYrAgckBw1-qjcfm_bb6Ur4Xv7LE7ZeGcVdFfndiK3a25Asal54k4gC89TX_-C3enn7Kgqg8Q1FbtybkNynq0nwkxlaz32RHuvGUXrTXt1nmFjUigEyJwXv2KYDuVU7mFCg8Hz7t4X-5nkiiqpqKrd4UD1nFjETJaBgY3ZvOQGIh7XMFtR6xkBtkp6RHuZr7A"
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000001,
+      "identifier": " \t",
+      "kind": "xid",
+      "pid": 0,
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDogXHQiLCJ4aWQiOiIgXHQiLCJ4aWRfcGFydGljaXBhbnQiOnRydWV9.DHmTweqADpiC7i0k1qj8hvIdqdKtuzkFJductdvsq-ifGyJpQL-huo77AG10dlQuPMKcoFY8OB_04dEmuyy4IUg51yMhqQkKbZAKvS6owpcmwXe7EQt0J5syMJ0CTX4A6DhT1hWSXdO0f226rlvKZ_MrCCU1qZne6VCQevSYNU33UdtdscN1LOQUFwhVmmFT1K328qIlH9JGdM3fgM2hYYIY5bxDyv_41azu6DQPOi1KqeBKVoK2lRH8w5N4C-24YDPQfee8aGh_waYYGLZqq9iicD0npYWajcoPOZCrUAuib8ssu0tUAwIi64VXfe6N6DIkKZSUUKS0EBj53yoQTw",
+      "rust_refused": true
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000001,
+      "identifier": "test\"\\\n🦀 ",
+      "kind": "xid",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDp0ZXN0XCJcXFxu8J-mgOKAqCIsInhpZCI6InRlc3RcIlxcXG7wn6aA4oCoIiwieGlkX3BhcnRpY2lwYW50Ijp0cnVlfQ.AbDf-f9ctqTzgZpiyibNNLgkWVnoVkRzVx4dlpziAxw5Ld8p8OgXG9vbM5InqJ8Kb4jnSyI8wSFpq9QrAUsCr0tM9q_Zbq1q1JkHe4XylNexmIXKLqGiNFXJ_iDWcVKGUjNhUNf8Wqx1o9_cFnLiD7NCuA0StNDekMZSbRDAItt2EPdhSv_OAuP3zCNNmg61vWP3lL5eQcsyU0C7_TtUYMQkvHlMZzeAwBTJnePwL7OzVX1OEPzAoWS2_u9Ja7a0I5beiGmYTzT6Ji-D1YV5XSy1oRvrQxmNXmnDrdIRXns0HuMtg889uocDKaCMsTgj9rkPJbFQWwQIoajEyhXEyw",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InhpZDp0ZXN0XCJcXFxu8J-mgOKAqCIsInhpZCI6InRlc3RcIlxcXG7wn6aA4oCoIiwieGlkX3BhcnRpY2lwYW50Ijp0cnVlfQ.AbDf-f9ctqTzgZpiyibNNLgkWVnoVkRzVx4dlpziAxw5Ld8p8OgXG9vbM5InqJ8Kb4jnSyI8wSFpq9QrAUsCr0tM9q_Zbq1q1JkHe4XylNexmIXKLqGiNFXJ_iDWcVKGUjNhUNf8Wqx1o9_cFnLiD7NCuA0StNDekMZSbRDAItt2EPdhSv_OAuP3zCNNmg61vWP3lL5eQcsyU0C7_TtUYMQkvHlMZzeAwBTJnePwL7OzVX1OEPzAoWS2_u9Ja7a0I5beiGmYTzT6Ji-D1YV5XSy1oRvrQxmNXmnDrdIRXns0HuMtg889uocDKaCMsTgj9rkPJbFQWwQIoajEyhXEyw"
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000001,
+      "identifier": " \t",
+      "kind": "standard_user",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6IFx0Iiwib2lkY19zdWIiOiIgXHQiLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlfQ.mbxoP3zyb2E2YV4Vg3pHO7QYS_5K8XHOl120JKn9l4j_-J3Q0fEhHOzPvaV16sxHp6fnC3zL6q2Hq-gTUICUCSrqbJP0xTP426fDT6ZXE0whJwyFR2CLlA_LqmFYONMM_g9wXk3Cv8jfnY_vhkRmBZOY4l19QQ7CHTiQhwdWd1bW42E6ZZX5xOKb45ESwuFh-65GcQh5i7M77fxumwyqYm1_Vzt4M3ubGeIWu_SFJJyc1CQ7ySP3EkoBh-EE58qcMhD4lUOMocwTC1xuiw9cgQOSHviVRcVBUYELhcWBnLNIGQPYXPpz1_CesbKJmvbACvf8aX2b_MX3xPxTLqctaA",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6IFx0Iiwib2lkY19zdWIiOiIgXHQiLCJzdGFuZGFyZF91c2VyX3BhcnRpY2lwYW50Ijp0cnVlfQ.mbxoP3zyb2E2YV4Vg3pHO7QYS_5K8XHOl120JKn9l4j_-J3Q0fEhHOzPvaV16sxHp6fnC3zL6q2Hq-gTUICUCSrqbJP0xTP426fDT6ZXE0whJwyFR2CLlA_LqmFYONMM_g9wXk3Cv8jfnY_vhkRmBZOY4l19QQ7CHTiQhwdWd1bW42E6ZZX5xOKb45ESwuFh-65GcQh5i7M77fxumwyqYm1_Vzt4M3ubGeIWu_SFJJyc1CQ7ySP3EkoBh-EE58qcMhD4lUOMocwTC1xuiw9cgQOSHviVRcVBUYELhcWBnLNIGQPYXPpz1_CesbKJmvbACvf8aX2b_MX3xPxTLqctaA"
+    },
+    {
+      "conversation": "2jwt-test",
+      "exp_now": 1800000000,
+      "iat_now": 1800000001,
+      "identifier": "test\"\\\n🦀 ",
+      "kind": "standard_user",
+      "pid": 0,
+      "rust_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6dGVzdFwiXFxcbvCfpoDigKgiLCJvaWRjX3N1YiI6InRlc3RcIlxcXG7wn6aA4oCoIiwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZX0.OPZ7ZZ2WantANQDq68Yb4R-4890YSr0XyY87-iSK0YG4FVThJI4LzxPVIXsZLPhgEyj1r1Cx2B1cBr-32P1InzDEb_M7YwUdxvuQ6umQ9khCIoJALeBKBf4063DVbyfo1xdDpkUZOUXU0_mZeDg7cg2yS49sOFJQhCntwvUewfAhIIabIRJ9kOv6ZpTR0bh5dHZjQxhgjye4jlWkYgJbE5y60YHx62TKXwTiSpaIp1vZsMu1mHmZOIQdqERrf4M4QY3DbgV5t61dAdFSbjTrDO7njz7GgHqA9X5of6dNbnZhwNcjoGiDKwzf5Zk7Wfyr8PPHnVucOjRw1TSXlGqQRg",
+      "uid": 3,
+      "node_token": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJhdWQiOiJwYXJ0aWNpcGFudHMiLCJpc3MiOiJodHRwczovL3BvbC5pcy8iLCJwaWQiOjAsInVpZCI6MywiZXhwIjoxODMxNTM2MDAwLCJpYXQiOjE4MDAwMDAwMDEsImNvbnZlcnNhdGlvbl9pZCI6IjJqd3QtdGVzdCIsInN1YiI6InVzZXI6dGVzdFwiXFxcbvCfpoDigKgiLCJvaWRjX3N1YiI6InRlc3RcIlxcXG7wn6aA4oCoIiwic3RhbmRhcmRfdXNlcl9wYXJ0aWNpcGFudCI6dHJ1ZX0.OPZ7ZZ2WantANQDq68Yb4R-4890YSr0XyY87-iSK0YG4FVThJI4LzxPVIXsZLPhgEyj1r1Cx2B1cBr-32P1InzDEb_M7YwUdxvuQ6umQ9khCIoJALeBKBf4063DVbyfo1xdDpkUZOUXU0_mZeDg7cg2yS49sOFJQhCntwvUewfAhIIabIRJ9kOv6ZpTR0bh5dHZjQxhgjye4jlWkYgJbE5y60YHx62TKXwTiSpaIp1vZsMu1mHmZOIQdqERrf4M4QY3DbgV5t61dAdFSbjTrDO7njz7GgHqA9X5of6dNbnZhwNcjoGiDKwzf5Zk7Wfyr8PPHnVucOjRw1TSXlGqQRg"
+    }
+  ],
+  "public_key": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2WWewsWU6VsvwE39sFqW\nxMYbyAa+8wZAtp1YeRx6V4efzuVErOJCGqcJG6Zw/KCukvh6QBNRMfpvgi+4zuUZ\n5m9CpLtVxU0+LNiwAUXn3z29LcFE1QGMLXdRv5kJGJ24d+G7+o1ZbJmHXT40UGwF\nn/Muxpro5RifNjmZJJXjqFHL4PftU91cxt2fzH5WI+NuEq460LeO3//z5mDb+rmi\n+Wm9fOJbO7kj+h5CzzSTcV0lMbt3J6Wzo+iafNeN3zIs1cla17/zZWyh3Ijq1i+S\n9L7gbOc1cNjiE/+LzlNvfhyzxpIBcDSaQIOgN5dXYkn9civSZ0cUq85jscXunyy6\nrQIDAQAB\n-----END PUBLIC KEY-----\n"
+}
