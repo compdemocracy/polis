@@ -1525,11 +1525,56 @@ fn first_vote_with(
     (out, body, observation)
 }
 
-/// A first vote holds the participant-number lock from its participant's
-/// row to its COMMIT. A second first voter in the same conversation waits on
-/// it for at most its 100 ms and is handed back with nothing written; a
-/// member's vote there takes neither that lock nor the conversation's row
-/// lock, and is answered while the lock is held.
+/// A participant-number lock and conversation row lock held, by a session of
+/// the test's own with no timeout of any kind, the way a first vote's
+/// transaction holds them (migration 000044): until it commits.
+struct HeldLocks {
+    holder: postgres::Client,
+}
+
+impl HeldLocks {
+    fn take(stage: &Stage) -> Self {
+        let mut holder = stage.db.connect();
+        holder
+            .batch_execute(
+                "SET idle_in_transaction_session_timeout = 0;
+                 SET lock_timeout = 0;
+                 SET statement_timeout = 0;
+                 BEGIN;
+                 SELECT pg_advisory_xact_lock(873791983, 1);
+                 UPDATE conversations SET participant_count = participant_count WHERE zid = 1;",
+            )
+            .unwrap();
+        Self { holder }
+    }
+
+    /// Whether both locks are still this holder's, asked from another session
+    /// that waits for neither.
+    fn held(&self, stage: &Stage) -> bool {
+        let mut other = stage.db.connect();
+        let advisory_free = other
+            .query_one("select pg_try_advisory_xact_lock(873791983, 1)", &[])
+            .unwrap()
+            .get::<_, bool>(0);
+        let row_free = other
+            .query(
+                "select 1 from conversations where zid = 1 for update nowait",
+                &[],
+            )
+            .is_ok();
+        !advisory_free && !row_free
+    }
+
+    fn commit(mut self) {
+        self.holder.batch_execute("COMMIT").unwrap();
+    }
+}
+
+/// A second first voter waits on the participant-number lock for at most its
+/// 100 ms and is handed back with nothing written, and a member's vote in
+/// the same conversation is answered meanwhile: both while the lock and the
+/// conversation's row lock are held, throughout, by a holder that cannot time
+/// out, which commits afterwards.
 #[test]
 fn a_second_first_voter_waits_on_the_participant_number_lock_at_most_its_bound() {
     let stage = stage("first_contact_lock");
@@ -1543,33 +1588,20 @@ fn a_second_first_voter_waits_on_the_participant_number_lock_at_most_its_bound()
         .unwrap();
     let rt = runtime();
     let app = app(&stage, &rt, true);
+    let member_vote = |tid: u64| {
+        let body =
+            json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
+        let started = std::time::Instant::now();
+        let (status, reply) = vote(&rt, &app, body, Some(&member_token(&stage, 2, 0)));
+        (status, reply, started.elapsed())
+    };
+    // The member's pools are opened before the measurement.
+    let (status, reply, _) = member_vote(12);
+    assert_eq!(status, 200, "{reply}");
     let before = person_and_vote(&stage);
-    let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = Some(Fault::PauseInTransaction);
-    let watched = observation.clone();
-    let held = app.clone();
-    let first = rt.spawn(async move {
-        let mut route = Box::pin(crate::route::handle(held, first_request()));
-        let out = std::future::poll_fn(|cx| {
-            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
-        })
-        .await;
-        out.status
-    });
-    assert!(
-        eventually(|| observation.lock().unwrap().worker_paused),
-        "the first voter's transaction reached its pause"
-    );
-    // Its transaction holds the participant-number lock (migration 000044).
-    assert!(
-        !stage
-            .db
-            .connect()
-            .query_one("select pg_try_advisory_xact_lock(873791983, 1)", &[])
-            .unwrap()
-            .get::<_, bool>(0),
-        "the participant-number lock is held"
-    );
+    let locks = HeldLocks::take(&stage);
+    assert!(locks.held(&stage), "the holder holds both locks");
+
     let started = std::time::Instant::now();
     let (out, reply, _) = first_vote_with(&rt, &app, ballot("2plain"), None);
     let waited = started.elapsed();
@@ -1583,43 +1615,197 @@ fn a_second_first_voter_waits_on_the_participant_number_lock_at_most_its_bound()
         before,
         "nothing of the second voter"
     );
-    // A member's vote is answered while the lock is held. A wait on either
-    // lock would end in its own 100 ms lock timeout and a failed vote.
-    let mut member = vec![];
-    for tid in [11, 12, 13, 14] {
-        let body =
-            json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
-        let started = std::time::Instant::now();
-        let (status, reply) = vote(&rt, &app, body, Some(&member_token(&stage, 2, 0)));
-        assert_eq!(status, 200, "{reply}");
-        assert_eq!(stored_votes(&stage, 0, tid), vec![agree()]);
-        member.push(started.elapsed());
-        if member.last().unwrap() < &Duration::from_millis(100) {
-            break;
-        }
-    }
+
+    // A member's vote is answered while both locks are held. A wait on
+    // either would end in its own 100 ms lock timeout and a failed vote.
+    let (status, reply, took) = member_vote(11);
+    assert_eq!(status, 200, "{reply}");
+    assert_eq!(stored_votes(&stage, 0, 11), vec![agree()]);
     eprintln!(
-        "participant-number lock: second first voter waited {waited:?}; member votes {member:?}"
+        "participant-number lock: second first voter waited {waited:?}; member vote {took:?}"
     );
     assert!(
-        member.iter().any(|t| *t < Duration::from_millis(100)),
-        "a member's vote was delayed: {member:?}"
+        took < Duration::from_millis(100),
+        "a member's vote was delayed: {took:?}"
     );
-    // The first voter goes on: both of its person and vote, or, if its
-    // transaction outlived its idle bound meanwhile, neither.
-    observation.lock().unwrap().worker_released = true;
-    let status = rt.block_on(first).unwrap();
-    let now = person_and_vote(&stage);
-    let written = member.len() as i64;
-    let members = [0, 0, 0, written, written];
-    let both = after(before, true);
-    let both: Vec<i64> = both.iter().zip(members).map(|(n, m)| n + m).collect();
-    let neither: Vec<i64> = before.iter().zip(members).map(|(n, m)| n + m).collect();
-    match status {
-        200 => assert_eq!(now.to_vec(), both),
-        502 => assert_eq!(now.to_vec(), neither),
-        other => panic!("the first voter answered {other}"),
+    assert!(
+        locks.held(&stage),
+        "the holder still holds both locks after the member's vote"
+    );
+    locks.commit();
+
+    // Released, the lock is free: a first voter is served, person and vote.
+    let (out, reply, _) = first_vote_with(&rt, &app, ballot("2plain"), None);
+    assert_eq!(answer_of(&out, &reply), Answer::Served, "{reply}");
+    let members = [0, 0, 0, 1, 1];
+    let expected: Vec<i64> = after(before, true)
+        .iter()
+        .zip(members)
+        .map(|(n, m)| n + m)
+        .collect();
+    assert_eq!(person_and_vote(&stage).to_vec(), expected);
+}
+
+/// The fate of a first vote whose request stops waiting is claimed once:
+/// whichever of the request (abandoning it) and the worker (committing it)
+/// claims first wins, and the other's claim fails.
+#[test]
+fn the_fate_of_a_first_vote_is_claimed_by_exactly_one_side() {
+    // (case, request first) -> (request's claim, worker's claim)
+    for (case, request_first, request_wins, worker_wins) in [
+        ("the request first", true, true, false),
+        ("the worker first", false, false, true),
+    ] {
+        let fate = Fate::default();
+        let (request, worker) = if request_first {
+            let request = fate.abandon();
+            (request, fate.commit())
+        } else {
+            let worker = fate.commit();
+            (fate.abandon(), worker)
+        };
+        assert_eq!((request, worker), (request_wins, worker_wins), "{case}");
+        assert_eq!(fate.committing(), worker_wins, "{case}");
+        // A claim already decided stays decided.
+        assert_eq!(fate.abandon(), request_wins, "{case}: abandoned again");
+        assert!(!fate.commit(), "{case}: committed again");
     }
+    // Simultaneous: the two claims race from two threads, many times; each
+    // time exactly one of them wins.
+    let mut won = [0_u32; 2];
+    for _ in 0..2000 {
+        let fate = Arc::new(Fate::default());
+        let start = Arc::new(std::sync::Barrier::new(2));
+        let (f, s) = (fate.clone(), start.clone());
+        let worker = std::thread::spawn(move || {
+            s.wait();
+            f.commit()
+        });
+        start.wait();
+        let request = fate.abandon();
+        let worker = worker.join().unwrap();
+        assert!(request != worker, "exactly one side wins");
+        assert_eq!(fate.committing(), worker);
+        won[usize::from(worker)] += 1;
+    }
+    eprintln!(
+        "simultaneous claims: request won {}, worker won {}",
+        won[0], won[1]
+    );
+    // The outcome of a lost acknowledgement is counted by one caller.
+    let fate = Fate::default();
+    assert!(fate.classify());
+    assert!(!fate.classify());
+}
+
+/// A first vote whose blocking work waits at `fault`, through the whole
+/// route, and the route's task.
+fn paused_first_vote(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    fault: Fault,
+) -> (DispatchObservation, tokio::task::JoinHandle<Outgoing>) {
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(fault);
+    let watched = observation.clone();
+    let held = app.clone();
+    let task = rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(held, first_request()));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await
+    });
+    assert!(
+        eventually(|| observation.lock().unwrap().worker_paused),
+        "the worker reached its pause"
+    );
+    (observation, task)
+}
+
+/// A first vote whose worker is held before its transaction begins, past the
+/// request's whole wait: the request abandons it and hands it back with
+/// nothing written; the client's retry is served; and the held worker, let
+/// go, rolls back at its claim. One person and one vote in the end.
+#[test]
+fn a_first_vote_handed_back_before_its_transaction_begins_never_commits_afterwards() {
+    let stage = stage("first_contact_late_begin");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = person_and_vote(&stage);
+    let handed_back = Counted::FirstContactHandedBack.read();
+    let (observation, task) = paused_first_vote(&rt, &app, Fault::PauseBeforeCommit);
+    let out = rt.block_on(task).unwrap();
+    assert_eq!(out.status, 502);
+    assert!(marked_for_node(&out));
+    assert_eq!(person_and_vote(&stage), before, "nothing written");
+    assert!(
+        Counted::FirstContactHandedBack.read() > handed_back,
+        "counted as abandoned"
+    );
+    // The client's retry, as nginx would give it to Node, served here.
+    let (retry, reply, _) = first_vote_with(&rt, &app, ballot("2plain"), None);
+    assert_eq!(answer_of(&retry, &reply), Answer::Served, "{reply}");
+    assert_eq!(person_and_vote(&stage), after(before, true));
+    // The held worker goes on: it reaches its claim and rolls back.
+    observation.lock().unwrap().worker_released = true;
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    std::thread::sleep(Duration::from_millis(200));
+    assert_eq!(
+        person_and_vote(&stage),
+        after(before, true),
+        "exactly one person and one vote"
+    );
+}
+
+/// A first vote whose COMMIT's acknowledgement is lost, and whose task ends
+/// during its second look: the request asks the database itself. Committed,
+/// it answers the degraded 200 with the person's token, counted confirmed;
+/// never a hand-back. When the request's own look cannot tell either, it is
+/// the counted and logged unresolved hand-back.
+#[test]
+fn a_first_vote_whose_task_ends_during_its_second_look_is_answered_by_the_request() {
+    let stage = stage("first_contact_dropped_look");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+
+    // Let go as soon as the task is dropped: the request's look finds it.
+    let before = person_and_vote(&stage);
+    let confirmed = Counted::Confirmed.read();
+    let (observation, task) = paused_first_vote(&rt, &app, Fault::StatusReadStalls);
+    assert_eq!(
+        person_and_vote(&stage),
+        after(before, true),
+        "both committed"
+    );
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    observation.lock().unwrap().worker_released = true;
+    let out = rt.block_on(task).unwrap();
+    let reply = match &out.body {
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        _ => String::new(),
+    };
+    assert_eq!(answer_of(&out, &reply), Answer::Degraded, "{reply}");
+    let pid = i32::try_from(claims(&stage, reply_token(&reply)).2).unwrap();
+    assert_eq!(stored_votes(&stage, pid, 7), vec![agree()]);
+    assert!(Counted::Confirmed.read() > confirmed, "counted confirmed");
+    assert_eq!(person_and_vote(&stage), after(before, true));
+
+    // Still stalled when the request looks: its look's bound passes, and the
+    // vote is the counted unresolved hand-back. Both exist.
+    let before = person_and_vote(&stage);
+    let unresolved = Counted::Unresolved.read();
+    let (observation, task) = paused_first_vote(&rt, &app, Fault::StatusReadStalls);
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    let out = rt.block_on(task).unwrap();
+    observation.lock().unwrap().worker_released = true;
+    assert_eq!(out.status, 502);
+    assert!(marked_for_node(&out));
+    assert!(
+        Counted::Unresolved.read() > unresolved,
+        "counted unresolved"
+    );
+    assert_eq!(person_and_vote(&stage), after(before, true));
 }
 
 /// Every new session of the stage's database logs every statement with its
