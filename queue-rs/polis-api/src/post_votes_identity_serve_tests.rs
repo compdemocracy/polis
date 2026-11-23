@@ -57,6 +57,16 @@ fn app(stage: &Stage, identity_no_write: bool) -> Arc<App> {
 
 /// `app`, with these users as the site's administrators.
 fn app_with_admins(stage: &Stage, identity_no_write: bool, admins: Vec<i32>) -> Arc<App> {
+    app_built(stage, identity_no_write, admins, identity_read_limits())
+}
+
+/// `app_with_admins`, with these limits for the identity reads' pool.
+fn app_built(
+    stage: &Stage,
+    identity_no_write: bool,
+    admins: Vec<i32>,
+    identity_limits: db::Limits,
+) -> Arc<App> {
     let connector = || Connector::Plain(Box::new(stage.db.config.clone()));
     let limits = db::Limits {
         size: 4,
@@ -88,11 +98,14 @@ fn app_with_admins(stage: &Stage, identity_no_write: bool, admins: Vec<i32>) -> 
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write,
+        identity_reads: identity_no_write.then(|| db::Pool::new(connector(), identity_limits)),
         first_contact: None,
     });
     runtime().block_on(async {
         let writer = app.post_votes.as_ref().unwrap();
-        for pool in [&writer.reads, &writer.pool, &writer.background.pool] {
+        let mut pools = vec![&writer.reads, &writer.pool, &writer.background.pool];
+        pools.extend(writer.identity_reads.as_ref());
+        for pool in pools {
             pool.with(|c| Ok(c.simple_query("select 1").map(drop)?))
                 .await
                 .unwrap();
@@ -339,15 +352,22 @@ fn identity_reads_never_take_the_vote_append_pools() {
     let append = writer.pool.evidence.snapshot();
     let background = writer.background.pool.evidence.snapshot();
     let reads = writer.reads.evidence.snapshot();
+    let identity = writer.identity_reads.as_ref().unwrap();
+    let identity_before = identity.evidence.snapshot();
     let listed = token(&stage, 3, 1, "2listed", "xid");
     assert_eq!(vote(&app, ballot("2required"), None).0, 403);
     assert_eq!(vote(&app, ballot("2listed"), Some(&listed)).0, 403);
     assert_eq!(writer.pool.evidence.snapshot(), append);
     assert_eq!(writer.background.pool.evidence.snapshot(), background);
     assert_eq!(
-        writer.reads.evidence.snapshot()[0],
-        reads[0] + 2,
-        "each refusal is one admission read"
+        writer.reads.evidence.snapshot(),
+        reads,
+        "no identity read takes a members' admission slot"
+    );
+    assert_eq!(
+        identity.evidence.snapshot()[0],
+        identity_before[0] + 2,
+        "each refusal is one admission read, on the identity pool"
     );
     // A member's vote still takes the append pool, once.
     let xid = token(&stage, 3, 1, "2plain", "xid");
@@ -454,4 +474,179 @@ fn an_administrators_external_id_token_is_refused_only_as_a_member() {
     let before = rows(&stage);
     assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 502);
     assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// Both of the identity pool's connections held by work that does not
+/// finish, and an ordinary member votes meanwhile: the members' admission pool
+/// shows no wait and no acquire timeout, the vote is answered, and its latency
+/// is reported beside an idle control. An identity request in the meantime is
+/// shed on its own pool before dispatch.
+#[test]
+fn an_ordinary_member_votes_while_both_identity_slots_are_held() {
+    let stage = stage("identity_slots_held");
+    let app = app(&stage, true);
+    let writer = app.post_votes.as_ref().unwrap();
+    let identity = writer.identity_reads.as_ref().unwrap();
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    let standard = token(&stage, 4, 2, "2plain", "standard");
+    let started = std::time::Instant::now();
+    assert_eq!(vote(&app, ballot("2plain"), Some(&anonymous)).0, 200);
+    let idle = started.elapsed();
+    let parking = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    let mut held = vec![];
+    for _ in 0..identity_read_limits().size {
+        let (ready, wait) = std::sync::mpsc::channel();
+        let (release, hold) = std::sync::mpsc::channel::<()>();
+        let pool = identity.clone();
+        let work = parking.spawn(async move {
+            pool.with(move |_| {
+                ready.send(()).ok();
+                hold.recv_timeout(Duration::from_secs(10)).ok();
+                Ok(())
+            })
+            .await
+        });
+        wait.recv_timeout(Duration::from_secs(5)).unwrap();
+        held.push((release, work));
+    }
+    assert_eq!(
+        identity.health(true).as_obj().unwrap().get("available"),
+        Some(&Js::Num(0.0)),
+        "both identity slots are held"
+    );
+    let members = writer.reads.evidence.snapshot();
+    let started = std::time::Instant::now();
+    let loaded = vote(&app, ballot("2plain"), Some(&standard));
+    let loaded_latency = started.elapsed();
+    assert_eq!(loaded.0, 200, "{loaded:?}");
+    assert_eq!(stored(&stage, 1, 2), agree());
+    let after = writer.reads.evidence.snapshot();
+    assert_eq!(
+        after[1], members[1],
+        "a member waited for an admission slot"
+    );
+    assert_eq!(after[2], members[2], "a member's admission timed out");
+    let identity_before = identity.evidence.snapshot();
+    let append = writer.pool.evidence.snapshot();
+    assert_eq!(vote(&app, ballot("2required"), None).0, 502);
+    assert_eq!(
+        identity.evidence.snapshot()[2],
+        identity_before[2] + 1,
+        "an identity request is shed on its own pool's acquisition"
+    );
+    assert_eq!(
+        writer.pool.evidence.snapshot(),
+        append,
+        "nothing dispatched"
+    );
+    assert!(held.iter().all(|(_, work)| !work.is_finished()));
+    for (release, work) in held {
+        release.send(()).ok();
+        parking.block_on(work).unwrap().unwrap();
+    }
+    let delta: [usize; 6] = std::array::from_fn(|i| after[i] - members[i]);
+    let message = format!(
+        "member vote with both identity slots held: idle_ms={:.1}; held_ms={:.1}; members_pool_delta={delta:?}\n",
+        idle.as_secs_f64() * 1000.0,
+        loaded_latency.as_secs_f64() * 1000.0,
+    );
+    std::io::Write::write_all(&mut std::io::stdout(), message.as_bytes()).unwrap();
+}
+
+/// The server's log so far, when it writes one this session can read.
+fn server_log(stage: &Stage) -> Option<String> {
+    stage
+        .db
+        .connect()
+        .query_one("select pg_read_file(pg_current_logfile())", &[])
+        .ok()?
+        .try_get::<_, Option<String>>(0)
+        .ok()?
+}
+
+/// An external id is bound only on a connection whose logging settings
+/// cannot write it to the server's log: with the server's defaults both
+/// external-id paths are served; once every statement is logged with its
+/// parameters (set after the pool was built and used), both are handed back
+/// before dispatch and the id is not sent. Where the server writes a log this
+/// session can read, the log shows it: a made-up id bound on a connection with
+/// those settings is there, the external id is not.
+#[test]
+fn an_external_id_is_bound_only_where_logging_cannot_write_it() {
+    let stage = stage("identity_logging");
+    // Every identity read opens its own connection, so a setting changed
+    // after the pool was built reaches it.
+    let app = app_built(
+        &stage,
+        true,
+        vec![],
+        db::Limits {
+            max_lifetime: Duration::from_millis(1),
+            ..identity_read_limits()
+        },
+    );
+    let writer = app.post_votes.as_ref().unwrap();
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    let named = || {
+        let mut body = ballot("2tree");
+        body["xid"] = json!("x3");
+        body
+    };
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)).0,
+        200,
+        "safe: served"
+    );
+    assert_eq!(
+        vote(&app, named(), None),
+        (401, node_refusal(401, TREEVITE_REFUSAL)),
+        "safe: the tokenless decision is answered"
+    );
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "DO $$ BEGIN EXECUTE format('ALTER DATABASE %I SET log_statement = ''all''',
+             current_database()); END $$",
+        )
+        .unwrap();
+    let before = rows(&stage);
+    let append = writer.pool.evidence.snapshot();
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)).0,
+        502,
+        "unsafe: member"
+    );
+    assert_eq!(vote(&app, named(), None).0, 502, "unsafe: tokenless");
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+    assert_eq!(
+        writer.pool.evidence.snapshot(),
+        append,
+        "nothing dispatched"
+    );
+    // An ordinary member sends no external id and is served as before.
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    assert_eq!(vote(&app, ballot("2plain"), Some(&anonymous)).0, 200);
+    let control = format!("made-up-control-{}", std::process::id());
+    stage
+        .db
+        .connect()
+        .query_one("select $1::text", &[&control])
+        .unwrap();
+    let mut log = None;
+    for _ in 0..30 {
+        log = server_log(&stage).filter(|log| log.contains(&control));
+        if log.is_some() || server_log(&stage).is_none() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    match log {
+        Some(log) => assert!(!log.contains("= 'x3'"), "the external id reached the log"),
+        None => eprintln!("no readable server log with the control id: the log is not checked"),
+    }
 }

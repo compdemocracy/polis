@@ -96,6 +96,7 @@ fn app(stage: &Stage, rt: &tokio::runtime::Runtime) -> Arc<App> {
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write: true,
+        identity_reads: Some(db::Pool::new(connector(), identity_read_limits())),
         first_contact: Some(FirstContact {
             pool: db::Pool::writer(connector(), first_contact_limits()),
             keys: Arc::new(keys(stage)),

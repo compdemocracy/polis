@@ -85,6 +85,7 @@ fn app(stage: &Stage, rt: &tokio::runtime::Runtime, first_contact: bool) -> Arc<
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write: true,
+        identity_reads: Some(db::Pool::new(connector(), identity_read_limits())),
         first_contact: first_contact.then(|| FirstContact {
             pool: db::Pool::writer(connector(), first_contact_limits()),
             keys: Arc::new(keys(stage)),
@@ -357,13 +358,20 @@ fn a_first_contacts_admission_takes_only_its_own_pool() {
         held.push((release, work));
     }
     let before = rows(&stage);
+    let identity = || {
+        let writer = app.post_votes.as_ref().unwrap();
+        writer.identity_reads.as_ref().unwrap().evidence.snapshot()
+    };
     let [append, notify, reads, own] = pools();
+    let decision = identity();
     assert_eq!(vote(&rt, &app, ballot("2plain"), None).0, 502);
     let [append2, notify2, reads2, own2] = pools();
     assert_eq!(append2, append, "the vote append pool");
     assert_eq!(notify2, notify, "the notification pool");
-    // The admission reads pool serves only the read-only decision.
-    assert_eq!(reads2[0], reads[0] + 1);
+    // The read-only decision runs on the identity pool, never on a members'
+    // admission slot.
+    assert_eq!(reads2, reads, "the members' admission reads pool");
+    assert_eq!(identity()[0], decision[0] + 1);
     assert_eq!(
         own2[2],
         own[2] + 1,

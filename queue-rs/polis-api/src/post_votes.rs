@@ -55,6 +55,12 @@ pub(crate) struct Writer {
     /// write nothing (`IDENTITY_NO_WRITE_SWITCH`). Off, admission is exactly
     /// what it was before the switch existed.
     pub(crate) identity_no_write: bool,
+    /// With the identity switch: the pool every admission that is not an
+    /// ordinary member token's reads on (`identity_read_limits`). An external
+    /// id's token, no token, a first contact and an account's token for
+    /// another conversation never take or keep a members' admission slot.
+    /// None with the switch off.
+    pub(crate) identity_reads: Option<Arc<db::Pool>>,
     /// `POLIS_API_POST_VOTES_FIRST_CONTACT=1`: a first vote with no token and
     /// no external id (`FIRST_CONTACT_SWITCH`). None, the request is handed
     /// back exactly as before the switch existed.
@@ -81,6 +87,18 @@ pub(crate) fn first_contact_limits() -> db::Limits {
     }
 }
 
+/// The identity reads' pool: two connections, 50 ms to get one, 100 ms a
+/// statement. Full, it sheds: the request is handed back before dispatch,
+/// inside the one admission deadline (`ADMISSION_DEADLINE`).
+pub(crate) fn identity_read_limits() -> db::Limits {
+    db::Limits {
+        size: 2,
+        acquire_timeout: Duration::from_millis(50),
+        statement_timeout: Duration::from_millis(100),
+        max_lifetime: Duration::from_secs(300),
+    }
+}
+
 /// Each admission attempt's transaction: 100 ms for a lock (the
 /// participant-number lock among them), one second a statement.
 const FIRST_CONTACT_BOUNDS: join::Bounds = join::Bounds {
@@ -103,6 +121,9 @@ impl Writer {
             priorities: _,
             follow_on: _,
             identity_no_write: _,
+            // Built only with the identity switch, which these inventories
+            // never set; its own tests count it.
+            identity_reads: _,
             first_contact: _,
         } = self;
         let NotificationPool {
@@ -144,6 +165,7 @@ impl Writer {
             priorities: &self.priorities,
             follow_on: &self.follow_on,
             identity: self.identity_no_write,
+            identity_reads: self.identity_reads.as_ref(),
             first_contact: self.first_contact.is_some(),
         }
     }
@@ -361,6 +383,14 @@ pub(crate) fn configure(
         priorities,
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write,
+        identity_reads: if identity_no_write {
+            Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-vote-identity-reads/1")?,
+                identity_read_limits(),
+            ))
+        } else {
+            None
+        },
         first_contact,
     }))
 }
@@ -374,6 +404,8 @@ struct Admission<'a> {
     follow_on: &'a Arc<FollowOnLane>,
     /// The live writer's identity switch; always false in observe mode.
     identity: bool,
+    /// The identity reads' pool; always None in observe mode.
+    identity_reads: Option<&'a Arc<db::Pool>>,
     /// The live writer's first-contact switch; always false in observe mode.
     first_contact: bool,
 }
@@ -760,6 +792,9 @@ fn xid_member(
             return Ok(Err(Turned::Back("account_check_failed")));
         }
     }
+    if !external_id_may_be_sent(c) {
+        return Ok(Err(Turned::Back(EXTERNAL_ID_LOGGING)));
+    }
     Ok(match join::xid_allowed(c, Zid(zid), xid)? {
         Some(true) => Ok(()),
         Some(false) => Err(Turned::Answer(403, "polis_err_xid_not_allowed")),
@@ -829,6 +864,10 @@ fn decided(
 ) -> Turned {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     let account = matches!(identity, join::Identity::Account(_));
+    // The snapshot binds an external id as a parameter.
+    if matches!(identity, join::Identity::Xid { .. }) && !external_id_may_be_sent(c) {
+        return Turned::Back(EXTERNAL_ID_LOGGING);
+    }
     let Ok(mut snapshot) = join::snapshot(c, &TOKENLESS_BOUNDS) else {
         return Turned::Back("admission_unavailable");
     };
@@ -874,6 +913,18 @@ fn decided(
         _ if account => Turned::Back("account_not_created"),
         _ => Turned::Back("no_token"),
     }
+}
+
+/// The reason a request is handed back when its connection's logging
+/// settings could write an external id into the server's log.
+const EXTERNAL_ID_LOGGING: &str = "external_id_logging";
+
+/// Whether an external id may be bound as a parameter on this connection: the
+/// vote observer's rule (`identity::xid_lookup_rule`), with the settings read
+/// on this connection for each request, so a setting changed after startup is
+/// seen. Settings that cannot be read count as unsafe.
+fn external_id_may_be_sent(c: &mut Client) -> bool {
+    identity::read_rule(c) == Some(identity::XidLookup::Enabled)
 }
 
 fn next(
@@ -1323,6 +1374,15 @@ async fn prepare(
     {
         return Err(Refused::handback("admin"));
     }
+    // An ordinary member token's admission reads on the members' pool, as
+    // before the identity switch existed. Every other caller reads on the
+    // identity pool, whose work, finished or cut by the deadline, can never
+    // hold a member's slot.
+    let (pool, unavailable) = match (&caller, writer.identity_reads) {
+        (Caller::Member(_), _) => (writer.reads, "admission_unavailable"),
+        (_, Some(identity_reads)) => (identity_reads, "identity_reads_unavailable"),
+        (_, None) => return Err(Refused::handback("identity_reads_unconfigured")),
+    };
     let env = app.math_env.clone();
     let conversation = cid.clone();
     let started = tokio::time::Instant::now();
@@ -1331,8 +1391,7 @@ async fn prepare(
         let follow_on = writer.follow_on.clone();
         let identity_on = writer.identity;
         let admins = writer.admins.to_vec();
-        let prepared = writer
-            .reads
+        let prepared = pool
             .with(move |c| {
                 admit(
                     c,
@@ -1346,7 +1405,7 @@ async fn prepare(
                 )
             })
             .await
-            .map_err(|_| Turned::Back("admission_unavailable"))?;
+            .map_err(|_| Turned::Back(unavailable))?;
         let (mut admitted, snapshot) = prepared?;
         // Parsing, coalescing and shape validation hold no admission SQL
         // slot. A timed-out first caller can leave the generation warming,

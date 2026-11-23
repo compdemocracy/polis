@@ -142,6 +142,7 @@ impl Observer {
             priorities: &self.priorities,
             follow_on: &self.follow_on,
             identity: false,
+            identity_reads: None,
             first_contact: false,
         }
     }
