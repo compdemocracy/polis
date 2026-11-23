@@ -430,6 +430,10 @@ mod identity_serve;
 #[path = "post_votes_first_contact_tests.rs"]
 mod first_contact;
 
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_first_contact_load_tests.rs"]
+mod first_contact_load;
+
 // The route observer installs a caller's state for exactly one synchronous
 // poll. Dispatch creation captures it; the detached task retains it to Drop.
 // Other callers and blocking SQL workers cannot borrow this thread-local state.
