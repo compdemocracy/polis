@@ -28,6 +28,7 @@ from polismath.utils.cli_flags import parse_bool_flag
 from sentence_transformers import SentenceTransformer
 from umap_narrative.topic_naming import (
     generate_cluster_topic_labels,
+    origin_facts,
     resolve_model_name,
     resolve_provider_type,
 )
@@ -909,15 +910,14 @@ def process_layers_and_create_visualizations(
             # How this layer was named, for the run's record (kept only while
             # the topic map step records the run's steps). Each name's origin
             # is what the naming decided when it made the name; a label's
-            # shape is never read as proof of who wrote it.
-            origins_list = [name_origins.get(c) for c in cluster_labels]
-            step_log.note(
-                "topic_names", layer=layer_idx, provider=provider_type, model=topic_model,
-                clusters=len(cluster_labels),
-                written_by_model=origins_list.count("model"),
-                fallback=origins_list.count("fallback"),
-                origin_unknown=origins_list.count(None),
-            )
+            # shape is never read as proof of who wrote it. The topic map keeps
+            # the names of the clusters listed in model_clusters as written.
+            # Only while recording: with the topic map step off, nothing here runs.
+            if step_log.recording():
+                step_log.note(
+                    "topic_names", layer=layer_idx, provider=provider_type, model=topic_model,
+                    clusters=len(cluster_labels), **origin_facts(cluster_labels, name_origins),
+                )
 
             # Save LLM topic names
             with open(
@@ -1410,7 +1410,7 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
                 zid, selection, full_pipeline_models(),
                 execution=topic_map.execution_record(step_log.recorded(), selection))
             facts["outcome"] = stored["outcome"] if stored else "not_stored"
-            for key in ("reason", "document_bytes", "gzip_bytes", "family_bytes"):
+            for key in ("reason", "failure", "document_bytes", "gzip_bytes", "family_bytes"):
                 if stored and key in stored:
                     facts[key] = stored[key]
 

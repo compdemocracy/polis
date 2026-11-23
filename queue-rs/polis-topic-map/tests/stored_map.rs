@@ -120,13 +120,16 @@ fn a_run_stores_its_document_its_gzip_and_its_digest_in_three_rows() {
         assert_eq!(p["selection"], "participant_visible/1");
         assert_eq!(p["models"], support::models());
         assert_eq!(p["execution"], support::execution());
-        // The fixtures' names are a model's free-form names: none is a shape
-        // the rule can check, so each is shown as `Topic <n>` and counted.
-        assert_eq!(p["names"]["rule"], "polis-topic-map.names/2");
+        // The fixtures' names are free-form names the execution record does
+        // not name as the model's: of no recorded origin and no shape the rule
+        // can check, so each is shown as `Topic <n>` and counted.
+        assert_eq!(p["names"]["rule"], "polis-topic-map.names/3");
         let topics = doc["topics"].as_array().unwrap();
-        let counted = ["generic", "keywords", "replaced"].map(|k| p["names"][k].as_u64().unwrap());
+        let counted = ["written_by_model", "generic", "keywords", "replaced"]
+            .map(|k| p["names"][k].as_u64().unwrap());
         assert_eq!(counted.iter().sum::<u64>(), topics.len() as u64);
-        assert!(counted[2] > 0);
+        assert_eq!(counted[0], 0);
+        assert!(counted[3] > 0);
         assert_eq!(p["names"]["keywords"], 0);
         assert!(
             p["names"].get("model").is_none(),
@@ -520,10 +523,14 @@ fn no_example_comment_of_a_keyword_label_reaches_the_document() {
 fn only_generic_names_and_checked_keywords_are_kept() {
     use stored::{NameKind, safe_name};
     let kept = |l, c, n: &str, want: &str, kind| {
-        assert_eq!(safe_name(l, c, n), (Some(want.to_owned()), kind), "{n}");
+        assert_eq!(
+            safe_name(l, c, n, false),
+            (Some(want.to_owned()), kind),
+            "{n}"
+        );
     };
     let replaced =
-        |l, c, n: &str| assert_eq!(safe_name(l, c, n), (None, NameKind::Replaced), "{n}");
+        |l, c, n: &str| assert_eq!(safe_name(l, c, n, false), (None, NameKind::Replaced), "{n}");
     // Generic names, prefixed or not: the pipeline's own fallback.
     kept(0, 3, "Topic 3", "Topic 3", NameKind::Generic);
     kept(0, 3, "0_3: Topic 3", "0_3: Topic 3", NameKind::Generic);
@@ -596,4 +603,74 @@ fn only_generic_names_and_checked_keywords_are_kept() {
     replaced(0, 3, "Keywords: water, x");
     replaced(0, 3, "Keywords: water, rights...");
     replaced(0, 3, "Example: anything a participant wrote");
+}
+
+#[test]
+fn a_name_the_run_recorded_as_its_models_is_kept_as_written() {
+    use stored::{NameKind, safe_name};
+    // Recorded as the model's: kept as written, whatever its shape.
+    for name in [
+        "0_3: Water rights",
+        "0_3: Topic 3",
+        "Keywords: water | Example: x",
+    ] {
+        assert_eq!(
+            safe_name(0, 3, name, true),
+            (Some(name.to_owned()), NameKind::Model),
+            "{name}"
+        );
+    }
+    // Not recorded as the model's: the shape rule, as before.
+    assert_eq!(
+        safe_name(0, 3, "0_3: Water rights", false),
+        (None, NameKind::Replaced)
+    );
+
+    // A whole run: layer 0's record names clusters 0 and 2 as the model's,
+    // cluster 1 as a fallback; layer 1 has no entry, so its names are of no
+    // recorded origin.
+    let run = support::run("biodiversity", 1424, None);
+    let names = with_names(&run, |c| format!("0_{c}: Model name {c}"));
+    let mut id = support::identity(1424);
+    id.execution["algorithms"]["topic_names"] = json!([
+        {"layer": 0, "provider": "anthropic", "model": "m", "clusters": 3,
+         "written_by_model": 2, "fallback": 1, "origin_unknown": 0, "model_clusters": [0, 2]},
+    ]);
+    let wires = Wires {
+        positions: &run.positions,
+        assignments: &run.assignments,
+        names: &names,
+    };
+    let stored = stored::store(&id, &wires).unwrap();
+    let doc: Value = serde_json::from_str(stored.document.as_deref().unwrap()).unwrap();
+    let named: std::collections::BTreeMap<String, String> = doc["topics"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| {
+            (
+                t["id"].as_str().unwrap().to_owned(),
+                t["name"].as_str().unwrap().to_owned(),
+            )
+        })
+        .collect();
+    assert_eq!(named["0_0"], "0_0: Model name 0");
+    assert_eq!(named["0_2"], "0_2: Model name 2");
+    assert_eq!(named["0_1"], "Topic 1");
+    let names_counts = &doc["provenance"]["names"];
+    assert_eq!(names_counts["rule"], "polis-topic-map.names/3");
+    assert_eq!(names_counts["written_by_model"], 2);
+    let total = ["written_by_model", "generic", "keywords", "replaced"]
+        .map(|k| names_counts[k].as_u64().unwrap())
+        .iter()
+        .sum::<u64>();
+    assert_eq!(total, named.len() as u64);
+
+    // The same names with the record unavailable (a run stored before the
+    // step): no name has a recorded origin, so none is kept as written.
+    id.execution = stored::execution_unavailable("before the step");
+    let stored = stored::store(&id, &wires).unwrap();
+    let doc: Value = serde_json::from_str(stored.document.as_deref().unwrap()).unwrap();
+    assert_eq!(doc["provenance"]["names"]["written_by_model"], 0);
+    assert!(!stored.document.unwrap().contains("Model name"));
 }

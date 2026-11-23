@@ -22,16 +22,21 @@
 //! or the one row `no_map`: `reason` S, one of `too_large`, `no_positions`,
 //! `no_topics`, `too_few_comments`, and for `too_large` the document's length
 //! in `bytes` N. Beside either, the row `execution`: `body` S, the run's own
-//! record of its steps as JSON ([`RunIdentity::execution`]). Every row also
+//! record of its steps as JSON ([`RunIdentity::execution`]). A run whose
+//! generator failed holds only the row `no_map` with `reason`
+//! `generator_failed` and `failure` S, one of [`DRAW_FAILURES`]; the
+//! pipeline's step writes that row itself ([`NoMap::GeneratorFailed`]), and
+//! the run's other results publish as they would without the map. Every row also
 //! carries `job_id` S, the run's own job id, so a reader can tell the run's own
 //! map from one carried forward from an earlier batch of the same publication.
 //!
 //! The document holds no comment text: `points.text` is empty, `title` and
 //! `attribution` are empty (the document depends only on the run; a page joins
 //! the text it already holds by comment id), and topic names pass
-//! [`safe_name`], which keeps generic names and the keyword fallback's
-//! keywords, never its example comment, and shows every other name, a model's
-//! free-form name among them, as `Topic <n>`. Its `provenance` names the run, its
+//! [`safe_name`], which keeps a name the run recorded as written by its model
+//! as the model wrote it, keeps generic names and the keyword fallback's
+//! keywords, never its example comment, and shows every other name as
+//! `Topic <n>`. Its `provenance` names the run, its
 //! publication scope and comment rule, its models, how its names were taken,
 //! the three families it was drawn from (each by SHA-256 and row count) and
 //! the run's execution record: its selection and counts, every step with its
@@ -86,7 +91,22 @@ pub enum NoMap {
     /// The first view has no area (one or two comments, or the comments the
     /// generator keeps sit on one point or one horizontal or vertical line).
     TooFewComments,
+    /// The generator did not draw the run's map (it was not installed, did not
+    /// run, timed out, refused the run's families or wrote something else).
+    /// The pipeline's step stores this row, never [`store`]; its `failure` is
+    /// one of [`DRAW_FAILURES`], never the generator's message.
+    GeneratorFailed,
 }
+
+/// The `failure` of a `generator_failed` row, as the pipeline's step names it
+/// (`DRAW_FAILURES` in `delphi/polismath/delphi_storage/topic_map.py`).
+pub const DRAW_FAILURES: [&str; 5] = [
+    "not_installed",
+    "did_not_run",
+    "timed_out",
+    "refused",
+    "wrong_output",
+];
 
 impl NoMap {
     pub const fn as_str(self) -> &'static str {
@@ -95,6 +115,7 @@ impl NoMap {
             Self::NoPositions => "no_positions",
             Self::NoTopics => "no_topics",
             Self::TooFewComments => "too_few_comments",
+            Self::GeneratorFailed => "generator_failed",
         }
     }
 }
@@ -138,7 +159,7 @@ pub fn execution_unavailable(reason: &str) -> Value {
 
 /// The rule that keeps comment text out of the stored topic names
 /// ([`safe_name`]); provenance names it and counts what it did.
-pub const NAMES_RULE: &str = "polis-topic-map.names/2";
+pub const NAMES_RULE: &str = "polis-topic-map.names/3";
 
 /// How a map was made (the document's `provenance`).
 #[derive(Serialize, Clone, Debug, PartialEq)]
@@ -166,13 +187,14 @@ pub struct Provenance {
 #[derive(Serialize, Clone, Debug, PartialEq, Default)]
 pub struct NameCounts {
     pub rule: &'static str,
+    /// Names the run recorded as written by its model, kept as written.
+    pub written_by_model: usize,
     /// Generic names (`Topic <n>`, with or without its prefix), kept.
     pub generic: usize,
     /// Keyword labels, kept without any example comment.
     pub keywords: usize,
-    /// Every other name, a model's free-form name among them, since it might
-    /// hold comment text: shown as `Topic <n>`. Who wrote the names is the
-    /// run's execution record, not these counts.
+    /// Every other name (of a fallback, or of no recorded origin), since it
+    /// might hold comment text: shown as `Topic <n>`.
     pub replaced: usize,
 }
 
@@ -235,7 +257,8 @@ pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Resul
     let names = Codec::read(wires.names, NAMES)?;
     let nodes = node_positions(&positions, &conversation)?;
     let clusters = cluster_rows(&assignments, &conversation)?;
-    let (topics_by_layer, model, name_counts) = topic_names(&names, &conversation)?;
+    let (topics_by_layer, model, name_counts) =
+        topic_names(&names, &conversation, &model_written(&run.execution))?;
     let execution = serde_json::to_string(&run.execution).map_err(|e| e.to_string())?;
     let mut execution_row = Item::new();
     execution_row.s("conversation_id", &conversation);
@@ -613,8 +636,12 @@ fn cluster_rows(
 
 type Names = BTreeMap<String, BTreeMap<String, TopicName>>;
 
-/// How a stored topic name enters the map ([`NAMES_RULE`]). Only two shapes
-/// are stored, because only these can be checked to hold no comment text:
+/// How a stored topic name enters the map ([`NAMES_RULE`]). A name the run
+/// recorded as written by its model (`written_by_model`: the naming decided
+/// it when it made the name, and the run's execution record lists its topic,
+/// [`model_written`]) is kept as the model wrote it. Of every other name, a
+/// name of a fallback or of no recorded origin, only two shapes are stored,
+/// because only these can be checked to hold no comment text:
 ///
 /// - a generic name, `Topic <cluster>`, `<layer>_<cluster>: Topic <cluster>`
 ///   or `<layer>_<cluster>:`, kept as it is;
@@ -627,14 +654,21 @@ type Names = BTreeMap<String, BTreeMap<String, TopicName>>;
 ///   Every word must have that shape, so a sentence or an `Example:` written
 ///   where the keywords go is not a keyword label.
 ///
-/// Every other name, a model's free-form name among them, is shown as
-/// `Topic <cluster>`. A `<layer>_<cluster>:` prefix says which topic a name is
-/// for, never who wrote it nor what it holds: the pipeline prefixes its
-/// `Topic <n>` fallback too, and a model's text is not checked here to be free
-/// of a comment's words. Who wrote each name is the run's own record (the
-/// `topic_names` entries of [`RunIdentity::execution`]), never this shape. A
-/// change to the shapes is a new rule.
-pub fn safe_name(layer: i64, cluster: i64, name: &str) -> (Option<String>, NameKind) {
+/// Every other name is shown as `Topic <cluster>`. A `<layer>_<cluster>:`
+/// prefix says which topic a name is for, never who wrote it nor what it
+/// holds: the pipeline prefixes its `Topic <n>` fallback too. Who wrote a name
+/// is only ever the run's own record, never its shape or prefix, and a model's
+/// name is not checked here to be free of a comment's words. A change to
+/// these rules is a new rule.
+pub fn safe_name(
+    layer: i64,
+    cluster: i64,
+    name: &str,
+    written_by_model: bool,
+) -> (Option<String>, NameKind) {
+    if written_by_model {
+        return (Some(name.to_owned()), NameKind::Model);
+    }
     let generic = format!("Topic {cluster}");
     let prefix = format!("{layer}_{cluster}:");
     if name == generic || name == prefix || name == format!("{prefix} {generic}") {
@@ -695,9 +729,12 @@ fn keyword_words(name: &str) -> Option<&str> {
     Some(words)
 }
 
-/// Which shape a stored name had ([`safe_name`]). It is not who wrote it.
+/// How a stored name was taken ([`safe_name`]): by its recorded origin, or
+/// else by its shape, which is not who wrote it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum NameKind {
+    /// The run recorded its model as the name's writer: kept as written.
+    Model,
     /// `Topic <n>`, with or without its topic's prefix, or the prefix alone.
     Generic,
     /// A keyword fallback label, kept as its keywords.
@@ -706,11 +743,42 @@ pub enum NameKind {
     Replaced,
 }
 
+/// The topics (layer, cluster) whose names the run recorded as written by its
+/// model: each `topic_names` entry of the execution record's `algorithms`
+/// lists them as `model_clusters` for its `layer`. A record that is
+/// unavailable, or an entry without that list, names none, so those names are
+/// of no recorded origin.
+pub fn model_written(execution: &Value) -> BTreeSet<(i64, i64)> {
+    let mut out = BTreeSet::new();
+    if execution.get("available") != Some(&Value::Bool(true)) {
+        return out;
+    }
+    let entries = execution
+        .pointer("/algorithms/topic_names")
+        .and_then(Value::as_array);
+    for entry in entries.into_iter().flatten() {
+        let (Some(layer), Some(clusters)) = (
+            entry.get("layer").and_then(Value::as_i64),
+            entry.get("model_clusters").and_then(Value::as_array),
+        ) else {
+            continue;
+        };
+        out.extend(
+            clusters
+                .iter()
+                .filter_map(Value::as_i64)
+                .map(|c| (layer, c)),
+        );
+    }
+    out
+}
+
 /// layer -> cluster -> name, the one model that named them all, if one, and
 /// how the names were taken ([`safe_name`]).
 fn topic_names(
     c: &Codec,
     conversation: &str,
+    model_written: &BTreeSet<(i64, i64)>,
 ) -> Result<(Names, Option<String>, NameCounts), String> {
     let bad = || format!("{NAMES}: an unreadable topic name");
     let optional = |row: &BTreeMap<String, Value>, key: &str| -> Result<Option<String>, String> {
@@ -740,10 +808,16 @@ fn topic_names(
             return Ok(());
         }
         let (topic_name, kind) = match stored {
-            Some(s) => safe_name(layer, cluster, &s),
+            Some(s) => safe_name(
+                layer,
+                cluster,
+                &s,
+                model_written.contains(&(layer, cluster)),
+            ),
             None => (None, NameKind::Replaced),
         };
         match kind {
+            NameKind::Model => counts.written_by_model += 1,
             NameKind::Generic => counts.generic += 1,
             NameKind::Keywords => counts.keywords += 1,
             NameKind::Replaced => counts.replaced += 1,

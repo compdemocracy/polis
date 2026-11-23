@@ -29,7 +29,7 @@ conventional keyword-based labels.
 import logging
 import os
 import re
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 import numpy as np
 
@@ -277,6 +277,21 @@ def _label_one_by_one(provider, prompts: Dict[int, str]) -> Dict[int, Optional[s
             logger.error(f"Error naming cluster {cluster_id}: {e}")
             raw_labels[cluster_id] = None
     return raw_labels
+
+
+def origin_facts(labels: Dict[int, str], origins: Dict[int, str]) -> Dict[str, Any]:
+    """How a layer's labels were named, from the origins the naming recorded
+    (``generate_cluster_topic_labels(..., origins=...)``): counts of names
+    written by the model, of fallbacks and of no recorded origin, and the
+    clusters whose names the model wrote (``model_clusters``, ids only, never
+    a name). A label's shape is never read as its origin."""
+    listed = [origins.get(c) for c in labels]
+    return {
+        "written_by_model": listed.count("model"),
+        "fallback": listed.count("fallback"),
+        "origin_unknown": listed.count(None),
+        "model_clusters": sorted(int(c) for c in labels if origins.get(c) == "model"),
+    }
 
 
 def generate_cluster_topic_labels(

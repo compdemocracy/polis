@@ -191,17 +191,71 @@ def test_a_run_with_nothing_to_draw_stores_one_no_map_row(tmp_path, monkeypatch)
     assert rows[1]['reason']['S'] == 'no_topics'
 
 
-def test_a_generator_that_fails_fails_the_run(tmp_path, monkeypatch):
+def _generator(tmp_path, name, body):
+    script = tmp_path / name
+    script.write_text('#!/bin/sh\n' + body + '\n')
+    script.chmod(0o755)
+    return str(script)
+
+
+def test_a_generator_that_fails_stores_one_failed_row_and_the_run_goes_on(tmp_path, monkeypatch, caplog):
+    """The run's other results publish; the map's family is one typed no_map
+    row saying the draw failed and why, never the generator's message; an
+    error is logged."""
+    monkeypatch.setenv(topic_map.SWITCH, '1')
+    monkeypatch.setattr(topic_map, 'TIMEOUT_SECONDS', 0.5)
+    secret = 'a sentence a participant wrote'
+    cases = [
+        ('/nonexistent/polis-topic-map', 'did_not_run'),
+        (_generator(tmp_path, 'refuses', f'echo "{secret}" >&2; exit 3'), 'refused'),
+        (_generator(tmp_path, 'slow', 'sleep 5'), 'timed_out'),
+        (_generator(tmp_path, 'garbage', 'for a in "$@"; do [ "$prev" = --out ] && echo "{}" > "$a"; prev="$a"; done'),
+         'wrong_output'),
+    ]
+    for binary, failure in cases:
+        (tmp_path / failure).mkdir()
+        # A map an earlier batch carried forward is never left beside the row.
+        earlier = [{'conversation_id': {'S': '7'}, 'part': {'S': 'document'}, 'job_id': {'S': 'earlier'},
+                    'body': {'S': '{}'}, 'bytes': {'N': '2'}, 'schema': {'S': 'polis-topic-map/1'}}]
+        writer = _writer(tmp_path / failure, monkeypatch, base_families={TOPIC_MAP_FAMILY: earlier})
+        _write_run(writer)
+        monkeypatch.setenv(topic_map.BINARY, binary)
+        caplog.clear()
+        with caplog.at_level(logging.INFO):
+            stored = topic_map.store_run_map(7, None, MODELS, writer=writer)
+        assert stored == {'outcome': 'no_map', 'reason': 'generator_failed', 'failure': failure,
+                          'family_bytes': stored['family_bytes']}, failure
+        errors = [r for r in caplog.records if r.levelno == logging.ERROR]
+        assert len(errors) == 1 and failure in errors[0].getMessage(), failure
+        spooled, files = _spooled(writer)
+        assert set(spooled) == (RESULT_FAMILIES - PRESERVED) | {TOPIC_MAP_FAMILY}, failure
+        rows = spooled[TOPIC_MAP_FAMILY][1]
+        assert rows == [{'conversation_id': {'S': '7'}, 'part': {'S': 'no_map'}, 'job_id': {'S': writer.frame['job_id']},
+                         'reason': {'S': 'generator_failed'}, 'failure': {'S': failure}}], failure
+        wire = (writer.directory / files[TOPIC_MAP_FAMILY]['file']).read_bytes()
+        assert stored['family_bytes'] == len(wire) and secret.encode() not in wire
+        assert list(writer.directory.glob('topic-map-*')) == []
+    assert set(f for _, f in cases) | {'not_installed'} == set(topic_map.DRAW_FAILURES)
+
+
+def test_a_generator_that_is_not_installed_stores_one_failed_row(tmp_path, monkeypatch):
+    monkeypatch.setenv(topic_map.SWITCH, '1')
+    monkeypatch.delenv(topic_map.BINARY, raising=False)
+    monkeypatch.setattr(topic_map.shutil, 'which', lambda _name: None)
+    writer = _writer(tmp_path, monkeypatch)
+    _write_run(writer)
+    stored = topic_map.store_run_map(7, None, MODELS, writer=writer)
+    assert (stored['reason'], stored['failure']) == ('generator_failed', 'not_installed')
+    rows = _spooled(writer)[0][TOPIC_MAP_FAMILY][1]
+    assert [(r['part']['S'], r['failure']['S']) for r in rows] == [('no_map', 'not_installed')]
+
+
+def test_a_writer_that_cannot_hold_the_map_still_fails_the_run(tmp_path, monkeypatch):
     monkeypatch.setenv(topic_map.SWITCH, '1')
     writer = _writer(tmp_path, monkeypatch)
     _write_run(writer)
-    false = shutil.which('false')
-    for binary in ([false] if false else []) + ['/nonexistent/polis-topic-map']:
-        monkeypatch.setenv(topic_map.BINARY, binary)
-        with pytest.raises(topic_map.TopicMapError):
-            topic_map.store_run_map(7, None, MODELS, writer=writer)
-    assert TOPIC_MAP_FAMILY not in _spooled(writer)[0]
-    assert list(writer.directory.glob('topic-map-*')) == []
+    with pytest.raises(topic_map.TopicMapError):
+        topic_map.store_run_map(8, None, MODELS, writer=writer)
 
 
 def test_without_the_postgres_writer_nothing_is_stored(monkeypatch, caplog):
@@ -279,10 +333,32 @@ def test_no_example_comment_of_a_keyword_label_is_stored(tmp_path, monkeypatch):
     assert 'generated-only' not in document and 'Example' not in document
     names = {t['id']: t['name'] for t in json.loads(document)['topics']}
     assert (names['0_0'], names['0_1'], names['0_2']) == ('Topic 0', 'Keywords: water, land', 'Topic 2')
-    # The run's own model-written name is replaced too: a model's free-form
-    # name is not a shape the rule can check.
+    # The layer-1 name has no recorded origin (no execution record): it is
+    # not a shape the rule can check, so it is replaced.
     assert json.loads(document)['provenance']['names'] == {
-        'rule': 'polis-topic-map.names/2', 'generic': 1, 'keywords': 1, 'replaced': 2}
+        'rule': 'polis-topic-map.names/3', 'written_by_model': 0, 'generic': 1, 'keywords': 1, 'replaced': 2}
+
+
+@needs_generator
+def test_a_name_the_naming_recorded_as_its_models_is_stored_as_written(tmp_path, monkeypatch, recording):
+    monkeypatch.setenv(topic_map.SWITCH, '1')
+    step_log.record()
+    step_log.note('topic_names', layer=0, provider='anthropic', model='m', clusters=3, written_by_model=2,
+                  fallback=1, origin_unknown=0, model_clusters=[0, 2])
+    execution = topic_map.execution_record(step_log.recorded(), None)
+    writer = _writer(tmp_path, monkeypatch)
+    _write_run(writer)
+    topic_map.store_run_map(7, None, MODELS, writer=writer, execution=execution)
+    rows = {r['part']['S']: r for r in _spooled(writer)[0][TOPIC_MAP_FAMILY][1]}
+    doc = json.loads(rows['document']['body']['S'])
+    names = {t['id']: t['name'] for t in doc['topics']}
+    # Layer 0's clusters 0 and 2 are the model's, as written; cluster 1 was a
+    # fallback and layer 1 has no recorded origin: neither is a shape the
+    # rule keeps.
+    assert names == {'0_0': '0_0: Generated topic 0.0', '0_1': 'Topic 1', '0_2': '0_2: Generated topic 0.2',
+                     '1_0': 'Topic 0'}
+    assert doc['provenance']['names'] == {
+        'rule': 'polis-topic-map.names/3', 'written_by_model': 2, 'generic': 0, 'keywords': 0, 'replaced': 2}
 
 
 def test_the_map_family_is_postgres_only_and_keyed_as_its_catalog_row():

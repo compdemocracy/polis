@@ -338,3 +338,18 @@ def test_conventional_labels_are_fallbacks(monkeypatch):
     labels, origins = _named(monkeypatch, FakeAnthropicProvider([], fail_create=True), [0, 1])
     assert all("Keywords" in v for v in labels.values())
     assert origins == {0: "fallback", 1: "fallback"}
+
+
+def test_origin_facts_list_the_clusters_the_model_named_from_the_recorded_origins(monkeypatch):
+    results = [
+        {"custom_id": "layer0_cluster0", "result": {"type": "succeeded", "message": {"content": [{"type": "text", "text": "Good Label"}]}}},
+        {"custom_id": "layer0_cluster1", "result": {"type": "errored", "error": {"type": "server_error"}}},
+        {"custom_id": "layer0_cluster2", "result": {"type": "succeeded", "message": {"content": [{"type": "text", "text": "Topic 2"}]}}},
+    ]
+    labels, origins = _named(monkeypatch, FakeAnthropicProvider(results), [0, 1, 2])
+    # The model's own "Topic 2" is the model's; the prefixed fallback is not.
+    assert topic_naming.origin_facts(labels, origins) == {
+        "written_by_model": 2, "fallback": 1, "origin_unknown": 0, "model_clusters": [0, 2]}
+    # A label with no recorded origin is never counted as the model's.
+    assert topic_naming.origin_facts({0: "0_0: Water", 1: "0_1: Land"}, {1: "model"}) == {
+        "written_by_model": 1, "fallback": 0, "origin_unknown": 1, "model_clusters": [1]}

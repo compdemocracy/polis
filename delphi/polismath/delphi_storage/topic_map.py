@@ -13,15 +13,21 @@ file of one more family, ``Delphi_TopicMapDocument``; the step reads it with
 the frozen codec (which refuses any byte that is not canonical) and writes its
 rows to the same scratch through the same writer, so the daemon stores them in
 the run's own batch with the rest: the map publishes with the run or not at
-all. A generator that fails fails the run.
+all. A generator that fails does not fail the run: the step logs an error
+and stores, in place of the map, one ``no_map`` row whose reason is
+``generator_failed`` and whose ``failure`` is one of ``DRAW_FAILURES`` (never
+the generator's message), and the run's other results publish as they would
+without the step.
 
 The family holds either a map (its ``document``, ``document.gz`` and
 ``sha256`` rows) or one typed ``no_map`` row (``too_large``, ``no_positions``,
-``no_topics``, ``too_few_comments``), and beside either an ``execution`` row:
+``no_topics``, ``too_few_comments``, ``generator_failed``), and beside a map
+or any ``no_map`` row the generator wrote, an ``execution`` row:
 the run's own record of its steps (``execution_record``), kept in memory by
 polismath.step_log while the run ran. ``polis-topic-map/src/stored.rs`` says
 each row's attributes. The document carries no comment text: no per-comment
-text, and topic names keep a model's names and the keyword fallback's
+text, and of the topic names it keeps a name the run recorded as its model's
+as written, and otherwise only generic names and the keyword fallback's
 keywords, never its example comment. Its provenance names the run (env, job,
 run, batch), its publication scope and comment rule, its models (as the run's
 output manifest names them), how its names were taken, the three families it
@@ -61,7 +67,20 @@ logger = logging.getLogger(__name__)
 
 
 class TopicMapError(RuntimeError):
-    """The step could not store the run's map; the run fails."""
+    """The run's writer cannot hold its map (another conversation's frame, or
+    no result scope); the run fails."""
+
+
+# Why the generator did not draw the run's map: the ``failure`` of a
+# ``generator_failed`` row (``DRAW_FAILURES`` in polis-topic-map's stored.rs).
+DRAW_FAILURES = ("not_installed", "did_not_run", "timed_out", "refused", "wrong_output")
+
+
+class _DrawFailed(Exception):
+    def __init__(self, failure: str, detail: str):
+        assert failure in DRAW_FAILURES
+        super().__init__(detail)
+        self.failure = failure
 
 
 def enabled() -> bool:
@@ -117,7 +136,8 @@ def store_run_map(zid: Any, selection: Optional[str], models: Dict[str, Any], wr
                   execution: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
     """Store the run's map in its result batch. Returns what was stored
     (``outcome``, and the sizes or the reason), or None when the step is off or
-    the run has no Postgres result writer."""
+    the run has no Postgres result writer. When the generator fails, logs an
+    error and stores one ``generator_failed`` row instead; the run goes on."""
     if not enabled():
         return None
     writer = writer if writer is not None else _writer()
@@ -130,9 +150,42 @@ def store_run_map(zid: Any, selection: Optional[str], models: Dict[str, Any], wr
     scope = frame.get("config", {}).get("result_scope") or os.environ.get("DELPHI_RESULT_SCOPE")
     if not scope:
         raise TopicMapError("the run names no result scope")
+    table = writer.Table(TOPIC_MAP_FAMILY)
+    try:
+        wire, items = _draw(writer, frame, scope, selection, models, execution, table)
+    except _DrawFailed as e:
+        logger.error(f"Topic map document: the generator did not draw the run's map ({e.failure}): {e}")
+        _clear(table)
+        table.put_item(Item={"conversation_id": str(frame["zid"]), "part": "no_map", "job_id": str(frame["job_id"]),
+                             "reason": "generator_failed", "failure": e.failure})
+        result = {"outcome": "no_map", "reason": "generator_failed", "failure": e.failure,
+                  "family_bytes": len(writer.family_wire(TOPIC_MAP_FAMILY))}
+        logger.info(f"Topic map document stored: {result}")
+        return result
+    parts = {item["part"]["S"]: item for item in items}
+    if "no_map" in parts:
+        result = {"outcome": "no_map", "reason": parts["no_map"]["reason"]["S"]}
+        if "bytes" in parts["no_map"]:
+            result["document_bytes"] = int(parts["no_map"]["bytes"]["N"])
+    else:
+        result = {"outcome": "map", "document_bytes": int(parts["document"]["bytes"]["N"]),
+                  "gzip_bytes": int(parts["document.gz"]["bytes"]["N"])}
+    result["family_bytes"] = len(wire)
+    logger.info(f"Topic map document stored: {result}")
+    return result
+
+
+def _clear(table) -> None:
+    for existing in table.scan()["Items"]:
+        table.delete_item(Key={"conversation_id": existing["conversation_id"], "part": existing["part"]})
+
+
+def _draw(writer, frame, scope, selection, models, execution, table):
+    """Run the generator on the run's families and store what it wrote, as it
+    wrote it. Raises _DrawFailed when it did not draw the map."""
     binary = os.environ.get(BINARY) or shutil.which("polis-topic-map")
     if not binary:
-        raise TopicMapError("polis-topic-map is not installed")
+        raise _DrawFailed("not_installed", "polis-topic-map is not installed")
     work = Path(tempfile.mkdtemp(prefix="topic-map-", dir=writer.directory))
     try:
         paths = {}
@@ -157,32 +210,25 @@ def store_run_map(zid: Any, selection: Optional[str], models: Dict[str, Any], wr
             command += ["--selection", str(selection)]
         try:
             done = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
-        except (OSError, subprocess.TimeoutExpired) as e:
-            raise TopicMapError(f"polis-topic-map did not run: {e}") from e
+        except subprocess.TimeoutExpired as e:
+            raise _DrawFailed("timed_out", f"polis-topic-map did not finish: {e}") from e
+        except OSError as e:
+            raise _DrawFailed("did_not_run", f"polis-topic-map did not run: {e}") from e
         if done.returncode != 0:
             last = (done.stderr.strip().splitlines() or ["no message"])[-1]
-            raise TopicMapError(f"polis-topic-map refused the run's families: {last}")
-        wire = out.read_bytes()
-        family, items = decode_family(wire)
+            raise _DrawFailed("refused", f"polis-topic-map refused the run's families: {last}")
+        try:
+            wire = out.read_bytes()
+            family, items = decode_family(wire)
+        except Exception as e:
+            raise _DrawFailed("wrong_output", f"polis-topic-map wrote no readable family: {e}") from e
         if family != TOPIC_MAP_FAMILY or not items:
-            raise TopicMapError("polis-topic-map wrote another family")
-        table = writer.Table(TOPIC_MAP_FAMILY)
-        for existing in table.scan()["Items"]:
-            table.delete_item(Key={"conversation_id": existing["conversation_id"], "part": existing["part"]})
+            raise _DrawFailed("wrong_output", "polis-topic-map wrote another family")
+        _clear(table)
         for item in items:
             table.put_item(Item={k: to_python(v) for k, v in item.items()})
         if writer.family_wire(TOPIC_MAP_FAMILY) != wire:
-            raise TopicMapError("the stored family is not the generator's bytes")
+            raise _DrawFailed("wrong_output", "the stored family is not the generator's bytes")
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    parts = {item["part"]["S"]: item for item in items}
-    if "no_map" in parts:
-        result = {"outcome": "no_map", "reason": parts["no_map"]["reason"]["S"]}
-        if "bytes" in parts["no_map"]:
-            result["document_bytes"] = int(parts["no_map"]["bytes"]["N"])
-    else:
-        result = {"outcome": "map", "document_bytes": int(parts["document"]["bytes"]["N"]),
-                  "gzip_bytes": int(parts["document.gz"]["bytes"]["N"])}
-    result["family_bytes"] = len(wire)
-    logger.info(f"Topic map document stored: {result}")
-    return result
+    return wire, items
