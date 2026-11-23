@@ -17,7 +17,7 @@
 use crate::votes::{StorageConvention, VoteChoice, WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS};
 use crate::wire::JsNumber;
 use serde::{Deserialize, Serialize};
-use serde_json::{value::RawValue, Value};
+use serde_json::{Value, value::RawValue};
 
 pub const PATH: &str = "/api/v3/votes";
 pub const CONTRACT: &str = "post-votes/1";
@@ -276,27 +276,23 @@ pub struct UnknownAcceptance {
     pub acceptance: String,
     /// Always "same_vote".
     pub retry: String,
-    /// The token of a participant this request created: the last key, so a
-    /// caller that sends the same vote again sends it as that participant.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub auth: Option<Auth>,
+}
+impl Default for UnknownAcceptance {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 impl UnknownAcceptance {
-    pub fn new(auth: Option<Auth>) -> Self {
+    pub fn new() -> Self {
         Self {
             acceptance: "unknown".into(),
             retry: "same_vote".into(),
-            auth,
         }
     }
     pub fn decode(body: &[u8]) -> Result<Self, String> {
         let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-        reject_null_optionals(body, &["auth"])?;
         if value.acceptance != "unknown" || value.retry != "same_vote" {
             return Err("unrecognized unknown acceptance".into());
-        }
-        if let Some(auth) = &value.auth {
-            auth.validate()?;
         }
         Ok(value)
     }

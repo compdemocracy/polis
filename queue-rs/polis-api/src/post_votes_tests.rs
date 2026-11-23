@@ -447,14 +447,10 @@ pub(super) struct DispatchState {
     pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
     pub(super) notification_scheduled: bool,
     pub(super) selection_started: bool,
-    /// A panic to inject into this caller's first-contact task.
+    /// A panic or a pause to inject into this caller's first-contact task.
     pub(super) fault: Option<Fault>,
-    /// Votes this caller's first-contact task counted as not written when it
-    /// ended before its outcome.
-    pub(super) vote_not_written: u64,
-    /// The log line of each of those, as written.
-    pub(super) vote_not_written_lines: Vec<String>,
-    /// This caller's first-contact task, for a test that drops it.
+    /// This caller's first-contact task, for a test that waits until it
+    /// exists.
     pub(super) task: Option<tokio::task::AbortHandle>,
     /// The creating operation's blocking work is waiting at a pause.
     pub(super) worker_paused: bool,
@@ -462,41 +458,35 @@ pub(super) struct DispatchState {
     pub(super) worker_released: bool,
 }
 
-/// Where a first-contact task panics, for a caller that asks for it.
+/// Where a first-contact task fails or waits, for a caller that asks for it.
 #[cfg(feature = "db-tests")]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Fault {
-    /// Before the person is created.
+    /// The task panics before its transaction.
     BeforeCreate,
-    /// After the creating commit, before the request is told of the person.
-    AfterCreate,
-    /// After the request is told of the person, before the vote's dispatch.
-    AfterReport,
-    /// Inside the creating operation's blocking work, before its
-    /// transaction: the worker unwinds.
+    /// Inside the blocking work, before the transaction: the worker unwinds.
     InWorkerBeforeCommit,
-    /// Inside the creating operation's blocking work, after its COMMIT is
-    /// acknowledged: the worker unwinds.
-    InWorkerAfterCommit,
-    /// Inside the creating operation's blocking work, after its COMMIT is
-    /// acknowledged: the pool's lock on its idle connections is poisoned, so
-    /// the pool fails the operation after it succeeded.
-    PoolErrorAfterCommit,
-    /// Inside the creating operation's blocking work, after its COMMIT is
-    /// acknowledged: the worker waits a second before it returns.
-    StallAfterCommit,
-    /// After the vote's dispatch has its outcome, before the request is told.
-    AfterDispatch,
-    /// Inside the creating operation's blocking work, before its
-    /// transaction: the worker waits until the test lets it go on.
+    /// Inside the blocking work, before the transaction: the worker waits
+    /// until the test lets it go on.
     PauseBeforeCommit,
-    /// Inside the creating operation's blocking work, after its COMMIT is
-    /// acknowledged and before the acknowledgement is recorded: the worker
-    /// waits until the test lets it go on.
+    /// Inside the transaction, after the person's rows and before the vote's
+    /// statements, holding the participant-number lock: the worker waits
+    /// until the test lets it go on.
+    PauseInTransaction,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the worker waits until the test lets it go on.
     PauseAfterCommit,
-    /// Inside the creating operation's blocking work, after the acknowledged
-    /// COMMIT is recorded: the worker waits until the test lets it go on.
-    PauseAfterRecord,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the worker unwinds.
+    InWorkerAfterCommit,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the pool's lock on its idle connections is poisoned, so the pool fails
+    /// the operation after it succeeded.
+    PoolErrorAfterCommit,
+    /// The task panics after the commit, before the token is signed.
+    AfterCommit,
+    /// The task panics after the follow-on, before the request is told.
+    AfterFollowOn,
 }
 
 /// Panics when this caller asked for a fault at `at`. The observation's lock
@@ -528,8 +518,7 @@ pub(super) fn inject_in_creation(
     }
     match at {
         Fault::PoolErrorAfterCommit => pool.poison_idle(),
-        Fault::StallAfterCommit => std::thread::sleep(Duration::from_secs(1)),
-        Fault::PauseBeforeCommit | Fault::PauseAfterCommit | Fault::PauseAfterRecord => {
+        Fault::PauseBeforeCommit | Fault::PauseInTransaction | Fault::PauseAfterCommit => {
             let observation = observation.as_ref().unwrap();
             observation.lock().unwrap().worker_paused = true;
             let until = std::time::Instant::now() + Duration::from_secs(10);

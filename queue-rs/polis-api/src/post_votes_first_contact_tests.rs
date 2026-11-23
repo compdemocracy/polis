@@ -9,8 +9,6 @@ use crate::votes::{StorageConvention, VoteChoice};
 use polis_queue_adapter::jobs::transport::Connector;
 use serde_json::{Value, json};
 
-const EXPECTED_UNWRITTEN_ALARMS: u64 = 1;
-
 struct Stage {
     db: Database,
     private: String,
@@ -266,6 +264,25 @@ fn a_first_vote_creates_a_participant_and_answers_with_its_token() {
         .map(|row| row.get::<_, i16>(0)),
         agree()
     );
+    // Row parity with Node, with one accepted difference: the user, the
+    // participant and the vote are written in one transaction, so their
+    // `created` values are that transaction's time (`now_as_millis()` is
+    // `now()`), one equal value; Node's separate statements give rising ones.
+    let created = c
+        .query_one(
+            "select (select created from users where uid=$1),
+                    (select created from participants where uid=$1),
+                    (select created from votes where zid=1 and pid=2 and tid=7)",
+            &[&uid],
+        )
+        .unwrap();
+    let (user_created, participant_created, vote_created) = (
+        created.get::<_, i64>(0),
+        created.get::<_, i64>(1),
+        created.get::<_, i64>(2),
+    );
+    assert_eq!(user_created, participant_created);
+    assert_eq!(participant_created, vote_created);
     // The reply: currentPid, then `auth` as its last key with Node's bytes.
     let value: Value = serde_json::from_str(&body).unwrap();
     assert_eq!(value["currentPid"], json!(2));
@@ -338,17 +355,26 @@ fn with_the_first_contact_switch_off_nothing_changes() {
         assert_eq!(vote(&rt, &off, body, None).0, 502);
     }
     assert_eq!(rows(&stage), before);
-    let health = |app: &Arc<App>| {
+    let keys = |app: &Arc<App>| {
         let Js::Obj(body) = health(app) else {
             unreachable!()
         };
-        body.get("firstContactCommitUnknown").is_some()
+        [
+            "firstContactHandedBack",
+            "firstContactCommitUnknown",
+            "firstContactExtendedInfoDropped",
+            "firstContactVoteNotWritten",
+        ]
+        .map(|key| body.get(key).is_some())
     };
-    assert!(
-        !health(&off),
+    assert_eq!(
+        keys(&off),
+        [false; 4],
         "the health body is unchanged with the switch off"
     );
-    assert!(health(&app(&stage, &rt, true)));
+    // On: the three first-contact counts. A person without their vote can no
+    // longer be written, so there is no count of one.
+    assert_eq!(keys(&app(&stage, &rt, true)), [true, true, true, false]);
 }
 
 #[test]
@@ -411,13 +437,42 @@ fn a_first_contacts_admission_takes_only_its_own_pool() {
         release.send(()).unwrap();
         rt.block_on(work).unwrap().unwrap();
     }
-    // Free again: the creation takes its own pool once, and the vote takes
-    // the append pool once, as a member's vote does.
-    let [append, _, _, own] = pools();
-    assert_eq!(vote(&rt, &app, ballot("2plain"), None).0, 200);
-    let [append2, _, _, own2] = pools();
-    assert_eq!(own2[0], own[0] + 1);
-    assert_eq!(append2[0], append[0] + 1);
+    // Free again, and every connection of the vote append pool held: a first
+    // vote with a star is served all the same. Its person, its vote and its
+    // star take only the first contact's pool (the transaction, then the
+    // star): the append pool not once. The next comment is read on the reads
+    // pool after the commit, as a member's is.
+    let append_held: Vec<_> = (0..4)
+        .map(|_| {
+            let (ready, wait) = std::sync::mpsc::channel();
+            let (release, park) = std::sync::mpsc::channel::<()>();
+            let pool = writer.pool.clone();
+            let work = rt.spawn(async move {
+                pool.with(move |_| {
+                    ready.send(()).unwrap();
+                    park.recv_timeout(Duration::from_secs(5))?;
+                    Ok(())
+                })
+                .await
+            });
+            wait.recv().unwrap();
+            (release, work)
+        })
+        .collect();
+    let [append, _, reads, own] = pools();
+    let starred = json!({"conversation_id": "2plain", "tid": 7, "vote": crate::votes::WIRE_AGREE, "starred": true});
+    let (status, body) = vote(&rt, &app, starred, None);
+    assert_eq!(status, 200, "{body}");
+    let value: Value = serde_json::from_str(&body).unwrap();
+    assert_eq!(value["followOn"]["star"], json!("complete"), "{body}");
+    let [append2, _, reads2, own2] = pools();
+    assert_eq!(append2, append, "the vote append pool");
+    assert_eq!(own2[0], own[0] + 2, "the transaction and the star");
+    assert_eq!(reads2[0], reads[0] + 1, "the next comment");
+    for (release, work) in append_held {
+        release.send(()).unwrap();
+        rt.block_on(work).unwrap().unwrap();
+    }
     // A member's vote never touches the first contact's pool.
     let (status, _) = vote(
         &rt,
@@ -520,142 +575,6 @@ fn newest_user(stage: &Stage) -> i32 {
         .query_one("select max(uid) from users", &[])
         .unwrap()
         .get(0)
-}
-
-#[test]
-fn a_failure_after_creation_carries_the_token() {
-    let stage = stage("first_contact_failure_auth");
-    // The vote's own statement fails after the person is committed: a
-    // unique violation on statement 7 (Node's 406), any other error on
-    // statement 8 (Node's 500).
-    stage
-        .db
-        .connect()
-        .batch_execute(
-            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
-             BEGIN
-               IF NEW.tid = 7 THEN RAISE EXCEPTION 'fixture' USING ERRCODE = 'unique_violation'; END IF;
-               IF NEW.tid = 8 THEN RAISE EXCEPTION 'fixture'; END IF;
-               RETURN NEW;
-             END $$;
-             CREATE TRIGGER refuse_vote BEFORE INSERT ON votes FOR EACH ROW EXECUTE FUNCTION refuse_vote();",
-        )
-        .unwrap();
-    let rt = runtime();
-    let app = app(&stage, &rt, true);
-    // A member's failure: Node's three keys, no token.
-    let member = member_token(&stage, 2, 0);
-    assert_eq!(
-        vote(&rt, &app, ballot("2plain"), Some(&member)),
-        (406, node_refusal(406, "polis_err_vote_duplicate"))
-    );
-    for (tid, status, code, pid) in [
-        (7, 406, "polis_err_vote_duplicate", 2),
-        (8, 500, "polis_err_vote", 3),
-    ] {
-        let before = rows(&stage);
-        let body =
-            json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
-        let (got, reply) = vote(&rt, &app, body, None);
-        assert_eq!(got, status, "{reply}");
-        // The person was created; the vote was not.
-        let after = rows(&stage);
-        assert_eq!(
-            after,
-            vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-            "users, participants, participants_extended, votes"
-        );
-        let token = reply_token(&reply);
-        assert_eq!(
-            reply,
-            format!(
-                r#"{{"error":"{code}","message":"{code}","status":{status},"auth":{{"token":"{token}{AUTH_TAIL}"#
-            )
-        );
-        assert_eq!(
-            claims(&stage, token),
-            (participant::Kind::Anonymous, newest_user(&stage), pid, None)
-        );
-        let decoded = contract::Response::decode(status, reply.as_bytes()).unwrap();
-        assert!(matches!(decoded, contract::Response::Failure(f) if f.auth.is_some()));
-    }
-}
-
-#[test]
-fn a_receipt_of_unknown_acceptance_carries_the_token() {
-    let stage = stage("first_contact_unknown_auth");
-    let rt = runtime();
-    let app = app(&stage, &rt, true);
-    let writer = app.post_votes.as_ref().unwrap();
-    // Every vote append connection held past the reply deadline: the vote is
-    // dispatched and waits, and the reply is the 202 receipt.
-    let mut held = vec![];
-    for _ in 0..4 {
-        let (ready, wait) = std::sync::mpsc::channel();
-        let (release, park) = std::sync::mpsc::channel::<()>();
-        let pool = writer.pool.clone();
-        let work = rt.spawn(async move {
-            pool.with(move |_| {
-                ready.send(()).unwrap();
-                park.recv_timeout(Duration::from_secs(10))?;
-                Ok(())
-            })
-            .await
-        });
-        wait.recv().unwrap();
-        held.push((release, work));
-    }
-    let before = rows(&stage);
-    let (status, body) = vote(&rt, &app, ballot("2plain"), None);
-    assert_eq!(status, 202, "{body}");
-    let token = reply_token(&body).to_owned();
-    assert_eq!(
-        body,
-        format!(
-            r#"{{"acceptance":"unknown","retry":"same_vote","auth":{{"token":"{token}{AUTH_TAIL}"#
-        )
-    );
-    assert!(
-        contract::UnknownAcceptance::decode(body.as_bytes())
-            .unwrap()
-            .auth
-            .is_some()
-    );
-    let uid = newest_user(&stage);
-    assert_eq!(
-        claims(&stage, &token),
-        (participant::Kind::Anonymous, uid, 2, None)
-    );
-    for (release, work) in held {
-        release.send(()).unwrap();
-        rt.block_on(work).unwrap().unwrap();
-    }
-    // The dispatched vote lands for the participant the token names.
-    let mut c = stage.db.connect();
-    let deadline = std::time::Instant::now() + Duration::from_secs(10);
-    while c
-        .query_opt(
-            "select vote from votes_latest_unique where zid=1 and pid=2 and tid=7",
-            &[],
-        )
-        .unwrap()
-        .is_none()
-    {
-        assert!(
-            std::time::Instant::now() < deadline,
-            "the vote never landed"
-        );
-        std::thread::sleep(Duration::from_millis(20));
-    }
-    assert_eq!(
-        rows(&stage),
-        before.iter().map(|n| n + 1).collect::<Vec<_>>()
-    );
-    // Sent again with its token, the same vote creates nobody.
-    let (status, body) = vote(&rt, &app, ballot("2plain"), Some(&token));
-    assert_eq!(status, 200, "{body}");
-    assert!(!body.contains(r#""auth""#));
-    assert_eq!(rows(&stage)[0], before[0] + 1);
 }
 
 #[test]
@@ -1167,8 +1086,8 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
     // transaction until the request has been cancelled, so the request is
     // always gone while its person is being created: before the creating
     // commit and before the vote's dispatch, however the host schedules the
-    // test. The vote on statement 8 always fails after the person is
-    // committed.
+    // test. The vote on statement 8 is always refused, inside the same
+    // transaction as its person.
     stage
         .db
         .connect()
@@ -1182,8 +1101,8 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
     let app = app(&stage, &rt, true);
     let creating = |state: &DispatchState| state.worker_paused;
 
-    // Cancelled during creation: the person is committed after the request
-    // is gone, and their vote is written exactly once all the same.
+    // Cancelled during creation: the person and their vote are committed
+    // together after the request is gone, the vote exactly once.
     let before = rows(&stage);
     let observation = cancelled_first_vote(
         &rt,
@@ -1208,11 +1127,7 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
         "users, participants, participants_extended, votes"
     );
     assert_eq!(stored_votes(&stage, 2, 7), vec![agree()]);
-    assert_eq!(
-        observation.lock().unwrap().vote_not_written,
-        0,
-        "a written vote raised the not-written alarm"
-    );
+    assert!(observation.lock().unwrap().finished);
     let created = newest_user(&stage);
     assert_eq!(
         stage
@@ -1227,35 +1142,19 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
         2
     );
 
-    // Cancelled during creation, and the vote then cannot be written: the
-    // person without their vote is counted and logged as its own event.
-    // The counter is the process's, which tests running beside this one also
-    // raise, so it is read only once this request's own task has ended with
-    // its person committed: another test's alarm can no longer stand in for
-    // this one before this person exists.
-    let not_written = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
+    // Cancelled during creation, and the vote is refused: the person rolls
+    // back with it. Neither exists, and nothing is left that could write.
     let before = rows(&stage);
     let body = json!({"conversation_id": "2plain", "tid": 8, "vote": crate::votes::WIRE_AGREE});
     cancelled_first_vote(&rt, &app, body, Some(Fault::PauseBeforeCommit), |state| {
         creating(state) && rows(&stage) == before
     });
-    let expected = vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]];
-    assert!(
-        eventually(|| rows(&stage) == expected),
-        "the person was not created, or a refused vote was written: {:?} -> {:?}",
-        before,
-        rows(&stage)
-    );
     assert_eq!(
         rows(&stage),
-        expected,
+        before,
         "users, participants, participants_extended, votes"
     );
     assert!(stored_votes(&stage, 3, 8).is_empty());
-    assert!(
-        eventually(|| FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > not_written),
-        "a created person without their vote raised no alarm"
-    );
 
     // Cancelled before the creating commit with the first-contact pool full:
     // handed back with nothing written, and no vote dispatched later.
@@ -1292,21 +1191,7 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
         rt.block_on(held).unwrap().unwrap();
     }
     assert_eq!(rows(&stage), before, "handed back before any write");
-    assert_eq!(
-        observation.lock().unwrap().vote_not_written,
-        0,
-        "a person never created raised the not-written alarm"
-    );
-}
-
-/// A first vote whose first-contact task panics at `fault`: the answer, its
-/// body, and what the task recorded, once the task has ended.
-fn faulted_first_vote(
-    rt: &tokio::runtime::Runtime,
-    app: &Arc<App>,
-    fault: Fault,
-) -> (Outgoing, String, DispatchObservation) {
-    first_vote_at(rt, app, Some(fault))
+    assert!(observation.lock().unwrap().finished);
 }
 
 /// A first vote with no token, as a new person sends it.
@@ -1320,140 +1205,114 @@ fn first_request() -> Request {
     request
 }
 
-/// `faulted_first_vote`, with no fault when `fault` is None.
-fn first_vote_at(
-    rt: &tokio::runtime::Runtime,
-    app: &Arc<App>,
-    fault: Option<Fault>,
-) -> (Outgoing, String, DispatchObservation) {
-    let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = fault;
-    let request = first_request();
-    let app = app.clone();
-    let out = rt.block_on(async {
-        let mut route = Box::pin(crate::route::handle(app, request));
-        std::future::poll_fn(|cx| {
-            observing_dispatch(&observation, || {
-                std::future::Future::poll(route.as_mut(), cx)
-            })
-        })
-        .await
-    });
-    assert!(
-        eventually(|| observation.lock().unwrap().finished),
-        "the first-contact task never ended"
-    );
-    let body = match &out.body {
-        Body::Empty => String::new(),
-        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
-        Body::Chunked(chunks) => String::from_utf8(chunks.concat()).unwrap(),
-    };
-    (out, body, observation)
-}
-
 fn marked_for_node(out: &Outgoing) -> bool {
     out.headers
         .iter()
         .any(|(name, _)| name.eq_ignore_ascii_case("x-polis-vote-dispatch"))
 }
 
-#[test]
-fn a_first_contact_task_that_fails_after_its_creating_commit_is_never_handed_back() {
-    let stage = stage("first_contact_unwind");
-    let rt = runtime();
-    let app = app(&stage, &rt, true);
-
-    // Before the creating commit: handed back to Node, nothing written, no
-    // alarm.
-    let before = rows(&stage);
-    let (out, _, observation) = faulted_first_vote(&rt, &app, Fault::BeforeCreate);
-    assert_eq!(out.status, 502);
-    assert!(marked_for_node(&out), "a hand-back carries its marker");
-    assert_eq!(rows(&stage), before, "nothing written before the commit");
-    assert_eq!(observation.lock().unwrap().vote_not_written, 0);
-
-    // After the creating commit, before the request is told of the person:
-    // Node's answer to a failed vote, never a hand-back; the person without
-    // their vote raises the alarm once.
-    let alarms = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
-    let before = rows(&stage);
-    let (out, body, observation) = faulted_first_vote(&rt, &app, Fault::AfterCreate);
-    assert_eq!(
-        (out.status, body.as_str()),
-        (500, node_refusal(500, "polis_err_vote").as_str())
-    );
-    assert!(!marked_for_node(&out), "never marked for Node");
-    assert_eq!(
-        rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-        "users, participants, participants_extended, votes"
-    );
-    assert_eq!(observation.lock().unwrap().vote_not_written, 1);
-    assert!(FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > alarms);
-
-    // After the request is told of the person, before the vote's dispatch:
-    // the receipt of unknown acceptance with the person's token, never a
-    // hand-back; the alarm is raised once.
-    let alarms = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
-    let before = rows(&stage);
-    let (out, body, observation) = faulted_first_vote(&rt, &app, Fault::AfterReport);
-    assert_eq!(out.status, 202, "{body}");
-    assert!(body.contains(r#""acceptance":"unknown""#), "{body}");
-    assert!(!reply_token(&body).is_empty(), "{body}");
-    assert!(!marked_for_node(&out), "never marked for Node");
-    assert_eq!(
-        rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-        "users, participants, participants_extended, votes"
-    );
-    assert_eq!(observation.lock().unwrap().vote_not_written, 1);
-    assert!(FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > alarms);
-
-    // With no fault, the same lane serves a first vote as before.
-    let before = rows(&stage);
-    let (status, body) = vote(&rt, &app, ballot("2plain"), None);
-    assert_eq!(status, 200, "{body}");
-    assert!(eventually(|| rows(&stage)[3] == before[3] + 1));
-}
-
-/// What a first contact's lifecycle answers, writes and counts when it fails
-/// at each of its states, from before the person is created to the reply.
+/// What a first vote answers.
 #[derive(Debug, PartialEq, Eq)]
 enum Answer {
     /// 502 with the pre-dispatch marker: nginx gives the request to Node.
     HandedBack,
-    /// Node's 500 for a failed vote, unmarked and with no token.
-    VoteFailed,
-    /// 202 of unknown acceptance, unmarked, with the person's token.
-    Unknown,
-    /// 200, unmarked, with the person's token.
+    /// 200, unmarked, with the person's token as its last key and the
+    /// follow-on complete.
     Served,
+    /// 200, unmarked, with the person's token as its last key and the vote's
+    /// receipt, its follow-on degraded.
+    Degraded,
 }
 
 fn answer_of(out: &Outgoing, body: &str) -> Answer {
     let marked = marked_for_node(out);
     match out.status {
         502 if marked => Answer::HandedBack,
-        500 if !marked && body == node_refusal(500, "polis_err_vote") => Answer::VoteFailed,
-        202 if !marked
-            && body.contains(r#""acceptance":"unknown""#)
-            && !reply_token(body).is_empty() =>
-        {
-            Answer::Unknown
+        200 if !marked && !reply_token(body).is_empty() => {
+            let value: Value = serde_json::from_str(body).unwrap();
+            if value["followOn"]["nextComment"] == "degraded" {
+                Answer::Degraded
+            } else {
+                Answer::Served
+            }
         }
-        200 if !marked && !reply_token(body).is_empty() => Answer::Served,
         status => panic!("unexpected answer {status}: {body}"),
     }
 }
 
-/// Every state of a first contact's lifecycle, each with a fault injected at
-/// that point: the answer, the rows written (a person is a user, a
-/// participant and its extended row; then the vote) and the vote-not-written
-/// count. Once the creating COMMIT is acknowledged, no state is handed back,
-/// and a person whose vote is not written is counted once.
+/// A person and their vote: users, participants and participants_extended,
+/// then votes and votes_latest_unique, counted.
+fn person_and_vote(stage: &Stage) -> [i64; 5] {
+    let mut c = stage.db.connect();
+    [
+        "users",
+        "participants",
+        "participants_extended",
+        "votes",
+        "votes_latest_unique",
+    ]
+    .map(|table| {
+        c.query_one(&format!("select count(*) from {table}"), &[])
+            .unwrap()
+            .get(0)
+    })
+}
+
+/// The five counts after a first vote that wrote both (`both`) or neither.
+fn after(before: [i64; 5], both: bool) -> [i64; 5] {
+    before.map(|n| n + i64::from(both))
+}
+
+/// What a state is counted as, in `/health`.
+#[derive(Clone, Copy, Debug)]
+enum Counted {
+    HandedBack,
+    FirstContactHandedBack,
+    CommitUnknown,
+    Degraded,
+    Served,
+}
+
+impl Counted {
+    /// The process's counter, which tests running beside this one also
+    /// raise: a state is asserted to raise it, never to leave the others.
+    fn read(self) -> u64 {
+        match self {
+            Self::HandedBack => &HANDED_BACK,
+            Self::FirstContactHandedBack => &FIRST_CONTACT_HANDED_BACK,
+            Self::CommitUnknown => &FIRST_CONTACT_UNKNOWN,
+            Self::Degraded => &DEGRADED,
+            Self::Served => &SERVED,
+        }
+        .load(Ordering::Relaxed)
+    }
+}
+
+/// The state table of a first vote: each state with a fault injected at that
+/// point, from before its one transaction to its reply. Every row writes the
+/// person and the vote together or neither (users, participants,
+/// participants_extended, votes and votes_latest_unique), and asserts its
+/// answer, the pre-dispatch marker (on a hand-back only) and what it is
+/// counted as. A COMMIT whose acknowledgement is lost is still handed back
+/// and counted as such.
 #[test]
-fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says() {
+fn every_state_of_a_first_vote_writes_its_person_and_vote_together_or_neither() {
     let stage = stage("first_contact_states");
+    // The vote on statement 8 is refused by its own statement, inside the
+    // transaction; the one on statement 9 at COMMIT.
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN RAISE EXCEPTION 'fixture'; END $$;
+             CREATE TRIGGER refuse_vote BEFORE INSERT ON votes FOR EACH ROW
+             WHEN (NEW.tid = 8) EXECUTE FUNCTION refuse_vote();
+             CREATE CONSTRAINT TRIGGER refuse_at_commit AFTER INSERT ON votes
+             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+             WHEN (NEW.tid = 9) EXECUTE FUNCTION refuse_vote();",
+        )
+        .unwrap();
     let rt = runtime();
     let app = app(&stage, &rt, true);
     let lane = || {
@@ -1466,270 +1325,190 @@ fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says()
             .pool
             .clone()
     };
-    // (state, fault, answer, person written, vote written, counted)
+    let on = |tid: u64| json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
+    // (state, fault, body, answer, both written, counted)
     let table = [
         (
-            "task, before creation",
+            "a statement number out of range, before dispatch",
+            None,
+            on(1_u64 << 40),
+            Answer::HandedBack,
+            false,
+            Counted::HandedBack,
+        ),
+        (
+            "the task, before the transaction",
             Some(Fault::BeforeCreate),
+            on(7),
             Answer::HandedBack,
-            0,
-            0,
-            0,
+            false,
+            Counted::HandedBack,
         ),
         (
-            "worker, before the transaction",
+            "the worker unwinds before the transaction",
             Some(Fault::InWorkerBeforeCommit),
+            on(7),
             Answer::HandedBack,
-            0,
-            0,
-            0,
+            false,
+            Counted::FirstContactHandedBack,
         ),
         (
-            "worker unwinds after the acknowledged COMMIT",
+            "the vote's own statement refused, after the person's rows",
+            None,
+            on(8),
+            Answer::HandedBack,
+            false,
+            Counted::FirstContactHandedBack,
+        ),
+        (
+            "the COMMIT refused: its outcome unknown to the writer",
+            None,
+            on(9),
+            Answer::HandedBack,
+            false,
+            Counted::CommitUnknown,
+        ),
+        (
+            "the worker unwinds after the acknowledged COMMIT",
             Some(Fault::InWorkerAfterCommit),
-            Answer::VoteFailed,
-            1,
-            0,
-            1,
-        ),
-        (
-            "pool fails after the operation succeeded",
-            Some(Fault::PoolErrorAfterCommit),
-            Answer::VoteFailed,
-            1,
-            0,
-            1,
-        ),
-        (
-            "creation returned, before the request is told",
-            Some(Fault::AfterCreate),
-            Answer::VoteFailed,
-            1,
-            0,
-            1,
-        ),
-        (
-            "request told, before dispatch",
-            Some(Fault::AfterReport),
-            Answer::Unknown,
-            1,
-            0,
-            1,
-        ),
-        (
-            "vote written, before the request is told",
-            Some(Fault::AfterDispatch),
+            on(7),
             Answer::Served,
-            1,
-            1,
-            0,
+            true,
+            Counted::Served,
         ),
-        ("no fault", None, Answer::Served, 1, 1, 0),
+        (
+            "the pool fails after the acknowledged COMMIT",
+            Some(Fault::PoolErrorAfterCommit),
+            on(7),
+            Answer::Served,
+            true,
+            Counted::Served,
+        ),
+        (
+            "the task, after the COMMIT and before the token",
+            Some(Fault::AfterCommit),
+            on(7),
+            Answer::Degraded,
+            true,
+            Counted::Degraded,
+        ),
+        (
+            "the task, after the follow-on and before the request is told",
+            Some(Fault::AfterFollowOn),
+            on(7),
+            Answer::Degraded,
+            true,
+            Counted::Degraded,
+        ),
+        (
+            "no fault",
+            None,
+            on(7),
+            Answer::Served,
+            true,
+            Counted::Served,
+        ),
     ];
-    for (state, fault, answer, person, vote, counted) in table {
-        let before = rows(&stage);
-        let (out, body, observation) = first_vote_at(&rt, &app, fault);
+    for (state, fault, body, answer, both, counted) in table {
+        let before = person_and_vote(&stage);
+        let count = counted.read();
+        let (out, reply, _) = first_vote_with(&rt, &app, body, fault);
         if fault == Some(Fault::PoolErrorAfterCommit) {
             lane().clear_idle_poison();
         }
-        assert_eq!(answer_of(&out, &body), answer, "{state}: {body}");
-        assert!(
-            eventually(|| rows(&stage)[3] == before[3] + vote),
-            "{state}: the vote"
-        );
+        assert_eq!(answer_of(&out, &reply), answer, "{state}: {reply}");
         assert_eq!(
-            rows(&stage),
-            vec![
-                before[0] + person,
-                before[1] + person,
-                before[2] + person,
-                before[3] + vote
-            ],
-            "{state}: users, participants, participants_extended, votes"
+            person_and_vote(&stage),
+            after(before, both),
+            "{state}: users, participants, participants_extended, votes, votes_latest_unique"
         );
-        assert_eq!(
-            observation.lock().unwrap().vote_not_written,
-            counted as u64,
-            "{state}: counted as not written"
-        );
-        assert_alarm_logged(&observation, counted as u64, state);
+        assert!(counted.read() > count, "{state}: counted as {counted:?}");
+        if both {
+            // The token names the person whose vote was written.
+            let pid = i32::try_from(claims(&stage, reply_token(&reply)).2).unwrap();
+            assert_eq!(stored_votes(&stage, pid, 7), vec![agree()], "{state}");
+        }
     }
 
-    // The task dropped (its runtime stopped) while the creating operation is
-    // still on its way back from an acknowledged COMMIT: no answer at all,
-    // never a hand-back; the person is counted once.
-    let stopping = runtime();
-    let stopped = app_with_lane_lifetime(&stage, &stopping, true, Duration::from_secs(300));
-    let before = rows(&stage);
-    let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = Some(Fault::StallAfterCommit);
-    let watched = observation.clone();
-    let answered = Arc::new(Mutex::new(None));
-    let reply = answered.clone();
-    stopping.spawn(async move {
-        let mut route = Box::pin(crate::route::handle(stopped, first_request()));
-        let out = std::future::poll_fn(|cx| {
-            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
-        })
-        .await;
-        *reply.lock().unwrap() = Some(out.status);
-    });
-    assert!(
-        eventually(|| rows(&stage)[1] == before[1] + 1),
-        "the person is committed"
-    );
-    stopping.shutdown_background();
-    assert!(
-        eventually(|| observation.lock().unwrap().vote_not_written == EXPECTED_UNWRITTEN_ALARMS),
-        "a dropped task after the acknowledged COMMIT is counted"
-    );
-    assert_eq!(
-        *answered.lock().unwrap(),
-        None,
-        "no answer, so no hand-back"
-    );
-    std::thread::sleep(Duration::from_millis(1200));
-    assert_eq!(
-        rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-        "users, participants, participants_extended, votes"
-    );
-    assert_alarm_logged(&observation, 1, "runtime stopped after the recorded COMMIT");
-
-    // The task dropped while the creating operation's blocking work holds the
-    // first contact: in flight before its transaction, with its COMMIT
-    // acknowledged but not yet recorded, and with it recorded. The worker
-    // goes on after the task is gone and commits the person; the request
-    // still waiting gets Node's 500 for a failed vote, never a hand-back, and
-    // the person without their vote is counted and logged once, by the
-    // worker itself in the first two.
-    for (state, pause) in [
+    // The runtime stopped while the transaction waits between the person's
+    // rows and the vote's statements: no answer; the server ends the idle
+    // transaction and nothing is written, then or once the worker goes on.
+    // Stopped after the acknowledged COMMIT: no answer, and both exist.
+    for (state, pause, both) in [
         (
-            "task dropped while the worker is in flight",
-            Fault::PauseBeforeCommit,
+            "runtime stopped inside the transaction",
+            Fault::PauseInTransaction,
+            false,
         ),
         (
-            "task dropped after the COMMIT is acknowledged, before it is recorded",
+            "runtime stopped after the acknowledged COMMIT",
             Fault::PauseAfterCommit,
-        ),
-        (
-            "task dropped after the acknowledged COMMIT is recorded",
-            Fault::PauseAfterRecord,
+            true,
         ),
     ] {
-        let before = rows(&stage);
-        let (out, body, observation) = first_vote_with_task_dropped_at(&rt, &app, pause);
-        assert_eq!(
-            answer_of(&out, &body),
-            Answer::VoteFailed,
-            "{state}: {body}"
+        let stopping = runtime();
+        let stopped = app_with_lane_lifetime(&stage, &stopping, true, Duration::from_secs(300));
+        let before = person_and_vote(&stage);
+        let observation = DispatchObservation::default();
+        observation.lock().unwrap().fault = Some(pause);
+        let watched = observation.clone();
+        let answered = Arc::new(Mutex::new(None));
+        let reply = answered.clone();
+        stopping.spawn(async move {
+            let mut route = Box::pin(crate::route::handle(stopped, first_request()));
+            let out = std::future::poll_fn(|cx| {
+                observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+            })
+            .await;
+            *reply.lock().unwrap() = Some(out.status);
+        });
+        assert!(
+            eventually(|| observation.lock().unwrap().worker_paused),
+            "{state}: the worker reached its pause"
         );
+        stopping.shutdown_background();
+        // Past the transaction's one-second idle bound.
+        std::thread::sleep(Duration::from_millis(1500));
+        assert_eq!(person_and_vote(&stage), after(before, both), "{state}");
+        observation.lock().unwrap().worker_released = true;
+        std::thread::sleep(Duration::from_millis(300));
         assert_eq!(
-            rows(&stage),
-            vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-            "{state}: users, participants, participants_extended, votes"
+            person_and_vote(&stage),
+            after(before, both),
+            "{state}: once the worker goes on"
         );
-        assert_eq!(
-            observation.lock().unwrap().vote_not_written,
-            1,
-            "{state}: counted as not written"
-        );
-        assert_alarm_logged(&observation, 1, state);
+        assert_eq!(*answered.lock().unwrap(), None, "{state}: no answer");
     }
-
-    // A real runtime shutdown while the worker is in flight before its
-    // transaction: the shutdown drops the task (and the request), and the
-    // worker finishes during the shutdown's grace for blocking work. No
-    // answer, so no hand-back; the person is counted and logged once, by the
-    // worker.
-    let stopping = runtime();
-    let stopped = app_with_lane_lifetime(&stage, &stopping, true, Duration::from_secs(300));
-    let before = rows(&stage);
-    let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = Some(Fault::PauseBeforeCommit);
-    let watched = observation.clone();
-    let answered = Arc::new(Mutex::new(None));
-    let reply = answered.clone();
-    stopping.spawn(async move {
-        let mut route = Box::pin(crate::route::handle(stopped, first_request()));
-        let out = std::future::poll_fn(|cx| {
-            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
-        })
-        .await;
-        *reply.lock().unwrap() = Some(out.status);
-    });
-    assert!(
-        eventually(|| observation.lock().unwrap().worker_paused),
-        "the worker is in flight"
-    );
-    let release = observation.clone();
-    let releaser = std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(100));
-        release.lock().unwrap().worker_released = true;
-    });
-    stopping.shutdown_timeout(Duration::from_millis(500));
-    releaser.join().unwrap();
-    assert!(
-        observation.lock().unwrap().finished,
-        "the shutdown dropped the task"
-    );
-    assert!(
-        eventually(|| observation.lock().unwrap().vote_not_written == EXPECTED_UNWRITTEN_ALARMS),
-        "the worker that finished during the shutdown's grace counted the person"
-    );
-    assert_eq!(
-        *answered.lock().unwrap(),
-        None,
-        "no answer, so no hand-back"
-    );
-    assert_eq!(
-        rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-        "users, participants, participants_extended, votes"
-    );
-    assert_alarm_logged(
-        &observation,
-        1,
-        "runtime shutdown while the worker is in flight",
-    );
 }
 
-/// A first vote whose creating operation waits at `pause` while the test
-/// drops its task, then goes on: the answer the request, still waiting, gets
-/// and what was recorded.
-fn first_vote_with_task_dropped_at(
+/// A first vote with `body` and `fault`: the answer, its body, and what was
+/// recorded, once the first-contact task has ended.
+fn first_vote_with(
     rt: &tokio::runtime::Runtime,
     app: &Arc<App>,
-    pause: Fault,
+    body: Value,
+    fault: Option<Fault>,
 ) -> (Outgoing, String, DispatchObservation) {
     let observation = DispatchObservation::default();
-    observation.lock().unwrap().fault = Some(pause);
-    let watched = observation.clone();
+    observation.lock().unwrap().fault = fault;
+    let mut request = req(&body.to_string());
+    request.headers = first_request().headers;
     let app = app.clone();
-    let route = rt.spawn(async move {
-        let mut route = Box::pin(crate::route::handle(app, first_request()));
+    let out = rt.block_on(async {
+        let mut route = Box::pin(crate::route::handle(app, request));
         std::future::poll_fn(|cx| {
-            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+            observing_dispatch(&observation, || {
+                std::future::Future::poll(route.as_mut(), cx)
+            })
         })
         .await
     });
+    // A request handed back before dispatch began has no task.
+    let dispatched = observation.lock().unwrap().receipt.is_some();
     assert!(
-        eventually(|| observation.lock().unwrap().worker_paused),
-        "the worker reached its pause"
+        !dispatched || eventually(|| observation.lock().unwrap().finished),
+        "the first-contact task never ended"
     );
-    let task = observation.lock().unwrap().task.take();
-    task.expect("the first-contact task").abort();
-    assert!(
-        eventually(|| observation.lock().unwrap().finished),
-        "the task was dropped"
-    );
-    assert_eq!(
-        observation.lock().unwrap().vote_not_written,
-        0,
-        "nothing decided while the worker holds the first contact"
-    );
-    observation.lock().unwrap().worker_released = true;
-    let out = rt.block_on(route).unwrap();
     let body = match &out.body {
         Body::Empty => String::new(),
         Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
@@ -1738,26 +1517,100 @@ fn first_vote_with_task_dropped_at(
     (out, body, observation)
 }
 
-/// The vote-not-written alarm was logged `counted` times, each as its own
-/// event naming conversation 1 and nothing of the person.
-fn assert_alarm_logged(observation: &DispatchObservation, counted: u64, state: &str) {
-    let lines = observation.lock().unwrap().vote_not_written_lines.clone();
-    assert_eq!(lines.len() as u64, counted, "{state}: logged {lines:?}");
-    for line in lines {
-        let event: Value = serde_json::from_str(&line).unwrap();
-        let mut keys: Vec<&str> = event
-            .as_object()
+/// A first vote holds the participant-number lock from its participant's
+/// row to its COMMIT. A second first voter in the same conversation waits on
+/// it for at most its 100 ms and is handed back with nothing written; a
+/// member's vote there takes neither that lock nor the conversation's row
+/// lock, and is answered while the lock is held.
+#[test]
+fn a_second_first_voter_waits_on_the_participant_number_lock_at_most_its_bound() {
+    let stage = stage("first_contact_lock");
+    // The participant-number lock as the migrations hold it: until COMMIT.
+    stage
+        .db
+        .connect()
+        .batch_execute(include_str!(
+            "../../../server/postgres/migrations/000044_pid_auto_transaction_lock.sql"
+        ))
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = person_and_vote(&stage);
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = Some(Fault::PauseInTransaction);
+    let watched = observation.clone();
+    let held = app.clone();
+    let first = rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(held, first_request()));
+        let out = std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await;
+        out.status
+    });
+    assert!(
+        eventually(|| observation.lock().unwrap().worker_paused),
+        "the first voter's transaction reached its pause"
+    );
+    // Its transaction holds the participant-number lock (migration 000044).
+    assert!(
+        !stage
+            .db
+            .connect()
+            .query_one("select pg_try_advisory_xact_lock(873791983, 1)", &[])
             .unwrap()
-            .keys()
-            .map(String::as_str)
-            .collect();
-        keys.sort_unstable();
-        assert_eq!(keys, ["count", "ended", "event", "zid"], "{state}: {line}");
-        assert_eq!(
-            event["event"], "post_votes_first_contact_vote_not_written",
-            "{state}: {line}"
-        );
-        assert_eq!(event["zid"], 1, "{state}: {line}");
+            .get::<_, bool>(0),
+        "the participant-number lock is held"
+    );
+    let started = std::time::Instant::now();
+    let (out, reply, _) = first_vote_with(&rt, &app, ballot("2plain"), None);
+    let waited = started.elapsed();
+    assert_eq!(answer_of(&out, &reply), Answer::HandedBack, "{reply}");
+    assert!(
+        waited >= Duration::from_millis(100) && waited < Duration::from_millis(900),
+        "the second first voter waited {waited:?}"
+    );
+    assert_eq!(
+        person_and_vote(&stage),
+        before,
+        "nothing of the second voter"
+    );
+    // A member's vote is answered while the lock is held. A wait on either
+    // lock would end in its own 100 ms lock timeout and a failed vote.
+    let mut member = vec![];
+    for tid in [11, 12, 13, 14] {
+        let body =
+            json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
+        let started = std::time::Instant::now();
+        let (status, reply) = vote(&rt, &app, body, Some(&member_token(&stage, 2, 0)));
+        assert_eq!(status, 200, "{reply}");
+        assert_eq!(stored_votes(&stage, 0, tid), vec![agree()]);
+        member.push(started.elapsed());
+        if member.last().unwrap() < &Duration::from_millis(100) {
+            break;
+        }
+    }
+    eprintln!(
+        "participant-number lock: second first voter waited {waited:?}; member votes {member:?}"
+    );
+    assert!(
+        member.iter().any(|t| *t < Duration::from_millis(100)),
+        "a member's vote was delayed: {member:?}"
+    );
+    // The first voter goes on: both of its person and vote, or, if its
+    // transaction outlived its idle bound meanwhile, neither.
+    observation.lock().unwrap().worker_released = true;
+    let status = rt.block_on(first).unwrap();
+    let now = person_and_vote(&stage);
+    let written = member.len() as i64;
+    let members = [0, 0, 0, written, written];
+    let both = after(before, true);
+    let both: Vec<i64> = both.iter().zip(members).map(|(n, m)| n + m).collect();
+    let neither: Vec<i64> = before.iter().zip(members).map(|(n, m)| n + m).collect();
+    match status {
+        200 => assert_eq!(now.to_vec(), both),
+        502 => assert_eq!(now.to_vec(), neither),
+        other => panic!("the first voter answered {other}"),
     }
 }
 
