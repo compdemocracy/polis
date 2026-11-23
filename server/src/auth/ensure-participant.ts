@@ -702,10 +702,14 @@ function _participantReplyIdentity(
 /**
  * The refusal the middleware answered, from the error it caught, by the same
  * tests its catch applies: the xid account refusal, the three 4xx refusals,
- * and anything else (passed on to the error handler) as "error".
+ * and anything else (passed on to the error handler) as "error". An account
+ * check that could not be made (the database failed, answered 500) is an
+ * error, not the account refusal (403): the person was never classified.
  */
 function _participantReplyRefusal(error: unknown): string {
-  if (isXidAccountError(error)) return "xid_account";
+  if (isXidAccountError(error)) {
+    return error.status >= 500 ? "error" : "xid_account";
+  }
   const message = error instanceof Error ? error.message : undefined;
   if (message === "polis_err_xid_required") return "xid_required";
   if (message === "polis_err_xid_not_allowed") return "xid_not_allowed";
