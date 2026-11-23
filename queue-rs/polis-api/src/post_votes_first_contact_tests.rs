@@ -9,6 +9,8 @@ use crate::votes::{StorageConvention, VoteChoice};
 use polis_queue_adapter::jobs::transport::Connector;
 use serde_json::{Value, json};
 
+const EXPECTED_UNWRITTEN_ALARMS: u64 = 1;
+
 struct Stage {
     db: Database,
     private: String,
@@ -1528,7 +1530,7 @@ fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says()
     );
     stopping.shutdown_background();
     assert!(
-        eventually(|| observation.lock().unwrap().vote_not_written == 1),
+        eventually(|| observation.lock().unwrap().vote_not_written == EXPECTED_UNWRITTEN_ALARMS),
         "a dropped task after the acknowledged COMMIT is counted"
     );
     assert_eq!(
@@ -1622,7 +1624,7 @@ fn every_state_of_a_first_contact_answers_writes_and_counts_as_its_commit_says()
         "the shutdown dropped the task"
     );
     assert!(
-        eventually(|| observation.lock().unwrap().vote_not_written == 1),
+        eventually(|| observation.lock().unwrap().vote_not_written == EXPECTED_UNWRITTEN_ALARMS),
         "the worker that finished during the shutdown's grace counted the person"
     );
     assert_eq!(
