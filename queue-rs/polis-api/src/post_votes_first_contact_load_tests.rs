@@ -497,6 +497,25 @@ const FIRST_VOTERS_UNDER_LOAD: usize = 8;
 /// Rounds of participation per phase: the idle control and each loaded phase
 /// are measured over the same number of samples.
 const ROUNDS: usize = 10;
+/// Every phase, the idle control included, starts round `n` at its start
+/// plus `n` periods. A round lasts as long as its slowest request, and a
+/// handed-back first vote takes far longer than any participation request,
+/// so rounds sent back to back would be short in the control and long in a
+/// loaded phase, and the round's length alone changes how fast every request
+/// in it is answered. At one period the control and a loaded phase differ
+/// only in the first votes' own work. The period is longer than the slowest
+/// loaded round (a parked round, whose first votes each wait out the lock
+/// timeout, has taken up to about 275 ms in a release build); a round that
+/// ends after the next one should have started is counted as an overrun,
+/// printed, and the schedule is not moved.
+const ROUND_PERIOD: Duration = Duration::from_millis(400);
+
+/// How a phase kept to `ROUND_PERIOD`.
+#[derive(Clone, Copy, Debug)]
+struct Cadence {
+    overruns: usize,
+    longest: Duration,
+}
 
 /// What a loaded phase may add over the idle control, the same requests
 /// measured in the same test: at most this share more misses of a read's own
@@ -573,10 +592,14 @@ fn kind(rounds: &[Vec<Answer>], index: usize) -> Vec<Answer> {
         .collect()
 }
 
-fn p95(answers: &[Answer]) -> Duration {
+fn percentile(answers: &[Answer], percent: usize) -> Duration {
     let mut elapsed: Vec<Duration> = answers.iter().map(|a| a.elapsed).collect();
     elapsed.sort_unstable();
-    elapsed[(elapsed.len() * 95).div_ceil(100) - 1]
+    elapsed[(elapsed.len() * percent).div_ceil(100) - 1]
+}
+
+fn p95(answers: &[Answer]) -> Duration {
+    percentile(answers, 95)
 }
 
 /// Each kind of participation in a loaded phase against the idle control:
@@ -584,21 +607,32 @@ fn p95(answers: &[Answer]) -> Duration {
 /// samples, and a 95th percentile within twice the control's plus
 /// `LATENCY_SLACK`. Printed whether or not it holds; the kinds that do not
 /// hold are returned.
-fn latency_failures(phase: &str, control: &[Vec<Answer>], loaded: &[Vec<Answer>]) -> Vec<String> {
+fn latency_failures(
+    phase: &str,
+    (control, control_cadence): (&[Vec<Answer>], Cadence),
+    (loaded, loaded_cadence): (&[Vec<Answer>], Cadence),
+) -> Vec<String> {
     let mut failures = vec![];
+    let ms = |d: Duration| d.as_secs_f64() * 1000.0;
     for (index, name) in KINDS.iter().enumerate() {
         let (idle, busy) = (kind(control, index), kind(loaded, index));
         let misses = |answers: &[Answer]| answers.iter().filter(|a| !answered(a)).count();
         let allowed = misses(&idle) + (busy.len() * MISS_SHARE_PERCENT).div_ceil(100);
         let bound = p95(&idle) * 2 + LATENCY_SLACK;
         report(format!(
-            "latency {phase}: {name}: samples={}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}",
+            "latency {phase}: {name}: period_ms={}; control_samples={}; loaded_samples={}; control_p50_ms={:.1}; loaded_p50_ms={:.1}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}; control_overruns={}; loaded_overruns={}",
+            ROUND_PERIOD.as_millis(),
+            idle.len(),
             busy.len(),
-            p95(&idle).as_secs_f64() * 1000.0,
-            p95(&busy).as_secs_f64() * 1000.0,
-            bound.as_secs_f64() * 1000.0,
+            ms(percentile(&idle, 50)),
+            ms(percentile(&busy, 50)),
+            ms(p95(&idle)),
+            ms(p95(&busy)),
+            ms(bound),
             misses(&idle),
             misses(&busy),
+            control_cadence.overruns,
+            loaded_cadence.overruns,
         ));
         if misses(&busy) > allowed {
             failures.push(format!(
@@ -806,26 +840,46 @@ fn participation_under_first_contact_load(stage: &Stage) {
             rounds.len()
         ));
     };
-    let run = |phase: &str, first: usize| -> Vec<Vec<Answer>> {
+    // Round `n` of a phase starts at the phase's start plus `n` periods
+    // (`ROUND_PERIOD`), never later than that unless the round before it
+    // overran; an overrun does not move the rounds after it.
+    let run = |phase: &str, first: usize| -> (Vec<Vec<Answer>>, Cadence) {
         let comments_before = comment_count(stage);
-        let rounds: Vec<Vec<Answer>> = (0..ROUNDS)
-            .map(|round| {
-                let answers =
-                    participation(&rt, &app, &members, first, &format!("{phase} {round}"));
-                assert_round(phase, round, &answers);
-                answers
-            })
-            .collect();
+        let start = std::time::Instant::now();
+        let mut cadence = Cadence {
+            overruns: 0,
+            longest: Duration::ZERO,
+        };
+        let mut rounds: Vec<Vec<Answer>> = vec![];
+        for round in 0..ROUNDS {
+            let due = start + ROUND_PERIOD * round as u32;
+            std::thread::sleep(due.saturating_duration_since(std::time::Instant::now()));
+            let began = std::time::Instant::now();
+            let answers = participation(&rt, &app, &members, first, &format!("{phase} {round}"));
+            let ended = std::time::Instant::now();
+            cadence.longest = cadence.longest.max(ended - began);
+            if ended > due + ROUND_PERIOD {
+                cadence.overruns += 1;
+            }
+            assert_round(phase, round, &answers);
+            rounds.push(answers);
+        }
         assert_eq!(
             comment_count(stage),
             comments_before + (ROUNDS * COMMENT_WRITES) as i64,
             "{phase}: every member's comment is stored"
         );
-        rounds
+        report(format!(
+            "cadence {phase}: period_ms={}; rounds={ROUNDS}; overruns={}; longest_round_ms={}",
+            ROUND_PERIOD.as_millis(),
+            cadence.overruns,
+            cadence.longest.as_millis()
+        ));
+        (rounds, cadence)
     };
 
     // Idle: the first contact's pool free and no first voter. The control.
-    let idle = run("idle", 0);
+    let (idle, idle_cadence) = run("idle", 0);
     phase_report("idle", &idle, String::new());
     let people_before = people(stage);
 
@@ -848,7 +902,7 @@ fn participation_under_first_contact_load(stage: &Stage) {
     }
     let lane_before = lane.evidence.snapshot();
     let (before, printed_before) = (snapshot(&theirs), snapshot(&printed));
-    let exhausted = run("exhausted", FIRST_VOTERS_UNDER_LOAD);
+    let (exhausted, exhausted_cadence) = run("exhausted", FIRST_VOTERS_UNDER_LOAD);
     let (after, printed_after) = (snapshot(&theirs), snapshot(&printed));
     let lane_after = lane.evidence.snapshot();
     // The first voters: each handed back before dispatch, within a vote's
@@ -906,7 +960,7 @@ fn participation_under_first_contact_load(stage: &Stage) {
         .unwrap();
     let lane_before = lane.evidence.snapshot();
     let (before, printed_before) = (snapshot(&theirs), snapshot(&printed));
-    let parked = run("parked", FIRST_VOTERS_UNDER_LOAD);
+    let (parked, parked_cadence) = run("parked", FIRST_VOTERS_UNDER_LOAD);
     let (after, printed_after) = (snapshot(&theirs), snapshot(&printed));
     let lane_after = lane.evidence.snapshot();
     phase_report(
@@ -936,10 +990,12 @@ fn participation_under_first_contact_load(stage: &Stage) {
     );
     locker.batch_execute("ROLLBACK").unwrap();
 
-    // Each loaded phase against the idle control, both printed first.
+    // Each loaded phase against the idle control, both printed first. All
+    // three ran their rounds at the same period.
+    let control = (&idle[..], idle_cadence);
     let slower = [
-        latency_failures("exhausted", &idle, &exhausted),
-        latency_failures("parked", &idle, &parked),
+        latency_failures("exhausted", control, (&exhausted[..], exhausted_cadence)),
+        latency_failures("parked", control, (&parked[..], parked_cadence)),
     ];
     assert!(
         slower.iter().all(Vec::is_empty),
