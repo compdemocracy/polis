@@ -240,11 +240,18 @@ pub struct DurableSuccess {
     pub vote: AcceptedVote,
     #[serde(rename = "followOn")]
     pub follow_on: FollowOn,
+    /// The token of a participant this reply's request created (a first vote
+    /// with no token): the last key, as Node's token injector places it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<Auth>,
 }
 impl DurableSuccess {
     pub fn decode(body: &[u8]) -> Result<Self, String> {
         let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-        reject_null_optionals(body, &["nextComment"])?;
+        reject_null_optionals(body, &["nextComment", "auth"])?;
+        if let Some(auth) = &value.auth {
+            auth.validate()?;
+        }
         if ![WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS].contains(&value.vote.vote) {
             return Err("invalid wire vote".into());
         }

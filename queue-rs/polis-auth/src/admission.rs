@@ -146,8 +146,54 @@ fn refuse<T>(status: u16, code: &'static str) -> Result<T, Failure> {
 /// response reached the client. Recovery after reply loss needs a separate
 /// client-bound protocol before this can be served.
 pub fn admit(client: &mut Client, request: &Request<'_>) -> Result<Option<Admitted>, Error> {
+    admit_in(client, request, None)
+}
+
+/// `admit`, with each attempt's transaction under `bounds` instead of the
+/// shared five-second policy: for a caller whose own budget is tighter (the
+/// vote writer's first contact waits 100 ms for a lock and one second for a
+/// statement). A lock wait past its bound is a database error: `Unavailable`,
+/// never retried.
+pub fn admit_within(
+    client: &mut Client,
+    request: &Request<'_>,
+    bounds: &Bounds,
+) -> Result<Option<Admitted>, Error> {
+    admit_in(client, request, Some(bounds))
+}
+
+fn begin_within<'a>(
+    client: &'a mut Client,
+    bounds: &Bounds,
+) -> Result<Transaction<'a>, postgres::Error> {
+    let mut tx = client
+        .build_transaction()
+        .isolation_level(postgres::IsolationLevel::ReadCommitted)
+        .start()?;
+    tx.batch_execute(&format!(
+        "SET LOCAL statement_timeout = {}; SET LOCAL lock_timeout = {}; \
+         SET LOCAL idle_in_transaction_session_timeout = {}; \
+         SELECT set_config('transaction_timeout', '{}', true) \
+         WHERE current_setting('server_version_num')::int >= 170000",
+        bounds.statement.as_millis(),
+        bounds.lock.as_millis(),
+        bounds.idle.as_millis(),
+        bounds.transaction.as_millis(),
+    ))?;
+    Ok(tx)
+}
+
+fn admit_in(
+    client: &mut Client,
+    request: &Request<'_>,
+    bounds: Option<&Bounds>,
+) -> Result<Option<Admitted>, Error> {
     for attempt in 0..3 {
-        let mut tx = crate::transaction::begin(client).map_err(|_| Error::Unavailable)?;
+        let mut tx = match bounds {
+            None => crate::transaction::begin(client),
+            Some(bounds) => begin_within(client, bounds),
+        }
+        .map_err(|_| Error::Unavailable)?;
         let result = run(&mut tx, request);
         match result {
             Ok(admitted) => {

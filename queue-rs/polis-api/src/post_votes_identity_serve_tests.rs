@@ -83,6 +83,7 @@ fn app(stage: &Stage, identity_no_write: bool) -> Arc<App> {
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
         identity_no_write,
+        first_contact: None,
     });
     runtime().block_on(async {
         let writer = app.post_votes.as_ref().unwrap();

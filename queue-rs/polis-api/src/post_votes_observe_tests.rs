@@ -1699,6 +1699,7 @@ mod database_tests {
             reads: db::Pool::new(connector(&db)(), read_limits()),
             admins: vec![],
             identity_no_write: false,
+            first_contact: None,
             priorities: Arc::default(),
             follow_on: Arc::new(FollowOnLane::default()),
         };
@@ -1996,6 +1997,7 @@ mod database_tests {
             reads: db::Pool::new(connector(&db)(), read_limits()),
             admins: vec![],
             identity_no_write: false,
+            first_contact: None,
             priorities: Arc::default(),
             follow_on: Arc::new(FollowOnLane::default()),
         });

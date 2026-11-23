@@ -306,6 +306,7 @@ fn recorded_votes_pin_node_differences_or_pre_mutation_handoff() {
         reads: db::Pool::new(connector(), read_limits()),
         admins: vec![],
         identity_no_write: false,
+        first_contact: None,
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
     });

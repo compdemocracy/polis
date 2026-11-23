@@ -142,6 +142,7 @@ impl Observer {
             priorities: &self.priorities,
             follow_on: &self.follow_on,
             identity: false,
+            first_contact: false,
         }
     }
 
@@ -362,6 +363,7 @@ pub(super) async fn handle(app: &App, observer: &Observer, req: &Request, res: R
         fields,
         res: _,
         admission,
+        first_contact: _,
     } = prepared;
     let tid = fields.tid as i32;
     crate::shadow::record(|record| {

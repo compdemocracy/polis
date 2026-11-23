@@ -72,6 +72,7 @@ fn setup_with_statement_timeout(db: &Database, statement_timeout: Duration) -> (
         verifier: participant::Verifier::new(&public, "fixture", "fixture").unwrap(),
         admins: vec![],
         identity_no_write: false,
+        first_contact: None,
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
     });
