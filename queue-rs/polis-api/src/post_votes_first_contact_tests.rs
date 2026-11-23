@@ -53,6 +53,16 @@ fn keys(stage: &Stage) -> polis_auth::keys::Keys {
 /// The live writer with the identity switch on, and the first-contact switch
 /// on or off.
 fn app(stage: &Stage, rt: &tokio::runtime::Runtime, first_contact: bool) -> Arc<App> {
+    app_with_lane_lifetime(stage, rt, first_contact, Duration::from_secs(300))
+}
+
+/// `app`, with the notification lane's connections kept for `lane_lifetime`.
+fn app_with_lane_lifetime(
+    stage: &Stage,
+    rt: &tokio::runtime::Runtime,
+    first_contact: bool,
+    lane_lifetime: Duration,
+) -> Arc<App> {
     let connector = || Connector::Plain(Box::new(stage.db.config.clone()));
     let limits = db::Limits {
         size: 4,
@@ -77,7 +87,11 @@ fn app(stage: &Stage, rt: &tokio::runtime::Runtime, first_contact: bool) -> Arc<
         reads: db::Pool::new(connector(), read_limits()),
         background: NotificationPool::new(db::Pool::writer(
             connector(),
-            db::Limits { size: 2, ..limits },
+            db::Limits {
+                size: 2,
+                max_lifetime: lane_lifetime,
+                ..limits
+            },
         )),
         verifier: participant::Verifier::new(stage.public.as_bytes(), "fixture", "fixture")
             .unwrap(),
@@ -1231,4 +1245,200 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
     }
     std::thread::sleep(Duration::from_millis(300));
     assert_eq!(rows(&stage), before, "handed back before any write");
+}
+
+/// Every new session of the stage's database logs every statement with its
+/// parameters.
+fn log_every_statement(stage: &Stage) {
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "DO $$ BEGIN EXECUTE format('ALTER DATABASE %I SET log_statement = ''all''',
+             current_database()); END $$",
+        )
+        .unwrap();
+}
+
+/// The server's log, once a made-up control value bound on a connection that
+/// logs every statement is in it: None when the server writes no log this
+/// session can read.
+fn logged(stage: &Stage) -> Option<String> {
+    let read = || {
+        stage
+            .db
+            .connect()
+            .query_one("select pg_read_file(pg_current_logfile())", &[])
+            .ok()?
+            .try_get::<_, Option<String>>(0)
+            .ok()?
+    };
+    let control = format!("made-up-control-{}", std::process::id());
+    let mut c = stage.db.connect();
+    c.batch_execute("SET log_statement = 'all'").unwrap();
+    c.query_one("select $1::text", &[&control]).unwrap();
+    for _ in 0..30 {
+        match read() {
+            None => return None,
+            Some(log) if log.contains(&control) => return Some(log),
+            Some(_) => std::thread::sleep(Duration::from_millis(100)),
+        }
+    }
+    None
+}
+
+/// Asserts the log, where the server writes one, holds neither value.
+fn assert_not_logged(stage: &Stage, values: &[&str]) {
+    match logged(stage) {
+        Some(log) => {
+            for value in values {
+                assert!(!log.contains(value), "a value reached the server's log");
+            }
+        }
+        None => eprintln!("no readable server log with the control value: the log is not checked"),
+    }
+}
+
+/// Where the server logs every statement with its parameters, a first
+/// contact's referrer and origin are not sent: the vote and its reply are as
+/// before, the extended row keeps neither, the write is counted as dropped,
+/// and the server's log holds neither value.
+#[test]
+fn a_referrer_and_origin_are_not_sent_where_the_server_logs_parameters() {
+    let stage = stage_with_origin("first_contact_extended_logged");
+    log_every_statement(&stage);
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = rows(&stage);
+    let referrer = format!(
+        "https://example.org/made-up-referrer-{}",
+        std::process::id()
+    );
+    let origin = "https://example.org/made-up-origin";
+    let (status, body) = vote_with(
+        &rt,
+        &app,
+        ballot("2plain"),
+        None,
+        &[("referer", &referrer), ("origin", origin)],
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(body.ends_with(AUTH_TAIL), "{body}");
+    assert_eq!(
+        rows(&stage),
+        before.iter().map(|n| n + 1).collect::<Vec<_>>()
+    );
+    lane_idle(&rt, &app);
+    assert_eq!(extended(&stage), (None, None), "nothing was written");
+    assert_eq!(extended_dropped(&app), 1, "the write is counted");
+    let Js::Obj(health) = health(&app) else {
+        unreachable!()
+    };
+    assert_eq!(
+        health.get("firstContactExtendedInfoDropped"),
+        Some(&Js::Num(1.0))
+    );
+    assert_not_logged(&stage, &[&referrer, origin]);
+}
+
+/// The settings are read on the connection that sends, for each write: with
+/// the server's defaults the referrer and origin are written; once every
+/// statement is logged (set after the lane's pool was built and used), the
+/// next first contact's are not sent, and the drop is counted.
+#[test]
+fn a_logging_setting_changed_after_startup_stops_the_referrer_being_sent() {
+    let stage = stage_with_origin("first_contact_extended_changed");
+    let rt = runtime();
+    // Every lane write opens its own connection, so a setting changed after
+    // the pool was built reaches it.
+    let app = app_with_lane_lifetime(&stage, &rt, true, Duration::from_millis(1));
+    let (status, body) = vote_with(
+        &rt,
+        &app,
+        ballot("2plain"),
+        None,
+        &[
+            ("referer", "https://example.org/made-up-safe?drop-me"),
+            ("origin", "https://example.org"),
+        ],
+    );
+    assert_eq!(status, 200, "{body}");
+    lane_idle(&rt, &app);
+    assert_eq!(
+        extended(&stage),
+        (
+            Some("https://example.org/made-up-safe".into()),
+            Some("https://example.org".into())
+        ),
+        "safe: written"
+    );
+    assert_eq!(extended_dropped(&app), 0);
+    log_every_statement(&stage);
+    let referrer = format!("https://example.org/made-up-later-{}", std::process::id());
+    let (status, body) = vote_with(
+        &rt,
+        &app,
+        ballot("2plain"),
+        None,
+        &[
+            ("referer", &referrer),
+            ("origin", "https://example.org/made-up-later-origin"),
+        ],
+    );
+    assert_eq!(status, 200, "{body}");
+    assert!(body.ends_with(AUTH_TAIL), "{body}");
+    lane_idle(&rt, &app);
+    assert_eq!(extended(&stage), (None, None), "unsafe: not sent");
+    assert_eq!(extended_dropped(&app), 1, "unsafe: counted");
+    assert_not_logged(&stage, &[&referrer, "made-up-later-origin"]);
+}
+
+/// A first vote through a conversation's second code gets the token Node
+/// signs: Node's `getZinvite` names the first row of its own query, not the
+/// code the request used. The token then serves a later vote under that code
+/// as a member's, as Node does. Under the second code Node sees another code
+/// string, resolves both to this conversation and serves the token's
+/// participant; here that request is handed back to Node, with nothing
+/// written.
+#[test]
+fn a_first_vote_through_a_second_code_gets_the_code_node_signs() {
+    let stage = stage_with_another("first_contact_code");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let node: String = stage
+        .db
+        .connect()
+        .query("select * from zinvites where zid = ($1);", &[&1i32])
+        .unwrap()[0]
+        .get("zinvite");
+    assert_eq!(node, "2plain", "Node's query selects the first code");
+    let (status, body) = vote(&rt, &app, ballot("2alias"), None);
+    assert_eq!(status, 200, "{body}");
+    let token = reply_token(&body).to_owned();
+    // `claims` requires a token for `2plain`.
+    let (kind, uid, pid, _) = claims(&stage, &token);
+    assert_eq!(
+        (kind, uid, pid),
+        (participant::Kind::Anonymous, newest_user(&stage), 2)
+    );
+    let later = |cid: &str| {
+        let mut body = ballot(cid);
+        body["tid"] = json!(8);
+        body
+    };
+    let before = rows(&stage);
+    let (status, body) = vote(&rt, &app, later("2plain"), Some(&token));
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(
+        rows(&stage),
+        vec![before[0], before[1], before[2], before[3] + 1],
+        "a member's vote: nobody new"
+    );
+    let before = rows(&stage);
+    assert_eq!(
+        vote(&rt, &app, later("2alias"), Some(&token)).0,
+        502,
+        "the second code: handed back"
+    );
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
 }

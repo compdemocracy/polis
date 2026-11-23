@@ -633,11 +633,11 @@ enum Caller {
     Account { uid: Uid, other: String },
 }
 
-/// The person a first contact creates: the conversation's code for the
-/// token, and for a signed-in account its user and subject (a standard-user
-/// token); None, a new anonymous user.
+/// The person a first contact creates: for a signed-in account its user and
+/// subject (a standard-user token); None, a new anonymous user. The code the
+/// token names is read when the person is created (`create`), as Node reads
+/// it when it signs: not the code the request used.
 struct NewParticipant {
-    cid: String,
     account: Option<(Uid, String)>,
 }
 
@@ -958,8 +958,9 @@ fn decided(
 /// settings could write an external id into the server's log.
 const EXTERNAL_ID_LOGGING: &str = "external_id_logging";
 
-/// Whether an external id may be bound as a parameter on this connection: the
-/// vote observer's rule (`identity::xid_lookup_rule`), with the settings read
+/// Whether an external id (or a first contact's referrer and origin,
+/// `schedule_extended_info`) may be bound as a parameter on this connection:
+/// the vote observer's rule (`identity::xid_lookup_rule`), with the settings read
 /// on this connection for each request, so a setting changed after startup is
 /// seen. Settings that cannot be read count as unsafe.
 fn external_id_may_be_sent(c: &mut Client) -> bool {
@@ -1423,7 +1424,6 @@ async fn prepare(
         (_, None) => return Err(Refused::handback("identity_reads_unconfigured")),
     };
     let env = app.math_env.clone();
-    let conversation = cid.clone();
     let started = tokio::time::Instant::now();
     let admission = tokio::time::timeout(ADMISSION_DEADLINE, async {
         let cache = writer.priorities.clone();
@@ -1470,7 +1470,6 @@ async fn prepare(
         // found open, below: a first contact is refused first.
         Ok(Err(Turned::FirstContact { zid, active })) => {
             first_contact = Some(NewParticipant {
-                cid: conversation,
                 account: account.take(),
             });
             Admitted {
@@ -1715,7 +1714,7 @@ async fn first_contact_vote(
     created: tokio::sync::oneshot::Sender<Result<Created, ()>>,
     done: tokio::sync::oneshot::Sender<Result<Outcome>>,
 ) {
-    let person = match create(
+    let (person, code) = match create(
         &lane,
         &admins,
         admitted.zid,
@@ -1723,7 +1722,7 @@ async fn first_contact_vote(
     )
     .await
     {
-        Ok(person) => person,
+        Ok(created) => created,
         Err(reason) => {
             first_contact_handed_back(reason, admitted.zid);
             let _ = created.send(Err(()));
@@ -1738,7 +1737,7 @@ async fn first_contact_vote(
     if let Some(info) = info {
         schedule_extended_info(&dispatch.background, admitted.zid, admitted.uid, info);
     }
-    let auth = issue(&lane, &person, &new).await;
+    let auth = issue(&lane, &person, &code, &new).await;
     // The dispatch budget starts after the token, as a member's starts at
     // dispatch.
     let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
@@ -1803,56 +1802,76 @@ fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
 
 /// A first contact's writes, on its own pool: a user, the participant's
 /// extended row and the participant under the participant-number lock, in
-/// one transaction (`polis_auth::admission`). Err is the reason it is handed
-/// back; nothing was committed, except for the commit whose outcome is
-/// unknown.
+/// one transaction (`polis_auth::admission`), with the conversation code the
+/// person's token names. Err is the reason it is handed back; nothing was
+/// committed, except for the commit whose outcome is unknown.
+///
+/// The code is the one Node signs with: `getZinvite` takes the first row of
+/// `select * from zinvites where zid = ($1);`, so for a conversation with more
+/// than one code it is that row's, whichever code the request used. The same
+/// query is read here, on this connection, before anything is written.
 async fn create(
     lane: &FirstContact,
     admins: &[i32],
     zid: i32,
     account: Option<Uid>,
-) -> Result<join::Admitted, &'static str> {
+) -> Result<(join::Admitted, String), &'static str> {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     let admitted = lane
         .pool
         .with(move |c| {
-            Ok(join::admit_within(
-                c,
-                &join::Request {
-                    zid: Zid(zid),
-                    identity: account.map_or(join::Identity::Anonymous, join::Identity::Account),
-                    entry: join::Entry::Participation {
-                        create_if_missing: true,
+            let code = c
+                .query("select * from zinvites where zid = ($1);", &[&zid])?
+                .first()
+                .map(|row| row.try_get::<_, String>("zinvite"))
+                .transpose()?;
+            let Some(code) = code else {
+                return Ok(None);
+            };
+            Ok(Some((
+                code,
+                join::admit_within(
+                    c,
+                    &join::Request {
+                        zid: Zid(zid),
+                        identity: account
+                            .map_or(join::Identity::Anonymous, join::Identity::Account),
+                        entry: join::Entry::Participation {
+                            create_if_missing: true,
+                        },
+                        admin_uids: &admin_uids,
+                        x_name: None,
+                        x_email: None,
+                        x_profile_image_url: None,
                     },
-                    admin_uids: &admin_uids,
-                    x_name: None,
-                    x_email: None,
-                    x_profile_image_url: None,
-                },
-                &FIRST_CONTACT_BOUNDS,
-            ))
+                    &FIRST_CONTACT_BOUNDS,
+                ),
+            )))
         })
         .await;
     match admitted {
-        // No connection within 100 ms, or none could be opened: nothing ran.
+        // No connection within 100 ms, none could be opened, or the code
+        // could not be read: nothing was written.
         Err(_) => Err("first_contact_unavailable"),
+        // The conversation has no code left to name: nothing was written.
+        Ok(None) => Err("first_contact_no_code"),
         // A new anonymous user and its participant; for an account, a new
         // participant of that user. Anything else was not this request's.
-        Ok(Ok(Some(admitted)))
+        Ok(Some((code, Ok(Some(admitted)))))
             if admitted.new_participant
                 && match account {
                     None => admitted.new_user,
                     Some(uid) => !admitted.new_user && admitted.uid == uid,
                 } =>
         {
-            Ok(admitted)
+            Ok((admitted, code))
         }
-        Ok(Ok(_)) => Err("first_contact_not_created"),
-        Ok(Err(join::Error::Refused(_))) => Err("first_contact_refused"),
+        Ok(Some((_, Ok(_)))) => Err("first_contact_not_created"),
+        Ok(Some((_, Err(join::Error::Refused(_))))) => Err("first_contact_refused"),
         // A lock wait past 100 ms, a statement past one second, a dropped
         // connection: rolled back.
-        Ok(Err(join::Error::Unavailable)) => Err("first_contact_unavailable"),
-        Ok(Err(join::Error::CommitUnknown)) => Err(FIRST_CONTACT_COMMIT_UNKNOWN),
+        Ok(Some((_, Err(join::Error::Unavailable)))) => Err("first_contact_unavailable"),
+        Ok(Some((_, Err(join::Error::CommitUnknown)))) => Err(FIRST_CONTACT_COMMIT_UNKNOWN),
     }
 }
 
@@ -1894,6 +1913,13 @@ impl ExtendedInfo {
 /// than its column fails it and nothing is written, as in Node. Not admitted
 /// (the lane full) or failed, it is counted and logged with the count only;
 /// the values never reach a line.
+///
+/// A referrer and an origin are personal data, and they are sent only where
+/// the server's log cannot write them: the external id's rule
+/// (`external_id_may_be_sent`), read on the connection that would send them,
+/// just before, for each write, so a setting changed after startup is seen.
+/// Settings that are unsafe or cannot be read: nothing is sent, and the write
+/// is counted as dropped and logged with its reason and a count.
 fn schedule_extended_info(
     lane: &Arc<NotificationPool>,
     zid: i32,
@@ -1904,6 +1930,15 @@ fn schedule_extended_info(
     let modified = crate::clock::now_ms() as i64;
     lane.schedule_reporting(
         move |c| {
+            if !external_id_may_be_sent(c) {
+                let count = EXTENDED_INFO_NOT_SENT.fetch_add(1, Ordering::Relaxed) + 1;
+                if count.is_power_of_two() {
+                    eprintln!(
+                        "{{\"event\":\"post_votes_first_contact_extended_info_not_sent\",\"reason\":\"{EXTERNAL_ID_LOGGING}\",\"count\":{count}}}"
+                    );
+                }
+                anyhow::bail!("{EXTERNAL_ID_LOGGING}");
+            }
             c.execute(
                 "update participants_extended
                  set referrer=coalesce($3,referrer), origin=coalesce($4,origin), modified=$5
@@ -1942,10 +1977,11 @@ fn first_contact_handed_back(reason: &'static str, zid: i32) {
 async fn issue(
     lane: &FirstContact,
     created: &join::Admitted,
+    code: &str,
     new: &NewParticipant,
 ) -> Option<contract::Auth> {
     let keys = lane.keys.clone();
-    let (issuer, audience, cid) = (lane.issuer.clone(), lane.audience.clone(), new.cid.clone());
+    let (issuer, audience, cid) = (lane.issuer.clone(), lane.audience.clone(), code.to_owned());
     let subject = new.account.as_ref().map(|(_, subject)| subject.clone());
     let (uid, pid) = (created.uid, created.pid);
     let token = tokio::task::spawn_blocking(move || {
@@ -2405,6 +2441,9 @@ static ACQUIRE_ALARM_HITS: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_HANDED_BACK: AtomicU64 = AtomicU64::new(0);
 static FIRST_CONTACT_VOTE_NOT_WRITTEN: AtomicU64 = AtomicU64::new(0);
+/// Extended-row writes not sent for the server's logging settings; each is
+/// also counted in `firstContactExtendedInfoDropped`.
+static EXTENDED_INFO_NOT_SENT: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn observe(out: &Outgoing) {
     let (counter, event) = if out.status == 502 {
