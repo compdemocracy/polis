@@ -729,7 +729,23 @@ fn connection_bounds_held_topic_map_answers_keep_their_places_until_written() {
         topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
         let state = app.delphi_topic_map.clone();
         let reads = participation_reads(&app);
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        // The server's send buffer is set small on the listening socket, and
+        // the connections it accepts inherit it, so the kernel cannot take a
+        // whole answer from the server while its reader reads nothing. Left
+        // at its default, an accepted loopback socket on Linux starts with a
+        // send buffer of megabytes, larger than the document: the write would
+        // complete at once and let go of its place, as a completed write
+        // should, and nothing here would be held.
+        let socket = tokio::net::TcpSocket::new_v4().unwrap();
+        socket.set_send_buffer_size(4096).unwrap();
+        let send_buffer = socket.send_buffer_size().unwrap() as usize;
+        assert!(
+            send_buffer * 8 < map.document.len(),
+            "the server's send buffer ({send_buffer} bytes) must be far smaller than the document ({} bytes)",
+            map.document.len()
+        );
+        socket.bind("127.0.0.1:0".parse().unwrap()).unwrap();
+        let listener = socket.listen(64).unwrap();
         let address = listener.local_addr().unwrap();
         let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
         let served = app.clone();
