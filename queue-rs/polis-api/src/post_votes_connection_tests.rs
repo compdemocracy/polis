@@ -579,6 +579,10 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
 /// whatever the outcome.
 #[test]
 fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
+    // The clients of the split run (see `saturation_over_tcp`): no database.
+    if let Ok(target) = std::env::var("POLIS_API_SATURATION_TARGET") {
+        return saturation_over_tcp::clients(&target);
+    }
     let database = Database::new("topic_map_saturation");
     let (mut app, _) = setup(&database);
     store_topic_map(&database, 30_000);
@@ -601,6 +605,10 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
         topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
         warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
+        // The server of the split run: the same app, served over HTTP.
+        if let Ok(address) = std::env::var("POLIS_API_SATURATION_SERVE") {
+            return saturation_over_tcp::serve(app.clone(), &address).await;
+        }
         let reads = participation_reads(&app);
         // Rounds of the three reads, one of each per round, until at least
         // `min_rounds` rounds have been taken and at least `floor` has
@@ -731,6 +739,551 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
             );
         }
     });
+}
+
+/// The saturation load test split across two processes, so that the flood
+/// and the samplers can run outside the server's CPU quota (the server in a
+/// container limited to half a CPU, the clients in another, over TCP).
+///
+/// `POLIS_API_SATURATION_SERVE=<ip:port>`: the test seeds the same fixture,
+/// builds the same app and serves it over HTTP at that address, with a
+/// control listener on the next port, until the clients say stop.
+/// `POLIS_API_SATURATION_TARGET=<host:port>`: the test is the clients: the
+/// same warm-up, control phase, sixteen-client flood and loaded phase, over
+/// HTTP/1.1 with keep-alive, with the same rules. A read's isolation (no wait
+/// for a slot of its own pool, every acquired operation finished, a 502 only
+/// with its own failure) is checked on the server's pool evidence across
+/// each phase, which the control listener reports, with the server's
+/// `cpu.stat`. `POLIS_API_SATURATION_FLOOD=<path>` floods another route;
+/// `POLIS_API_SATURATION_RATE=<requests per second>` paces the flood.
+/// With neither variable set the test runs in one process, as above.
+mod saturation_over_tcp {
+    use super::*;
+    use std::collections::BTreeMap;
+    use std::sync::atomic::AtomicUsize;
+    use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
+    use tokio::net::TcpStream;
+
+    // The same as the test's.
+    const ROUNDS: usize = 40;
+    const EXTRA_MISSES: usize = 2;
+    const WINDOW: Duration = Duration::from_secs(2);
+    const MAP: &str = "/api/v3/delphi/topicMap?report_id=r1";
+    const READS: [&str; 3] = [
+        "/api/v3/nextComment?conversation_id=2fixture",
+        "/api/v3/comments?conversation_id=2fixture",
+        "/api/v3/votes?conversation_id=2fixture",
+    ];
+
+    fn say(line: String) {
+        let line = line + "\n";
+        std::io::Write::write_all(&mut std::io::stdout(), line.as_bytes()).unwrap();
+        std::io::Write::flush(&mut std::io::stdout()).unwrap();
+    }
+
+    fn cgroup(file: &str) -> String {
+        std::fs::read_to_string(format!("/sys/fs/cgroup/{file}"))
+            .unwrap_or_else(|_| "none".into())
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    pub(super) async fn serve(app: Arc<App>, address: &str) {
+        let reads = participation_reads(&app);
+        for ((path, _), expected) in reads.iter().zip(READS) {
+            assert_eq!(*path, expected);
+        }
+        let address: std::net::SocketAddr = address.parse().unwrap();
+        let control_address = std::net::SocketAddr::new(address.ip(), address.port() + 1);
+        let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+        let control = tokio::net::TcpListener::bind(control_address)
+            .await
+            .unwrap();
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let served = app.clone();
+        let handler = Arc::new(move |req: Request| crate::dispatch(served.clone(), None, req));
+        let server = tokio::spawn(crate::http::serve_until(
+            listener,
+            handler,
+            crate::http::Listener::Main,
+            async move {
+                let _ = stopped.await;
+            },
+        ));
+        say(format!(
+            "saturation server ready on {address} (control {control_address}) cpu.max={} memory.max={}",
+            cgroup("cpu.max"),
+            cgroup("memory.max")
+        ));
+        let state = app.delphi_topic_map.clone();
+        let (socket, _) = control.accept().await.unwrap();
+        let (r, mut w) = socket.into_split();
+        let mut lines = BufReader::new(r).lines();
+        while let Some(line) = lines.next_line().await.unwrap() {
+            if line == "stop" {
+                w.write_all(b"stopping\n").await.unwrap();
+                break;
+            }
+            let label = line.strip_prefix("mark ").unwrap_or(&line).to_string();
+            // Once every operation the participation pools acquired has finished.
+            let started = std::time::Instant::now();
+            let settled = loop {
+                let settled = reads.iter().all(|(_, pool)| {
+                    let s = pool.evidence.snapshot();
+                    s[0] == s[3]
+                });
+                if settled || started.elapsed() > Duration::from_secs(2) {
+                    break settled;
+                }
+                tokio::time::sleep(Duration::from_millis(5)).await;
+            };
+            let pools: Vec<String> = reads
+                .iter()
+                .map(|(_, pool)| {
+                    let s = pool.evidence.snapshot();
+                    s.iter()
+                        .map(|n| n.to_string())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                })
+                .collect();
+            let reply = format!(
+                "{label} {} {} {} {} | {}",
+                state.busy(),
+                state.max_in_flight(),
+                settled as u8,
+                pools.join(" "),
+                cgroup("cpu.stat")
+            );
+            say(format!("saturation server mark {reply}"));
+            w.write_all((reply + "\n").as_bytes()).await.unwrap();
+        }
+        let _ = stop.send(());
+        let _ = tokio::time::timeout(Duration::from_secs(10), server).await;
+        say("saturation server stopped".into());
+    }
+
+    /// The server's evidence at one moment.
+    struct Mark {
+        busy: usize,
+        max_in_flight: usize,
+        settled: bool,
+        pools: [[usize; 6]; 3],
+        cpu: BTreeMap<String, u64>,
+    }
+
+    impl Mark {
+        fn parse(line: &str) -> Mark {
+            let (head, cpu) = line.split_once(" | ").expect("a mark line");
+            let f: Vec<&str> = head.split_whitespace().collect();
+            let pool = |s: &str| -> [usize; 6] {
+                let v: Vec<usize> = s.split(',').map(|n| n.parse().unwrap()).collect();
+                v.try_into().unwrap()
+            };
+            let words: Vec<&str> = cpu.split_whitespace().collect();
+            Mark {
+                busy: f[1].parse().unwrap(),
+                max_in_flight: f[2].parse().unwrap(),
+                settled: f[3] == "1",
+                pools: [pool(f[4]), pool(f[5]), pool(f[6])],
+                cpu: words
+                    .chunks(2)
+                    .filter_map(|kv| Some((kv[0].to_string(), kv.get(1)?.parse().ok()?)))
+                    .collect(),
+            }
+        }
+        fn pool_delta(&self, before: &Mark, i: usize) -> [usize; 6] {
+            std::array::from_fn(|k| self.pools[i][k] - before.pools[i][k])
+        }
+        fn cpu_delta(&self, before: &Mark) -> String {
+            ["nr_periods", "nr_throttled", "throttled_usec", "usage_usec"]
+                .iter()
+                .map(|k| {
+                    let d = self.cpu.get(*k).copied().unwrap_or(0) as i64
+                        - before.cpu.get(*k).copied().unwrap_or(0) as i64;
+                    format!("{k}={d}")
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+    }
+
+    struct Control {
+        lines: tokio::io::Lines<BufReader<tokio::net::tcp::OwnedReadHalf>>,
+        w: tokio::net::tcp::OwnedWriteHalf,
+    }
+
+    impl Control {
+        async fn connect(address: &str) -> Control {
+            let started = std::time::Instant::now();
+            let socket = loop {
+                match TcpStream::connect(address).await {
+                    Ok(s) => break s,
+                    Err(e) if started.elapsed() < Duration::from_secs(180) => {
+                        let _ = e;
+                        tokio::time::sleep(Duration::from_millis(200)).await;
+                    }
+                    Err(e) => panic!("the saturation server's control listener {address}: {e}"),
+                }
+            };
+            let (r, w) = socket.into_split();
+            Control {
+                lines: BufReader::new(r).lines(),
+                w,
+            }
+        }
+        async fn send(&mut self, line: &str) -> String {
+            self.w
+                .write_all(format!("{line}\n").as_bytes())
+                .await
+                .unwrap();
+            self.lines
+                .next_line()
+                .await
+                .unwrap()
+                .expect("a control reply")
+        }
+        async fn mark(&mut self, label: &str) -> Mark {
+            Mark::parse(&self.send(&format!("mark {label}")).await)
+        }
+    }
+
+    /// One HTTP/1.1 connection, kept alive while the server keeps it.
+    struct Conn {
+        address: String,
+        stream: Option<BufReader<TcpStream>>,
+        body: Vec<u8>,
+    }
+
+    impl Conn {
+        fn new(address: &str) -> Conn {
+            Conn {
+                address: address.into(),
+                stream: None,
+                body: Vec::new(),
+            }
+        }
+        /// A GET as nginx forwards it; the answer is read whole. Its status.
+        async fn get(&mut self, target: &str, coding: Option<&str>) -> std::io::Result<u16> {
+            if self.stream.is_none() {
+                let s = TcpStream::connect(&self.address).await?;
+                s.set_nodelay(true)?;
+                self.stream = Some(BufReader::new(s));
+            }
+            let mut request =
+                format!("GET {target} HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-Proto: https\r\n");
+            if let Some(coding) = coding {
+                request += &format!("Accept-Encoding: {coding}\r\n");
+            }
+            request += "\r\n";
+            let s = self.stream.as_mut().unwrap();
+            match exchange(s, &request, &mut self.body).await {
+                Ok((status, keep)) => {
+                    if !keep {
+                        self.stream = None;
+                    }
+                    Ok(status)
+                }
+                Err(e) => {
+                    self.stream = None;
+                    Err(e)
+                }
+            }
+        }
+    }
+
+    async fn exchange(
+        s: &mut BufReader<TcpStream>,
+        request: &str,
+        body: &mut Vec<u8>,
+    ) -> std::io::Result<(u16, bool)> {
+        use std::io::{Error, ErrorKind};
+        let eof = || Error::new(ErrorKind::UnexpectedEof, "closed mid-answer");
+        s.get_mut().write_all(request.as_bytes()).await?;
+        let mut line = String::new();
+        if s.read_line(&mut line).await? == 0 {
+            return Err(eof());
+        }
+        let status: u16 = line
+            .split_whitespace()
+            .nth(1)
+            .and_then(|c| c.parse().ok())
+            .ok_or_else(|| Error::new(ErrorKind::InvalidData, line.clone()))?;
+        let (mut length, mut chunked, mut keep) = (None, false, true);
+        loop {
+            line.clear();
+            if s.read_line(&mut line).await? == 0 {
+                return Err(eof());
+            }
+            let h = line.trim_end();
+            if h.is_empty() {
+                break;
+            }
+            if let Some((k, v)) = h.split_once(':') {
+                let (k, v) = (k.trim().to_ascii_lowercase(), v.trim().to_ascii_lowercase());
+                match k.as_str() {
+                    "content-length" => length = v.parse::<usize>().ok(),
+                    "transfer-encoding" => chunked = v.contains("chunked"),
+                    "connection" => keep = !v.contains("close"),
+                    _ => {}
+                }
+            }
+        }
+        if chunked {
+            loop {
+                line.clear();
+                if s.read_line(&mut line).await? == 0 {
+                    return Err(eof());
+                }
+                let size = usize::from_str_radix(line.trim().split(';').next().unwrap_or(""), 16)
+                    .map_err(|_| Error::new(ErrorKind::InvalidData, line.clone()))?;
+                if size == 0 {
+                    loop {
+                        line.clear();
+                        if s.read_line(&mut line).await? == 0 || line.trim().is_empty() {
+                            break;
+                        }
+                    }
+                    break;
+                }
+                body.resize(size + 2, 0);
+                s.read_exact(body).await?;
+            }
+        } else if let Some(n) = length {
+            body.resize(n, 0);
+            s.read_exact(body).await?;
+        } else {
+            body.clear();
+            s.read_to_end(body).await?;
+            keep = false;
+        }
+        Ok((status, keep))
+    }
+
+    type Samples = Vec<Vec<(u16, Duration)>>;
+
+    /// Rounds of the three reads, as the test's `sample`. A connection the
+    /// server closed between requests is opened again, counted, and the
+    /// read retried (timed from the retry).
+    async fn sample(
+        conn: &mut Conn,
+        min_rounds: usize,
+        floor: Duration,
+        reconnects: &mut usize,
+    ) -> (Samples, Duration) {
+        let mut out = vec![Vec::new(); READS.len()];
+        let started = std::time::Instant::now();
+        let mut rounds = 0;
+        while rounds < min_rounds || started.elapsed() < floor {
+            for (i, path) in READS.iter().enumerate() {
+                let mut start = std::time::Instant::now();
+                let status = match conn.get(path, None).await {
+                    Ok(status) => status,
+                    Err(_) => {
+                        *reconnects += 1;
+                        start = std::time::Instant::now();
+                        conn.get(path, None)
+                            .await
+                            .expect("a participation read over HTTP")
+                    }
+                };
+                out[i].push((status, start.elapsed()));
+            }
+            rounds += 1;
+        }
+        (out, started.elapsed())
+    }
+
+    fn quantile(samples: &[(u16, Duration)], q: f64) -> Duration {
+        let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+        d.sort();
+        d[((d.len() - 1) as f64 * q).round() as usize]
+    }
+
+    /// `participation_isolated`, over a phase: the pool's evidence across
+    /// all of the phase's samples of one read.
+    fn isolated_over(path: &str, samples: &[(u16, Duration)], delta: [usize; 6], settled: bool) {
+        let [acquired, waits, timeouts, completed, errors, deadlines] = delta;
+        assert_eq!(
+            (waits, timeouts),
+            (0, 0),
+            "participation must not wait on a pool slot: {path} {delta:?}"
+        );
+        assert!(
+            acquired >= samples.len(),
+            "every participation request must acquire its own pool: {path} {delta:?} for {} samples",
+            samples.len()
+        );
+        assert!(settled, "the server's participation work had not finished");
+        assert_eq!(
+            completed, acquired,
+            "all acquired participation work must finish: {path}"
+        );
+        let failed = samples.iter().filter(|s| s.0 != 200).count();
+        assert!(samples.iter().all(|s| s.0 == 200 || s.0 == 502), "{path}");
+        assert!(
+            errors + deadlines >= failed || path.starts_with("/api/v3/votes?"),
+            "502 without own-route failure evidence: {path} {delta:?}, {failed} answered 502"
+        );
+    }
+
+    pub(super) fn clients(target: &str) {
+        let (host, port) = target.rsplit_once(':').expect("host:port");
+        let control_address = format!("{host}:{}", port.parse::<u16>().unwrap() + 1);
+        let flood_path = std::env::var("POLIS_API_SATURATION_FLOOD").unwrap_or_else(|_| MAP.into());
+        // `POLIS_API_SATURATION_RATE=<requests per second>`: the sixteen
+        // clients together ask no faster than this (unset: as fast as the
+        // server answers, as in the test).
+        let every = std::env::var("POLIS_API_SATURATION_RATE")
+            .ok()
+            .map(|r| Duration::from_secs_f64(16.0 / r.parse::<f64>().expect("a rate")));
+        // The flood has a runtime of its own, the samplers and the control
+        // this thread's, so the samplers do not queue behind the flood.
+        let flood_rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let mut control = Control::connect(&control_address).await;
+            let mut conn = Conn::new(target);
+            let mut reconnects = 0;
+            let _ = sample(&mut conn, ROUNDS, Duration::ZERO, &mut reconnects).await;
+            let c0 = control.mark("control-start").await;
+            let (control_samples, control_window) = sample(&mut conn, ROUNDS, WINDOW, &mut reconnects).await;
+            let c1 = control.mark("control-end").await;
+            let control_rounds = control_samples[0].len();
+            let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let answered = Arc::new(AtomicUsize::new(0));
+            let flood_started = std::time::Instant::now();
+            let flooders: Vec<_> = (0..16)
+                .map(|n| {
+                    let (stop, answered) = (stop.clone(), answered.clone());
+                    let (target, path) = (target.to_string(), flood_path.clone());
+                    let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    flood_rt.spawn(async move {
+                        let mut conn = Conn::new(&target);
+                        let mut answers = BTreeMap::<u16, usize>::new();
+                        let mut errors = 0usize;
+                        // Paced at its share of the rate, if one is given:
+                        // never faster, slower when the server is.
+                        let mut next = tokio::time::Instant::now();
+                        while !stop.load(Ordering::SeqCst) {
+                            if let Some(every) = every {
+                                next += every;
+                                tokio::time::sleep_until(next).await;
+                            }
+                            match tokio::time::timeout(Duration::from_secs(10), conn.get(&path, Some(coding))).await {
+                                Ok(Ok(status)) => {
+                                    *answers.entry(status).or_insert(0) += 1;
+                                    answered.fetch_add(1, Ordering::Relaxed);
+                                }
+                                _ => {
+                                    errors += 1;
+                                    conn.stream = None;
+                                }
+                            }
+                        }
+                        (answers, errors)
+                    })
+                })
+                .collect();
+            // The route is saturated before the first loaded sample.
+            if flood_path == MAP {
+                loop {
+                    let m = control.mark("waiting").await;
+                    if m.max_in_flight == crate::delphi_topic_map::MAX_IN_FLIGHT && m.busy > 0 {
+                        break;
+                    }
+                    assert!(flood_started.elapsed() < Duration::from_secs(30), "the topic map never reached its places");
+                    tokio::time::sleep(Duration::from_millis(5)).await;
+                }
+            } else {
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            }
+            let l0 = control.mark("loaded-start").await;
+            let answered_before = answered.load(Ordering::Relaxed);
+            let (loaded, loaded_window) = sample(&mut conn, control_rounds, WINDOW, &mut reconnects).await;
+            let answered_loaded = answered.load(Ordering::Relaxed) - answered_before;
+            let l1 = control.mark("loaded-end").await;
+            stop.store(true, Ordering::SeqCst);
+            let flood_time = flood_started.elapsed();
+            let (mut maps, mut flood_errors) = (BTreeMap::<u16, usize>::new(), 0);
+            for f in flooders {
+                let (answers, errors) = f.await.unwrap();
+                flood_errors += errors;
+                for (status, n) in answers {
+                    *maps.entry(status).or_insert(0) += n;
+                }
+            }
+            let _ = control.send("stop").await;
+            let loaded_rounds = loaded[0].len();
+            let mut lines = vec![
+                format!(
+                    "topic map saturation over tcp: flood {flood_path} target {target}; clients cpu.max={}; control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} flood_errors={flood_errors} reconnects={reconnects} busy={} max_in_flight={}",
+                    cgroup("cpu.max"),
+                    l1.busy,
+                    l1.max_in_flight
+                ),
+                format!(
+                    "  flood rate: {:.0}/s over the loaded phase ({answered_loaded} in {loaded_window:?}), {:.0}/s over the flood ({} in {flood_time:?})",
+                    answered_loaded as f64 / loaded_window.as_secs_f64(),
+                    maps.values().sum::<usize>() as f64 / flood_time.as_secs_f64(),
+                    maps.values().sum::<usize>()
+                ),
+                format!("  server cpu.stat control: {}", c1.cpu_delta(&c0)),
+                format!("  server cpu.stat loaded: {}", l1.cpu_delta(&l0)),
+            ];
+            for (i, path) in READS.iter().enumerate() {
+                let missed = |v: &[(u16, Duration)]| v.iter().filter(|s| s.0 != 200).count();
+                let (c, l) = (&control_samples[i], &loaded[i]);
+                let (c_missed, l_missed, n_c, n_l) = (missed(c), missed(l), c.len(), l.len());
+                let misses_ok = l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c;
+                let (c95, l95) = (quantile(c, 0.95), quantile(l, 0.95));
+                let p95_ok = l95 <= c95 * 2 + Duration::from_millis(25);
+                lines.push(format!(
+                    "  {path}: control n={n_c} missed={c_missed} p50={:?} p95={c95:?} max={:?}; loaded n={n_l} missed={l_missed} p50={:?} p95={l95:?} max={:?}; misses rule {} p95 rule {} (bound {:?})",
+                    quantile(c, 0.5),
+                    quantile(c, 1.0),
+                    quantile(l, 0.5),
+                    quantile(l, 1.0),
+                    if misses_ok { "ok" } else { "FAIL" },
+                    if p95_ok { "ok" } else { "FAIL" },
+                    c95 * 2 + Duration::from_millis(25)
+                ));
+                lines.push(format!(
+                    "  {path}: server pool evidence control {:?} loaded {:?}",
+                    c1.pool_delta(&c0, i),
+                    l1.pool_delta(&l0, i)
+                ));
+            }
+            say(lines.join("\n"));
+            assert!(maps.get(&200).copied().unwrap_or(0) > 0, "maps were served: {maps:?}");
+            assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
+            assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
+            for (i, path) in READS.iter().enumerate() {
+                let missed = |v: &[(u16, Duration)]| v.iter().filter(|s| s.0 != 200).count();
+                isolated_over(path, &control_samples[i], c1.pool_delta(&c0, i), c1.settled);
+                isolated_over(path, &loaded[i], l1.pool_delta(&l0, i), l1.settled);
+                let (c_missed, l_missed) = (missed(&control_samples[i]), missed(&loaded[i]));
+                let (n_c, n_l) = (control_samples[i].len(), loaded[i].len());
+                assert!(
+                    l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
+                    "{path} missed its deadline more under a saturated topic map: control {c_missed} of {n_c}, loaded {l_missed} of {n_l} (at most {EXTRA_MISSES} in {ROUNDS} more)"
+                );
+                let (c95, l95) = (quantile(&control_samples[i], 0.95), quantile(&loaded[i], 0.95));
+                assert!(
+                    l95 <= c95 * 2 + Duration::from_millis(25),
+                    "{path} lost its latency under a saturated topic map: control p95 {c95:?}, loaded p95 {l95:?}"
+                );
+            }
+        });
+    }
 }
 
 /// Stored map answers held on their way to clients that do not read, through
