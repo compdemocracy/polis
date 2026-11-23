@@ -224,6 +224,27 @@ fn require_open(tx: &mut Transaction<'_>, zid: Zid) -> Result<(), Failure> {
     Ok(())
 }
 
+/// Node's allow-list rule for a request whose identity is an external id
+/// (`_requireXidAllowed`, and `isXidAllowed` by owner): admitted unless the
+/// conversation uses the list and the owner has not listed this external id.
+/// The same read the participation entry makes, for a caller that already
+/// holds the external id's token. None when the conversation has no row.
+pub fn xid_allowed(
+    client: &mut impl postgres::GenericClient,
+    zid: Zid,
+    xid: &str,
+) -> Result<Option<bool>, postgres::Error> {
+    let Some(row) = client.query_opt(
+        "SELECT c.use_xid_whitelist IS TRUE, EXISTS (SELECT 1 FROM xid_whitelist w WHERE w.owner=c.owner AND w.xid=$2) FROM conversations c WHERE c.zid=$1",
+        &[&zid.0, &xid],
+    )?
+    else {
+        return Ok(None);
+    };
+    let (listed_only, listed): (bool, bool) = (row.try_get(0)?, row.try_get(1)?);
+    Ok(Some(!listed_only || listed))
+}
+
 /// What a conversation's row says about joining it.
 struct Rules {
     owner: i32,

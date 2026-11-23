@@ -1698,6 +1698,7 @@ mod database_tests {
             verifier: participant::Verifier::new(&keys.public, "fixture", "fixture").unwrap(),
             reads: db::Pool::new(connector(&db)(), read_limits()),
             admins: vec![],
+            identity_no_write: false,
             priorities: Arc::default(),
             follow_on: Arc::new(FollowOnLane::default()),
         };
@@ -1944,10 +1945,21 @@ mod database_tests {
             let follow_on = observer.follow_on.clone();
             let admitted = observer
                 .reads
-                .with(move |c| admit(c, "c129", &identity, "test", cache, follow_on))
+                .with(move |c| {
+                    admit(
+                        c,
+                        "c129",
+                        &Caller::Member(identity.clone()),
+                        false,
+                        &[],
+                        "test",
+                        cache,
+                        follow_on,
+                    )
+                })
                 .await
                 .unwrap()
-                .unwrap_or_else(|reason| panic!("the 129th conversation is refused: {reason}"));
+                .unwrap_or_else(|reason| panic!("the 129th conversation is refused: {reason:?}"));
             let (_admitted, snapshot) = admitted;
             assert!(
                 tokio::task::spawn_blocking(move || snapshot.validate())
@@ -1983,6 +1995,7 @@ mod database_tests {
             verifier: participant::Verifier::new(&keys.public, "fixture", "fixture").unwrap(),
             reads: db::Pool::new(connector(&db)(), read_limits()),
             admins: vec![],
+            identity_no_write: false,
             priorities: Arc::default(),
             follow_on: Arc::new(FollowOnLane::default()),
         });

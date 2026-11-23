@@ -422,6 +422,10 @@ pub(in crate::post_votes) mod database {
 #[path = "post_votes_safety_tests.rs"]
 mod safety;
 
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_identity_serve_tests.rs"]
+mod identity_serve;
+
 // The route observer installs a caller's state for exactly one synchronous
 // poll. Dispatch creation captures it; the detached task retains it to Drop.
 // Other callers and blocking SQL workers cannot borrow this thread-local state.

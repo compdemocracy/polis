@@ -79,6 +79,7 @@ fn stalled_comment_inserts_do_not_delay_votes() {
         )),
         verifier: participant::Verifier::new(&public, "fixture", "fixture").unwrap(),
         admins: vec![],
+        identity_no_write: false,
         priorities: Arc::default(),
         follow_on: Arc::new(FollowOnLane::default()),
     });

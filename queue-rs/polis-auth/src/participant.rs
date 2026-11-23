@@ -56,6 +56,18 @@ impl RequestIdentity {
     pub fn xid(&self) -> Option<&str> {
         self.xid.as_deref()
     }
+    /// The token's own participant for this request: Some only when the
+    /// request keeps both the token's user and its participant number (a
+    /// token for this conversation code, and for an external-id token the
+    /// external id it is bound to). It is the token's claim, not membership:
+    /// a caller still resolves the participant row.
+    pub fn member(&self) -> Option<Verified> {
+        Some(Verified {
+            uid: self.uid?,
+            pid: self.pid?,
+            kind: self.kind,
+        })
+    }
 }
 
 // Match JavaScript String.trim used by ensureParticipant, including the byte
@@ -357,12 +369,44 @@ pub fn resolve_observed(
     result
 }
 
+/// `resolve`, for a Treevite conversation too: the token's participant row,
+/// whatever the conversation's Treevite setting. Node trusts a participant
+/// token's number in every conversation and applies the Treevite check only to
+/// a request with none; a revoked Treevite session is refused before this.
+pub fn resolve_member(
+    c: &mut impl postgres::GenericClient,
+    zid: Zid,
+    identity: &Verified,
+) -> Result<Option<Pid>, postgres::Error> {
+    let result = resolve_rows(c, zid, identity, true);
+    if matches!(result, Ok(None)) {
+        PROCESS.record(Event::HandoffParticipantMembership);
+    }
+    result
+}
+
 fn resolve_inner(
     c: &mut impl postgres::GenericClient,
     zid: Zid,
     identity: &Verified,
 ) -> Result<Option<Pid>, postgres::Error> {
-    let rows = c.query("select p.pid from participants p join conversations c on c.zid=p.zid where p.zid=$1 and p.uid=$2 and c.treevite_enabled is not true", &[&zid.0, &identity.uid.0])?;
+    resolve_rows(c, zid, identity, false)
+}
+
+fn resolve_rows(
+    c: &mut impl postgres::GenericClient,
+    zid: Zid,
+    identity: &Verified,
+    treevite: bool,
+) -> Result<Option<Pid>, postgres::Error> {
+    let rows = if treevite {
+        c.query(
+            "select pid from participants where zid=$1 and uid=$2",
+            &[&zid.0, &identity.uid.0],
+        )?
+    } else {
+        c.query("select p.pid from participants p join conversations c on c.zid=p.zid where p.zid=$1 and p.uid=$2 and c.treevite_enabled is not true", &[&zid.0, &identity.uid.0])?
+    };
     if rows.len() != 1 {
         return Ok(None);
     }

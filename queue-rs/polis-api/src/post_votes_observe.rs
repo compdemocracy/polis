@@ -141,6 +141,7 @@ impl Observer {
             admins: &self.admins,
             priorities: &self.priorities,
             follow_on: &self.follow_on,
+            identity: false,
         }
     }
 

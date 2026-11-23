@@ -10,7 +10,7 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use contract::{AcceptedVote, DurableSuccess, FollowOn, FollowOnState, NotificationState};
-use polis_auth::{Zid, participant};
+use polis_auth::{PostgresLookup, Uid, Zid, admission as join, participant, xid_account};
 use postgres::Client;
 use std::{
     sync::{
@@ -51,6 +51,10 @@ pub(crate) struct Writer {
     admins: Vec<i32>,
     priorities: Arc<writer_priorities::Cache>,
     follow_on: Arc<FollowOnLane>,
+    /// `POLIS_API_POST_VOTES_IDENTITY_NO_WRITE=1`: the identity cases that
+    /// write nothing (`IDENTITY_NO_WRITE_SWITCH`). Off, admission is exactly
+    /// what it was before the switch existed.
+    pub(crate) identity_no_write: bool,
 }
 
 impl Writer {
@@ -65,6 +69,7 @@ impl Writer {
             admins: _,
             priorities: _,
             follow_on: _,
+            identity_no_write: _,
         } = self;
         let NotificationPool {
             pool: background_pool,
@@ -104,6 +109,7 @@ impl Writer {
             admins: &self.admins,
             priorities: &self.priorities,
             follow_on: &self.follow_on,
+            identity: self.identity_no_write,
         }
     }
 }
@@ -124,6 +130,25 @@ fn switch() -> Result<Switch> {
         Some("1") => Ok(Switch::Live),
         Some("observe") => Ok(Switch::Observe),
         Some(_) => anyhow::bail!("POLIS_API_POST_VOTES must be unset, 0, 1 or observe"),
+    }
+}
+
+/// The identity switch of the live writer. Unset, empty or `0` is off: every
+/// request is admitted, refused and handed back exactly as before the switch
+/// existed. `1` also serves, with no row written and no token minted, an
+/// external-id token's member, a member token beside the four external-id
+/// keys, a member of a conversation that requires or lists external ids, and
+/// a Treevite member whose row is the token's; and it answers, with Node's
+/// bytes, the refusals Node's participant middleware makes before writing.
+/// Read only by the main role, and accepted only beside
+/// `POLIS_API_POST_VOTES=1`; another value is a startup error.
+pub(crate) const IDENTITY_NO_WRITE_SWITCH: &str = "POLIS_API_POST_VOTES_IDENTITY_NO_WRITE";
+
+fn identity_no_write_switch() -> Result<bool> {
+    match std::env::var(IDENTITY_NO_WRITE_SWITCH).ok().as_deref() {
+        None | Some("" | "0") => Ok(false),
+        Some("1") => Ok(true),
+        Some(_) => anyhow::bail!("{IDENTITY_NO_WRITE_SWITCH} must be unset, 0 or 1"),
     }
 }
 
@@ -152,6 +177,12 @@ pub(crate) fn configure(
         !observe_identity || switch == Switch::Observe,
         "{}=observe requires POLIS_API_POST_VOTES=observe",
         identity::SWITCH
+    );
+    // The live writer's identity switch: never read by the shadow role.
+    let identity_no_write = role == crate::shadow::Role::Main && identity_no_write_switch()?;
+    anyhow::ensure!(
+        !identity_no_write || switch == Switch::Live,
+        "{IDENTITY_NO_WRITE_SWITCH}=1 requires POLIS_API_POST_VOTES=1"
     );
     match (role, switch) {
         (_, Switch::Off) => return Ok(Configured::Off),
@@ -250,6 +281,7 @@ pub(crate) fn configure(
         admins,
         priorities,
         follow_on: Arc::new(FollowOnLane::default()),
+        identity_no_write,
     }))
 }
 
@@ -260,6 +292,8 @@ struct Admission<'a> {
     admins: &'a [i32],
     priorities: &'a Arc<writer_priorities::Cache>,
     follow_on: &'a Arc<FollowOnLane>,
+    /// The live writer's identity switch; always false in observe mode.
+    identity: bool,
 }
 
 fn request(req: &Request) -> Option<(String, contract::Request)> {
@@ -326,12 +360,65 @@ fn request_reasoned(req: &Request) -> Result<(String, contract::Request), &'stat
     Ok((cid, raw))
 }
 
+/// The body keys that name an external id. Node's vote route parses only
+/// `xid` (`want("xid", getStringLimitLength(1, 999))`); the profile keys are
+/// not parsed there and change nothing.
+const EXTERNAL_ID_KEYS: [&str; 4] = ["xid", "x_name", "x_profile_image_url", "x_email"];
+
+/// `request_reasoned` with the identity switch on: the four external-id keys
+/// are taken out of the body before the same checks, and the external id the
+/// body names is returned. An external id Node's parser would refuse, or one
+/// that is only whitespace, is handed back for Node to answer.
+fn request_identity(
+    req: &Request,
+) -> Result<(String, contract::Request, Option<String>), &'static str> {
+    match request_reasoned(req) {
+        Err("shape_keys") => {}
+        other => return other.map(|(cid, raw)| (cid, raw, None)),
+    }
+    let value: serde_json::Value = serde_json::from_slice(&req.body).map_err(|_| "shape_json")?;
+    let mut object = value.as_object().ok_or("shape_json")?.clone();
+    if !EXTERNAL_ID_KEYS.iter().any(|key| object.contains_key(*key)) {
+        return Err("shape_keys");
+    }
+    let xid = object.get("xid").cloned();
+    for key in EXTERNAL_ID_KEYS {
+        object.remove(key);
+    }
+    let rest = Request {
+        method: req.method.clone(),
+        target: req.target.clone(),
+        headers: req.headers.clone(),
+        body: serde_json::to_vec(&serde_json::Value::Object(object)).map_err(|_| "shape_json")?,
+    };
+    let (cid, raw) = request_reasoned(&rest)?;
+    let xid = match xid {
+        None | Some(serde_json::Value::Null) => None,
+        Some(value) => match contract::string(&value, 999) {
+            Some(xid)
+                if !matches!(
+                    join::Identity::without_token(Some(&xid)),
+                    join::Identity::Anonymous
+                ) =>
+            {
+                Some(xid)
+            }
+            _ => return Err("xid_parameter"),
+        },
+    };
+    Ok((cid, raw, xid))
+}
+
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
     // Cookies neither authenticate nor disqualify a caller. handle still
     // requires a supported verified Bearer and membership before dispatch.
+    let shape = match &app.post_votes {
+        Some(writer) if writer.identity_no_write => request_identity(req).is_ok(),
+        _ => request(req).is_some(),
+    };
     (app.post_votes.is_some() || app.post_votes_observe.is_some())
         && app.production
-        && request(req).is_some()
+        && shape
         && (app.dev_mode
             || app.use_network_host
             || req.headers.get("x-forwarded-proto") == Some("https"))
@@ -367,20 +454,85 @@ fn priorities(c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
         .raw_for_test()
 }
 
-/// Admission's reads. A refusal is Ok(Err(reason)); live hands every one back.
+/// Who a request is, as admission reads it.
+enum Caller {
+    /// A participant token for this conversation that is not an external
+    /// id's: the only caller when the identity switch is off.
+    Member(participant::Verified),
+    /// Identity switch on: an external-id token for this conversation, for
+    /// the external id it is bound to.
+    Xid {
+        member: participant::Verified,
+        xid: String,
+    },
+    /// Identity switch on: no token, and the external id the body names.
+    /// Only Node's refusals before any write are answered; the rest is
+    /// handed back.
+    Tokenless(Option<String>),
+}
+
+/// A request admission does not admit: handed back for its reason, or
+/// answered with Node's refusal (status and code) before anything is written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Turned {
+    Back(&'static str),
+    Answer(u16, &'static str),
+}
+
+/// The refusals Node's participant middleware answers for a request with no
+/// token before it creates anybody. `polis_auth::admission` makes them in
+/// Node's order; any other decision is handed back.
+const TOKENLESS_REFUSALS: [&str; 4] = [
+    "polis_err_xid_not_allowed",
+    "polis_err_xid_required",
+    "polis_err_treevite_auth_required",
+    "polis_err_xid_owner_account",
+];
+
+/// The server-side bounds of the tokenless decision's read-only snapshot,
+/// within the admission deadline.
+const TOKENLESS_BOUNDS: join::Bounds = join::Bounds {
+    statement: Duration::from_millis(100),
+    lock: Duration::from_millis(100),
+    idle: Duration::from_millis(250),
+    transaction: Duration::from_millis(250),
+};
+
+/// Admission's reads. A refusal is Ok(Err(turned)); with the identity switch
+/// off every one is handed back.
+#[allow(clippy::too_many_arguments)]
 fn admit(
     c: &mut Client,
     cid: &str,
-    identity: &participant::Verified,
+    caller: &Caller,
+    identity_on: bool,
+    admins: &[i32],
     env: &str,
     cache: Arc<writer_priorities::Cache>,
     follow_on: Arc<FollowOnLane>,
-) -> Result<Result<(Admitted, writer_priorities::Snapshot), &'static str>> {
+) -> Result<Result<(Admitted, writer_priorities::Snapshot), Turned>> {
     let Some(zid) = db::zid_for_conversation_id(c, cid)? else {
-        return Ok(Err("unknown_conversation"));
+        return Ok(Err(Turned::Back("unknown_conversation")));
     };
-    let Some(pid) = participant::resolve(c, Zid(zid), identity)? else {
-        return Ok(Err("not_a_participant"));
+    let identity = match caller {
+        Caller::Member(identity) => identity,
+        Caller::Xid { member, xid } => {
+            if let Err(turned) = xid_member(c, zid, member, xid, admins)? {
+                return Ok(Err(turned));
+            }
+            member
+        }
+        Caller::Tokenless(xid) => return Ok(Err(tokenless(c, zid, xid.as_deref(), admins))),
+    };
+    // Node trusts a member token's participant number in a Treevite
+    // conversation too; its Treevite check applies only to a request with none.
+    let pid = if identity_on {
+        participant::resolve_member(c, Zid(zid), identity)?
+    } else {
+        participant::resolve(c, Zid(zid), identity)?
+    };
+    let Some(pid) = pid else {
+        return Ok(Err(Turned::Back("not_a_participant")));
     };
     let row = c.query_one(
         "select c.is_active, c.xid_required, c.use_xid_whitelist,
@@ -393,13 +545,18 @@ fn admit(
     if identity.kind == participant::Kind::StandardUser
         && row.try_get::<_, Option<bool>>(3)?.unwrap_or(false)
     {
-        return Ok(Err("site_owner_standard_user"));
+        return Ok(Err(Turned::Back("site_owner_standard_user")));
     }
-    if row.try_get::<_, Option<bool>>(1)?.unwrap_or(false) {
-        return Ok(Err("xid_required"));
-    }
-    if row.try_get::<_, Option<bool>>(2)?.unwrap_or(false) {
-        return Ok(Err("xid_allowlist"));
+    // Node refuses neither for a caller with a member token: a required
+    // external id only stops a new user, and the allow-list applies only
+    // where the external id is the identity (checked in `xid_member`).
+    if !identity_on {
+        if row.try_get::<_, Option<bool>>(1)?.unwrap_or(false) {
+            return Ok(Err(Turned::Back("xid_required")));
+        }
+        if row.try_get::<_, Option<bool>>(2)?.unwrap_or(false) {
+            return Ok(Err(Turned::Back("xid_allowlist")));
+        }
     }
     let snapshot = cache.snapshot(c, zid, env)?;
     Ok(Ok((
@@ -414,6 +571,64 @@ fn admit(
         },
         snapshot,
     )))
+}
+
+/// An external-id token's member, as Node checks it on every vote: the
+/// signed user's account first (hybrid auth, `requireXidParticipantAccount`),
+/// then the owner's allow-list (`_requireXidAllowed`). An account check that
+/// cannot be read is handed back, never refused.
+fn xid_member(
+    c: &mut Client,
+    zid: i32,
+    member: &participant::Verified,
+    xid: &str,
+    admins: &[i32],
+) -> Result<Result<(), Turned>> {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let account = xid_account::Check {
+        db: &mut PostgresLookup(c),
+        admin_uids: &admin_uids,
+    }
+    .require_participant(member.uid());
+    match account {
+        Ok(()) => {}
+        Err(xid_account::Refusal::Privileged(_)) => {
+            return Ok(Err(Turned::Answer(403, "polis_err_xid_owner_account")));
+        }
+        Err(xid_account::Refusal::CheckFailed) => {
+            return Ok(Err(Turned::Back("account_check_failed")));
+        }
+    }
+    Ok(match join::xid_allowed(c, Zid(zid), xid)? {
+        Some(true) => Ok(()),
+        Some(false) => Err(Turned::Answer(403, "polis_err_xid_not_allowed")),
+        None => Err(Turned::Back("unknown_conversation")),
+    })
+}
+
+/// A request with no token: what admission's participation entry decides, by
+/// reads alone in one read-only snapshot. Node's refusals before any write
+/// are answered; everything else (a first contact, which writes) goes back.
+fn tokenless(c: &mut Client, zid: i32, xid: Option<&str>, admins: &[i32]) -> Turned {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let identity = join::Identity::without_token(xid);
+    let Ok(mut snapshot) = join::snapshot(c, &TOKENLESS_BOUNDS) else {
+        return Turned::Back("admission_unavailable");
+    };
+    let decision = snapshot.decide(&join::Participation {
+        zid: Zid(zid),
+        identity: &identity,
+        create_if_missing: true,
+        admin_uids: &admin_uids,
+    });
+    snapshot.end();
+    match decision.map(|decision| decision.outcome) {
+        Ok(join::Outcome::Refused(refusal)) if TOKENLESS_REFUSALS.contains(&refusal.code) => {
+            Turned::Answer(refusal.status, refusal.code)
+        }
+        Ok(_) => Turned::Back("no_token"),
+        Err(_) => Turned::Back("admission_unavailable"),
+    }
 }
 
 fn next(
@@ -755,6 +970,17 @@ impl Refused {
             admission: None,
         })
     }
+
+    /// Node's answer to a request refused before anything is written.
+    fn answered(out: Outgoing, reason: &'static str) -> Box<Self> {
+        Box::new(Self {
+            out,
+            reason,
+            member: None,
+            fields: None,
+            admission: None,
+        })
+    }
 }
 
 /// Everything before dispatch, for live and observe alike: the request
@@ -766,20 +992,71 @@ async fn prepare(
     req: &Request,
     res: Res,
 ) -> Result<Prepared, Box<Refused>> {
-    let (cid, raw) = request_reasoned(req).map_err(Refused::handback)?;
+    let (cid, raw, named) = if writer.identity {
+        request_identity(req)
+    } else {
+        request_reasoned(req).map(|(cid, raw)| (cid, raw, None))
+    }
+    .map_err(Refused::handback)?;
     let auth = req.headers.get("authorization");
-    let Some(identity) = auth.and_then(|auth| {
-        writer
-            .verifier
-            .verify(auth, &cid, (crate::clock::now_ms() / 1000.0) as u64)
-    }) else {
-        return Err(Refused::handback(if auth.is_none() {
-            "no_token"
-        } else {
-            "token_refused"
-        }));
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let caller = match auth {
+        None if writer.identity => Caller::Tokenless(named),
+        None => return Err(Refused::handback("no_token")),
+        Some(auth) if writer.identity => {
+            // The account check of an external-id token runs with
+            // admission's reads (`xid_member`), on the signed user.
+            let mut deferred =
+                |_: Uid| Ok::<Option<xid_account::Account>, polis_auth::Unavailable>(None);
+            let scoped = writer
+                .verifier
+                .verify_for_request(
+                    auth,
+                    &cid,
+                    named.as_deref(),
+                    now,
+                    &mut xid_account::Check {
+                        db: &mut deferred,
+                        admin_uids: &[],
+                    },
+                )
+                .ok()
+                .flatten();
+            let Some((member, xid)) = scoped
+                .as_ref()
+                .and_then(|scoped| Some((scoped.member()?, scoped.xid().map(str::to_owned))))
+            else {
+                return Err(Refused::handback("token_refused"));
+            };
+            match (member.kind, xid) {
+                (participant::Kind::Xid, Some(xid)) => {
+                    // Node's hybrid auth refuses an administrator's
+                    // external-id token before it reads the conversation.
+                    if writer.admins.contains(&member.uid().0) {
+                        return Err(Refused::answered(
+                            route::fail_json(
+                                req,
+                                res,
+                                403,
+                                Js::Str("polis_err_xid_owner_account".into()),
+                            ),
+                            "xid_owner_account",
+                        ));
+                    }
+                    Caller::Xid { member, xid }
+                }
+                (participant::Kind::Xid, None) => return Err(Refused::handback("token_refused")),
+                _ => Caller::Member(member),
+            }
+        }
+        Some(auth) => match writer.verifier.verify(auth, &cid, now) {
+            Some(identity) => Caller::Member(identity),
+            None => return Err(Refused::handback("token_refused")),
+        },
     };
-    if writer.admins.contains(&identity.uid().0) {
+    if let Caller::Member(identity) = &caller
+        && writer.admins.contains(&identity.uid().0)
+    {
         return Err(Refused::handback("admin"));
     }
     let env = app.math_env.clone();
@@ -787,11 +1064,24 @@ async fn prepare(
     let admission = tokio::time::timeout(ADMISSION_DEADLINE, async {
         let cache = writer.priorities.clone();
         let follow_on = writer.follow_on.clone();
+        let identity_on = writer.identity;
+        let admins = writer.admins.to_vec();
         let prepared = writer
             .reads
-            .with(move |c| admit(c, &cid, &identity, &env, cache, follow_on))
+            .with(move |c| {
+                admit(
+                    c,
+                    &cid,
+                    &caller,
+                    identity_on,
+                    &admins,
+                    &env,
+                    cache,
+                    follow_on,
+                )
+            })
             .await
-            .map_err(|_| "admission_unavailable")?;
+            .map_err(|_| Turned::Back("admission_unavailable"))?;
         let (mut admitted, snapshot) = prepared?;
         // Parsing, coalescing and shape validation hold no admission SQL
         // slot. A timed-out first caller can leave the generation warming,
@@ -800,20 +1090,28 @@ async fn prepare(
             match tokio::task::spawn_blocking(move || snapshot.validate()).await {
                 Ok(Ok(weights)) => weights,
                 Ok(Err(error)) if error.is::<writer_priorities::CacheBusy>() => {
-                    return Err("priorities_busy");
+                    return Err(Turned::Back("priorities_busy"));
                 }
-                Ok(Err(_)) => return Err("priorities_invalid"),
-                Err(_) => return Err("admission_unavailable"),
+                Ok(Err(_)) => return Err(Turned::Back("priorities_invalid")),
+                Err(_) => return Err(Turned::Back("admission_unavailable")),
             },
         );
-        Ok::<_, &'static str>(admitted)
+        Ok::<_, Turned>(admitted)
     })
     .await;
     let admission_time = started.elapsed();
     let admitted = match admission {
         Ok(Ok(admitted)) => admitted,
-        Ok(Err(reason)) => {
+        Ok(Err(Turned::Back(reason))) => {
             let mut refused = Refused::handback(reason);
+            refused.admission = Some(admission_time);
+            return Err(refused);
+        }
+        Ok(Err(Turned::Answer(status, code))) => {
+            let mut refused = Refused::answered(
+                route::fail_json(req, res, status, Js::Str(code.into())),
+                code,
+            );
             refused.admission = Some(admission_time);
             return Err(refused);
         }
