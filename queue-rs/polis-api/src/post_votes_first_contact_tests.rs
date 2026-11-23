@@ -1086,25 +1086,52 @@ fn with_the_first_contact_switch_off_no_extended_row_is_written() {
 }
 
 /// A first vote whose request is cancelled (as the listener's request
-/// deadline cancels it) after `after`, while its person is being created.
+/// deadline cancels it) once `ready` holds of its dispatch, and never before
+/// that: the request is dropped, never answered. `fault` is the pause the
+/// first-contact task is given, released only after the request is gone.
+/// Returns once that task has ended, with its observation.
 fn cancelled_first_vote(
     rt: &tokio::runtime::Runtime,
     app: &Arc<App>,
     body: Value,
-    after: Duration,
-) -> bool {
+    fault: Option<Fault>,
+    ready: impl Fn(&DispatchState) -> bool,
+) -> DispatchObservation {
     let mut request = req(&body.to_string());
     request.headers = Headers::from_raw([
         ("host", "localhost"),
         ("content-type", "application/json"),
         ("x-forwarded-proto", "https"),
     ]);
+    let observation = DispatchObservation::default();
+    observation.lock().unwrap().fault = fault;
+    let watched = observation.clone();
     let app = app.clone();
-    rt.block_on(async move {
-        tokio::time::timeout(after, crate::route::handle(app, request))
-            .await
-            .is_err()
-    })
+    let route = rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(app, request));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await
+    });
+    assert!(
+        eventually(|| ready(&observation.lock().unwrap())),
+        "the first contact never reached the state the request is cancelled in"
+    );
+    route.abort();
+    match rt.block_on(route) {
+        Err(error) => assert!(error.is_cancelled(), "the request panicked: {error}"),
+        Ok(out) => panic!(
+            "the request must be cancelled before it is answered, not answered {}",
+            out.status
+        ),
+    }
+    observation.lock().unwrap().worker_released = true;
+    assert!(
+        eventually(|| observation.lock().unwrap().finished),
+        "the first-contact task never ended"
+    );
+    observation
 }
 
 /// Waits, up to five seconds, until `done` holds.
@@ -1136,44 +1163,56 @@ fn stored_votes(stage: &Stage, pid: i32, tid: i32) -> Vec<Option<i16>> {
 #[test]
 fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() {
     let stage = stage("first_contact_cancelled");
-    // Creating the user takes 0.4 s (below the one-second statement bound),
-    // so the request is cancelled while the creating transaction runs, before
-    // its commit and before the vote's dispatch. The vote on statement 8
-    // always fails after the person is committed.
+    // The creating operation's blocking work waits at its pause before its
+    // transaction until the request has been cancelled, so the request is
+    // always gone while its person is being created: before the creating
+    // commit and before the vote's dispatch, however the host schedules the
+    // test. The vote on statement 8 always fails after the person is
+    // committed.
     stage
         .db
         .connect()
         .batch_execute(
-            "CREATE FUNCTION slow_user() RETURNS trigger LANGUAGE plpgsql AS $$
-             BEGIN PERFORM pg_sleep(0.4); RETURN NEW; END $$;
-             CREATE TRIGGER slow_user BEFORE INSERT ON users FOR EACH ROW EXECUTE FUNCTION slow_user();
-             CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
              BEGIN IF NEW.tid = 8 THEN RAISE EXCEPTION 'fixture'; END IF; RETURN NEW; END $$;
              CREATE TRIGGER refuse_vote BEFORE INSERT ON votes FOR EACH ROW EXECUTE FUNCTION refuse_vote();",
         )
         .unwrap();
     let rt = runtime();
     let app = app(&stage, &rt, true);
+    let creating = |state: &DispatchState| state.worker_paused;
 
     // Cancelled during creation: the person is committed after the request
     // is gone, and their vote is written exactly once all the same.
     let before = rows(&stage);
-    assert!(
-        cancelled_first_vote(&rt, &app, ballot("2plain"), Duration::from_millis(100)),
-        "the request must be cancelled before it is answered"
+    let observation = cancelled_first_vote(
+        &rt,
+        &app,
+        ballot("2plain"),
+        Some(Fault::PauseBeforeCommit),
+        |state| {
+            // Nothing is committed while the request is still there.
+            creating(state) && rows(&stage) == before
+        },
     );
+    let expected = vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3] + 1];
     assert!(
-        eventually(|| rows(&stage)[3] == before[3] + 1),
+        eventually(|| rows(&stage) == expected),
         "the created person's vote was never written: {:?} -> {:?}",
         before,
         rows(&stage)
     );
     assert_eq!(
         rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3] + 1],
+        expected,
         "users, participants, participants_extended, votes"
     );
     assert_eq!(stored_votes(&stage, 2, 7), vec![agree()]);
+    assert_eq!(
+        observation.lock().unwrap().vote_not_written,
+        0,
+        "a written vote raised the not-written alarm"
+    );
     let created = newest_user(&stage);
     assert_eq!(
         stage
@@ -1190,25 +1229,33 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
 
     // Cancelled during creation, and the vote then cannot be written: the
     // person without their vote is counted and logged as its own event.
+    // The counter is the process's, which tests running beside this one also
+    // raise, so it is read only once this request's own task has ended with
+    // its person committed: another test's alarm can no longer stand in for
+    // this one before this person exists.
     let not_written = FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed);
     let before = rows(&stage);
     let body = json!({"conversation_id": "2plain", "tid": 8, "vote": crate::votes::WIRE_AGREE});
-    assert!(cancelled_first_vote(
-        &rt,
-        &app,
-        body,
-        Duration::from_millis(100)
-    ));
+    cancelled_first_vote(&rt, &app, body, Some(Fault::PauseBeforeCommit), |state| {
+        creating(state) && rows(&stage) == before
+    });
+    let expected = vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]];
+    assert!(
+        eventually(|| rows(&stage) == expected),
+        "the person was not created, or a refused vote was written: {:?} -> {:?}",
+        before,
+        rows(&stage)
+    );
+    assert_eq!(
+        rows(&stage),
+        expected,
+        "users, participants, participants_extended, votes"
+    );
+    assert!(stored_votes(&stage, 3, 8).is_empty());
     assert!(
         eventually(|| FIRST_CONTACT_VOTE_NOT_WRITTEN.load(Ordering::Relaxed) > not_written),
         "a created person without their vote raised no alarm"
     );
-    assert_eq!(
-        rows(&stage),
-        vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
-        "users, participants, participants_extended, votes"
-    );
-    assert!(stored_votes(&stage, 3, 8).is_empty());
 
     // Cancelled before the creating commit with the first-contact pool full:
     // handed back with nothing written, and no vote dispatched later.
@@ -1231,22 +1278,25 @@ fn a_request_cancelled_while_its_person_is_created_still_writes_the_vote_once() 
             (release, held)
         })
         .unzip();
+    // Cancelled once its first-contact task exists, and the task has ended
+    // (its connection wait ran out) before the pool is let go: nothing is
+    // left that could write later.
     let before = rows(&stage);
-    assert!(cancelled_first_vote(
-        &rt,
-        &app,
-        ballot("2plain"),
-        Duration::from_millis(50)
-    ));
-    std::thread::sleep(Duration::from_millis(300));
+    let observation = cancelled_first_vote(&rt, &app, ballot("2plain"), None, |state| {
+        state.task.is_some()
+    });
     for release in release {
         release.send(()).unwrap();
     }
     for held in held {
         rt.block_on(held).unwrap().unwrap();
     }
-    std::thread::sleep(Duration::from_millis(300));
     assert_eq!(rows(&stage), before, "handed back before any write");
+    assert_eq!(
+        observation.lock().unwrap().vote_not_written,
+        0,
+        "a person never created raised the not-written alarm"
+    );
 }
 
 /// A first vote whose first-contact task panics at `fault`: the answer, its
