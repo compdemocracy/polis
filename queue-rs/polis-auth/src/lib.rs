@@ -1,5 +1,5 @@
 //! Authority decisions for already verified identities. This crate does not
-//! issue or log tokens or install HTTP routes. Participant verification and
+//! log tokens or install HTTP routes. Participant verification and
 //! existing-membership reads are in the participant module.
 //! Transactional admission is shared by the opt-in Treevite write handlers.
 //!
@@ -295,3 +295,5 @@ pub mod keys;
 
 pub mod login_code;
 pub mod revocation;
+
+pub mod participant_mint;
