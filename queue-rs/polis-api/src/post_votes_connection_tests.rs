@@ -802,7 +802,18 @@ mod saturation_over_tcp {
             .unwrap();
         let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
         let served = app.clone();
-        let handler = Arc::new(move |req: Request| crate::dispatch(served.clone(), None, req));
+        // Per read, the pool evidence at the arrival of each request for it
+        // since the client last asked (`settle`): the evidence of one sample
+        // alone, as `participation_read` takes it in one process.
+        let arrivals: Arc<[std::sync::Mutex<Vec<[usize; 6]>>; 3]> = Arc::new(Default::default());
+        let pools: Vec<Arc<db::Pool>> = reads.iter().map(|(_, pool)| pool.clone()).collect();
+        let seen = arrivals.clone();
+        let handler = Arc::new(move |req: Request| {
+            if let Some(i) = READS.iter().position(|path| req.target == *path) {
+                seen[i].lock().unwrap().push(pools[i].evidence.snapshot());
+            }
+            crate::dispatch(served.clone(), None, req)
+        });
         let server = tokio::spawn(crate::http::serve_until(
             listener,
             handler,
@@ -824,6 +835,37 @@ mod saturation_over_tcp {
             if line == "stop" {
                 w.write_all(b"stopping\n").await.unwrap();
                 break;
+            }
+            // `settle <read>`: the requests for that read since the last
+            // settle, and its own pool's evidence across them once every
+            // operation they acquired has finished (`participation_read`'s
+            // condition, here with a ceiling of five seconds).
+            if let Some(i) = line.strip_prefix("settle ") {
+                let i: usize = i.parse().unwrap();
+                let arrived = std::mem::take(&mut *arrivals[i].lock().unwrap());
+                let reply = match arrived.first() {
+                    None => "settled 0".to_string(),
+                    Some(before) => {
+                        let pool = &reads[i].1;
+                        let started = std::time::Instant::now();
+                        loop {
+                            let now = pool.evidence.snapshot();
+                            if now[2] > before[2]
+                                || (now[0] > before[0] && now[3] - before[3] == now[0] - before[0])
+                                || started.elapsed() > Duration::from_secs(5)
+                            {
+                                break;
+                            }
+                            tokio::time::sleep(Duration::from_millis(1)).await;
+                        }
+                        let after = pool.evidence.snapshot();
+                        let delta: Vec<String> =
+                            (0..6).map(|k| (after[k] - before[k]).to_string()).collect();
+                        format!("settled {} {}", arrived.len(), delta.join(","))
+                    }
+                };
+                w.write_all((reply + "\n").as_bytes()).await.unwrap();
+                continue;
             }
             let label = line.strip_prefix("mark ").unwrap_or(&line).to_string();
             // Once every operation the participation pools acquired has finished.
@@ -947,6 +989,19 @@ mod saturation_over_tcp {
         async fn mark(&mut self, label: &str) -> Mark {
             Mark::parse(&self.send(&format!("mark {label}")).await)
         }
+        /// How many requests for read `i` reached the server since the last
+        /// settle, and its own pool's evidence across them.
+        async fn settle(&mut self, i: usize) -> (usize, [usize; 6]) {
+            let reply = self.send(&format!("settle {i}")).await;
+            let f: Vec<&str> = reply.split_whitespace().collect();
+            assert_eq!(f[0], "settled", "{reply}");
+            let seen: usize = f[1].parse().unwrap();
+            if seen == 0 {
+                return (0, [0; 6]);
+            }
+            let v: Vec<usize> = f[2].split(',').map(|n| n.parse().unwrap()).collect();
+            (seen, v.try_into().unwrap())
+        }
     }
 
     /// One HTTP/1.1 connection, kept alive while the server keeps it.
@@ -954,6 +1009,8 @@ mod saturation_over_tcp {
         address: String,
         stream: Option<BufReader<TcpStream>>,
         body: Vec<u8>,
+        /// Connections opened, the first included.
+        opened: usize,
     }
 
     impl Conn {
@@ -962,11 +1019,13 @@ mod saturation_over_tcp {
                 address: address.into(),
                 stream: None,
                 body: Vec::new(),
+                opened: 0,
             }
         }
         /// A GET as nginx forwards it; the answer is read whole. Its status.
         async fn get(&mut self, target: &str, coding: Option<&str>) -> std::io::Result<u16> {
             if self.stream.is_none() {
+                self.opened += 1;
                 let s = TcpStream::connect(&self.address).await?;
                 s.set_nodelay(true)?;
                 self.stream = Some(BufReader::new(s));
@@ -1061,49 +1120,133 @@ mod saturation_over_tcp {
         Ok((status, keep))
     }
 
-    type Samples = Vec<Vec<(u16, Duration)>>;
+    /// The status a sample carries when its attempt failed (the connection
+    /// refused, closed or broken before a whole answer): not an HTTP status,
+    /// and a miss.
+    const FAILED: u16 = 0;
 
-    /// Rounds of the three reads, as the test's `sample`. A connection the
-    /// server closed between requests is opened again, counted, and the
-    /// read retried (timed from the retry).
+    /// One participation read as the client saw it, with the server's
+    /// evidence for it alone: how many requests for the read reached the
+    /// server since the sample before it (one, when it reached it at all),
+    /// and the read's own pool evidence across them once every operation
+    /// they acquired had finished.
+    #[derive(Clone, Copy, Debug)]
+    struct Sample {
+        status: u16,
+        took: Duration,
+        seen: usize,
+        delta: [usize; 6],
+    }
+
+    /// One phase: the samples of each read, and per read the attempts that
+    /// failed and the connections opened again.
+    struct Phase {
+        samples: [Vec<Sample>; 3],
+        failed: [usize; 3],
+        reconnects: [usize; 3],
+        window: Duration,
+    }
+
+    /// One read, timed from its first byte. A failed attempt is never retried
+    /// and never replaced by a later answer: it is the sample, as FAILED (a
+    /// miss) with the time it took to fail, and the next read opens a new
+    /// connection. The flag says whether this read opened one again.
+    async fn timed_read(conn: &mut Conn, path: &str) -> (u16, Duration, bool) {
+        let opened = conn.opened;
+        let start = std::time::Instant::now();
+        let status = conn.get(path, None).await.unwrap_or(FAILED);
+        (status, start.elapsed(), opened > 0 && conn.opened > opened)
+    }
+
+    /// Rounds of the three reads, as the test's `sample`, each read followed
+    /// (outside its time) by the server's evidence for it alone.
     async fn sample(
         conn: &mut Conn,
+        control: &mut Control,
         min_rounds: usize,
         floor: Duration,
-        reconnects: &mut usize,
-    ) -> (Samples, Duration) {
-        let mut out = vec![Vec::new(); READS.len()];
+    ) -> Phase {
+        let mut phase = Phase {
+            samples: Default::default(),
+            failed: [0; 3],
+            reconnects: [0; 3],
+            window: Duration::ZERO,
+        };
         let started = std::time::Instant::now();
         let mut rounds = 0;
         while rounds < min_rounds || started.elapsed() < floor {
             for (i, path) in READS.iter().enumerate() {
-                let mut start = std::time::Instant::now();
-                let status = match conn.get(path, None).await {
-                    Ok(status) => status,
-                    Err(_) => {
-                        *reconnects += 1;
-                        start = std::time::Instant::now();
-                        conn.get(path, None)
-                            .await
-                            .expect("a participation read over HTTP")
-                    }
-                };
-                out[i].push((status, start.elapsed()));
+                let (status, took, reconnected) = timed_read(conn, path).await;
+                phase.failed[i] += usize::from(status == FAILED);
+                phase.reconnects[i] += usize::from(reconnected);
+                let (seen, delta) = control.settle(i).await;
+                phase.samples[i].push(Sample {
+                    status,
+                    took,
+                    seen,
+                    delta,
+                });
             }
             rounds += 1;
         }
-        (out, started.elapsed())
+        phase.window = started.elapsed();
+        phase
     }
 
-    fn quantile(samples: &[(u16, Duration)], q: f64) -> Duration {
-        let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+    fn missed(samples: &[Sample]) -> usize {
+        samples.iter().filter(|s| s.status != 200).count()
+    }
+
+    fn quantile(samples: &[Sample], q: f64) -> Duration {
+        let mut d: Vec<Duration> = samples.iter().map(|s| s.took).collect();
         d.sort();
         d[((d.len() - 1) as f64 * q).round() as usize]
     }
 
+    /// Why one sample breaks `participation_isolated`'s obligations, or
+    /// reached the server other than once, or failed: for the counts printed
+    /// before the assertions, which apply `participation_isolated` itself.
+    fn violation(path: &str, s: &Sample) -> Option<&'static str> {
+        let [acquired, waits, timeouts, completed, errors, deadlines] = s.delta;
+        if s.status == FAILED {
+            Some("failed_attempt")
+        } else if s.seen != 1 {
+            Some("not_one_request")
+        } else if (waits, timeouts) != (0, 0) {
+            Some("waited")
+        } else if acquired < 1 {
+            Some("acquired_nothing")
+        } else if completed != acquired {
+            Some("unfinished")
+        } else if s.status != 200
+            && (s.status != 502
+                || !(errors == 1 || deadlines == 1 || path.starts_with("/api/v3/votes?")))
+        {
+            Some("failure_without_own_evidence")
+        } else {
+            None
+        }
+    }
+
+    /// The original obligations, for each sample of one read in one phase.
+    fn each_isolated(path: &str, phase: &str, samples: &[Sample]) {
+        for s in samples {
+            assert_ne!(
+                s.status, FAILED,
+                "{path}: a participation read failed over HTTP in the {phase} phase after {:?}; a failed attempt is a miss and is not retried: {s:?}",
+                s.took
+            );
+            assert_eq!(
+                s.seen, 1,
+                "{path}: each sample must reach the server once ({phase}): {s:?}"
+            );
+            participation_isolated(path, s.status, s.delta);
+        }
+    }
+
     /// `participation_isolated`, over a phase: the pool's evidence across
     /// all of the phase's samples of one read.
-    fn isolated_over(path: &str, samples: &[(u16, Duration)], delta: [usize; 6], settled: bool) {
+    fn isolated_over(path: &str, samples: &[Sample], delta: [usize; 6], settled: bool) {
         let [acquired, waits, timeouts, completed, errors, deadlines] = delta;
         assert_eq!(
             (waits, timeouts),
@@ -1120,8 +1263,11 @@ mod saturation_over_tcp {
             completed, acquired,
             "all acquired participation work must finish: {path}"
         );
-        let failed = samples.iter().filter(|s| s.0 != 200).count();
-        assert!(samples.iter().all(|s| s.0 == 200 || s.0 == 502), "{path}");
+        let failed = missed(samples);
+        assert!(
+            samples.iter().all(|s| s.status == 200 || s.status == 502),
+            "{path}"
+        );
         assert!(
             errors + deadlines >= failed || path.starts_with("/api/v3/votes?"),
             "502 without own-route failure evidence: {path} {delta:?}, {failed} answered 502"
@@ -1152,11 +1298,11 @@ mod saturation_over_tcp {
         rt.block_on(async {
             let mut control = Control::connect(&control_address).await;
             let mut conn = Conn::new(target);
-            let mut reconnects = 0;
-            let _ = sample(&mut conn, ROUNDS, Duration::ZERO, &mut reconnects).await;
+            let warm = sample(&mut conn, &mut control, ROUNDS, Duration::ZERO).await;
             let c0 = control.mark("control-start").await;
-            let (control_samples, control_window) = sample(&mut conn, ROUNDS, WINDOW, &mut reconnects).await;
+            let control_phase = sample(&mut conn, &mut control, ROUNDS, WINDOW).await;
             let c1 = control.mark("control-end").await;
+            let (control_samples, control_window) = (&control_phase.samples, control_phase.window);
             let control_rounds = control_samples[0].len();
             let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let answered = Arc::new(AtomicUsize::new(0));
@@ -1208,7 +1354,8 @@ mod saturation_over_tcp {
             }
             let l0 = control.mark("loaded-start").await;
             let answered_before = answered.load(Ordering::Relaxed);
-            let (loaded, loaded_window) = sample(&mut conn, control_rounds, WINDOW, &mut reconnects).await;
+            let loaded_phase = sample(&mut conn, &mut control, control_rounds, WINDOW).await;
+            let (loaded, loaded_window) = (&loaded_phase.samples, loaded_phase.window);
             let answered_loaded = answered.load(Ordering::Relaxed) - answered_before;
             let l1 = control.mark("loaded-end").await;
             stop.store(true, Ordering::SeqCst);
@@ -1225,8 +1372,10 @@ mod saturation_over_tcp {
             let loaded_rounds = loaded[0].len();
             let mut lines = vec![
                 format!(
-                    "topic map saturation over tcp: flood {flood_path} target {target}; clients cpu.max={}; control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} flood_errors={flood_errors} reconnects={reconnects} busy={} max_in_flight={}",
+                    "topic map saturation over tcp: flood {flood_path} target {target}; clients cpu.max={}; control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} flood_errors={flood_errors} warm-up failed={:?} reconnects={:?} busy={} max_in_flight={}",
                     cgroup("cpu.max"),
+                    warm.failed,
+                    warm.reconnects,
                     l1.busy,
                     l1.max_in_flight
                 ),
@@ -1240,7 +1389,6 @@ mod saturation_over_tcp {
                 format!("  server cpu.stat loaded: {}", l1.cpu_delta(&l0)),
             ];
             for (i, path) in READS.iter().enumerate() {
-                let missed = |v: &[(u16, Duration)]| v.iter().filter(|s| s.0 != 200).count();
                 let (c, l) = (&control_samples[i], &loaded[i]);
                 let (c_missed, l_missed, n_c, n_l) = (missed(c), missed(l), c.len(), l.len());
                 let misses_ok = l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c;
@@ -1261,13 +1409,35 @@ mod saturation_over_tcp {
                     c1.pool_delta(&c0, i),
                     l1.pool_delta(&l0, i)
                 ));
+                // Per read and phase: failed attempts (each also a miss
+                // above), connections opened again, and the samples whose
+                // own evidence breaks a per-request obligation, by reason.
+                let broken = |v: &[Sample]| {
+                    let mut by = BTreeMap::<&str, usize>::new();
+                    for s in v {
+                        if let Some(reason) = violation(path, s) {
+                            *by.entry(reason).or_insert(0) += 1;
+                        }
+                    }
+                    by
+                };
+                lines.push(format!(
+                    "  {path}: control failed_attempts={} reconnects={} per_request_violations={:?}; loaded failed_attempts={} reconnects={} per_request_violations={:?}",
+                    control_phase.failed[i],
+                    control_phase.reconnects[i],
+                    broken(c),
+                    loaded_phase.failed[i],
+                    loaded_phase.reconnects[i],
+                    broken(l)
+                ));
             }
             say(lines.join("\n"));
             assert!(maps.get(&200).copied().unwrap_or(0) > 0, "maps were served: {maps:?}");
             assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
             assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
             for (i, path) in READS.iter().enumerate() {
-                let missed = |v: &[(u16, Duration)]| v.iter().filter(|s| s.0 != 200).count();
+                each_isolated(path, "control", &control_samples[i]);
+                each_isolated(path, "loaded", &loaded[i]);
                 isolated_over(path, &control_samples[i], c1.pool_delta(&c0, i), c1.settled);
                 isolated_over(path, &loaded[i], l1.pool_delta(&l0, i), l1.settled);
                 let (c_missed, l_missed) = (missed(&control_samples[i]), missed(&loaded[i]));
@@ -1283,6 +1453,64 @@ mod saturation_over_tcp {
                 );
             }
         });
+    }
+
+    /// A first attempt that reaches the server, takes 100 ms and is closed
+    /// before any answer is a miss with its 100 ms in the split client's
+    /// samples: the next read, answered at once on a new connection, is its
+    /// own sample and replaces nothing.
+    #[tokio::test]
+    async fn split_client_counts_a_failed_first_attempt_as_a_miss() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap().to_string();
+        let server = tokio::spawn(async move {
+            let mut request = [0u8; 1024];
+            let (mut first, _) = listener.accept().await.unwrap();
+            assert!(
+                first.read(&mut request).await.unwrap() > 0,
+                "the first attempt reached the server"
+            );
+            tokio::time::sleep(Duration::from_millis(100)).await;
+            drop(first);
+            let (mut second, _) = listener.accept().await.unwrap();
+            assert!(second.read(&mut request).await.unwrap() > 0);
+            second
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
+                .await
+                .unwrap();
+            second
+        });
+        let mut conn = Conn::new(&address);
+        let mut samples = vec![];
+        for _ in 0..2 {
+            let (status, took, reconnected) = timed_read(&mut conn, READS[0]).await;
+            samples.push((
+                Sample {
+                    status,
+                    took,
+                    seen: 1,
+                    delta: [1, 0, 0, 1, 0, 0],
+                },
+                reconnected,
+            ));
+        }
+        let _ = server.await.unwrap();
+        let (first, second) = (samples[0], samples[1]);
+        assert_eq!(first.0.status, FAILED, "{samples:?}");
+        assert!(first.0.took >= Duration::from_millis(100), "{samples:?}");
+        assert!(!first.1, "the first connection is not a reconnect");
+        assert_eq!(second.0.status, 200, "{samples:?}");
+        assert!(second.1, "the second read opened a new connection");
+        let recorded: Vec<Sample> = samples.iter().map(|s| s.0).collect();
+        assert_eq!(missed(&recorded), 1, "the failed attempt is a miss");
+        assert!(quantile(&recorded, 1.0) >= Duration::from_millis(100));
+        assert_eq!(violation(READS[0], &first.0), Some("failed_attempt"));
+        assert_eq!(violation(READS[0], &second.0), None);
+        let caught = std::panic::catch_unwind(|| each_isolated(READS[0], "test", &recorded));
+        assert!(
+            caught.is_err(),
+            "the per-sample rule refuses a failed attempt"
+        );
     }
 }
 
