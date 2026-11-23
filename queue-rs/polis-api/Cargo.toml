@@ -33,6 +33,9 @@ sha2 = "0.10"
 url = "2"
 uuid = "1"
 rand = "0.10"
+# Inflates a stored topic map's gzip once, to check it is the stored
+# document (delphi_topic_map.rs); pure Rust.
+miniz_oxide = "0.9"
 polis-auth = { path = "../polis-auth" }
 polis-queue-adapter = { path = ".." }
 postgres = "0.19"

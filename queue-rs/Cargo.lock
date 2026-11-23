@@ -989,6 +989,7 @@ dependencies = [
  "httparse",
  "jsonwebtoken",
  "md5",
+ "miniz_oxide",
  "openssl",
  "polis-auth",
  "polis-queue-adapter",

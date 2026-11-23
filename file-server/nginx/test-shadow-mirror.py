@@ -23,6 +23,7 @@ shadow-stubs.py.
   test-shadow-mirror.py read-beside PREFIX MODE RBASE VBASE CBASE  every shadow selected
   test-shadow-mirror.py read-load PREFIX OUT                16 keepalive connections of next-comment reads
   test-shadow-mirror.py upstream PREFIX                     what every upstream receives: HTTP/1.0, Connection: close
+  test-shadow-mirror.py topic-map-rate PREFIX               the topic map route's rate bound in nginx
 
 SHADOW is votesShadow (the default) or commentsShadow. Containers:
 PREFIX-proxy (nginx, port 80 published on loopback), PREFIX-node (Node's
@@ -1754,6 +1755,99 @@ def upstream(prefix):
           'each on a new connection', flush=True)
 
 
+TOPIC_MAP_RATE = 200
+TOPIC_MAP_BURST = 200
+TOPIC_MAP_BUSY = b'{"status":"error","message":"polis_err_topic_map_busy"}'
+
+
+def topic_map_rate(prefix):
+    """The topic map route's rate bound, with the route selected beside pca2
+    and polis-api's stand-in answering: a burst of map requests well above the
+    bound is answered partly by polis-api and the rest by nginx itself, 503
+    with Retry-After: 1 and the body polis-api sheds with; polis-api receives
+    no more than the bound allows over the burst, and Node none of them. The
+    requests to other locations sent in the same burst (pca2 at polis-api, an
+    API path and the next comment at Node) are all answered and received
+    once. Selected: pca2,delphiTopicMap."""
+    port = proxy_port(prefix)
+    time.sleep(TOPIC_MAP_BURST / TOPIC_MAP_RATE + 1)  # an empty bucket to start from
+    others = [('pca2', '/api/v3/math/pca2?conversation_id=2fixture', 'api'),
+              ('an API path', '/api/v3/participationInit?conversation_id=2fixture', 'node'),
+              ('the next comment', '/api/v3/nextComment?conversation_id=2fixture', 'node')]
+    total = 1500
+    sent = []
+    lock = threading.Lock()
+
+    def run(first):
+        # Every fifth request goes to another location.
+        for i in range(first, total, 16):
+            case = uuid.uuid4().hex
+            if i % 5:
+                label, path, at = 'map', '/api/v3/delphi/topicMap?report_id=r1', None
+            else:
+                label, path, at = others[(i // 5) % len(others)]
+            status, headers, body = raw(port, 'GET', path, [f'X-Test-Case: {case}'])
+            with lock:
+                sent.append((label, at, case, status, dict(headers), body))
+
+    started = time.perf_counter()
+    threads = [threading.Thread(target=run, args=(first,)) for first in range(16)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    elapsed = time.perf_counter() - started
+    assert len(sent) == total, len(sent)
+    time.sleep(1.0)
+    seen = {'api': records(prefix + '-api'), 'node': records(prefix + '-node')}
+    passed = refused = 0
+    for label, at, case, status, headers, body in sent:
+        if label != 'map':
+            assert status == 200, (label, status, body)
+            assert len(find(seen[at], case)) == 1, f'{label} not received once at {at}'
+            assert not find(seen['api' if at == 'node' else 'node'], case), (label, 'received twice')
+            continue
+        # Node never receives a map request, answered or refused.
+        assert not find(seen['node'], case), f'a map request reached Node: {status}'
+        at_api = len(find(seen['api'], case))
+        if status == 200:
+            assert at_api == 1, f'an answered map request reached polis-api {at_api} times'
+            passed += 1
+        else:
+            # Over the bound: nginx's own answer, nothing sent to polis-api.
+            assert status == 503, (status, headers, body)
+            assert at_api == 0, 'a refused map request reached polis-api'
+            assert headers.get('retry-after') == '1', headers
+            assert headers.get('cache-control') == 'no-store', headers
+            assert headers.get('content-type') == 'application/json', headers
+            assert body == TOPIC_MAP_BUSY, body
+            refused += 1
+    maps = passed + refused
+    # The bucket lets TOPIC_MAP_BURST + 1 through at once and TOPIC_MAP_RATE a
+    # second after that.
+    most = TOPIC_MAP_BURST + 1 + int(TOPIC_MAP_RATE * elapsed) + 1
+    assert TOPIC_MAP_BURST + 1 <= passed <= most, (passed, most, elapsed)
+    assert refused >= maps // 4, f'the burst was not well above the bound: {refused} of {maps} refused'
+    received = sum(1 for e in seen['api'] if e['path'].startswith('/api/v3/delphi/topicMap'))
+    assert received == passed, (received, passed)
+    # The refusals are on the access line only: nothing in the error log.
+    limited = [line for line in proxy_lines(prefix) if 'limiting requests' in line or 'limit_req' in line]
+    assert not limited, limited
+    # Once the bucket has drained, a map request reaches polis-api again.
+    time.sleep(TOPIC_MAP_BURST / TOPIC_MAP_RATE + 1.5)
+    case = uuid.uuid4().hex
+    status, _, _ = raw(port, 'GET', '/api/v3/delphi/topicMap?report_id=r1', [f'X-Test-Case: {case}'])
+    assert status == 200, status
+    wait_for(lambda: find(records(prefix + '-api'), case), 'a map request after the burst')
+    other = total - maps
+    print(f'ok topic map rate: {maps} map requests and {other} to other locations in {elapsed:.2f} s; '
+          f'{passed} map requests reached polis-api (at least {TOPIC_MAP_BURST + 1}, at most {most}) and '
+          f'{refused} were answered by nginx with 503, Retry-After: 1 and the route\'s busy body, with no '
+          f'upstream and no error-log line; Node received none of them; all {other} other requests were '
+          f'answered and received once; after the bucket drained a map request reached polis-api again',
+          flush=True)
+
+
 if __name__ == '__main__':
     command, *args = sys.argv[1:]
     {'baseline': baseline, 'behaviour': behaviour, 'load': load, 'compare': compare, 'read': read,
@@ -1761,4 +1855,4 @@ if __name__ == '__main__':
      'measured': measured, 'read-baseline': read_baseline, 'read-behaviour': read_behaviour,
      'read-hold': read_hold, 'read-rate': read_rate, 'read-keepalive': read_keepalive,
      'read-unchanged': read_unchanged, 'read-beside': read_beside, 'read-load': read_load,
-     'upstream': upstream}[command](*args)
+     'upstream': upstream, 'topic-map-rate': topic_map_rate}[command](*args)

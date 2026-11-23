@@ -1,0 +1,9 @@
+
+# delphiTopicMap: how many map requests this box sends to polis-api: 200 a
+# second, and 200 more at once (burst 200, nodelay, in the route's location).
+# The key is a constant, so the zone holds one state for the whole location
+# on this box, whoever asks: behind the load balancer every client arrives
+# from a few addresses. A request over the bound is answered 503 by nginx in
+# the route's location and never reaches polis-api or Node. Rendered only when
+# RUST_API_ROUTES names delphiTopicMap.
+limit_req_zone polis_topic_map zone=polis_topic_map:1m rate=200r/s;

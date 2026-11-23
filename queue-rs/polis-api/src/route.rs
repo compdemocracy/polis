@@ -221,6 +221,14 @@ pub struct App {
     pub delphi_result_env: String,
     pub delphi_result_served: AtomicU64,
     pub delphi_result_fallback: AtomicU64,
+    pub delphi_topic_map_db: Option<Arc<Pool>>,
+    pub delphi_topic_map_auth_db: Option<Arc<Pool>>,
+    pub delphi_topic_map_env: String,
+    pub delphi_topic_map_scope: Option<String>,
+    pub delphi_topic_map_shadow_env: Option<String>,
+    pub delphi_topic_map_served: AtomicU64,
+    pub delphi_topic_map_fallback: AtomicU64,
+    pub delphi_topic_map: crate::delphi_topic_map::State,
     pub collective_statement_db: Option<Arc<Pool>>,
     pub collective_statement_served: AtomicU64,
     pub collective_statement_fallback: AtomicU64,
@@ -484,6 +492,14 @@ impl App {
             delphi_result_env: String::new(),
             delphi_result_served: AtomicU64::new(0),
             delphi_result_fallback: AtomicU64::new(0),
+            delphi_topic_map_db: None,
+            delphi_topic_map_auth_db: None,
+            delphi_topic_map_env: String::new(),
+            delphi_topic_map_scope: None,
+            delphi_topic_map_shadow_env: None,
+            delphi_topic_map_served: AtomicU64::new(0),
+            delphi_topic_map_fallback: AtomicU64::new(0),
+            delphi_topic_map: crate::delphi_topic_map::State::default(),
             collective_statement_db: None,
             collective_statement_served: AtomicU64::new(0),
             collective_statement_fallback: AtomicU64::new(0),
@@ -946,6 +962,53 @@ fn json_text_observed(
         res.set("Content-Type", "application/json");
     }
     send(req, res, Payload::Text(body))
+}
+
+/// Whether the coding `express.compress()` would apply to this request is
+/// gzip: the one compressed form a stored answer has.
+pub(crate) fn negotiate_gzip(req: &Request) -> bool {
+    req.method != "HEAD" && negotiate::encoding(req.headers.get("accept-encoding")) == Coding::Gzip
+}
+
+/// A JSON body stored ready by the work that made it: sent as it is, already
+/// in the coding named (`gzip`), with the stored digest as its ETag, so no
+/// hashing or compression happens here. `None` is the client already holding
+/// it (304). `private` adds `Authorization` to `Vary`: the answer depended on
+/// the reader.
+pub(crate) fn stored_json(
+    req: &Request,
+    mut res: Res,
+    body: Option<Vec<u8>>,
+    gzip: bool,
+    etag: &str,
+    private: bool,
+) -> Outgoing {
+    res.set(
+        "Vary",
+        if private {
+            "Authorization, Accept-Encoding"
+        } else {
+            "Accept-Encoding"
+        },
+    );
+    res.set("ETag", etag);
+    let Some(body) = body else {
+        res.status = 304;
+        return finish(req, res, Ending::End(Vec::new()), false);
+    };
+    res.status = 200;
+    res.set("Content-Type", "application/json; charset=utf-8");
+    if gzip {
+        res.set("Content-Encoding", "gzip");
+    }
+    res.set("Content-Length", body.len().to_string());
+    // Not installed: the body is never compressed again.
+    finish(req, res, Ending::End(body), false)
+}
+
+#[cfg(test)]
+pub(crate) fn res_for_tests(status: u16) -> Res {
+    Res::new(status)
 }
 
 /// Operations refusals use private cache headers before Express JSON encoding.
@@ -1555,6 +1618,14 @@ pub async fn handle(app: Arc<App>, req: Request) -> Outgoing {
             app.delphi_result_served.fetch_add(1, Ordering::Relaxed);
         }
     }
+    if req.path() == crate::delphi_topic_map::PATH {
+        if out.status == 502 {
+            app.delphi_topic_map_fallback
+                .fetch_add(1, Ordering::Relaxed);
+        } else {
+            app.delphi_topic_map_served.fetch_add(1, Ordering::Relaxed);
+        }
+    }
     if req.path() == crate::collective_statement::PATH {
         if out.status == 502 {
             app.collective_statement_fallback
@@ -1974,6 +2045,11 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     {
         return bad_gateway();
     }
+    if req.path() == crate::delphi_topic_map::PATH
+        && crate::delphi_topic_map::parse(app, req).is_none()
+    {
+        return bad_gateway();
+    }
     if req.path() == crate::collective_statement::PATH
         && crate::collective_statement::parse(app, req).is_none()
     {
@@ -2166,6 +2242,9 @@ pub(crate) async fn serve(app: &App, req: &Request) -> Outgoing {
     }
     if crate::delphi_result_read::matches(req.path()) {
         return crate::delphi_result_read::handle(app, req, res).await;
+    }
+    if req.path() == crate::delphi_topic_map::PATH {
+        return crate::delphi_topic_map::handle(app, req, res).await;
     }
     if req.path() == crate::collective_statement::PATH {
         return crate::collective_statement::handle(app, req, res).await;

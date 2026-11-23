@@ -290,6 +290,12 @@ for route in $(echo "${RUST_API_ROUTES:-}" | tr ',' ' '); do
 "
       rust_api_locations="${rust_api_locations} delphiResult"
       ;;
+    delphiTopicMap)
+      case " $rust_api_locations " in *" delphiTopicMap "*) continue ;; esac
+      RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/delphi/topicMap ${RUST_API_UPSTREAM};
+"
+      rust_api_locations="${rust_api_locations} delphiTopicMap"
+      ;;
     collectiveStatement)
       case " $rust_api_locations " in *" collectiveStatement "*) continue ;; esac
       RUST_API_MAP_ENTRIES="${RUST_API_MAP_ENTRIES}    /api/v3/collectiveStatement ${RUST_API_UPSTREAM};
@@ -452,7 +458,7 @@ for shadow in $rust_api_read_shadows; do
   esac
 done
 if [ -n "$rust_api_unknown" ]; then
-  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead votesFamous postVotes votesShadow commentsShadow votesReadShadow commentsReadShadow nextCommentShadow metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
+  echo "ERROR RUST_API_ROUTES: unknown route(s):${rust_api_unknown} (known: pca2 owner-conversations comments reportComments nextComment reportExportPg metadataQuery testConnection perfStats testDatabase contexts domainWhitelist metadataQuestions metadataAnswers conversationPage locations bid myInvitesCsv participantsRead ptptois votesRead votesFamous postVotes votesShadow commentsShadow votesReadShadow commentsReadShadow nextCommentShadow metadataRead metadataChoices recentStarted recentActivity treeviteWaves treeviteInvites treeviteCsv conversationPreload participationRead allConversations reportsRead bidToPid conversationStats statementImportance topicSelections treeviteMyInvites treeviteMe topicPrioritize xidReport opsCatchall opsPage opsWhoami collectiveStatement topicStats delphiLogs delphiRun delphiResult delphiTopicMap delphiVisualizations delphiReports delphiRead integratePage adminPage einvitesRead legacyConversations robots). Selection rejected." >&2
   exit 1
 elif [ -n "$rust_api_conflict" ]; then
   echo "ERROR RUST_API_ROUTES: ${rust_api_conflict} cannot be selected together (the shadow observes the votes Node answers). Selection rejected." >&2
@@ -478,6 +484,11 @@ elif [ -n "$rust_api_locations$rust_api_shadows$rust_api_read_shadows" ]; then
   if [ -n "$rust_api_read_shadows" ]; then
     cat /etc/nginx/rust-api-templates/shadow-read-http.conf.template >>${1}/upstreams.conf
   fi
+  # The topic map's rate zone, used by its location alone.
+  case " $rust_api_locations " in
+    *" delphiTopicMap "*)
+      cat /etc/nginx/rust-api-templates/delphiTopicMap-rate.conf.template >>${1}/upstreams.conf ;;
+  esac
   # A read route's own location, with its shadow's diversion first (a POST
   # the shadow is sent a copy of, and no other request): name, path, template.
   shadow_diverted() {
