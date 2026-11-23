@@ -152,7 +152,7 @@ def store_run_map(zid: Any, selection: Optional[str], models: Dict[str, Any], wr
         raise TopicMapError("the run names no result scope")
     table = writer.Table(TOPIC_MAP_FAMILY)
     try:
-        wire, items = _draw(writer, frame, scope, selection, models, execution, table)
+        wire, result = _draw(writer, frame, scope, selection, models, execution, table)
     except _DrawFailed as e:
         logger.error(f"Topic map document: the generator did not draw the run's map ({e.failure}): {e}")
         _clear(table)
@@ -162,16 +162,26 @@ def store_run_map(zid: Any, selection: Optional[str], models: Dict[str, Any], wr
                   "family_bytes": len(writer.family_wire(TOPIC_MAP_FAMILY))}
         logger.info(f"Topic map document stored: {result}")
         return result
-    parts = {item["part"]["S"]: item for item in items}
-    if "no_map" in parts:
-        result = {"outcome": "no_map", "reason": parts["no_map"]["reason"]["S"]}
-        if "bytes" in parts["no_map"]:
-            result["document_bytes"] = int(parts["no_map"]["bytes"]["N"])
-    else:
-        result = {"outcome": "map", "document_bytes": int(parts["document"]["bytes"]["N"]),
-                  "gzip_bytes": int(parts["document.gz"]["bytes"]["N"])}
     result["family_bytes"] = len(wire)
     logger.info(f"Topic map document stored: {result}")
+    return result
+
+
+def _outcome(items) -> Dict[str, Any]:
+    """What the generator's family holds, read from the parts and attributes
+    the step reports. Raises _DrawFailed (``wrong_output``) when one of them is
+    missing or malformed: a family the codec reads that is not a whole map."""
+    try:
+        parts = {item["part"]["S"]: item for item in items}
+        if "no_map" in parts:
+            result = {"outcome": "no_map", "reason": parts["no_map"]["reason"]["S"]}
+            if "bytes" in parts["no_map"]:
+                result["document_bytes"] = int(parts["no_map"]["bytes"]["N"])
+        else:
+            result = {"outcome": "map", "document_bytes": int(parts["document"]["bytes"]["N"]),
+                      "gzip_bytes": int(parts["document.gz"]["bytes"]["N"])}
+    except (KeyError, TypeError, ValueError) as e:
+        raise _DrawFailed("wrong_output", f"polis-topic-map wrote an incomplete family ({type(e).__name__}: {e})") from e
     return result
 
 
@@ -209,13 +219,16 @@ def _draw(writer, frame, scope, selection, models, execution, table):
         if selection is not None:
             command += ["--selection", str(selection)]
         try:
-            done = subprocess.run(command, capture_output=True, text=True, timeout=TIMEOUT_SECONDS)
+            # Bytes, not text: the generator's diagnostics are decoded below
+            # for the log only, so no byte it writes can raise here.
+            done = subprocess.run(command, capture_output=True, timeout=TIMEOUT_SECONDS)
         except subprocess.TimeoutExpired as e:
             raise _DrawFailed("timed_out", f"polis-topic-map did not finish: {e}") from e
         except OSError as e:
             raise _DrawFailed("did_not_run", f"polis-topic-map did not run: {e}") from e
         if done.returncode != 0:
-            last = (done.stderr.strip().splitlines() or ["no message"])[-1]
+            stderr = done.stderr.decode("utf-8", errors="replace")
+            last = (stderr.strip().splitlines() or ["no message"])[-1]
             raise _DrawFailed("refused", f"polis-topic-map refused the run's families: {last}")
         try:
             wire = out.read_bytes()
@@ -224,6 +237,8 @@ def _draw(writer, frame, scope, selection, models, execution, table):
             raise _DrawFailed("wrong_output", f"polis-topic-map wrote no readable family: {e}") from e
         if family != TOPIC_MAP_FAMILY or not items:
             raise _DrawFailed("wrong_output", "polis-topic-map wrote another family")
+        # Read before anything is stored, so an incomplete family is never put.
+        result = _outcome(items)
         _clear(table)
         for item in items:
             table.put_item(Item={k: to_python(v) for k, v in item.items()})
@@ -231,4 +246,4 @@ def _draw(writer, frame, scope, selection, models, execution, table):
             raise _DrawFailed("wrong_output", "the stored family is not the generator's bytes")
     finally:
         shutil.rmtree(work, ignore_errors=True)
-    return wire, items
+    return wire, result

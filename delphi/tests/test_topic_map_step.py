@@ -19,7 +19,8 @@ import pytest
 
 from polismath import step_log
 from polismath.delphi_storage import topic_map
-from polismath.delphi_storage.codec import FAMILIES, POSTGRES_FAMILIES, decode_family, key_of
+from polismath.delphi_storage.codec import (FAMILIES, POSTGRES_FAMILIES, decode_family, encode_family,
+                                            item_from_python, key_of)
 from polismath.delphi_storage.postgres import RESULT_FAMILIES, TOPIC_MAP_FAMILY
 from polismath.delphi_storage.writer import WriterResource
 
@@ -211,13 +212,25 @@ def test_a_generator_that_fails_stores_one_failed_row_and_the_run_goes_on(tmp_pa
         (_generator(tmp_path, 'slow', 'sleep 5'), 'timed_out'),
         (_generator(tmp_path, 'garbage', 'for a in "$@"; do [ "$prev" = --out ] && echo "{}" > "$a"; prev="$a"; done'),
          'wrong_output'),
+        # Diagnostics that are not valid UTF-8 are still a refusal, not a failed run.
+        (_generator(tmp_path, 'bad-bytes', "printf '\\377\\376 out\\n'; printf '\\377\\376 err\\n' >&2; exit 3"),
+         'refused'),
     ]
-    for binary, failure in cases:
-        (tmp_path / failure).mkdir()
+    # A family the codec reads but that is not a whole map: a document with no
+    # gzip row, and a no_map row with no reason.
+    for name, rows in (('no-gzip', [{'part': 'document', 'body': '{}', 'bytes': 2}]),
+                       ('no-reason', [{'part': 'no_map'}])):
+        family = tmp_path / f'{name}.jsonl'
+        family.write_bytes(encode_family(TOPIC_MAP_FAMILY, [
+            item_from_python({'conversation_id': '7', 'job_id': 'generator', **row}) for row in rows]))
+        cases.append((_generator(tmp_path, name, f'for a in "$@"; do [ "$prev" = --out ] && cp "{family}" "$a"; '
+                                                  'prev="$a"; done'), 'wrong_output'))
+    for i, (binary, failure) in enumerate(cases):
+        (tmp_path / f'{i}-{failure}').mkdir()
         # A map an earlier batch carried forward is never left beside the row.
         earlier = [{'conversation_id': {'S': '7'}, 'part': {'S': 'document'}, 'job_id': {'S': 'earlier'},
                     'body': {'S': '{}'}, 'bytes': {'N': '2'}, 'schema': {'S': 'polis-topic-map/1'}}]
-        writer = _writer(tmp_path / failure, monkeypatch, base_families={TOPIC_MAP_FAMILY: earlier})
+        writer = _writer(tmp_path / f'{i}-{failure}', monkeypatch, base_families={TOPIC_MAP_FAMILY: earlier})
         _write_run(writer)
         monkeypatch.setenv(topic_map.BINARY, binary)
         caplog.clear()
