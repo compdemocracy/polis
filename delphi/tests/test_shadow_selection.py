@@ -103,7 +103,7 @@ def test_only_a_named_selection_and_only_with_every_velocity():
     del missing[0]["velocity"]
     with pytest.raises(ValueError):
         selection.select(selection.PARTICIPANT_VISIBLE, missing, False)
-    assert selection.SELECTIONS == ("participant_visible/1",)
+    assert selection.SELECTIONS == ("participant_visible/1", "all_comments/1", "all_but_moderated_out/1")
 
 
 # --- the pipeline -------------------------------------------------------------

@@ -21,7 +21,16 @@
 //! one pass over `conversations`, which has no index on that column). Both
 //! are read once a UTC day (the scheduler's roster), never per poll, and both
 //! take `ACCESS SHARE` only, which the `conversations` updates votes and
-//! comments cause (`ROW EXCLUSIVE`) do not wait on.
+//! comments cause (`ROW EXCLUSIVE`) do not wait on. Only when a comment-rule
+//! list is set (`DELPHI_SHADOW_ALL_COMMENTS`,
+//! `DELPHI_SHADOW_ALL_BUT_MODERATED_OUT`) the read login also resolves its
+//! codes (`listed`, by the unique index on the code, once a UTC day), reads
+//! each listed conversation's newest run under each of its rules from
+//! `delphi_jobs` (`rule_history`, by the `delphi_jobs_history` index), and,
+//! before admitting one, checks in the census snapshot that a listed code
+//! still names the conversation (`rule_census`, by `zinvites_zid_idx`). All
+//! are the same `READ ONLY` transactions with the same timeouts; with the
+//! lists empty none of them is made.
 use super::{
     config::{ACTOR, Config, SCOPE},
     storage::{self, Measured, Pending},
@@ -60,7 +69,8 @@ pub struct CommentSet {
     pub digest: String,
     /// Comments with text: the comments the run embeds.
     pub comments: i64,
-    /// The selection the scheduler admits under ([`super::plan::SELECTION`]).
+    /// The selection the census was taken under: [`super::plan::SELECTION`]
+    /// for every conversation's run, or a comment rule a list adds.
     pub selection: &'static str,
     /// `polis-jobs.selection/1` over the comments it keeps: the admission's key.
     pub selection_digest: String,
@@ -123,6 +133,30 @@ impl<'a> Db<'a> {
 
     pub fn comment_set(&self, zid: i32) -> Result<CommentSet> {
         self.read(|tx| comment_set(tx, zid))
+    }
+
+    /// Each code of `codes` that names a conversation, with it (`listed`).
+    pub fn listed(&self, codes: &[String]) -> Result<Vec<(String, i32)>> {
+        self.read(|tx| listed(tx, codes))
+    }
+
+    /// The newest run of conversation `zid` under `selection` in the shadow
+    /// env (`rule_history`).
+    pub fn rule_history(&self, zid: i32, selection: &str) -> Result<Option<RuleRun>> {
+        let env = self.cfg.env.clone();
+        let scope = super::plan::rule_scope(selection);
+        self.read(|tx| rule_history(tx, &env, zid, selection, &scope))
+    }
+
+    /// The census of `zid` under `selection`, or `None` when no code of
+    /// `codes` names it now (`rule_census`).
+    pub fn rule_census(
+        &self,
+        zid: i32,
+        selection: &str,
+        codes: &[String],
+    ) -> Result<Option<CommentSet>> {
+        self.read(|tx| rule_census(tx, zid, selection, codes))
     }
 
     pub fn signals(&self) -> Result<Signals> {
@@ -274,7 +308,119 @@ pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
         .collect()
 }
 
-/// The census of one conversation. The comment set's digest is computed by
+/// Each code that names a conversation, with the conversation, by the unique
+/// index on the code (`zinvites_zinvite_key`), as `benchmark` resolves its
+/// list; a code no conversation has is not returned. No comment is read.
+pub fn listed(tx: &mut Transaction<'_>, codes: &[String]) -> Result<Vec<(String, i32)>> {
+    if codes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows = tx.query(
+        "SELECT zinvite, zid FROM zinvites WHERE zinvite = ANY($1::text[]) ORDER BY zinvite",
+        &[&codes],
+    )?;
+    rows.iter()
+        .map(|r| Ok((r.try_get(0)?, r.try_get(1)?)))
+        .collect()
+}
+
+/// The newest run of one conversation under one comment rule, as its
+/// admission recorded it in Postgres (`delphi_jobs.config_effective`): the
+/// durable record the rule's "unchanged, no rerun needed" is decided from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RuleRun {
+    pub job_id: String,
+    /// `delphi_jobs.status`.
+    pub status: String,
+    /// How long ago it was admitted, in ms, by the database's own clock (its
+    /// `created_at` against `clock_timestamp()`), so no other clock is
+    /// compared with it.
+    pub age_ms: i64,
+    /// The selection digest it was admitted under (`shadow.selection_sha256`).
+    pub selection_sha256: Option<String>,
+    /// The comment set's digest and count it was admitted under.
+    pub comment_set_sha256: Option<String>,
+    pub comments: i64,
+    /// The named set it was selected from.
+    pub set: Option<super::plan::Set>,
+}
+
+impl RuleRun {
+    /// Whether the job has ended.
+    pub fn terminal(&self) -> bool {
+        matches!(self.status.as_str(), "succeeded" | "dead" | "cancelled")
+    }
+}
+
+/// The newest job of conversation `zid` in `env` whose admission named
+/// `selection` in its rule's own scope (`scope`), by the history index
+/// (`delphi_jobs_history`, env and zid, newest first).
+pub fn rule_history(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    zid: i32,
+    selection: &str,
+    scope: &str,
+) -> Result<Option<RuleRun>> {
+    let row = tx.query_opt(
+        "SELECT job_id::text, status, \
+                (extract(epoch FROM clock_timestamp() - created_at) * 1000)::bigint, \
+                config_effective #>> '{shadow,selection_sha256}', \
+                config_effective #>> '{shadow,comment_set_sha256}', \
+                coalesce((config_effective #>> '{shadow,comments}')::bigint, 0), \
+                config_effective #>> '{shadow,set}' \
+         FROM public.delphi_jobs \
+         WHERE env = $1 AND zid = $2 AND config_effective ->> 'selection' = $3 \
+           AND config_effective ->> 'result_scope' = $4 \
+         ORDER BY created_at DESC, job_id DESC LIMIT 1",
+        &[&env, &zid, &selection, &scope],
+    )?;
+    row.map(|r| {
+        Ok(RuleRun {
+            job_id: r.try_get(0)?,
+            status: r.try_get(1)?,
+            age_ms: r.try_get(2)?,
+            selection_sha256: r.try_get(3)?,
+            comment_set_sha256: r.try_get(4)?,
+            comments: r.try_get(5)?,
+            set: r
+                .try_get::<_, Option<String>>(6)?
+                .as_deref()
+                .and_then(super::plan::Set::from_word),
+        })
+    })
+    .transpose()
+}
+
+/// The census of one conversation under a comment rule a list adds, in the
+/// same snapshot as the check that a code of that list (`codes`) still names
+/// the conversation, by `zinvites_zid_idx`. `None` when none does: the
+/// resolution the scheduler holds is stale, and nothing is admitted on it.
+pub fn rule_census(
+    tx: &mut Transaction<'_>,
+    zid: i32,
+    selection: &str,
+    codes: &[String],
+) -> Result<Option<CommentSet>> {
+    let named = tx
+        .query_opt(
+            "SELECT 1 FROM zinvites WHERE zid = $1 AND zinvite = ANY($2::text[]) LIMIT 1",
+            &[&zid, &codes],
+        )?
+        .is_some();
+    if !named {
+        return Ok(None);
+    }
+    census(tx, zid, selection).map(Some)
+}
+
+/// The census of one conversation under the selection every conversation's
+/// runs name, [`super::plan::SELECTION`] (what participants are shown).
+pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
+    census(tx, zid, super::plan::SELECTION)
+}
+
+/// The census of one conversation under `selection`. The comment set's digest is computed by
 /// the input bundle's own function from the same columns the bundle reads, so
 /// it equals the digest the run's census records
 /// (`manifest.inputs.comment_set_sha256` in the run record); the selection by
@@ -282,7 +428,7 @@ pub fn featured(tx: &mut Transaction<'_>) -> Result<Vec<Live>> {
 /// run that names it reads in its bundle (`strict_moderation`, `velocity`).
 /// One read-only snapshot: `ACCESS SHARE` on `comments` and `conversations`
 /// only, which no vote, comment or moderation statement waits on.
-pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
+pub fn census(tx: &mut Transaction<'_>, zid: i32, selection: &str) -> Result<CommentSet> {
     let strict = tx
         .query_opt(
             "SELECT coalesce(strict_moderation, false) FROM conversations WHERE zid = $1",
@@ -308,7 +454,7 @@ pub fn comment_set(tx: &mut Transaction<'_>, zid: i32) -> Result<CommentSet> {
             velocity: Some(r.try_get(7)?),
         });
     }
-    let selection = contract::select(super::plan::SELECTION, &comments, strict)?;
+    let selection = contract::select(selection, &comments, strict)?;
     let has_text = |c: &&Comment| !c.txt.trim().is_empty();
     let selected = comments
         .iter()
@@ -344,6 +490,10 @@ pub fn math_lag(tx: &mut Transaction<'_>, math_env: &str) -> Result<i64> {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Admission {
     pub zid: i32,
+    /// The publication scope it is admitted under: [`SCOPE`] for every
+    /// conversation's run, the rule's own (`plan::rule_scope`) for a run a
+    /// comment-rule list adds, so no rule's results replace another's.
+    pub scope: String,
     pub key: String,
     pub request_sha: String,
     pub job_id: uuid::Uuid,
@@ -360,7 +510,7 @@ pub fn admit(client: &mut Client, env: &str, code: &str, a: &Admission) -> Resul
             &[
                 &env,
                 &a.zid,
-                &SCOPE,
+                &a.scope,
                 &ACTOR,
                 &a.key,
                 &a.request_sha,

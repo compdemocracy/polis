@@ -167,6 +167,23 @@ def test_the_scheduler_names_the_daemons_shadow_env():
 
 
 @requires_checkout
+def test_the_comment_rule_lists_reach_the_scheduler_only_and_are_empty_by_default():
+    services, _ = _services()
+    keys = ("DELPHI_SHADOW_ALL_COMMENTS", "DELPHI_SHADOW_ALL_BUT_MODERATED_OUT")
+    scheduler = _environment(services["delphi-shadow-scheduler"], PRODUCTION_LIKE)
+    for key in keys:
+        assert scheduler[key] == "", key
+    listed = dict(PRODUCTION_LIKE, DELPHI_SHADOW_ALL_COMMENTS="69abcd", DELPHI_SHADOW_ALL_BUT_MODERATED_OUT="2xyz,3def")
+    listed_env = _environment(services["delphi-shadow-scheduler"], listed)
+    assert (listed_env[keys[0]], listed_env[keys[1]]) == ("69abcd", "2xyz,3def")
+    # The daemon, which runs the pipeline, is never given them: a run's rule
+    # reaches it only in its admission.
+    daemon_env = _environment(services["delphi-shadow"], listed)
+    for key in keys:
+        assert key not in daemon_env, key
+
+
+@requires_checkout
 def test_the_production_report_service_is_unchanged_by_the_shadow():
     # The shadow's run settings stay its own. (The baked model's directory and
     # lock are shared on purpose: the next test.)

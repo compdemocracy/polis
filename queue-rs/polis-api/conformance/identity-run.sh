@@ -54,4 +54,4 @@ fi
 "${compose[@]}" stop -t 1 server
 "${compose[@]}" restart -t 1 dynamodb
 # Use the default setup/teardown; explicitly include the live file outside __tests__.
-"${compose[@]}" exec -T -e P027_SOURCE_COMMIT="$P027_SOURCE_COMMIT" driver npx jest --runInBand --runTestsByPath __tests__/unit/identity-recordings.test.ts __tests__/unit/participant-jwt-interop.test.ts characterization/identity/live.test.ts --testMatch '**/__tests__/**/*.test.ts' '**/characterization/identity/live.test.ts' --coverage=false
+"${compose[@]}" exec -T -e P027_SOURCE_COMMIT="$P027_SOURCE_COMMIT" driver npx jest --runInBand --runTestsByPath __tests__/unit/identity-recordings.test.ts __tests__/unit/participant-jwt-interop.test.ts __tests__/unit/participant-jwt-mint.test.ts characterization/identity/live.test.ts --testMatch '**/__tests__/**/*.test.ts' '**/characterization/identity/live.test.ts' --coverage=false
