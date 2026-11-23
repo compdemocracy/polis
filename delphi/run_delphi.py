@@ -109,33 +109,18 @@ def _start_daemon_job(zid):
     return job
 
 
-def _topic_model_name():
-    if os.environ.get("LLM_PROVIDER", "anthropic").lower() == "ollama":
-        return os.environ.get("OLLAMA_MODEL") or None
-    return (os.environ.get("ANTHROPIC_TOPIC_MODEL") or os.environ.get("ANTHROPIC_MODEL")
-            or "claude-haiku-4-5-20251001")
-
-
 def _finish_daemon_job(job, zid, region):
     """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
     from polismath import embedding_model, job_child
     from polismath.job_child import census
-    # The clustering run_pipeline.py ran: UMAP and EVoC from the default seed.
-    from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
 
     try:
         outputs = census.count_full_pipeline_outputs(zid, census.default_dynamodb(region))
         manifest = job_child.build_manifest(
             job, outcome="succeeded", inputs=job.inputs, outputs=outputs,
-            models={
-                # The model run_pipeline.py loaded, named from the same
-                # environment and lock: repo@revision:384.
-                "embed": embedding_model.resolve().model,
-                "topic": _topic_model_name(),
-                "narrative": None,
-                "cluster": CLUSTER_MODEL,
-                "cluster_seed": DEFAULT_SEED,
-            },
+            # The embedding model run_pipeline.py loaded (repo@revision:384),
+            # the topic model, and the clustering (UMAP and EVoC, default seed).
+            models=job_child.full_pipeline_models(),
             # Topic naming's provider batches are submitted and awaited inside
             # the UMAP stage; P1 does not observe them, so cost stays unknown.
             cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None},

@@ -15,16 +15,33 @@ path = "src/lib.rs"
 name = "polis-topic-map"
 path = "src/main.rs"
 
+[features]
+default = []
+# The backfill command's test against a real PostgreSQL 17 with the release
+# migrations (tests/from_run_database.rs). With the feature on, a missing
+# POLIS_JOBS_TEST_DATABASE_URL fails the run.
+db-tests = []
+
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 # float_roundtrip: every number is read correctly rounded, whichever other
 # crate of the workspace is built with this one (Cargo turns a feature on for
 # every crate in a build when any one asks for it, and polis-api does).
 serde_json = { version = "1", features = ["float_roundtrip"] }
+# The stored map (src/stored.rs): its document's SHA-256, its gzip, and the
+# gzip's base64 as the storage codec writes a binary value.
+sha2 = "0.10"
+flate2 = "1"
+base64 = "0.22"
+# The backfill command (src/from_run.rs) reads a stored run with the Delphi
+# daemon's own queue settings and transport rules.
+postgres = { version = "0.19", features = ["with-serde_json-1", "with-uuid-1"] }
+polis-queue-adapter = { path = ".." }
 
 [dev-dependencies]
-# The recorded document's digest (tests/document_recording.rs).
-sha2 = "0.10"
+# The backfill command's database test applies the release migration chain.
+polis-migrate = { path = "../polis-migrate" }
+uuid = { version = "1", features = ["v4"] }
 
 [lints.clippy]
 unwrap_used = "deny"

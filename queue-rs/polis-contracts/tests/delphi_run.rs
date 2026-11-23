@@ -188,6 +188,26 @@ fn every_closed_set_is_the_executor_s_own() {
         })
         .collect();
     assert_eq!(families.len(), 18);
+    // Each later family is one data row of its own migration.
+    const LATER: &[(&str, &str)] = &[(
+        "000049_add_topic_map_document_family.sql",
+        "Delphi_TopicMapDocument",
+    )];
+    for (file, family) in LATER {
+        let sql = read(&format!("server/postgres/migrations/{file}"));
+        let inserts: Vec<&str> = sql
+            .lines()
+            .filter(|l| l.starts_with("INSERT INTO public.delphi_result_catalog VALUES('"))
+            .collect();
+        assert_eq!(inserts.len(), 1, "{file}");
+        assert!(
+            inserts[0].starts_with(&format!(
+                "INSERT INTO public.delphi_result_catalog VALUES('{family}',"
+            )),
+            "{file}"
+        );
+        families.push((*family).to_owned());
+    }
     families.sort();
     let mut ours: Vec<String> = ResultFamily::all()
         .filter(|f| f.in_catalog())
@@ -267,6 +287,12 @@ fn the_family_dependencies_are_declared_and_acyclic() {
             F::CommentEmbeddings,
         ),
         (F::UmapGraph, F::CommentEmbeddings),
+        (F::TopicMapDocument, F::UmapGraph),
+        (
+            F::TopicMapDocument,
+            F::CommentHierarchicalClusterAssignments,
+        ),
+        (F::TopicMapDocument, F::CommentClustersLlmTopicNames),
     ] {
         assert!(family.upstream().contains(&upstream), "{family:?}");
     }

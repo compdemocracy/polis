@@ -344,6 +344,35 @@ def refuse(message: str) -> None:
 
 # --- the manifest -----------------------------------------------------------
 
+def topic_model_name() -> Optional[str]:
+    """The topic-naming model a full run names, from the same settings its
+    naming reads (``ollama``'s model, else the Anthropic topic model)."""
+    if os.environ.get("LLM_PROVIDER", "anthropic").lower() == "ollama":
+        return os.environ.get("OLLAMA_MODEL") or None
+    return (os.environ.get("ANTHROPIC_TOPIC_MODEL") or os.environ.get("ANTHROPIC_MODEL")
+            or "claude-haiku-4-5-20251001")
+
+
+def full_pipeline_models() -> Dict[str, Any]:
+    """The models of a full pipeline run, as its output manifest names them:
+    run_delphi.py writes this into the manifest, and the topic map step
+    (polismath/delphi_storage/topic_map.py) into the map's provenance, so the
+    two never disagree."""
+    from polismath import embedding_model
+    # The clustering run_pipeline.py runs: UMAP and EVoC from the default seed.
+    from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
+
+    return {
+        # The model run_pipeline.py loads, named from the same environment and
+        # lock: repo@revision:384.
+        "embed": embedding_model.resolve().model,
+        "topic": topic_model_name(),
+        "narrative": None,
+        "cluster": CLUSTER_MODEL,
+        "cluster_seed": DEFAULT_SEED,
+    }
+
+
 def empty_inputs() -> Dict[str, Any]:
     return {k: None for k in INPUT_KEYS}
 

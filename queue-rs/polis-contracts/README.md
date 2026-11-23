@@ -172,9 +172,12 @@ dimensions since it replaced all-MiniLM-L6-v2); the EVoC and UMAP output,
 `Delphi_UMAPConversationConfig`; keywords and features,
 `Delphi_CommentClustersStructureKeywords`, `Delphi_CommentClustersFeatures`;
 topic names, `Delphi_CommentClustersLLMTopicNames`; `topic_stats`;
-`Delphi_NarrativeReports`; `Delphi_CollectiveStatement`; `visualizations`.
-Stored families keep their `delphi_result_catalog` names; `topic_stats` and
-`visualizations` have no catalog row yet.
+`Delphi_NarrativeReports`; `Delphi_CollectiveStatement`; `visualizations`;
+the topic map document, `Delphi_TopicMapDocument` (Postgres only, catalog
+row 000049; stored only when the run's daemon sets
+`DELPHI_TOPIC_MAP_DOCUMENT=1`). Stored families keep their
+`delphi_result_catalog` names; `topic_stats` and `visualizations` have no
+catalog row yet.
 
 The other catalog families are legacy (`LegacyFamily`): Delphi's own math
 stage (`Delphi_PCAConversationConfig`, `Delphi_PCAResults`,
@@ -219,6 +222,7 @@ was computed over an older run:
 | `Delphi_NarrativeReports` | `Delphi_CommentClustersLLMTopicNames` | narratives are written over the topics run that named the topics |
 | `Delphi_CollectiveStatement` | `Delphi_CommentClustersLLMTopicNames` | a statement is written for a topic |
 | `visualizations` | `Delphi_UMAPGraph` | the datamapplot draws the UMAP run's map |
+| `Delphi_TopicMapDocument` | `Delphi_UMAPGraph`, `Delphi_CommentHierarchicalClusterAssignments`, `Delphi_CommentClustersLLMTopicNames` | the topic map is drawn from the run's positions, its clusters at every layer and its topic names |
 
 Legacy families have no declared dependencies.
 
