@@ -3,8 +3,10 @@
 //! A caller supplies a primary connection from a bounded participation budget.
 //! Verify credentials and prepare bcrypt recovery material before calling; sign
 //! tokens and issue child-wave invites only after this function returns. There
-//! are no callbacks, network calls, hashing workers or token signers in the
-//! transaction. The existing participant trigger owns number allocation.
+//! are no network calls, hashing workers or token signers in the transaction;
+//! the one callback is `admit_then`'s, whose caller adds its own statements to
+//! the admission transaction. The existing participant trigger owns number
+//! allocation.
 use crate::{Pid, Refusal, Uid, Zid, participant::RequestIdentity};
 use hmac::{Hmac, KeyInit, Mac};
 use postgres::{Client, Transaction, error::SqlState};
@@ -160,6 +162,134 @@ pub fn admit_within(
     bounds: &Bounds,
 ) -> Result<Option<Admitted>, Error> {
     admit_in(client, request, Some(bounds))
+}
+
+/// What `admit_then` committed, or why its callback did not run.
+#[derive(Debug, PartialEq, Eq)]
+pub enum Then<T> {
+    /// This transaction created the participant (`new_participant`). The
+    /// callback ran after the person's rows were written and before COMMIT,
+    /// and its writes and the person's were committed together.
+    Created { admitted: Admitted, value: T },
+    /// No participant was created: an existing member (`Some`), or nobody
+    /// when the entry does not create (`None`). The callback did not run, the
+    /// attempt was rolled back and nothing was written.
+    NotCreated(Option<Admitted>),
+}
+
+/// Why `admit_then` has no committed person. Every variant but
+/// `CommitUnknown` means nothing was written.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ThenError<E> {
+    Refused(Refusal),
+    /// No database messages or credential values escape this boundary.
+    Unavailable,
+    /// COMMIT was sent and its acknowledgement was lost: the person and the
+    /// callback's writes may or may not be durable. `transaction` is the
+    /// transaction's id as `txid_current()` gave it before COMMIT, which
+    /// `txid_status` can be asked about.
+    CommitUnknown {
+        transaction: i64,
+    },
+    /// The callback's own error, returned as it gave it. The transaction was
+    /// rolled back, and it is never retried.
+    Callback(E),
+}
+
+/// `admit_within`, with the caller's own statements in the same transaction.
+///
+/// `then` runs only when this attempt created the participant, inside the
+/// admission transaction, after every admission statement (the user, the
+/// extended row, the participant, the final open check) and before COMMIT,
+/// with the transaction and the admitted ids. It runs at most once.
+///
+/// - An error from `then` rolls everything back (no user, no extended row, no
+///   participant, none of its own writes) and is returned as
+///   `ThenError::Callback`, never retried. Admission's retry of a uniqueness
+///   race covers admission's own statements only, which all run before `then`.
+/// - Every lock admission takes, the participant-number lock of the
+///   `pid_auto` trigger and the conversation row lock among them, is held
+///   until COMMIT, `then` included; `bounds` apply to `then`'s statements too.
+/// - A `then` that swallows a statement error and returns Ok leaves the
+///   transaction aborted: the transaction id read that follows it fails, the
+///   attempt is rolled back, and the result is `Unavailable`, never a
+///   reported commit that did not happen.
+/// - When admission creates no participant, `then` does not run, the attempt
+///   is rolled back and `Then::NotCreated` says what was found.
+///
+/// `admit` and `admit_within` are unchanged by this entry: they do not run it.
+pub fn admit_then<T, E, F>(
+    client: &mut Client,
+    request: &Request<'_>,
+    bounds: &Bounds,
+    then: F,
+) -> Result<Then<T>, ThenError<E>>
+where
+    F: FnOnce(&mut Transaction<'_>, &Admitted) -> Result<T, E>,
+{
+    let mut then = Some(then);
+    for attempt in 0..3 {
+        let mut tx = begin_within(client, bounds).map_err(|_| ThenError::Unavailable)?;
+        match run(&mut tx, request) {
+            Ok(Some(admitted)) if admitted.new_participant => {
+                let Some(then) = then.take() else {
+                    return Err(ThenError::Unavailable);
+                };
+                let value = match then(&mut tx, &admitted) {
+                    Ok(value) => value,
+                    Err(error) => {
+                        // A rollback that fails leaves nothing committed
+                        // either: the server ends the transaction with the
+                        // connection.
+                        let _ = tx.rollback();
+                        return Err(ThenError::Callback(error));
+                    }
+                };
+                let Ok(transaction) = transaction_id(&mut tx) else {
+                    let _ = tx.rollback();
+                    return Err(ThenError::Unavailable);
+                };
+                tx.commit()
+                    .map_err(|_| ThenError::CommitUnknown { transaction })?;
+                return Ok(Then::Created { admitted, value });
+            }
+            Ok(found) => {
+                tx.rollback().map_err(|_| ThenError::Unavailable)?;
+                return Ok(Then::NotCreated(found));
+            }
+            Err(Failure::Burned(reason)) => {
+                let Ok(transaction) = transaction_id(&mut tx) else {
+                    let _ = tx.rollback();
+                    return Err(ThenError::Unavailable);
+                };
+                tx.commit()
+                    .map_err(|_| ThenError::CommitUnknown { transaction })?;
+                return Err(ThenError::Refused(reason));
+            }
+            Err(error) => {
+                tx.rollback().map_err(|_| ThenError::Unavailable)?;
+                match error {
+                    Failure::Refused(reason) | Failure::Burned(reason) => {
+                        return Err(ThenError::Refused(reason));
+                    }
+                    Failure::Database(error)
+                        if error.code() == Some(&SqlState::UNIQUE_VIOLATION) && attempt < 2 => {}
+                    Failure::Database(_) => return Err(ThenError::Unavailable),
+                }
+            }
+        }
+    }
+    Err(ThenError::Unavailable)
+}
+
+/// The transaction's id, read just before COMMIT. Only called after a write,
+/// so the transaction already has an id and `txid_current()` assigns none: it
+/// costs one round trip and nothing else. `txid_current()` rather than
+/// `pg_current_xact_id()`: the same value, as a bigint, which is what
+/// `txid_status` takes. It also proves the transaction is not aborted: when
+/// it fails, the caller rolls the attempt back as `Unavailable`.
+fn transaction_id(tx: &mut Transaction<'_>) -> Result<i64, postgres::Error> {
+    tx.query_one("SELECT txid_current()", &[])?.try_get(0)
 }
 
 fn begin_within<'a>(
