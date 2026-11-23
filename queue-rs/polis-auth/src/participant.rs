@@ -40,8 +40,23 @@ pub struct RequestIdentity {
     xid: Option<String>,
     same_conversation: bool,
     pub kind: Kind,
+    /// The conversation code the token was issued for.
+    conversation: String,
+    /// A signed-in account's subject, from the token (`oidc_sub`).
+    subject: Option<String>,
 }
 impl RequestIdentity {
+    /// The conversation code the token was issued for. When it is not the
+    /// request's, the caller resolves both codes before deciding whether the
+    /// token is for another conversation: an alias names the same one.
+    pub fn token_conversation(&self) -> &str {
+        &self.conversation
+    }
+    /// A signed-in account's subject (`oidc_sub`), for its standard-user
+    /// token; None for any other kind.
+    pub fn subject(&self) -> Option<&str> {
+        self.subject.as_deref()
+    }
     /// Whether the token was issued for the conversation code the request
     /// names. A token for another code keeps or loses its identity by kind.
     pub fn same_conversation(&self) -> bool {
@@ -279,6 +294,10 @@ impl Verifier {
             xid: None,
             same_conversation,
             kind,
+            subject: (kind == Kind::StandardUser)
+                .then(|| c.oidc_sub.clone())
+                .flatten(),
+            conversation: c.conversation_id,
         };
         match kind {
             Kind::Xid => {

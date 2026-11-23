@@ -551,9 +551,31 @@ enum Caller {
     /// Only Node's refusals before any write are answered; the rest is
     /// handed back.
     Tokenless(Option<String>),
-    /// First-contact switch on: no token and no external id. Admission's
-    /// reads decide; a first contact is written only after the fields.
-    FirstContact,
+    /// First-contact switch on: no token and no external id, or an
+    /// anonymous participant token for another conversation code (`other`,
+    /// the token's code). A new person either way. Admission's reads decide;
+    /// a first contact is written only after the fields.
+    FirstContact { other: Option<String> },
+    /// First-contact switch on: a signed-in account's participant token for
+    /// another conversation code (`other`), and no external id. The account
+    /// keeps its user and gets a participant in this conversation.
+    Account { uid: Uid, other: String },
+}
+
+/// The person a first contact creates: the conversation's code for the
+/// token, and for a signed-in account its user and subject (a standard-user
+/// token); None, a new anonymous user.
+struct NewParticipant {
+    cid: String,
+    account: Option<(Uid, String)>,
+}
+
+/// Whether a token issued for conversation code `code` is for the
+/// conversation `zid`, as Node decides it: by resolved conversation, so an
+/// alias of the same conversation is the same one. A code that resolves to
+/// nothing is another conversation.
+fn token_names(c: &mut Client, code: &str, zid: i32) -> Result<bool> {
+    Ok(db::zid_for_conversation_id(c, code)? == Some(zid))
 }
 
 /// A request admission does not admit: handed back for its reason, or
@@ -616,29 +638,43 @@ fn admit(
         Caller::Tokenless(xid) => {
             return Ok(Err(tokenless(c, zid, xid.as_deref(), admins, false)));
         }
-        Caller::FirstContact => {
-            return Ok(Err(match tokenless(c, zid, None, admins, true) {
-                Turned::FirstContact { .. } => {
-                    let row = c.query_one(
-                        "select coalesce(is_active,false),
-                         coalesce(xid_required,false) or coalesce(use_xid_whitelist,false)
-                         or coalesce(treevite_enabled,false)
-                         from conversations where zid=$1",
-                        &[&zid],
-                    )?;
-                    let (active, rules) = (row.try_get::<_, bool>(0)?, row.try_get::<_, bool>(1)?);
-                    if !active && rules {
-                        // Closed, and an identity rule Node checks before it
-                        // creates anybody: Node answers that rule. Handed back.
-                        Turned::Back("no_token")
-                    } else {
-                        Turned::FirstContact { zid, active }
-                    }
-                }
-                turned => turned,
-            }));
+        Caller::FirstContact { other } => {
+            if let Some(code) = other
+                && token_names(c, code, zid)?
+            {
+                return Ok(Err(Turned::Back("token_alias")));
+            }
+            return Ok(Err(first_contact_turn(
+                c,
+                zid,
+                &join::Identity::Anonymous,
+                admins,
+            )?));
+        }
+        Caller::Account { uid, other } => {
+            if token_names(c, other, zid)? {
+                return Ok(Err(Turned::Back("token_alias")));
+            }
+            // The account test a member's standard-user token gets below.
+            if c.query_one(
+                "select coalesce(u.site_id is not null and u.site_id = owner_user.site_id, false)
+                 from conversations c left join users owner_user on owner_user.uid=c.owner
+                 left join users u on u.uid=$2 where c.zid=$1",
+                &[&zid, &uid.0],
+            )?
+            .try_get::<_, bool>(0)?
+            {
+                return Ok(Err(Turned::Back("site_owner_standard_user")));
+            }
+            return Ok(Err(first_contact_turn(
+                c,
+                zid,
+                &join::Identity::Account(*uid),
+                admins,
+            )?));
         }
     };
+
     // Node trusts a member token's participant number in a Treevite
     // conversation too; its Treevite check applies only to a request with none.
     let pid = if identity_on {
@@ -721,6 +757,37 @@ fn xid_member(
     })
 }
 
+/// A first contact's admission: the decision for `identity` (a new anonymous
+/// user, or a signed-in account), and, when it creates, whether the
+/// conversation is open. Nothing is written.
+fn first_contact_turn(
+    c: &mut Client,
+    zid: i32,
+    identity: &join::Identity<'_>,
+    admins: &[i32],
+) -> Result<Turned> {
+    Ok(match decided(c, zid, identity, admins, true) {
+        Turned::FirstContact { .. } => {
+            let row = c.query_one(
+                "select coalesce(is_active,false),
+                 coalesce(xid_required,false) or coalesce(use_xid_whitelist,false)
+                 or coalesce(treevite_enabled,false)
+                 from conversations where zid=$1",
+                &[&zid],
+            )?;
+            let (active, rules) = (row.try_get::<_, bool>(0)?, row.try_get::<_, bool>(1)?);
+            if !active && rules {
+                // Closed, and an identity rule Node checks before it
+                // creates anybody: Node answers that rule. Handed back.
+                Turned::Back("no_token")
+            } else {
+                Turned::FirstContact { zid, active }
+            }
+        }
+        turned => turned,
+    })
+}
+
 /// A request with no token: what admission's participation entry decides, by
 /// reads alone in one read-only snapshot. Node's refusals before any write
 /// are answered; everything else (a first contact, which writes) goes back.
@@ -734,14 +801,30 @@ fn tokenless(
     admins: &[i32],
     first_contact: bool,
 ) -> Turned {
-    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     let identity = join::Identity::without_token(xid);
+    decided(c, zid, &identity, admins, first_contact && xid.is_none())
+}
+
+/// What admission's participation entry decides for `identity`, by reads
+/// alone in one read-only snapshot. Node's refusals before any write are
+/// answered. With `first_contact`, a decision to create (a user and a
+/// participant for an anonymous identity, a participant for an account) is
+/// a first contact; everything else goes back.
+fn decided(
+    c: &mut Client,
+    zid: i32,
+    identity: &join::Identity<'_>,
+    admins: &[i32],
+    first_contact: bool,
+) -> Turned {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let account = matches!(identity, join::Identity::Account(_));
     let Ok(mut snapshot) = join::snapshot(c, &TOKENLESS_BOUNDS) else {
         return Turned::Back("admission_unavailable");
     };
     let decision = snapshot.decide(&join::Participation {
         zid: Zid(zid),
-        identity: &identity,
+        identity,
         create_if_missing: true,
         admin_uids: &admin_uids,
     });
@@ -750,19 +833,21 @@ fn tokenless(
         Ok(join::Outcome::Refused(refusal)) if TOKENLESS_REFUSALS.contains(&refusal.code) => {
             Turned::Answer(refusal.status, refusal.code)
         }
-        Ok(join::Outcome::CreateUserAndParticipant) if first_contact && xid.is_none() => {
+        Ok(join::Outcome::CreateUserAndParticipant) if first_contact && !account => {
+            Turned::FirstContact { zid, active: false }
+        }
+        Ok(join::Outcome::CreateParticipant) if first_contact && account => {
             Turned::FirstContact { zid, active: false }
         }
         // Admission refuses a closed conversation before its other rules;
         // Node creates first and then refuses. Rust refuses first, after the
         // fields (`admit` reads the rules the refusal did not reach).
         Ok(join::Outcome::Refused(refusal))
-            if first_contact
-                && xid.is_none()
-                && refusal.code == "polis_err_conversation_is_closed" =>
+            if first_contact && refusal.code == "polis_err_conversation_is_closed" =>
         {
             Turned::FirstContact { zid, active: false }
         }
+        Ok(_) if account => Turned::Back("account_not_created"),
         Ok(_) => Turned::Back("no_token"),
         Err(_) => Turned::Back("admission_unavailable"),
     }
@@ -1082,9 +1167,10 @@ struct Prepared {
     fields: ParsedFields,
     res: Res,
     admission: Duration,
-    /// A first contact: the conversation's code, for the token. Nobody is
-    /// written yet; `admitted` carries no participant until `create`.
-    first_contact: Option<String>,
+    /// A first contact: who is to be created, and the conversation's code
+    /// for the token. Nobody is written yet; `admitted` carries no
+    /// participant until `create`.
+    first_contact: Option<NewParticipant>,
 }
 
 /// A request handed back or refused before dispatch: the live answer, and the
@@ -1140,11 +1226,12 @@ async fn prepare(
     .map_err(Refused::handback)?;
     let auth = req.headers.get("authorization");
     let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let mut account = None;
     let caller = match auth {
-        None if writer.first_contact && named.is_none() => Caller::FirstContact,
+        None if writer.first_contact && named.is_none() => Caller::FirstContact { other: None },
         None if writer.identity => Caller::Tokenless(named),
         None => return Err(Refused::handback("no_token")),
-        Some(auth) if writer.identity => {
+        Some(auth) if writer.identity => 'caller: {
             // The account check of an external-id token runs with
             // admission's reads (`xid_member`), on the signed user.
             let mut deferred =
@@ -1163,6 +1250,30 @@ async fn prepare(
                 )
                 .ok()
                 .flatten();
+            // A token for another conversation code, with the first-contact
+            // switch on and no external id named: an anonymous token is a
+            // new person, a signed-in account's keeps its user. Whether the
+            // code is another conversation is decided in admission, by
+            // resolved conversation.
+            if writer.first_contact
+                && named.is_none()
+                && let Some(scoped) = scoped.as_ref().filter(|s| !s.same_conversation())
+            {
+                let other = scoped.token_conversation().to_owned();
+                match (scoped.kind, scoped.uid(), scoped.subject()) {
+                    (participant::Kind::Anonymous, None, _) => {
+                        break 'caller Caller::FirstContact { other: Some(other) };
+                    }
+                    (participant::Kind::StandardUser, Some(uid), Some(subject)) => {
+                        if writer.admins.contains(&uid.0) {
+                            return Err(Refused::handback("admin"));
+                        }
+                        account = Some((uid, subject.to_owned()));
+                        break 'caller Caller::Account { uid, other };
+                    }
+                    _ => {}
+                }
+            }
             let Some((member, xid)) = scoped
                 .as_ref()
                 .and_then(|scoped| Some((scoped.member()?, scoped.xid().map(str::to_owned))))
@@ -1248,7 +1359,10 @@ async fn prepare(
         // Nothing is written before the fields parse and the conversation is
         // found open, below: a first contact is refused first.
         Ok(Err(Turned::FirstContact { zid, active })) => {
-            first_contact = Some(conversation);
+            first_contact = Some(NewParticipant {
+                cid: conversation,
+                account: account.take(),
+            });
             Admitted {
                 zid,
                 pid: -1,
@@ -1349,15 +1463,23 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     // A first contact is written after dispatch has begun, so a stopping
     // process hands it back before anyone exists. Once the user and the
     // participant are committed nothing is handed back: Node would make a
-    // second person.
-    let created = match (&first_contact, &writer.first_contact) {
+    // second person. Its token is signed at once, so every reply from here
+    // on carries it: the vote's 200, its 406 and 500, and the 202 receipt.
+    let auth = match (&first_contact, &writer.first_contact) {
         (None, _) => None,
         (Some(_), None) => return route::bad_gateway(),
-        (Some(_), Some(lane)) => match create(lane, &writer.admins, admitted.zid).await {
+        (Some(new), Some(lane)) => match create(
+            lane,
+            &writer.admins,
+            admitted.zid,
+            new.account.as_ref().map(|(uid, _)| *uid),
+        )
+        .await
+        {
             Ok(created) => {
                 admitted.pid = created.pid.0 as i32;
                 admitted.uid = created.uid.0;
-                Some(created)
+                issue(lane, &created, new).await
             }
             Err(reason) => {
                 first_contact_handed_back(reason, admitted.zid);
@@ -1387,29 +1509,48 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
     ));
     match tokio::time::timeout_at(reply_deadline, task).await {
         Ok(Ok(Ok(Outcome::Success(mut body)))) => {
-            if let (Some(created), Some(cid), Some(lane)) =
-                (&created, &first_contact, &writer.first_contact)
-            {
-                body.auth = issue(lane, created, cid).await;
-            }
+            body.auth = auth;
             accepted(req, res, body)
         }
-        Ok(Ok(Ok(Outcome::Failure(status, code)))) => {
-            route::fail_json(req, res, status, Js::Str(code.into()))
-        }
+        Ok(Ok(Ok(Outcome::Failure(status, code)))) => failed(req, res, status, code, auth.as_ref()),
         _ => {
             let vote = receipt.lock().unwrap_or_else(|e| e.into_inner()).clone();
             if let Some(vote) = vote {
-                accepted(req, res, degraded(fallback_pid, vote, fallback_star))
+                let mut body = degraded(fallback_pid, vote, fallback_star);
+                body.auth = auth;
+                accepted(req, res, body)
             } else {
-                route::json_text(
-                    req,
-                    res,
-                    202,
-                    r#"{"acceptance":"unknown","retry":"same_vote"}"#.into(),
-                )
+                // A fixed body of two strings and, at most, the token.
+                let body = serde_json::to_string(&contract::UnknownAcceptance::new(auth))
+                    .unwrap_or_else(|_| r#"{"acceptance":"unknown","retry":"same_vote"}"#.into());
+                route::json_text(req, res, 202, body)
             }
         }
+    }
+}
+
+/// Node's `failJson` body (`error`, `message`, `status`), with the token of a
+/// participant this request created as its last key, as Node's token
+/// injector places it on a handler's failure. With no token, `fail_json`'s
+/// bytes.
+fn failed(
+    req: &Request,
+    res: Res,
+    status: u16,
+    code: &'static str,
+    auth: Option<&contract::Auth>,
+) -> Outgoing {
+    let Some(auth) = auth else {
+        return route::fail_json(req, res, status, Js::Str(code.into()));
+    };
+    match serde_json::to_string(&contract::Failure {
+        error: code.into(),
+        message: code.into(),
+        status,
+        auth: Some(auth.clone()),
+    }) {
+        Ok(body) => route::json_text(req, res, status, body),
+        Err(_) => route::fail_json(req, res, status, Js::Str(code.into())),
     }
 }
 
@@ -1440,6 +1581,7 @@ async fn create(
     lane: &FirstContact,
     admins: &[i32],
     zid: i32,
+    account: Option<Uid>,
 ) -> Result<join::Admitted, &'static str> {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     let admitted = lane
@@ -1449,7 +1591,7 @@ async fn create(
                 c,
                 &join::Request {
                     zid: Zid(zid),
-                    identity: join::Identity::Anonymous,
+                    identity: account.map_or(join::Identity::Anonymous, join::Identity::Account),
                     entry: join::Entry::Participation {
                         create_if_missing: true,
                     },
@@ -1465,7 +1607,17 @@ async fn create(
     match admitted {
         // No connection within 100 ms, or none could be opened: nothing ran.
         Err(_) => Err("first_contact_unavailable"),
-        Ok(Ok(Some(admitted))) if admitted.new_user && admitted.new_participant => Ok(admitted),
+        // A new anonymous user and its participant; for an account, a new
+        // participant of that user. Anything else was not this request's.
+        Ok(Ok(Some(admitted)))
+            if admitted.new_participant
+                && match account {
+                    None => admitted.new_user,
+                    Some(uid) => !admitted.new_user && admitted.uid == uid,
+                } =>
+        {
+            Ok(admitted)
+        }
         Ok(Ok(_)) => Err("first_contact_not_created"),
         Ok(Err(join::Error::Refused(_))) => Err("first_contact_refused"),
         // A lock wait past 100 ms, a statement past one second, a dropped
@@ -1496,22 +1648,27 @@ fn first_contact_handed_back(reason: &'static str, zid: i32) {
     }
 }
 
-/// The anonymous participant token for a participant this request created,
-/// signed after the commit, off the async runtime, as Node issues it.
-async fn issue(lane: &FirstContact, created: &join::Admitted, cid: &str) -> Option<contract::Auth> {
+/// The token for a participant this request created, signed after the
+/// commit, off the async runtime, as Node issues it: anonymous for a new
+/// user, a standard user's (its subject from the token it presented) for an
+/// account.
+async fn issue(
+    lane: &FirstContact,
+    created: &join::Admitted,
+    new: &NewParticipant,
+) -> Option<contract::Auth> {
     let keys = lane.keys.clone();
-    let (issuer, audience, cid) = (lane.issuer.clone(), lane.audience.clone(), cid.to_owned());
+    let (issuer, audience, cid) = (lane.issuer.clone(), lane.audience.clone(), new.cid.clone());
+    let subject = new.account.as_ref().map(|(_, subject)| subject.clone());
     let (uid, pid) = (created.uid, created.pid);
     let token = tokio::task::spawn_blocking(move || {
-        polis_auth::participant_mint::mint(
-            &keys,
-            polis_auth::participant_mint::Identity::anonymous(uid),
-            &cid,
-            pid,
-            &issuer,
-            &audience,
-            || (crate::clock::now_ms() / 1000.0) as u64,
-        )
+        let identity = match subject.as_deref() {
+            None => polis_auth::participant_mint::Identity::anonymous(uid),
+            Some(subject) => polis_auth::participant_mint::Identity::standard_user(uid, subject)?,
+        };
+        polis_auth::participant_mint::mint(&keys, identity, &cid, pid, &issuer, &audience, || {
+            (crate::clock::now_ms() / 1000.0) as u64
+        })
     })
     .await;
     match token {

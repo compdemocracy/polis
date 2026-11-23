@@ -392,3 +392,348 @@ fn a_first_contacts_admission_takes_only_its_own_pool() {
     assert_eq!(status, 200);
     assert_eq!(snap(&lane.pool)[0], own2[0]);
 }
+
+/// `stage`, and: conversation 6 (`2other`), open, with user 4 as its
+/// participant 0; `2alias`, a second code of conversation 1.
+fn stage_with_another(label: &str) -> Stage {
+    let stage = stage(label);
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "INSERT INTO users(uid) VALUES (4);
+             INSERT INTO conversations(zid,owner,is_active,modified) VALUES (6,9,true,0);
+             INSERT INTO zinvites(zid,zinvite) VALUES (6,'2other'),(1,'2alias');
+             ALTER TABLE participants DISABLE TRIGGER USER;
+             INSERT INTO participants(zid,pid,uid,nsli) VALUES (6,0,4,0);
+             ALTER TABLE participants ENABLE TRIGGER USER;",
+        )
+        .unwrap();
+    stage
+}
+
+/// A token the minter signs, as Node's participant middleware issues it.
+fn token_for(
+    stage: &Stage,
+    identity: polis_auth::participant_mint::Identity<'_>,
+    cid: &str,
+    pid: u32,
+) -> String {
+    polis_auth::participant_mint::mint(
+        &keys(stage),
+        identity,
+        cid,
+        polis_auth::Pid(pid),
+        "fixture",
+        "fixture",
+        || (crate::clock::now_ms() / 1000.0) as u64,
+    )
+    .unwrap()
+}
+
+fn anonymous(uid: i32) -> polis_auth::participant_mint::Identity<'static> {
+    polis_auth::participant_mint::Identity::anonymous(Uid(uid))
+}
+
+/// The token in a reply whose last key is `auth`, with Node's bytes:
+/// `,"auth":{"token":"…","token_type":"Bearer","expires_in":31536000}}`.
+fn reply_token(body: &str) -> &str {
+    let start = body
+        .find(r#","auth":{"token":""#)
+        .unwrap_or_else(|| panic!("auth in the reply: {body}"))
+        + 18;
+    assert!(body.ends_with(AUTH_TAIL), "auth is the last key: {body}");
+    &body[start..body.len() - AUTH_TAIL.len()]
+}
+
+/// The request identity a token carries for `2plain`: its kind, user,
+/// participant and subject.
+fn claims(stage: &Stage, token: &str) -> (participant::Kind, i32, u32, Option<String>) {
+    let mut deferred = |_: Uid| Ok::<Option<xid_account::Account>, polis_auth::Unavailable>(None);
+    let identity = keys(stage)
+        .verifier("fixture", "fixture")
+        .unwrap()
+        .verify_for_request(
+            &format!("Bearer {token}"),
+            "2plain",
+            None,
+            (crate::clock::now_ms() / 1000.0) as u64,
+            &mut xid_account::Check {
+                db: &mut deferred,
+                admin_uids: &[],
+            },
+        )
+        .unwrap()
+        .expect("a participant token");
+    assert!(
+        identity.same_conversation(),
+        "a token for this conversation"
+    );
+    (
+        identity.kind,
+        identity.uid().unwrap().0,
+        identity.pid().unwrap().0,
+        identity.subject().map(str::to_owned),
+    )
+}
+
+fn newest_user(stage: &Stage) -> i32 {
+    stage
+        .db
+        .connect()
+        .query_one("select max(uid) from users", &[])
+        .unwrap()
+        .get(0)
+}
+
+#[test]
+fn a_failure_after_creation_carries_the_token() {
+    let stage = stage("first_contact_failure_auth");
+    // The vote's own statement fails after the person is committed: a
+    // unique violation on statement 7 (Node's 406), any other error on
+    // statement 8 (Node's 500).
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN
+               IF NEW.tid = 7 THEN RAISE EXCEPTION 'fixture' USING ERRCODE = 'unique_violation'; END IF;
+               IF NEW.tid = 8 THEN RAISE EXCEPTION 'fixture'; END IF;
+               RETURN NEW;
+             END $$;
+             CREATE TRIGGER refuse_vote BEFORE INSERT ON votes FOR EACH ROW EXECUTE FUNCTION refuse_vote();",
+        )
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    // A member's failure: Node's three keys, no token.
+    let member = member_token(&stage, 2, 0);
+    assert_eq!(
+        vote(&rt, &app, ballot("2plain"), Some(&member)),
+        (406, node_refusal(406, "polis_err_vote_duplicate"))
+    );
+    for (tid, status, code, pid) in [
+        (7, 406, "polis_err_vote_duplicate", 2),
+        (8, 500, "polis_err_vote", 3),
+    ] {
+        let before = rows(&stage);
+        let body =
+            json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE});
+        let (got, reply) = vote(&rt, &app, body, None);
+        assert_eq!(got, status, "{reply}");
+        // The person was created; the vote was not.
+        let after = rows(&stage);
+        assert_eq!(
+            after,
+            vec![before[0] + 1, before[1] + 1, before[2] + 1, before[3]],
+            "users, participants, participants_extended, votes"
+        );
+        let token = reply_token(&reply);
+        assert_eq!(
+            reply,
+            format!(
+                r#"{{"error":"{code}","message":"{code}","status":{status},"auth":{{"token":"{token}{AUTH_TAIL}"#
+            )
+        );
+        assert_eq!(
+            claims(&stage, token),
+            (participant::Kind::Anonymous, newest_user(&stage), pid, None)
+        );
+        let decoded = contract::Response::decode(status, reply.as_bytes()).unwrap();
+        assert!(matches!(decoded, contract::Response::Failure(f) if f.auth.is_some()));
+    }
+}
+
+#[test]
+fn a_receipt_of_unknown_acceptance_carries_the_token() {
+    let stage = stage("first_contact_unknown_auth");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let writer = app.post_votes.as_ref().unwrap();
+    // Every vote append connection held past the reply deadline: the vote is
+    // dispatched and waits, and the reply is the 202 receipt.
+    let mut held = vec![];
+    for _ in 0..4 {
+        let (ready, wait) = std::sync::mpsc::channel();
+        let (release, park) = std::sync::mpsc::channel::<()>();
+        let pool = writer.pool.clone();
+        let work = rt.spawn(async move {
+            pool.with(move |_| {
+                ready.send(()).unwrap();
+                park.recv_timeout(Duration::from_secs(10))?;
+                Ok(())
+            })
+            .await
+        });
+        wait.recv().unwrap();
+        held.push((release, work));
+    }
+    let before = rows(&stage);
+    let (status, body) = vote(&rt, &app, ballot("2plain"), None);
+    assert_eq!(status, 202, "{body}");
+    let token = reply_token(&body).to_owned();
+    assert_eq!(
+        body,
+        format!(
+            r#"{{"acceptance":"unknown","retry":"same_vote","auth":{{"token":"{token}{AUTH_TAIL}"#
+        )
+    );
+    assert!(
+        contract::UnknownAcceptance::decode(body.as_bytes())
+            .unwrap()
+            .auth
+            .is_some()
+    );
+    let uid = newest_user(&stage);
+    assert_eq!(
+        claims(&stage, &token),
+        (participant::Kind::Anonymous, uid, 2, None)
+    );
+    for (release, work) in held {
+        release.send(()).unwrap();
+        rt.block_on(work).unwrap().unwrap();
+    }
+    // The dispatched vote lands for the participant the token names.
+    let mut c = stage.db.connect();
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while c
+        .query_opt(
+            "select vote from votes_latest_unique where zid=1 and pid=2 and tid=7",
+            &[],
+        )
+        .unwrap()
+        .is_none()
+    {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the vote never landed"
+        );
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert_eq!(
+        rows(&stage),
+        before.iter().map(|n| n + 1).collect::<Vec<_>>()
+    );
+    // Sent again with its token, the same vote creates nobody.
+    let (status, body) = vote(&rt, &app, ballot("2plain"), Some(&token));
+    assert_eq!(status, 200, "{body}");
+    assert!(!body.contains(r#""auth""#));
+    assert_eq!(rows(&stage)[0], before[0] + 1);
+}
+
+#[test]
+fn an_anonymous_token_for_another_conversation_is_a_new_person() {
+    let stage = stage_with_another("first_contact_other_anonymous");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    // A token for another conversation, and one for a code that names
+    // nothing (another conversation too, as Node counts it): each a new
+    // user, participant and vote, and a token for this conversation.
+    for (cid, pid) in [("2other", 2), ("2gone", 3)] {
+        let before = rows(&stage);
+        let presented = token_for(&stage, anonymous(4), cid, 0);
+        let (status, body) = vote(&rt, &app, ballot("2plain"), Some(&presented));
+        assert_eq!(status, 200, "{body}");
+        assert_eq!(
+            rows(&stage),
+            before.iter().map(|n| n + 1).collect::<Vec<_>>()
+        );
+        let uid = newest_user(&stage);
+        assert!(uid > 100, "a new user, not the token's");
+        let value: Value = serde_json::from_str(&body).unwrap();
+        assert_eq!(value["currentPid"], json!(pid));
+        assert_eq!(
+            claims(&stage, reply_token(&body)),
+            (participant::Kind::Anonymous, uid, pid, None)
+        );
+    }
+    // A token for another code of this conversation is this conversation's:
+    // handed back, nobody created.
+    let before = rows(&stage);
+    let alias = token_for(&stage, anonymous(2), "2alias", 0);
+    assert_eq!(vote(&rt, &app, ballot("2plain"), Some(&alias)).0, 502);
+    // With an external id named, it stays Node's.
+    let other = token_for(&stage, anonymous(4), "2other", 0);
+    let named = json!({"conversation_id": "2plain", "tid": 7, "vote": 0, "xid": "x-1"});
+    assert_eq!(vote(&rt, &app, named, Some(&other)).0, 502);
+    assert_eq!(rows(&stage), before);
+}
+
+#[test]
+fn an_accounts_token_for_another_conversation_keeps_its_user() {
+    let stage = stage_with_another("first_contact_other_account");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let account = |uid: i32, cid: &str| {
+        token_for(
+            &stage,
+            polis_auth::participant_mint::Identity::standard_user(Uid(uid), "auth0|fixture")
+                .unwrap(),
+            cid,
+            0,
+        )
+    };
+    let before = rows(&stage);
+    let (status, body) = vote(&rt, &app, ballot("2plain"), Some(&account(4, "2other")));
+    assert_eq!(status, 200, "{body}");
+    // No user; a participant, its extended row and the vote.
+    assert_eq!(
+        rows(&stage),
+        vec![before[0], before[1] + 1, before[2] + 1, before[3] + 1]
+    );
+    let mut c = stage.db.connect();
+    assert_eq!(
+        c.query_one("select pid from participants where zid=1 and uid=4", &[])
+            .unwrap()
+            .get::<_, i32>(0),
+        2
+    );
+    let token = reply_token(&body).to_owned();
+    assert_eq!(
+        claims(&stage, &token),
+        (
+            participant::Kind::StandardUser,
+            4,
+            2,
+            Some("auth0|fixture".into())
+        )
+    );
+    // Its new token makes it a member: no token in the reply, nobody new.
+    let after = rows(&stage);
+    let (status, body) = vote(&rt, &app, ballot("2plain"), Some(&token));
+    assert_eq!(status, 200, "{body}");
+    assert!(!body.contains(r#""auth""#));
+    assert_eq!(rows(&stage), after);
+    // An account that is already a participant here, or a token for another
+    // code of this conversation: handed back, nothing written.
+    assert_eq!(
+        vote(&rt, &app, ballot("2plain"), Some(&account(2, "2other"))).0,
+        502
+    );
+    assert_eq!(
+        vote(&rt, &app, ballot("2plain"), Some(&account(4, "2alias"))).0,
+        502
+    );
+    assert_eq!(rows(&stage), after);
+}
+
+#[test]
+fn with_the_first_contact_switch_off_tokens_for_another_conversation_are_handed_back() {
+    let stage = stage_with_another("first_contact_other_off");
+    let rt = runtime();
+    let off = app(&stage, &rt, false);
+    let before = rows(&stage);
+    for presented in [
+        token_for(&stage, anonymous(4), "2other", 0),
+        token_for(
+            &stage,
+            polis_auth::participant_mint::Identity::standard_user(Uid(4), "auth0|fixture").unwrap(),
+            "2other",
+            0,
+        ),
+    ] {
+        assert_eq!(vote(&rt, &off, ballot("2plain"), Some(&presented)).0, 502);
+    }
+    assert_eq!(rows(&stage), before);
+}

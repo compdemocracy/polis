@@ -134,7 +134,7 @@ impl Request {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Auth {
     pub token: String,
@@ -261,6 +261,42 @@ impl DurableSuccess {
         }
         if let Some(next) = &value.next_comment {
             next.fields().map_err(|e| e.to_string())?;
+        }
+        Ok(value)
+    }
+}
+
+/// The 202 a vote gets when its reply deadline passes before the commit is
+/// acknowledged: whether the vote is stored is unknown, and the same vote may
+/// be sent again.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnknownAcceptance {
+    /// Always "unknown".
+    pub acceptance: String,
+    /// Always "same_vote".
+    pub retry: String,
+    /// The token of a participant this request created: the last key, so a
+    /// caller that sends the same vote again sends it as that participant.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<Auth>,
+}
+impl UnknownAcceptance {
+    pub fn new(auth: Option<Auth>) -> Self {
+        Self {
+            acceptance: "unknown".into(),
+            retry: "same_vote".into(),
+            auth,
+        }
+    }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+        reject_null_optionals(body, &["auth"])?;
+        if value.acceptance != "unknown" || value.retry != "same_vote" {
+            return Err("unrecognized unknown acceptance".into());
+        }
+        if let Some(auth) = &value.auth {
+            auth.validate()?;
         }
         Ok(value)
     }
