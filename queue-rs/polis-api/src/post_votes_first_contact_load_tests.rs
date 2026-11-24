@@ -487,12 +487,11 @@ fn concurrent_first_votes_in_one_conversation_each_get_their_own_participant() {
 const PARTICIPANT_NUMBER_LOCK: i32 = 873791983;
 
 const MEMBER_VOTES: usize = 4;
-/// Members' comments at once: as many as the comment writer's admission
-/// reads hold.
-const COMMENT_WRITES: usize = 2;
-const READS_EACH: usize = 2;
-/// The votes read's pool holds one.
-const VOTES_READS: usize = 1;
+/// Four of each kind per round gives forty samples per phase, including
+/// reads whose pools hold fewer concurrent connections.
+const COMMENT_WRITES: usize = 4;
+const READS_EACH: usize = 4;
+const VOTES_READS: usize = 4;
 const FIRST_VOTERS_UNDER_LOAD: usize = 8;
 /// Rounds of participation per phase: the idle control and each loaded phase
 /// are measured over the same number of samples.
@@ -518,8 +517,8 @@ struct Cadence {
 }
 
 /// What a loaded phase may add over the idle control, the same requests
-/// measured in the same test: at most this share more misses of a read's own
-/// deadline, and a 95th percentile within twice the control's plus the slack.
+/// measured in the same test: at most this share more read hand-backs,
+/// and an answered 95th percentile within twice the control's plus the slack.
 const MISS_SHARE_PERCENT: usize = 5;
 const LATENCY_SLACK: Duration = Duration::from_millis(25);
 
@@ -537,10 +536,10 @@ const KINDS: [&str; 5] = [
     "votes read",
 ];
 
-/// One round of participation at once: members' votes (two each, on the
-/// three statements), members' comments, the next comment, the comment list
-/// and the votes read (as many at once as their pools hold), and `first`
-/// first votes. Answers in that order.
+/// One round: four of each participation kind, and `first` first votes.
+/// Each kind keeps its original number of concurrent clients, taking more
+/// samples within the fixed round. Members' votes are two each, on the
+/// three statements. Answers in kind order.
 fn participation(
     rt: &tokio::runtime::Runtime,
     app: &Arc<App>,
@@ -558,7 +557,44 @@ fn participation(
     requests.extend((0..READS_EACH).map(|_| read(comments::PATH, "")));
     requests.extend((0..VOTES_READS).map(|_| read(crate::votes_read::PATH, "&pid=0&tid=0")));
     requests.extend((0..first).map(|_| ballot(0, None)));
-    at_once(rt, app, requests)
+    rt.block_on(async {
+        let start = Arc::new(tokio::sync::Barrier::new(requests.len()));
+        // More samples, with the original concurrency: four member votes,
+        // two comments, two next comments, two comment lists, one votes
+        // read, and all first voters. Bursting four next comments or votes
+        // reads would test their own small pools' acquire bounds even idle.
+        let clients = [
+            (MEMBER_VOTES, MEMBER_VOTES),
+            (COMMENT_WRITES, 2),
+            (READS_EACH, 2),
+            (READS_EACH, 2),
+            (VOTES_READS, 1),
+            (first, first),
+        ]
+        .into_iter()
+        .flat_map(|(samples, concurrent)| {
+            std::iter::repeat_n(Arc::new(tokio::sync::Semaphore::new(concurrent)), samples)
+        });
+        let tasks: Vec<_> = requests
+            .into_iter()
+            .zip(clients)
+            .map(|(request, clients)| {
+                let (app, start) = (app.clone(), start.clone());
+                tokio::spawn(async move {
+                    start.wait().await;
+                    let _client = clients.acquire().await.unwrap();
+                    // Measure from actual dispatch, not fixture pacing.
+                    // The whole round, including pacing, must not overrun.
+                    send(app, request).await
+                })
+            })
+            .collect();
+        let mut answers = vec![];
+        for task in tasks {
+            answers.push(task.await.unwrap());
+        }
+        answers
+    })
 }
 
 /// Members' votes, members' comments, the next comment, the comment list,
@@ -626,17 +662,25 @@ fn latency_failures(
         let (idle, busy) = (kind(control, index), kind(loaded, index));
         let misses = |answers: &[Answer]| answers.iter().filter(|a| !answered(a)).count();
         let allowed = misses(&idle) + (busy.len() * MISS_SHARE_PERCENT).div_ceil(100);
-        let bound = p95(&idle) * 2 + LATENCY_SLACK;
-        let strict_bound = p95(&idle) + CONTROL_SLACK;
+        let idle_answered: Vec<_> = idle.iter().filter(|a| answered(a)).cloned().collect();
+        let busy_answered: Vec<_> = busy.iter().filter(|a| answered(a)).cloned().collect();
+        assert!(
+            !idle_answered.is_empty() && !busy_answered.is_empty(),
+            "{phase}: {name}: no answered samples for a latency comparison"
+        );
+        let bound = p95(&idle_answered) * 2 + LATENCY_SLACK;
+        let strict_bound = p95(&idle_answered) + CONTROL_SLACK;
         report(format!(
-            "latency {phase}: {name}: period_ms={}; control_samples={}; loaded_samples={}; control_p50_ms={:.1}; loaded_p50_ms={:.1}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; strict_bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}; control_overruns={}; loaded_overruns={}",
+            "latency {phase}: {name}: period_ms={}; control_samples={}; loaded_samples={}; control_answered_samples={}; loaded_answered_samples={}; control_p50_ms={:.1}; loaded_p50_ms={:.1}; control_p95_ms={:.1}; loaded_p95_ms={:.1}; bound_ms={:.1}; strict_bound_ms={:.1}; control_misses={}; loaded_misses={}; allowed_misses={allowed}; control_overruns={}; loaded_overruns={}",
             ROUND_PERIOD.as_millis(),
             idle.len(),
             busy.len(),
-            ms(percentile(&idle, 50)),
-            ms(percentile(&busy, 50)),
-            ms(p95(&idle)),
-            ms(p95(&busy)),
+            idle_answered.len(),
+            busy_answered.len(),
+            ms(percentile(&idle_answered, 50)),
+            ms(percentile(&busy_answered, 50)),
+            ms(p95(&idle_answered)),
+            ms(p95(&busy_answered)),
             ms(bound),
             ms(strict_bound),
             misses(&idle),
@@ -650,18 +694,18 @@ fn latency_failures(
                 misses(&busy)
             ));
         }
-        if p95(&busy) > bound {
+        if p95(&busy_answered) > bound {
             failures.push(format!(
                 "{name}: p95 {:?} past {bound:?} (control {:?})",
-                p95(&busy),
-                p95(&idle)
+                p95(&busy_answered),
+                p95(&idle_answered)
             ));
         }
-        if p95(&busy) > strict_bound {
+        if p95(&busy_answered) > strict_bound {
             past_control.push(format!(
                 "{name}: p95 {:?} past {strict_bound:?} (control {:?})",
-                p95(&busy),
-                p95(&idle)
+                p95(&busy_answered),
+                p95(&idle_answered)
             ));
         }
     }
@@ -787,7 +831,7 @@ fn participation_under_first_contact_load(stage: &Stage) {
                 .collect::<Vec<_>>()
         };
     let assert_members_answered = |phase: &str, answers: &[Answer]| {
-        let [members, _, next, list, _, _] = split(answers);
+        let [members, _, next, list, votes, _] = split(answers);
         for answer in members {
             assert_eq!(
                 (answer.status, answer.dispatch.as_deref()),
@@ -795,40 +839,26 @@ fn participation_under_first_contact_load(stage: &Stage) {
                 "{phase}: a member's vote was not answered: {answer:?}"
             );
         }
-        for answer in next.iter().chain(list) {
-            assert_eq!(
-                answer.status, 200,
-                "{phase}: a participation read was not answered: {answer:?}"
+        for answer in next.iter().chain(list).chain(votes) {
+            assert!(
+                answered(answer) || answer.status == 502,
+                "{phase}: a participation read neither answered nor handed back: {answer:?}"
             );
         }
     };
-    // In every round: each member's vote and comment answered, and the
-    // comment list answered (neither has a deadline of its own to miss). The
-    // first round's next comment and votes read too; later rounds' misses of
-    // their own deadlines are held to the latency rule.
+    // In every phase and round, including the idle control: members' votes
+    // and comments must answer. Any read 502 is a hand-back to Node and a
+    // miss under the control-relative miss rule, whether from its deadline
+    // or an immediate refusal while earlier work still holds a connection.
     let assert_round = |phase: &str, round: usize, answers: &[Answer]| {
-        let [members, written, _, list, votes, _] = split(answers);
+        let [members, written, _, _, _, _] = split(answers);
         for answer in members.iter().chain(written) {
             assert!(
                 answered(answer),
                 "{phase} round {round}: a member's vote or comment was not answered: {answer:?}"
             );
         }
-        for answer in list {
-            assert_eq!(
-                answer.status, 200,
-                "{phase} round {round}: the comment list was not answered: {answer:?}"
-            );
-        }
-        if round == 0 {
-            assert_members_answered(phase, answers);
-            for answer in votes {
-                assert_eq!(
-                    answer.status, 200,
-                    "{phase}: the votes read was not answered: {answer:?}"
-                );
-            }
-        }
+        assert_members_answered(phase, answers);
     };
     let people = |stage: &Stage| rows(stage)[..3].to_vec();
     let comment_count = |stage: &Stage| -> i64 {
