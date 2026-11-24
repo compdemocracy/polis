@@ -3,9 +3,10 @@
 //! stored it. A run that makes a map stores the document, its gzip and its
 //! SHA-256 as the parts of one result family ([`contract::FAMILY`]); this
 //! route finds the run, reads the one part the client needs and sends its
-//! bytes as they are, with the stored SHA-256 as the ETag. It never builds,
-//! hashes, compresses or parses a map: the work is the run's, done once on
-//! the Delphi box. No comment text.
+//! bytes as they are, with the stored SHA-256 as the ETag. It never builds
+//! a map: the work is the run's, done once on the Delphi box. The one
+//! rewrite is the reader's form below, for a map that holds comments
+//! moderated out now. No comment text.
 //!
 //! Which run: without `job_id`, the run the conversation's results are served
 //! from, in the publication scope of the comment rule asked for
@@ -22,8 +23,27 @@
 //! comment rule are in the answer's headers.
 //!
 //! Who: anyone who holds the report id, for every query, as for the report's
-//! other Delphi reads. The route verifies no identity and reads no
-//! `Authorization` header.
+//! other Delphi reads. What they receive depends on who they are and on the
+//! comments' moderation now, not when the run was made:
+//!
+//! - The conversation's moderators and the site administrators (a bearer
+//!   token that verifies, read on the route's one-slot identity pool,
+//!   [`auth_pool_limits`]) receive the map as the run stored it, marked
+//!   `Cache-Control: private, no-store` and `Vary: Authorization,
+//!   Accept-Encoding`.
+//! - Every other reader, signed in or not, receives each comment that is
+//!   moderated out now (`comments.mod = -1`) as a bare point ([`public_form`]):
+//!   its position, no id, no topic, and the count of such points in
+//!   `points.moderatedOut`. A topic left with no member this reader may see
+//!   is not sent. A map that holds no such comment is sent as stored, byte
+//!   for byte. The moderated-out comments are read on the route's own read
+//!   pool, in the same connection as the map, one indexed statement.
+//! - The ETag says which form was sent: the stored SHA-256 for the stored
+//!   form, and for a reader's form while the conversation has any
+//!   moderated-out comment, a digest of the stored SHA-256 and of the
+//!   moderated-out comments' ids ([`reader_tag`]); a moderation change is a
+//!   new ETag, and a stored form's ETag never answers 304 to a reader who
+//!   must receive the other.
 //!
 //! The participation path (votes, comments, the next comment) shares nothing
 //! with this route. Before anything is read a request takes one of
@@ -54,6 +74,21 @@ pub(crate) mod contract;
 pub use contract::PATH;
 use contract::{NoMap, NoMapReason, Refused, Selection, Source, StoredNoMap};
 
+/// Identity and the moderator rule, for a request with a bearer token only:
+/// indexed single-row reads.
+pub fn auth_pool_limits() -> crate::db::Limits {
+    crate::db::Limits {
+        size: 1,
+        acquire_timeout: Duration::from_millis(50),
+        statement_timeout: Duration::from_millis(100),
+        max_lifetime: Duration::from_secs(300),
+    }
+}
+
+/// The name of the reader's form in its ETag ([`reader_tag`]): a change to
+/// [`public_form`] changes it, so no client keeps an older form.
+pub const READER_FORM: &str = "moderated-out/1";
+
 /// Map requests reading at once in the process; any other is answered 503.
 pub const MAX_IN_FLIGHT: usize = 4;
 /// Bytes of the whole stored family the statement splits into its parts.
@@ -73,7 +108,9 @@ pub const SHADOW_PREFIX: &str = "shadow-";
 const VERDICTS: usize = 4096;
 
 /// Two slots, one statement each: the run record walks the job's publication
-/// history, so the statement timeout is the typed result read's.
+/// history, so the statement timeout is the typed result read's. The
+/// moderated-out comments are read here too, before the map, on the same
+/// connection.
 pub fn pool_limits() -> crate::db::Limits {
     crate::db::Limits {
         size: 2,
@@ -277,6 +314,8 @@ pub struct Parsed {
     request: contract::Request,
     /// A `source` or `selection` value this route does not know: 400.
     bad: Option<&'static str>,
+    /// Only to tell a moderator: the answer to anyone else is the same.
+    authorization: Option<String>,
 }
 
 pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
@@ -324,7 +363,11 @@ pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
             },
         }
     }
-    Some(Parsed { request, bad })
+    Some(Parsed {
+        request,
+        bad,
+        authorization: req.headers.get("authorization").map(str::to_owned),
+    })
 }
 
 /// A stored map, ready to send.
@@ -338,8 +381,10 @@ struct Map {
     selection: Option<String>,
     etag: String,
     gzip: bool,
-    /// `None`: the client's ETag is the stored one (304).
+    /// `None`: the client's ETag is this reader's (304).
     body: Option<(Vec<u8>, Held)>,
+    /// Sent to a moderator: the full map, never stored by a cache.
+    privileged: bool,
 }
 
 enum Answer {
@@ -378,6 +423,9 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
 fn send(state: &State, req: &Request, mut res: Res, map: Map, place: Place) -> Outgoing {
     res.set(contract::HEADER_JOB, map.job);
     res.set(contract::HEADER_SOURCE, map.source.word());
+    if map.privileged {
+        res.set("Cache-Control", "private, no-store");
+    }
     if let Some(scope) = map.scope {
         res.set(contract::HEADER_SCOPE, scope);
     }
@@ -387,12 +435,12 @@ fn send(state: &State, req: &Request, mut res: Res, map: Map, place: Place) -> O
     match map.body {
         None => {
             state.0.not_modified.fetch_add(1, Ordering::Relaxed);
-            route::stored_json(req, res, None, map.gzip, &map.etag)
+            route::stored_json(req, res, None, map.gzip, &map.etag, map.privileged)
         }
         Some((bytes, held)) => {
             state.0.sent.fetch_add(1, Ordering::Relaxed);
             crate::http::hold_until_written((place, held));
-            route::stored_json(req, res, Some(bytes), map.gzip, &map.etag)
+            route::stored_json(req, res, Some(bytes), map.gzip, &map.etag, map.privileged)
         }
     }
 }
@@ -475,6 +523,7 @@ async fn answer(
     if let Some(key) = parsed.bad {
         return refused(Refused::BadParameter(key));
     }
+    let authorization = parsed.authorization;
     let q = parsed.request;
     let Some(report) = q.report_id.clone() else {
         return refused(Refused::MissingReport);
@@ -528,6 +577,15 @@ async fn answer(
         Ok(None) => return refused(Refused::UnknownReport(report)),
         Err(e) => return refused(failure(&e)),
     };
+    // A moderator receives the full map; anyone else, whatever their token
+    // says, the reader's form.
+    let moderator = match authorization.as_deref() {
+        None => false,
+        Some(raw) => match moderates(app, raw, zid).await? {
+            Ok(moderator) => moderator,
+            Err(r) => return refused(r),
+        },
+    };
     let job = match q.job_id {
         // Job ids are lowercase canonical uuids; any other spelling names no run.
         Some(job) => match JobId::new(job) {
@@ -547,6 +605,7 @@ async fn answer(
                 job: job.clone(),
                 gzip,
                 tags: tags.clone(),
+                form: String::new(),
             };
             (source, ask)
         })
@@ -558,19 +617,28 @@ async fn answer(
     let read = pool
         .with(move |c| {
             let _place = reading;
+            // What is moderated out now, before the map: one indexed read.
+            let hidden = if moderator {
+                Vec::new()
+            } else {
+                moderated_out(c, zid)?
+            };
+            let form = reader_form(&hidden);
             let mut first = None;
-            for (source, ask) in asks {
+            for (source, mut ask) in asks {
+                ask.form = form.clone();
                 let scope = ask.scope.clone();
                 let read = read(c, ask, &state)?;
                 if !nothing_stored(&read.found) {
-                    return Ok((read, source, scope));
+                    return Ok((read, source, scope, hidden, form));
                 }
                 first.get_or_insert((read, source, scope));
             }
-            first.ok_or_else(|| anyhow::anyhow!("no side to read"))
+            let (read, source, scope) = first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
+            Ok((read, source, scope, hidden, form))
         })
         .await;
-    let (Read { found, selection }, source, scope) = match read {
+    let (Read { found, selection }, source, scope, hidden, form) = match read {
         Ok(read) => read,
         Err(e) => return refused(failure(&e)),
     };
@@ -599,16 +667,315 @@ async fn answer(
             scope,
             sha,
             body,
-        } => Answer::Map(Box::new(Map {
-            job,
-            source,
-            scope,
-            selection,
-            etag: format!("W/\"{sha}\""),
-            gzip,
-            body,
-        })),
+        } => {
+            // A reader who may not see what is moderated out receives it as
+            // bare points; a map holding none of it is sent as stored.
+            let body = match body {
+                Some((bytes, held)) if !hidden.is_empty() => {
+                    match reader_body(&app.delphi_topic_map, bytes, held, hidden, gzip, place).await
+                    {
+                        Ok(body) => Some(body),
+                        Err(r) => return refused(r),
+                    }
+                }
+                body => body,
+            };
+            Answer::Map(Box::new(Map {
+                job,
+                source,
+                scope,
+                selection,
+                etag: format!("W/\"{}\"", reader_tag(&sha, &form)),
+                gzip,
+                body,
+                privileged: moderator,
+            }))
+        }
     })
+}
+
+/// Whether the bearer of `authorization` moderates the conversation or
+/// administers the site, as the moderation list decides it (`isModerator`:
+/// the owner, a user of the owner's site, a site administrator). A header
+/// that is not a bearer token, or a token that does not verify, is a reader
+/// like any other; the identity database not answering sheds the request.
+/// `None` hands back.
+async fn moderates(app: &App, authorization: &str, zid: i32) -> Option<Result<bool, Refused>> {
+    if !authorization.starts_with("Bearer ") {
+        return Some(Ok(false));
+    }
+    let auth_pool = app.delphi_topic_map_auth_db.as_ref()?;
+    let uid = match crate::hybrid_read::resolve_or_unavailable(
+        Some(authorization),
+        app.participant_verifier.as_deref(),
+        app.read_oidc.as_deref(),
+        auth_pool,
+    )
+    .await
+    {
+        // The identity database did not answer: shed, never "not signed in".
+        Err(_) => return Some(Err(Refused::Busy)),
+        Ok(identity) => identity.and_then(|identity| identity.uid()),
+    };
+    let Some(uid) = uid else {
+        return Some(Ok(false));
+    };
+    let admins = app.legacy_admin_uids.clone();
+    if admins.contains(&uid.0) {
+        return Some(Ok(true));
+    }
+    match auth_pool
+        .with(move |c| crate::treevite_read::permits(c, zid, uid, &admins))
+        .await
+    {
+        Ok(moderator) => Some(Ok(moderator)),
+        Err(_) => Some(Err(Refused::Busy)),
+    }
+}
+
+/// The ids of the conversation's comments moderated out now (`mod = -1`, the
+/// moderation list's `polisTypes.mod.ban`), in order: one statement on the
+/// comments' `(zid)` index.
+fn moderated_out(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Vec<i64>> {
+    let row = c.query_one(
+        "SELECT COALESCE(array_agg(tid::bigint ORDER BY tid), '{}'::bigint[]) \
+         FROM public.comments WHERE zid=$1 AND mod=-1",
+        &[&zid],
+    )?;
+    Ok(row.try_get::<_, Vec<i64>>(0)?)
+}
+
+/// What a reader's ETag adds to the stored digest: nothing when no comment
+/// is moderated out, so such a reader's form is the stored one; otherwise the
+/// form's name and the digest of the moderated-out ids.
+fn reader_form(hidden: &[i64]) -> String {
+    if hidden.is_empty() {
+        return String::new();
+    }
+    let ids: Vec<String> = hidden.iter().map(i64::to_string).collect();
+    format!(":{READER_FORM}:{}", sha256_hex(ids.join(",").as_bytes()))
+}
+
+/// The ETag (without `W/` and quotes) of the form `form` of the stored map
+/// whose digest is `sha`; the statement in [`read_part`] computes the same.
+pub(crate) fn reader_tag(sha: &str, form: &str) -> String {
+    if form.is_empty() {
+        sha.to_owned()
+    } else {
+        sha256_hex(format!("{sha}{form}").as_bytes())
+    }
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    Sha256::digest(bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// The reader's form of the stored part `bytes` (the gzip when `gzip`),
+/// made off the runtime's threads while the request keeps its place. A map
+/// that holds none of `hidden` is the stored bytes; one whose document does
+/// not read as the contract's closed type is not sent at all.
+async fn reader_body(
+    state: &State,
+    bytes: Vec<u8>,
+    held: Held,
+    hidden: Vec<i64>,
+    gzip: bool,
+    place: Place,
+) -> Result<(Vec<u8>, Held), Refused> {
+    let made = tokio::task::spawn_blocking(move || {
+        let _place = place;
+        let document = if gzip {
+            gunzip(&bytes, MAX_PART_BYTES as usize)
+        } else {
+            Some(bytes.clone())
+        };
+        let hidden: std::collections::BTreeSet<i64> = hidden.into_iter().collect();
+        let form = match document.map(|d| public_form(&d, &hidden)) {
+            Some(Ok(form)) => form,
+            _ => return (Err(Refused::Unreadable), held),
+        };
+        match form {
+            None => (Ok(bytes), held),
+            Some(document) if gzip => match crate::compress::node_stream(&document, true) {
+                Ok(parts) => (Ok(parts.concat()), held),
+                Err(_) => (Err(Refused::Unreadable), held),
+            },
+            Some(document) => (Ok(document), held),
+        }
+    })
+    .await;
+    let Ok((made, held)) = made else {
+        return Err(Refused::Busy);
+    };
+    let bytes = made?;
+    drop(held);
+    let held = state.hold(bytes.len());
+    Ok((bytes, held))
+}
+
+/// The map as a reader who may not see moderated-out comments receives it:
+/// every point whose comment id is in `hidden` becomes a bare point, `None`
+/// when the map holds none. A bare point keeps its position and nothing
+/// else: its `id` is null, its `topic` is -1 at every level, its `text` (if
+/// the document has any) is empty, and the bare points come last, ordered by
+/// position, so neither their place in the arrays nor a neighbour's id tells
+/// which comment one is. `points.moderatedOut` is their count: a view draws
+/// the last `moderatedOut` points as moderated out.
+///
+/// The topics follow what this reader may see: a topic with no visible
+/// member is not sent (its name may be made of moderated-out comments'
+/// words); every other topic's `count`, `weight`, `parent` and
+/// `parentShare` are counted again over the visible members as the generator
+/// counts them (`polis-topic-map/src/lib.rs`), and each level's `topics` and
+/// `unclustered` with them. A topic's position, colours and name are the
+/// run's. `Err`: the document does not read as the contract's closed type,
+/// or its arrays disagree; such a map is not sent to this reader.
+pub(crate) fn public_form(
+    document: &[u8],
+    hidden: &std::collections::BTreeSet<i64>,
+) -> Result<Option<Vec<u8>>, ()> {
+    let mut doc: contract::TopicMap = serde_json::from_slice(document).map_err(|_| ())?;
+    let p = &doc.points;
+    let n = p.id.len();
+    if p.x.len() != n
+        || p.y.len() != n
+        || p.topic.len() != doc.levels.len()
+        || p.topic.iter().any(|row| row.len() != n)
+        || !(p.text.is_empty() || p.text.len() == n)
+        || p.moderated_out != 0
+    {
+        return Err(());
+    }
+    let mut bare = Vec::new();
+    let mut visible = Vec::new();
+    for (i, id) in p.id.iter().enumerate() {
+        match id {
+            None => return Err(()),
+            Some(id) if hidden.contains(id) => bare.push(i),
+            Some(_) => visible.push(i),
+        }
+    }
+    if bare.is_empty() {
+        return Ok(None);
+    }
+    bare.sort_by(|&a, &b| p.x[a].total_cmp(&p.x[b]).then(p.y[a].total_cmp(&p.y[b])));
+    let topics_in = doc.topics.len();
+    let mut count = vec![0u64; topics_in];
+    for row in &p.topic {
+        for &i in &visible {
+            if row[i] >= 0 {
+                *count.get_mut(row[i] as usize).ok_or(())? += 1;
+            }
+        }
+    }
+    let mut renumber = vec![-1i64; topics_in];
+    let mut next = 0;
+    for (k, c) in count.iter().enumerate() {
+        if *c > 0 {
+            renumber[k] = next;
+            next += 1;
+        }
+    }
+    let order: Vec<usize> = visible.iter().chain(&bare).copied().collect();
+    let shown = visible.len();
+    let rows: Vec<Vec<i64>> = p
+        .topic
+        .iter()
+        .map(|row| {
+            order
+                .iter()
+                .enumerate()
+                .map(|(j, &i)| {
+                    if j >= shown || row[i] < 0 {
+                        -1
+                    } else {
+                        renumber[row[i] as usize]
+                    }
+                })
+                .collect()
+        })
+        .collect();
+    let points = contract::Points {
+        id: order
+            .iter()
+            .enumerate()
+            .map(|(j, &i)| if j < shown { p.id[i] } else { None })
+            .collect(),
+        x: order.iter().map(|&i| p.x[i]).collect(),
+        y: order.iter().map(|&i| p.y[i]).collect(),
+        topic: Vec::new(),
+        text: if p.text.is_empty() {
+            Vec::new()
+        } else {
+            order
+                .iter()
+                .enumerate()
+                .map(|(j, &i)| {
+                    if j < shown {
+                        p.text[i].clone()
+                    } else {
+                        String::new()
+                    }
+                })
+                .collect()
+        },
+        moderated_out: bare.len() as u64,
+    };
+    let mut topics: Vec<contract::Topic> = std::mem::take(&mut doc.topics)
+        .into_iter()
+        .zip(&count)
+        .filter(|(_, c)| **c > 0)
+        .map(|(mut t, c)| {
+            t.count = *c;
+            t.weight = (*c as f64).powf(0.25);
+            t.parent = None;
+            t.parent_share = None;
+            t
+        })
+        .collect();
+    // The tree as the generator makes it: a topic's parent is the topic one
+    // level coarser that holds the most of its (visible) comments.
+    for level in 0..rows.len().saturating_sub(1) {
+        let mut tally: std::collections::BTreeMap<i64, std::collections::BTreeMap<i64, u64>> =
+            Default::default();
+        #[allow(
+            clippy::needless_range_loop,
+            reason = "one index walks two rows in step"
+        )]
+        for j in 0..shown {
+            let (child, parent) = (rows[level][j], rows[level + 1][j]);
+            if child >= 0 && parent >= 0 {
+                *tally.entry(child).or_default().entry(parent).or_default() += 1;
+            }
+        }
+        for (child, parents) in tally {
+            let Some((parent, n)) = parents
+                .iter()
+                .max_by(|a, b| a.1.cmp(b.1).then(b.0.cmp(a.0)))
+                .map(|(p, n)| (*p, *n))
+            else {
+                continue;
+            };
+            let parent_id = topics[parent as usize].id.clone();
+            let t = &mut topics[child as usize];
+            t.parent = Some(parent_id);
+            t.parent_share = Some((n as f64 / t.count as f64 * 1e5).round() / 1e5);
+        }
+    }
+    for (level, row) in doc.levels.iter_mut().zip(&rows) {
+        level.topics = topics.iter().filter(|t| t.level == level.level).count() as u64;
+        level.unclustered = row.iter().filter(|k| **k < 0).count() as u64;
+    }
+    doc.topics = topics;
+    doc.points = contract::Points {
+        topic: rows,
+        ..points
+    };
+    serde_json::to_vec(&doc).map(Some).map_err(|_| ())
 }
 
 /// Whether a side has nothing stored for the query, so that a query naming
@@ -636,6 +1003,8 @@ struct Ask {
     job: Option<String>,
     gzip: bool,
     tags: Vec<String>,
+    /// What this reader's ETag adds to the stored digest ([`reader_form`]).
+    form: String,
 }
 
 struct Read {
@@ -879,7 +1248,8 @@ fn read_part(
                (SELECT line, line::jsonb AS j FROM l WHERE strpos(line,$6)>0 AND octet_length(line) <= 512 LIMIT 1) x), \
          d AS (SELECT octet_length(line) AS len, strpos(line,$11)>0 AS ours, line FROM l WHERE strpos(line,$7)>0 LIMIT 1), \
          b AS (SELECT line::jsonb AS j FROM d WHERE NOT $12::boolean AND d.len <= $8::bigint \
-               AND NOT EXISTS(SELECT 1 FROM s WHERE s.sha = ANY($10::text[]) OR '*' = ANY($10::text[]))), \
+               AND NOT EXISTS(SELECT 1 FROM s WHERE '*' = ANY($10::text[]) OR (CASE WHEN $15::text = '' THEN s.sha \
+                 ELSE encode(sha256(convert_to(s.sha || $15::text,'UTF8')),'hex') END) = ANY($10::text[]))), \
          vd AS (SELECT (line::jsonb)->'body'->>'S' AS v, strpos(line,$11)>0 AS ours FROM l \
                WHERE $12::boolean AND strpos(line,$13)>0 AND octet_length(line) <= $8::bigint LIMIT 1), \
          vg AS (SELECT (line::jsonb)->'body'->>'B' AS v, strpos(line,$11)>0 AS ours FROM l \
@@ -909,6 +1279,7 @@ fn read_part(
             &verifying,
             &part(contract::PART_DOCUMENT),
             &part(contract::PART_GZIP),
+            &ask.form,
         ],
     )?;
     if !row.try_get::<_, Option<bool>>(0)?.unwrap_or(false) {
@@ -949,7 +1320,8 @@ fn read_part(
     if !ours(7)? {
         return Ok(Some(Part::Unreadable));
     }
-    let matched = ask.tags.iter().any(|t| t == "*" || *t == sha);
+    let tag = reader_tag(&sha, &ask.form);
+    let matched = ask.tags.iter().any(|t| t == "*" || *t == tag);
     if verifying {
         // The family is checked whole before any part of it is sent: a part
         // longer than its bound refuses the map, whichever part was asked.
@@ -1067,12 +1439,7 @@ async fn verify(state: &State, u: Unverified, place: Place) -> Result<Found, Ref
 
 /// Whether `document` hashes to `sha` and `gzip` inflates to exactly it.
 pub(crate) fn stored_parts_agree(document: &[u8], gzip: &[u8], sha: &str) -> bool {
-    use sha2::{Digest, Sha256};
-    let digest: String = Sha256::digest(document)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    digest == sha && gunzip(gzip, document.len()).as_deref() == Some(document)
+    sha256_hex(document) == sha && gunzip(gzip, document.len()).as_deref() == Some(document)
 }
 
 /// The data of a gzip file (RFC 1952) that is exactly one valid member, at

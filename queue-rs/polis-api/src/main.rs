@@ -1190,10 +1190,31 @@ async fn startup() -> Result<Startup> {
                 "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
             );
         }
+        // Who is a moderator (sent the full map; everyone else is sent
+        // moderated-out comments as bare points) reads Node's tables with
+        // Node's read login unless a dedicated one is given.
+        let auth_dsn = [
+            "POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL",
+            "READ_ONLY_DATABASE_URL",
+        ]
+        .iter()
+        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
+        .or_else(|| std::env::var("DATABASE_URL").ok())
+        .context("a database for report topic map identity reads is required")?;
         state.delphi_topic_map_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-delphi-topic-map/1")?,
             delphi_topic_map::pool_limits(),
         ));
+        state.delphi_topic_map_auth_db = Some(db::Pool::new(
+            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-topic-map-auth/1")?,
+            delphi_topic_map::auth_pool_limits(),
+        ));
+        state.read_oidc = hybrid_read::Oidc::from_env()?;
+        let admins = std::env::var("ADMIN_UIDS")
+            .ok()
+            .filter(|s| !s.is_empty())
+            .unwrap_or_else(|| "[]".into());
+        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()

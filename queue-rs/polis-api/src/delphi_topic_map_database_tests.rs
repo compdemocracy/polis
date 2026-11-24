@@ -7,8 +7,9 @@
 //! server. The family `Delphi_TopicMapDocument` is not yet in the result
 //! catalog; these fixtures are its definition.
 use super::*;
-use super::{ZID, bytes, document, get, header, text};
+use super::{ZID, bytes, document, get, header, small_map, text};
 use base64::Engine;
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use polis_queue_adapter::jobs::transport::Connector;
 use postgres::NoTls;
 use serde_json::json;
@@ -20,15 +21,20 @@ pub(crate) struct Db {
     pub(crate) config: postgres::Config,
 }
 
-/// The result store's objects the route reads; `reports` too unless the
-/// database has it.
+/// The result store's objects the route reads, and the tables the moderator
+/// rule and the moderation read read; `reports` too unless the database has
+/// it.
 pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
     if reports {
         c.batch_execute("CREATE TABLE reports(report_id text, zid integer)")
             .unwrap();
     }
     c.batch_execute(
-        "CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
+        "CREATE TABLE IF NOT EXISTS users(uid integer, site_id text);
+         CREATE TABLE IF NOT EXISTS oidc_user_mappings(uid integer, oidc_sub text);
+         CREATE TABLE IF NOT EXISTS conversations(zid integer, owner integer);
+         CREATE TABLE IF NOT EXISTS comments(zid integer, tid integer, mod integer);
+         CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
            generation bigint, artifact_id uuid, job_id text);
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
            status text, job_config jsonb);
@@ -292,6 +298,7 @@ fn runtime() -> tokio::runtime::Runtime {
 pub(crate) fn app_on(db: &Db) -> App {
     let mut app = super::app();
     app.delphi_topic_map_db = Some(db.pool(pool_limits()));
+    app.delphi_topic_map_auth_db = Some(db.pool(auth_pool_limits()));
     app.delphi_topic_map_env = "test".into();
     app
 }
@@ -1150,5 +1157,315 @@ fn a_full_route_sheds_at_once_and_reads_again_when_a_place_frees() {
         );
         assert_eq!(state.max_in_flight(), 2);
         assert!(state.busy() >= 1);
+    });
+}
+
+struct Signer {
+    key: EncodingKey,
+}
+
+impl Signer {
+    fn new(app: &mut App) -> Self {
+        let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+        let jwks = serde_json::from_value(
+            json!({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"fixture",
+            "n":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(rsa.n().to_vec()),
+            "e":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(rsa.e().to_vec())}]}),
+        )
+        .unwrap();
+        app.read_oidc = Some(Arc::new(crate::hybrid_read::Oidc::for_tests(
+            crate::owner::Verifier::new(jwks, "issuer", "audience").unwrap(),
+            "namespace/",
+        )));
+        Self {
+            key: EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap(),
+        }
+    }
+    fn bearer(&self, sub: &str) -> String {
+        let now = (crate::clock::now_ms() / 1000.0) as u64;
+        let mut h = Header::new(Algorithm::RS256);
+        h.kid = Some("fixture".into());
+        let claims = json!({"sub":sub,"iss":"issuer","aud":"audience","exp":now+300,"email":"fixture@example.invalid"});
+        format!("Bearer {}", encode(&h, &claims, &self.key).unwrap())
+    }
+}
+
+/// A moderator's change, made off the test's runtime (the client blocks).
+fn moderate(db: &Db, sql: &str) {
+    let (config, sql) = (db.config.clone(), sql.to_owned());
+    std::thread::spawn(move || config.connect(NoTls).unwrap().batch_execute(&sql).unwrap())
+        .join()
+        .unwrap();
+}
+
+fn gunzipped(out: &Outgoing) -> Vec<u8> {
+    super::gunzip(&bytes(out), MAX_PART_BYTES as usize).expect("one valid gzip member")
+}
+
+/// What every reader but a moderator receives, and what a moderator does,
+/// as the comments' moderation is now; and the participants' map, which
+/// holds no moderated-out comment, as stored.
+#[test]
+fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
+    let db = Db::new("moderated");
+    let every = stored(small_map());
+    // Comments 0 to 9: none of them is ever moderated out here.
+    let participants = stored(document(10, "j"));
+    {
+        let mut c = db.connect();
+        // Comment 14 was moderated out before the run, 10 is not yet
+        // moderated, the rest are accepted; 99 is another conversation's.
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('r1',{ZID});
+             INSERT INTO users VALUES(3,'owners'),(4,'others'),(6,'admins');
+             INSERT INTO oidc_user_mappings VALUES(3,'owner'),(4,'stranger'),(6,'admin');
+             INSERT INTO conversations VALUES({ZID},3),(99,4);
+             INSERT INTO comments VALUES({ZID},10,0),({ZID},11,1),({ZID},12,1),({ZID},13,1),({ZID},14,-1),(99,11,-1);"
+        ))
+        .unwrap();
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &every)),
+        );
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi",
+            "participant_visible/1",
+            Some(&map_family(ZID, &participants)),
+        );
+    }
+    let mut app = app_on(&db);
+    let signer = Signer::new(&mut app);
+    app.legacy_admin_uids = vec![6];
+    let (owner, stranger, admin) = (
+        signer.bearer("owner"),
+        signer.bearer("stranger"),
+        signer.bearer("admin"),
+    );
+    runtime().block_on(async {
+        let app = Arc::new(app);
+        let all = "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments";
+        let stored_tag = format!("W/\"{}\"", every.sha256);
+        let get_with = |url: &'static str, h: Vec<(&'static str, String)>| {
+            let app = app.clone();
+            async move {
+                let headers: Vec<(&str, &str)> = h.iter().map(|(k, v)| (*k, v.as_str())).collect();
+                // Boxed: the test's one future holds many requests.
+                Box::pin(crate::dispatch(app, None, with(url, &headers))).await
+            }
+        };
+        let gz = || vec![("accept-encoding", "gzip".to_string())];
+        let reader_tag_now =
+            |hidden: &[i64]| format!("W/\"{}\"", reader_tag(&every.sha256, &reader_form(hidden)));
+
+        // Anyone: comment 14 is a bare point, and its topic, which no other
+        // comment is in, is not sent.
+        let public = get_with(all, gz()).await;
+        assert_eq!(public.status, 200, "{}", text(&public));
+        let form = gunzipped(&public);
+        let doc: contract::TopicMap = serde_json::from_slice(&form).unwrap();
+        assert_eq!(
+            doc.points.id,
+            vec![Some(10), Some(11), Some(12), Some(13), None]
+        );
+        assert_eq!(doc.points.moderated_out, 1);
+        assert_eq!(
+            (doc.points.x[4], doc.points.y[4]),
+            (-0.5, 0.4),
+            "its position, as the run laid it out"
+        );
+        assert!(doc.points.topic.iter().all(|row| row[4] == -1));
+        assert!(doc.topics.iter().all(|t| t.id != "0_2"));
+        let raw = String::from_utf8(form.clone()).unwrap();
+        assert!(
+            !raw.contains("secret words") && !raw.contains("\"0_2\"") && !raw.contains("14"),
+            "{raw}"
+        );
+        assert_eq!(
+            header(&public, "ETag"),
+            Some(reader_tag_now(&[14]).as_str())
+        );
+        assert_ne!(header(&public, "ETag"), Some(stored_tag.as_str()));
+        assert_eq!(header(&public, "Cache-Control"), Some("no-cache"));
+        assert_eq!(header(&public, "Vary"), Some("Accept-Encoding"));
+        assert_eq!(header(&public, "Content-Encoding"), Some("gzip"));
+        // Without gzip: the same document.
+        let plain = get_with(all, vec![]).await;
+        assert_eq!(bytes(&plain), form);
+        // A signed-in reader who does not moderate it, a token that does not
+        // verify, and a header that is not a bearer token: the same answer.
+        for credential in [
+            stranger.clone(),
+            "Bearer not.a.token".into(),
+            "Basic dXNlcjpwYXNz".into(),
+        ] {
+            let out = get_with(
+                all,
+                vec![
+                    ("accept-encoding", "gzip".into()),
+                    ("authorization", credential.clone()),
+                ],
+            )
+            .await;
+            assert_eq!(out.status, 200, "{credential}");
+            assert_eq!(gunzipped(&out), form, "{credential}");
+            assert_eq!(header(&out, "ETag"), header(&public, "ETag"));
+            assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
+        }
+
+        // A moderator (the owner) and a site administrator: the map as stored,
+        // never kept by a cache.
+        for credential in [owner.clone(), admin.clone()] {
+            let out = get_with(
+                all,
+                vec![
+                    ("accept-encoding", "gzip".into()),
+                    ("authorization", credential),
+                ],
+            )
+            .await;
+            assert_eq!(out.status, 200);
+            assert_eq!(bytes(&out), every.gzip, "the stored gzip, byte for byte");
+            assert_eq!(header(&out, "ETag"), Some(stored_tag.as_str()));
+            assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
+            assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+        }
+
+        // A reader presenting the moderator's validator gets the reader's form,
+        // never a 304 for bytes it may not have; its own validator is a 304.
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("if-none-match", stored_tag.clone()),
+            ],
+        )
+        .await;
+        assert_eq!(out.status, 200);
+        assert_eq!(gunzipped(&out), form);
+        let out = get_with(
+            all,
+            vec![("if-none-match", format!("\"{}\"", every.sha256))],
+        )
+        .await;
+        assert_eq!((out.status, bytes(&out)), (200, form.clone()));
+        let public_tag = header(&public, "ETag").unwrap().to_owned();
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("if-none-match", public_tag.clone()),
+            ],
+        )
+        .await;
+        assert_eq!(out.status, 304);
+        assert!(bytes(&out).is_empty());
+        // A moderator presenting a reader's validator gets the full map.
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("authorization", owner.clone()),
+                ("if-none-match", public_tag.clone()),
+            ],
+        )
+        .await;
+        assert_eq!((out.status, bytes(&out)), (200, every.gzip.clone()));
+
+        // Comment 12 is moderated out after the run: from the next read it is
+        // a bare point, and the earlier validator no longer answers 304.
+        moderate(
+            &db,
+            &format!("UPDATE comments SET mod=-1 WHERE zid={ZID} AND tid=12"),
+        );
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("if-none-match", public_tag.clone()),
+            ],
+        )
+        .await;
+        assert_eq!(out.status, 200);
+        let later: contract::TopicMap = serde_json::from_slice(&gunzipped(&out)).unwrap();
+        assert_eq!(
+            later.points.id,
+            vec![Some(10), Some(11), Some(13), None, None]
+        );
+        assert_eq!(later.points.moderated_out, 2);
+        assert_eq!(
+            header(&out, "ETag"),
+            Some(reader_tag_now(&[12, 14]).as_str())
+        );
+        // The moderator still receives everything.
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("authorization", owner.clone()),
+            ],
+        )
+        .await;
+        assert_eq!(bytes(&out), every.gzip);
+        // Both moderated back in: whole again, the stored bytes and the stored
+        // digest, for anyone.
+        moderate(
+            &db,
+            &format!("UPDATE comments SET mod=1 WHERE zid={ZID} AND tid IN (12,14)"),
+        );
+        let out = get_with(
+            all,
+            vec![
+                ("accept-encoding", "gzip".into()),
+                ("if-none-match", public_tag.clone()),
+            ],
+        )
+        .await;
+        assert_eq!(out.status, 200);
+        assert_eq!(bytes(&out), every.gzip);
+        assert_eq!(header(&out, "ETag"), Some(stored_tag.as_str()));
+        assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
+
+        // The participants' map holds no moderated-out comment: byte for byte
+        // what was stored, in both codings, while comment 14 is moderated out
+        // and while nothing is.
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        let out = get_with(url, gz()).await;
+        assert_eq!(bytes(&out), participants.gzip);
+        assert_eq!(
+            header(&out, "ETag"),
+            Some(format!("W/\"{}\"", participants.sha256).as_str())
+        );
+        moderate(
+            &db,
+            &format!("UPDATE comments SET mod=-1 WHERE zid={ZID} AND tid=14"),
+        );
+        let out = get_with(url, gz()).await;
+        assert_eq!(bytes(&out), participants.gzip);
+        assert_eq!(text(&get_with(url, vec![]).await), participants.document);
+        // Its validator then names the moderation too (the reader's form is
+        // the stored bytes, but the route cannot know that before reading them).
+        let tag = format!(
+            "W/\"{}\"",
+            reader_tag(&participants.sha256, &reader_form(&[14]))
+        );
+        assert_eq!(header(&out, "ETag"), Some(tag.as_str()));
+        let out = get_with(
+            url,
+            vec![("accept-encoding", "gzip".into()), ("if-none-match", tag)],
+        )
+        .await;
+        assert_eq!(out.status, 304);
+        assert_eq!(
+            app.delphi_topic_map.0.held.load(Ordering::SeqCst),
+            0,
+            "nothing is kept"
+        );
     });
 }

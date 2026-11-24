@@ -1368,9 +1368,37 @@ how it was made.
 Who: anyone who holds the report id, for every query (any `selection`, any
 `job_id` of the conversation, either `source`), as for the report's other
 Delphi reads (`/api/v3/delphi`, `/delphi/reports`, `/delphi/visualizations`,
-which Node registers without sign-in). The route verifies no identity and
-reads no `Authorization` header; every answer is `Vary: Accept-Encoding`. A
-past run's map may later be removed to save storage, and then answers
+which Node registers without sign-in). What they receive depends on who they
+are and on the comments' moderation at the time of the read, not of the run:
+
+- A moderator of the conversation or a site administrator (a bearer token
+  that verifies, then the moderation list's rule: the owner, a user of the
+  owner's site, `ADMIN_UIDS`) receives the map as stored, with
+  `Cache-Control: private, no-store` and `Vary: Authorization,
+  Accept-Encoding`.
+- Every other reader, a token that does not verify included, receives each
+  comment moderated out now (`comments.mod = -1`) as a bare point: the points
+  that are not moderated out come first, as stored, then the bare points, ordered
+  by position, each with its position only (`id` null, `topic` -1 at every
+  level); `points.moderatedOut` is their count. A topic with no visible member
+  is not sent; the others' counts, weights and parents are counted again over
+  the visible members. A map that holds no moderated-out comment is the stored
+  bytes. These answers are `Cache-Control: no-cache` and `Vary:
+  Accept-Encoding`.
+- The moderated-out ids are read on the route's own read pool, on the
+  connection that reads the map, before it (`SELECT array_agg(tid) FROM
+  comments WHERE zid=$1 AND mod=-1`, on the comments' `(zid)` index). While the
+  conversation has any, a reader's ETag is the SHA-256 of the stored digest,
+  the form's name (`moderated-out/1`) and the SHA-256 of the ids, computed the
+  same in the statement, so `If-None-Match` still answers 304 with no part
+  crossing the connection, a moderator's ETag never answers 304 to a reader,
+  and a moderation change is a new ETag from the next read. With none, the
+  reader's ETag is the stored digest. The reader's form is made off the
+  runtime's threads while the request keeps its place (in a release build,
+  about 10 ms for a 9,000-comment map: inflate, rewrite, deflate); nothing of
+  it is kept.
+
+A past run's map may later be removed to save storage, and then answers
 `not_stored`, as a run that never stored one does.
 
 Refusals as the neighbours': no `report_id` is 400; a report that does not
@@ -1396,9 +1424,13 @@ never changes), so later requests send one part with no check.
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
-`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
-a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout
-and a 2 s statement timeout. It has no other pool.
+`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and
+`comments` and is a member of `polis_queue_executor`), two slots, a 50 ms
+acquisition timeout and a 2 s statement timeout. A request with a bearer token
+reads who it is on a one-slot identity pool
+(`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else `READ_ONLY_DATABASE_URL`,
+else `DATABASE_URL`; 50 ms acquisition, 100 ms statements); the identity
+database not answering is 503. It has no other pool.
 
 The participation path shares nothing with this route. Before anything is
 read a request takes one of four places in the process; with none free it is

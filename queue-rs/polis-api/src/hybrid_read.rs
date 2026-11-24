@@ -11,6 +11,15 @@ pub struct Oidc {
     namespace: String,
 }
 impl Oidc {
+    /// An account verifier for a test outside this module.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn for_tests(verifier: owner::Verifier, namespace: &str) -> Self {
+        Self {
+            verifier,
+            namespace: namespace.into(),
+        }
+    }
+
     /// Signature-only classification for a write route that refuses account
     /// conversion. This neither provisions an account nor grants authority.
     pub(crate) fn verifies(&self, raw: &str, now: u64) -> bool {
@@ -131,6 +140,25 @@ async fn resolve_scoped_observed(
         .unwrap_or_else(|error| {
             crate::shadow::reads::credential_database(&error);
             counters.handoff(Event::HandoffDatabase)
+        })
+}
+
+/// [`resolve`], telling a credential the database did not answer for (a
+/// busy pool, a failed connection or statement: `Err`) from one it refused
+/// (`Ok(None)`). The checks, their order and their counters are
+/// [`resolve`]'s; only a database failure is returned instead of handed
+/// back, after it is recorded as [`resolve`] records it.
+pub async fn resolve_or_unavailable(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+) -> Result<Option<Identity>, ()> {
+    resolve_or_database(raw, participant, oidc, pool, None, &PROCESS)
+        .await
+        .map_err(|error| {
+            crate::shadow::reads::credential_database(&error);
+            let _: Option<Identity> = PROCESS.handoff(Event::HandoffDatabase);
         })
 }
 

@@ -280,6 +280,7 @@ fn stored_bytes_are_sent_as_they_are() {
         Some(gz.clone()),
         true,
         &etag,
+        false,
     );
     assert_eq!(out.status, 200);
     assert_eq!(header(&out, "Content-Encoding"), Some("gzip"));
@@ -303,11 +304,12 @@ fn stored_bytes_are_sent_as_they_are() {
         Some(doc.clone()),
         false,
         &etag,
+        true,
     );
     assert_eq!(header(&out, "Content-Encoding"), None);
-    assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
+    assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
     assert_eq!(bytes(&out), doc);
-    let out = route::stored_json(&req, route::res_for_tests(200), None, true, &etag);
+    let out = route::stored_json(&req, route::res_for_tests(200), None, true, &etag, false);
     assert_eq!(out.status, 304);
     assert!(matches!(out.body, Body::Empty));
     assert_eq!(header(&out, "ETag"), Some(etag.as_str()));
@@ -598,3 +600,207 @@ pub(crate) async fn lateness<F: std::future::Future>(work: F) -> (F::Output, Dur
 #[cfg(feature = "db-tests")]
 #[path = "delphi_topic_map_database_tests.rs"]
 pub(crate) mod database_tests;
+
+/// A map of two levels and five comments (ids 10 to 14): at the finer level
+/// topics 0_0 {10, 11}, 0_1 {12, 13} and 0_2 {14}; at the coarser 1_0 {10, 11,
+/// 12} and 1_1 {13, 14}. Comment 14 is the only member of 0_2, whose name is
+/// its words.
+pub(crate) fn small_map() -> String {
+    let topic = |id: &str,
+                 level: u32,
+                 cluster: i64,
+                 name: &str,
+                 count: u64,
+                 parent: Option<(&str, f64)>| {
+        serde_json::json!({"id": id, "level": level, "cluster": cluster, "key": null, "name": name,
+            "count": count, "x": 0.5, "y": 0.25, "weight": (count as f64).powf(0.25),
+            "parent": parent.map(|p| p.0), "parentShare": parent.map(|p| p.1),
+            "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"})
+    };
+    serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": "j", "topicModel": null, "createdAt": null},
+        "bounds": [-1.0, 1.0, -1.0, 1.0], "pointRadius": 0.11,
+        "levels": [{"level": 0, "topics": 3, "unclustered": 0, "cmapPalette": false},
+                   {"level": 1, "topics": 2, "unclustered": 0, "cmapPalette": false}],
+        "topics": [topic("0_0", 0, 0, "roads", 2, Some(("1_0", 1.0))),
+                   topic("0_1", 0, 1, "schools", 2, Some(("1_0", 0.5))),
+                   topic("0_2", 0, 2, "secret words", 1, Some(("1_1", 1.0))),
+                   topic("1_0", 1, 0, "town", 3, None),
+                   topic("1_1", 1, 1, "secret and schools", 2, None)],
+        "points": {"id": [10, 11, 12, 13, 14], "x": [0.9, 0.1, 0.2, 0.3, -0.5],
+                   "y": [0.0, 0.1, 0.2, 0.3, 0.4], "topic": [[0, 0, 1, 1, 2], [3, 3, 3, 4, 4]], "text": []},
+        "provenance": {"schema": "polis-topic-map.provenance/1"}
+    })
+    .to_string()
+}
+
+#[test]
+fn a_reader_receives_moderated_out_comments_as_bare_points() {
+    let doc = small_map();
+    let hidden = |ids: &[i64]| {
+        ids.iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<i64>>()
+    };
+    // Nothing of the map moderated out: the stored bytes, untouched.
+    assert_eq!(public_form(doc.as_bytes(), &hidden(&[])), Ok(None));
+    assert_eq!(public_form(doc.as_bytes(), &hidden(&[1, 99])), Ok(None));
+    // Comments 14 and 10 moderated out.
+    let form = public_form(doc.as_bytes(), &hidden(&[14, 10]))
+        .unwrap()
+        .unwrap();
+    let raw: serde_json::Value = serde_json::from_slice(&form).unwrap();
+    let out: contract::TopicMap = serde_json::from_slice(&form).unwrap();
+    let p = &out.points;
+    // The visible comments first, as stored; the bare points last, by position.
+    assert_eq!(p.id, vec![Some(11), Some(12), Some(13), None, None]);
+    assert_eq!(p.x, vec![0.1, 0.2, 0.3, -0.5, 0.9]);
+    assert_eq!(p.y, vec![0.1, 0.2, 0.3, 0.4, 0.0]);
+    assert_eq!(p.moderated_out, 2);
+    assert_eq!(raw["points"]["moderatedOut"], 2);
+    assert_eq!(raw["points"]["id"][3], serde_json::Value::Null);
+    // No topic for a bare point; 0_2 had no other member and is not sent.
+    let ids: Vec<&str> = out.topics.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, ["0_0", "0_1", "1_0", "1_1"]);
+    assert!(!String::from_utf8_lossy(&form).contains("secret words"));
+    assert_eq!(p.topic, vec![vec![0, 1, 1, -1, -1], vec![2, 2, 3, -1, -1]]);
+    // Counted again over what this reader sees, as the generator counts.
+    let counts: Vec<u64> = out.topics.iter().map(|t| t.count).collect();
+    assert_eq!(counts, [1, 2, 2, 1]);
+    assert_eq!(out.topics[0].weight, 1.0);
+    let parents: Vec<(Option<&str>, Option<f64>)> = out
+        .topics
+        .iter()
+        .map(|t| (t.parent.as_deref(), t.parent_share))
+        .collect();
+    assert_eq!(
+        parents,
+        [
+            (Some("1_0"), Some(1.0)),
+            (Some("1_0"), Some(0.5)),
+            (None, None),
+            (None, None)
+        ]
+    );
+    let levels: Vec<(u64, u64)> = out
+        .levels
+        .iter()
+        .map(|l| (l.topics, l.unclustered))
+        .collect();
+    assert_eq!(levels, [(2, 2), (2, 2)]);
+    // A topic with a visible member keeps the run's name, position and colours.
+    assert_eq!(out.topics[3].name, "secret and schools");
+    assert_eq!(
+        out.provenance,
+        Some(serde_json::json!({"schema": "polis-topic-map.provenance/1"}))
+    );
+    // Every comment moderated out: no topic, every point bare.
+    let all = public_form(doc.as_bytes(), &hidden(&[10, 11, 12, 13, 14]))
+        .unwrap()
+        .unwrap();
+    let all: contract::TopicMap = serde_json::from_slice(&all).unwrap();
+    assert!(all.topics.is_empty());
+    assert_eq!(all.points.id, vec![None; 5]);
+    assert_eq!(all.points.moderated_out, 5);
+    assert!(all.points.topic.iter().flatten().all(|k| *k == -1));
+    // Text, where a document has it: emptied for a bare point.
+    let mut with_text: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    with_text["points"]["text"] = serde_json::json!(["a", "b", "c", "d", "e"]);
+    let form = public_form(with_text.to_string().as_bytes(), &hidden(&[12]))
+        .unwrap()
+        .unwrap();
+    let form: contract::TopicMap = serde_json::from_slice(&form).unwrap();
+    assert_eq!(form.points.text, ["a", "b", "d", "e", ""]);
+    // A document the closed type does not read, or whose arrays disagree, is
+    // not sent to such a reader.
+    let mut unknown: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    unknown["points"]["author"] = serde_json::json!([1, 2, 3, 4, 5]);
+    assert_eq!(
+        public_form(unknown.to_string().as_bytes(), &hidden(&[10])),
+        Err(())
+    );
+    let mut short: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    short["points"]["x"] = serde_json::json!([0.0]);
+    assert_eq!(
+        public_form(short.to_string().as_bytes(), &hidden(&[10])),
+        Err(())
+    );
+}
+
+#[test]
+fn a_readers_etag_names_the_form_and_the_moderation() {
+    let sha = "e".repeat(64);
+    assert_eq!(
+        reader_tag(&sha, ""),
+        sha,
+        "no comment moderated out: the stored form"
+    );
+    let one = reader_tag(&sha, &reader_form(&[3]));
+    let two = reader_tag(&sha, &reader_form(&[3, 4]));
+    assert!(is_digest(&one) && is_digest(&two));
+    assert_ne!(one, sha);
+    assert_ne!(one, two);
+    assert_eq!(reader_form(&[]), "");
+    assert_ne!(reader_tag(&"f".repeat(64), &reader_form(&[3])), one);
+}
+
+/// The cost of the reader's form of a large map: 9,000 comments over four
+/// levels, half of them moderated out. Run on its own, it prints.
+#[test]
+#[ignore]
+fn the_readers_form_of_a_large_map_is_timed() {
+    let n = 9000usize;
+    let levels = 4usize;
+    let mut topics = Vec::new();
+    let mut rows = Vec::new();
+    let per = [300usize, 100, 30, 10];
+    for (l, k) in per.iter().enumerate().take(levels) {
+        for c in 0..*k {
+            topics.push(serde_json::json!({"id": format!("{l}_{c}"), "level": l, "cluster": c,
+                "key": null, "name": format!("keyword{c} other{c} third{c}"), "count": n / k,
+                "x": 0.12345, "y": -1.23456, "weight": 2.5, "parent": null, "parentShare": null,
+                "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"}));
+        }
+        let first: usize = per[..l].iter().sum();
+        rows.push((0..n).map(|i| (first + i % k) as i64).collect::<Vec<_>>());
+    }
+    let doc = serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": "j", "topicModel": null, "createdAt": null},
+        "bounds": [-6.5, 6.5, -4.25, 4.25], "pointRadius": 0.11,
+        "levels": (0..levels).map(|l| serde_json::json!({"level": l, "topics": per[l], "unclustered": 0, "cmapPalette": per[l] > 50})).collect::<Vec<_>>(),
+        "topics": topics,
+        "points": {"id": (0..n).collect::<Vec<_>>(),
+                   "x": (0..n).map(|i| ((i * 7919) % 100_000) as f64 / 7919.0 - 6.31234).collect::<Vec<_>>(),
+                   "y": (0..n).map(|i| ((i * 104_729) % 100_000) as f64 / 11_731.0 - 4.12345).collect::<Vec<_>>(),
+                   "topic": rows, "text": []},
+    })
+    .to_string();
+    let gz = crate::compress::node_stream(doc.as_bytes(), true)
+        .unwrap()
+        .concat();
+    let hidden: std::collections::BTreeSet<i64> = (0..n as i64).filter(|i| i % 2 == 0).collect();
+    let rounds = 20;
+    let start = std::time::Instant::now();
+    let mut out = 0;
+    for _ in 0..rounds {
+        let d = gunzip(&gz, MAX_PART_BYTES as usize).unwrap();
+        let form = public_form(&d, &hidden).unwrap().unwrap();
+        out = crate::compress::node_stream(&form, true)
+            .unwrap()
+            .concat()
+            .len();
+    }
+    let each = start.elapsed() / rounds;
+    let start = std::time::Instant::now();
+    for _ in 0..rounds {
+        public_form(doc.as_bytes(), &hidden).unwrap().unwrap();
+    }
+    let form_only = start.elapsed() / rounds;
+    println!(
+        "document {} bytes, gzip {} bytes, reader's gzip {out} bytes; gunzip+form+gzip {each:?} each, form alone {form_only:?} each",
+        doc.len(),
+        gz.len()
+    );
+}
