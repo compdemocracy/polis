@@ -1595,12 +1595,16 @@ fn recolor(topics: &mut [contract::Topic], levels: &mut [contract::Level], x: &[
 /// most [`contract::MAX_LISTED`], and which one a read without `job_id`
 /// answers. Two statements, each bounded, neither calling anything once per
 /// listed run: the runs from the jobs view alone (its `(env, zid::text)`
-/// index; the comment rule and the naming from each run's configuration),
+/// index; the comment rule from each run's configuration),
 /// then the sides' served pointers (at most one per side) with what each
 /// pointer's run record says of the map family at the pointer's artifact.
 /// Whether a listed run stored a map, and how many points it laid out, are
 /// in its run record only, one `pd_run_record` call per run, so the list
-/// does not read them: a page learns them by reading the run.
+/// does not read them: a page learns them by reading the run. How a run's
+/// topics were named is in its manifest (`models.topic`), also in its run
+/// record only, so every listed run says the keyword fallback (see
+/// [`LISTED_NAMES`]); a run's configuration says what naming was asked for,
+/// never what the run stored, and is not read.
 fn list_jobs(
     c: &mut postgres::Client,
     zid: i32,
@@ -1613,7 +1617,7 @@ fn list_jobs(
     let envs: Vec<String> = sides.iter().map(|(_, env, _)| env.clone()).collect();
     let rule: Option<&str> = asked.map(Selection::word);
     let rows = c.query(
-        "SELECT env, job_id, job_config->>'selection', job_config->'naming', created_at \
+        "SELECT env, job_id, job_config->>'selection', created_at \
          FROM public.delphi_result_jobs \
          WHERE env = ANY($1::text[]) AND conversation_id=$2 AND status='COMPLETED' \
           AND job_type='full_pipeline' \
@@ -1690,34 +1694,25 @@ fn list_jobs(
             job_id,
             source: *source,
             selection: rule,
-            created_at: row.try_get(4)?,
+            created_at: row.try_get(3)?,
             points: None,
             levels: None,
-            names: named(row.try_get::<_, Option<serde_json::Value>>(3)?.as_ref()),
+            names: LISTED_NAMES,
         });
     }
     Ok(jobs)
 }
 
-/// Who named a run's topics, from its configuration's `naming`: a run whose
-/// configuration names the model that named them (`naming.model`) was named
-/// by that model; any other run by the keyword fallback.
-fn named(naming: Option<&serde_json::Value>) -> contract::Names {
-    match naming
-        .and_then(|n| n.get("model"))
-        .and_then(serde_json::Value::as_str)
-        .filter(|m| !m.is_empty())
-    {
-        Some(model) => contract::Names {
-            by: contract::NamedBy::Model,
-            model: Some(model.to_owned()),
-        },
-        None => contract::Names {
-            by: contract::NamedBy::Keywords,
-            model: None,
-        },
-    }
-}
+/// What the list says of every run's names: the keyword fallback. The
+/// outcome of a run's naming (a model's names, or the keyword fallback when
+/// the model was not asked, had no key, was over its cap or failed) is its
+/// manifest's `models.topic`, readable only through its run record, one
+/// `pd_run_record` call per run; the configuration's `naming` is what was
+/// asked for, so the list never reports it as what the run stored.
+pub(crate) const LISTED_NAMES: contract::Names = contract::Names {
+    by: contract::NamedBy::Keywords,
+    model: None,
+};
 
 /// Whether a side has nothing stored for the query, so that a query naming
 /// no `source` reads the next side: no served run, a run whose own batch

@@ -1488,9 +1488,12 @@ whether it stored topic names are in its run record only (`pd_run_record`,
 one call per run), so a listed run may have stored no map (reading it gives
 the no-map answer), and `points` is always null. `levels` is always null,
 because topics per level are in the map's body only (read the map for them).
-`names` comes from the run's configuration: `{"by":"model","model":<id>}`
-when `job_config.naming.model` names the model that named the topics, else
-`{"by":"keywords","model":null}` (`none` is never said). `current` marks the
+`names` is `{"by":"keywords","model":null}` for every run: a run's
+configuration says only what naming was asked for, and a run that asked for a
+model can still have stored the keyword fallback (no key, over its cap, a
+failed call), so the configuration is not read; model-named runs will be
+reported once the naming outcome (the manifest's `models.topic`) is readable
+in the list's one statement (`none` is never said). `current` marks the
 run a read with the same `report_id`, `source` and `selection` and no
 `job_id` answers (per side in order, the served pointer's run when its record
 holds that run's map at the pointer's artifact). The list is the same for

@@ -1750,8 +1750,11 @@ fn a_readers_form_is_made_once_per_held_back_set_and_bounded() {
 
 /// A finished full pipeline run for the list: its job row (created at
 /// `at`, its configuration naming `selection` and, when given, the model
-/// that named its topics), and a record whose families are the map family
-/// the run produced with `map_rows` rows at `artifact` (none when `None`).
+/// its naming asked for), and a record whose families are the map family
+/// the run produced with `map_rows` rows at `artifact` (none when `None`)
+/// and whose manifest says the keyword fallback named its topics (what a
+/// run that asked for a model stores when it had no key, was over its cap
+/// or its call failed).
 fn listed_run(
     c: &mut postgres::Client,
     env: &str,
@@ -1776,7 +1779,8 @@ fn listed_run(
         families.push(json!({"family": contract::FAMILY, "job_id": job,
             "artifact_id": artifact, "row_count": rows, "scope": "delphi"}));
     }
-    let record = json!({"job_id": job, "zid": zid, "families": families});
+    let record = json!({"job_id": job, "zid": zid, "families": families,
+        "manifest": {"inputs": {}, "models": {"topic": "keywords"}, "cost": {}}});
     c.execute(
         "INSERT INTO stand_in_runs VALUES($1,$2::text::uuid,$3::text::jsonb)",
         &[&env, &job, &record.to_string()],
@@ -1803,13 +1807,11 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
          INSERT INTO comments VALUES({ZID},10,1),({ZID},11,1);"
     ))
     .unwrap();
-    // Served: what participants see (published, its map stored), every
-    // comment (named by a model), all but moderated out (no names), a run
-    // that stored no map, and a run that failed.
     let pv = "participant_visible/1";
     let at = |day: u8| format!("2026-11-{day:02}T00:00:00.000000Z");
     // Served: what participants see (published, its map stored), every
-    // comment (named by a model), all but moderated out, a run that stored
+    // comment (asked for a model, named by keywords), all but moderated
+    // out, a run that stored
     // no map, a run that failed and a run that is not a full pipeline run.
     let a = listed_run(
         &mut c,
@@ -1933,10 +1935,15 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
                 (contract::NamedBy::Keywords, None),
                 (contract::NamedBy::Keywords, None),
                 (contract::NamedBy::Keywords, None),
-                (contract::NamedBy::Model, Some("claude-haiku-4-5-20251001")),
+                (contract::NamedBy::Keywords, None),
                 (contract::NamedBy::Keywords, None)
             ]
         );
+        // The run that asked for a model and stored the keyword fallback is
+        // not reported as named by the model it asked for: the request is
+        // nowhere in the answer.
+        assert!(!body.contains("claude-haiku"), "{body}");
+        assert!(!body.contains("\"model\":\""), "{body}");
         assert_eq!(
             list.jobs[4].created_at.as_deref(),
             Some("2026-11-01T00:00:00.000000Z")

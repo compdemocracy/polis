@@ -249,22 +249,25 @@ pub struct ListedJob {
     pub current: bool,
 }
 
-/// How the run's topics were named, from its configuration (`naming`).
+/// How the run's topics were named: what the run stored, never what its
+/// configuration asked for. The list says the keyword fallback for every run
+/// until the naming outcome (the manifest's `models.topic`) is readable in
+/// the list's own statement.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Names {
     pub by: NamedBy,
-    /// The model that named them (`naming.model`), when a model did.
+    /// The model that named them, when a model did.
     pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum NamedBy {
-    /// The keyword fallback: the run's configuration names no model that
-    /// named its topics.
+    /// The keyword fallback.
     Keywords,
-    /// The model the configuration's `naming.model` names wrote them.
+    /// A model wrote them (the run's manifest says so, not its
+    /// configuration). The list does not say it yet.
     Model,
     /// The run stored no topic names. The list never says it: whether a run
     /// stored names is in its run record only.
