@@ -1440,7 +1440,14 @@ are and on the comments' moderation at the time of the read, not of the run:
   rewrites took beyond their estimates. A rewrite is not interrupted: one slower than its
   estimate runs to its end and the next waits until the difference is
   repaid. The budget is wall time of the rewrite, not a reservation of CPU,
-  and it covers making the form, not the rest of the request. A request
+  and it covers making the form, not the rest of the request. Measured in
+  a release build under the service's half CPU (arm64), a form takes about
+  10 ms for a one-level map of 30,000 comments with 2,000 held back, and
+  about 18 to 24 ms for a four-level map (300, 100, 30 and 10 topics, every
+  level kept) of 4,000 comments with 1,500 held back; under the flood the
+  rewrites stayed within the budget, beyond their charges by 0.05 to 0.07 s
+  over about four seconds. A larger four-level map costs more per form and
+  was not measured with every level kept. A request
   that cannot start one within the route's deadline is answered 503 with
   `Retry-After`, as the route sheds any other. A conversation that
   holds back more than 25,000 comments gives a reader no map (422
