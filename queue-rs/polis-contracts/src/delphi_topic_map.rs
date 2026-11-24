@@ -46,12 +46,14 @@
 //!   nothing stored either, the served side's answer is given. The answer
 //!   says which side it is from ([`HEADER_SOURCE`], [`NoMap::source`]).
 //!
-//! - `list=jobs`: not a map but the list of the conversation's runs that
-//!   have one ([`JobList`]), newest first, at most [`MAX_LISTED`], with the
-//!   one a read without `job_id` would answer marked `current`. With
+//! - `list=jobs`: not a map but the list of the conversation's finished
+//!   full pipeline runs ([`JobList`]), newest first, at most [`MAX_LISTED`],
+//!   with the one a read without `job_id` would answer marked `current`. A
+//!   listed run may have stored no map: that is in its run record only, and
+//!   the list reads no run record per run; reading the run says. With
 //!   `source` and `selection` it lists that side's or that rule's runs only
 //!   (and `current` is the run that read would answer); with `job_id` it is
-//!   400. It is read from the run records only, never from a map, so it is
+//!   400. It is read from the runs' rows only, never from a map, so it is
 //!   the same for every reader and moderating a comment never changes it.
 //!
 //! Every answer is one of the types below:
@@ -188,7 +190,7 @@ pub struct Request {
     pub job_id: Option<String>,
     pub source: Option<Source>,
     pub selection: Option<Selection>,
-    /// `list=jobs`: the runs that have a map ([`JobList`]), not a map.
+    /// `list=jobs`: the runs a page may choose from ([`JobList`]), not a map.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub list: Option<List>,
 }
@@ -209,15 +211,12 @@ impl List {
     }
 }
 
-/// Runs a list names at most; older runs are not listed (a page still reads
-/// one by its `job_id`).
+/// Runs a list names at most, both sides together; older runs are not
+/// listed (a page still reads one by its `job_id`).
 pub const MAX_LISTED: usize = 50;
-/// Newest finished runs a list examines for a map, both sides together; a
-/// run older than these is not listed.
-pub const MAX_EXAMINED: usize = 200;
 
-/// 200 for `list=jobs`: the report's conversation's runs that have a stored
-/// map, newest first (by `created_at`, then `job_id`, both descending).
+/// 200 for `list=jobs`: the report's conversation's finished full pipeline
+/// runs, newest first (by `created_at`, then `job_id`, both descending).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct JobList {
@@ -225,8 +224,8 @@ pub struct JobList {
     pub jobs: Vec<ListedJob>,
 }
 
-/// One run that has a stored map, as its run record describes it. Nothing
-/// here is read from the map, so nothing depends on moderation.
+/// One finished run, as its job row describes it. Nothing here is read from
+/// the map, so nothing depends on moderation.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct ListedJob {
@@ -237,9 +236,9 @@ pub struct ListedJob {
     pub selection: Option<Selection>,
     /// When the run was created (RFC 3339, UTC).
     pub created_at: Option<String>,
-    /// Comments the run laid out: the row count of its cluster assignments
-    /// (`Delphi_CommentHierarchicalClusterAssignments`), one per point of
-    /// its map. Null when its record lists no such family.
+    /// Comments the run laid out: in its run record only (the row count of
+    /// its cluster assignments), which the list does not read, so always
+    /// null here; the map read gives the points.
     pub points: Option<u64>,
     /// Topics per level, finest first: not in the run record (only in the
     /// map), so always null here; the map read gives `levels`.
@@ -250,24 +249,25 @@ pub struct ListedJob {
     pub current: bool,
 }
 
-/// How the run's topics were named, from its run record.
+/// How the run's topics were named, from its configuration (`naming`).
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Names {
     pub by: NamedBy,
-    /// The topic model the run's manifest names, when a model named them.
+    /// The model that named them (`naming.model`), when a model did.
     pub model: Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum NamedBy {
-    /// The run stored names and its manifest records no model output.
+    /// The keyword fallback: the run's configuration names no model that
+    /// named its topics.
     Keywords,
-    /// The run's manifest records model output tokens: its topic model
-    /// (`models.topic`) wrote them.
+    /// The model the configuration's `naming.model` names wrote them.
     Model,
-    /// The run stored no topic names.
+    /// The run stored no topic names. The list never says it: whether a run
+    /// stored names is in its run record only.
     None,
 }
 

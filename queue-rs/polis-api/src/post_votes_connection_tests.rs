@@ -617,8 +617,9 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
 /// the votes-path reads (the next comment, the comments, the votes) keep
 /// their latency while the report topic map is saturated. Each read is
 /// sampled sequentially, first with the route idle (the control), then while
-/// sixteen clients ask for a stored map of about a megabyte as fast as the
-/// route answers them (the route at its places, shedding the rest). Each
+/// sixteen clients ask for a stored map of about a megabyte (one client in
+/// four for the list of the report's runs, `list=jobs`, instead) as fast as
+/// the route answers them (the route at its places, shedding the rest). Each
 /// phase takes at least forty rounds and lasts at least two seconds (twenty
 /// periods of the kernel's CPU quota), and the loaded phase takes at least as
 /// many rounds as the control. Run it from a release build under the
@@ -693,19 +694,24 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         let (control, control_window) = sample(&app, &reads, ROUNDS, WINDOW).await;
         let control_rounds = control[0].len();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let lists = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let clients: Vec<_> = (0..16)
             .map(|n| {
-                let (app, stop) = (app.clone(), stop.clone());
+                let (app, stop, lists) = (app.clone(), stop.clone(), lists.clone());
                 tokio::spawn(async move {
                     let mut answers = std::collections::BTreeMap::<u16, usize>::new();
                     let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    // One client in four asks for the list of runs instead.
+                    let target = if n % 4 == 1 {
+                        "/api/v3/delphi/topicMap?report_id=r1&list=jobs"
+                    } else {
+                        "/api/v3/delphi/topicMap?report_id=r1"
+                    };
                     while !stop.load(Ordering::SeqCst) {
-                        let out = crate::dispatch(
-                            app.clone(),
-                            None,
-                            forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
-                        )
-                        .await;
+                        let out = crate::dispatch(app.clone(), None, forwarded(target, &[("accept-encoding", coding)])).await;
+                        if n % 4 == 1 && out.status == 200 {
+                            lists.fetch_add(1, Ordering::SeqCst);
+                        }
                         *answers.entry(out.status).or_insert(0) += 1;
                         if out.status == 503 {
                             tokio::task::yield_now().await;
@@ -734,8 +740,9 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         }
         let cgroup = std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into());
         let mut lines = vec![format!(
-            "topic map saturation: cpu.max={} control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} busy={} max_in_flight={} max_held_bytes={}",
+            "topic map saturation: cpu.max={} control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} lists_answered={} busy={} max_in_flight={} max_held_bytes={}",
             cgroup.trim(),
+            lists.load(Ordering::SeqCst),
             state.busy(),
             state.max_in_flight(),
             state.max_held()
@@ -761,6 +768,7 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         let report = lines.join("\n") + "\n";
         std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
         assert!(maps.get(&200).copied().unwrap_or(0) > 0, "maps were served: {maps:?}");
+        assert!(lists.load(Ordering::SeqCst) > 0, "lists of runs were answered: {maps:?}");
         assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
         assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
         for (i, (path, _)) in reads.iter().enumerate() {

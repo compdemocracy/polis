@@ -1591,55 +1591,39 @@ fn recolor(topics: &mut [contract::Topic], levels: &mut [contract::Level], x: &[
     }
 }
 
-/// Whether a side has nothing stored for the query, so that a query naming
-/// no `source` reads the next side: no served run, a run whose own batch
-/// holds no map family, or no such job. Anything the run itself stored (a
-/// map, a stored no-map reason, a map too large, rows that are not a map) is
-/// that side's answer.
-/// The runs of `zid` on `sides` that have a stored map, newest first, at
+/// The finished full pipeline runs of `zid` on `sides`, newest first, at
 /// most [`contract::MAX_LISTED`], and which one a read without `job_id`
-/// answers. Two statements, run records only, no map part: the newest
-/// [`contract::MAX_EXAMINED`] finished runs of the sides (the jobs'
-/// `(env, zid::text)` index) with what each one's record says of its own
-/// map family, its cluster assignments, its topic names and its manifest;
-/// then, per side until one has something stored, its served pointer and
-/// what that run's record says of the map family at the pointer's artifact.
-/// A run has a map when its record lists the map family produced by the run
-/// itself with three rows or more: a map is `document`, `document.gz` and
-/// `sha256` (and `execution`), no map is `no_map` (and `execution`).
+/// answers. Two statements, each bounded, neither calling anything once per
+/// listed run: the runs from the jobs view alone (its `(env, zid::text)`
+/// index; the comment rule and the naming from each run's configuration),
+/// then the sides' served pointers (at most one per side) with what each
+/// pointer's run record says of the map family at the pointer's artifact.
+/// Whether a listed run stored a map, and how many points it laid out, are
+/// in its run record only, one `pd_run_record` call per run, so the list
+/// does not read them: a page learns them by reading the run.
 fn list_jobs(
     c: &mut postgres::Client,
     zid: i32,
     sides: &[(Source, String, String)],
     asked: Option<Selection>,
 ) -> anyhow::Result<Vec<contract::ListedJob>> {
-    const ASSIGNMENTS: &str = "Delphi_CommentHierarchicalClusterAssignments";
-    const NAMES: &str = "Delphi_CommentClustersLLMTopicNames";
+    if sides.is_empty() {
+        return Ok(Vec::new());
+    }
     let envs: Vec<String> = sides.iter().map(|(_, env, _)| env.clone()).collect();
+    let rule: Option<&str> = asked.map(Selection::word);
     let rows = c.query(
-        "WITH j AS (SELECT env, job_id, job_config->>'selection' AS selection, created_at \
-           FROM public.delphi_result_jobs \
-           WHERE env = ANY($1::text[]) AND conversation_id=$2 AND status='COMPLETED' \
-           ORDER BY created_at DESC, job_id DESC LIMIT $3) \
-         SELECT j.env, j.job_id, j.selection, j.created_at, \
-          (SELECT (f->>'row_count')::bigint FROM jsonb_array_elements(r.rec->'families') f \
-            WHERE f->>'family'=$4 AND f->>'job_id'=j.job_id LIMIT 1), \
-          (SELECT (f->>'row_count')::bigint FROM jsonb_array_elements(r.rec->'families') f \
-            WHERE f->>'family'=$5 LIMIT 1), \
-          (SELECT (f->>'row_count')::bigint FROM jsonb_array_elements(r.rec->'families') f \
-            WHERE f->>'family'=$6 LIMIT 1), \
-          r.rec->'manifest'->'models'->>'topic', \
-          (r.rec->'manifest'->'cost'->>'llm_tokens_out') \
-         FROM j CROSS JOIN LATERAL \
-          (SELECT public.pd_run_record(j.env, j.job_id::uuid) AS rec) r \
-         ORDER BY j.created_at DESC, j.job_id DESC",
+        "SELECT env, job_id, job_config->>'selection', job_config->'naming', created_at \
+         FROM public.delphi_result_jobs \
+         WHERE env = ANY($1::text[]) AND conversation_id=$2 AND status='COMPLETED' \
+          AND job_type='full_pipeline' \
+          AND ($3::text IS NULL OR split_part(job_config->>'selection','/',1)=$3) \
+         ORDER BY created_at DESC, job_id DESC LIMIT $4",
         &[
             &envs,
             &zid.to_string(),
-            &(contract::MAX_EXAMINED as i64),
-            &contract::FAMILY,
-            &ASSIGNMENTS,
-            &NAMES,
+            &rule,
+            &(contract::MAX_LISTED as i64),
         ],
     )?;
     // The run a read without `job_id` answers: per side in order, the served
@@ -1648,25 +1632,43 @@ fn list_jobs(
     // stored and the next is read; a pointer at a run that stored no map
     // (or a family another run produced) is that read's answer, so no run.
     let selection = asked.unwrap_or_default();
+    let pairs: Vec<(String, String)> = sides
+        .iter()
+        .map(|(_, env, base)| (env.clone(), selection.scope(base)))
+        .collect();
+    let (first, second) = (&pairs[0], pairs.last().unwrap_or(&pairs[0]));
+    let pointers = c.query(
+        "SELECT p.env, p.job_id, \
+          (SELECT jsonb_build_object('rows', f->'row_count', 'job', f->>'job_id') \
+           FROM jsonb_array_elements(public.pd_run_record(p.env, p.job_id::uuid)->'families') f \
+           WHERE f->>'family'=$6 AND f->>'artifact_id'=p.artifact_id::text LIMIT 1) \
+         FROM public.delphi_result_publications p \
+         WHERE p.zid=$1 AND ((p.env=$2 AND p.scope_key=$3) OR (p.env=$4 AND p.scope_key=$5)) \
+         LIMIT 2",
+        &[
+            &zid,
+            &first.0,
+            &first.1,
+            &second.0,
+            &second.1,
+            &contract::FAMILY,
+        ],
+    )?;
     let mut current = None;
-    for (source, env, base) in sides {
-        let found = c.query_opt(
-            "SELECT p.job_id, \
-              (SELECT jsonb_build_object('rows', f->'row_count', 'job', f->>'job_id') \
-               FROM jsonb_array_elements(public.pd_run_record(p.env, p.job_id::uuid)->'families') f \
-               WHERE f->>'family'=$4 AND f->>'artifact_id'=p.artifact_id::text LIMIT 1) \
-             FROM public.delphi_result_publications p \
-             WHERE p.env=$1 AND p.zid=$2 AND p.scope_key=$3 LIMIT 1",
-            &[env, &zid, &selection.scope(base), &contract::FAMILY],
-        )?;
-        let Some(row) = found else { continue };
-        let job: String = row.try_get(0)?;
-        let Some(family) = row.try_get::<_, Option<serde_json::Value>>(1)? else {
+    for (source, env, _) in sides {
+        let Some(row) = pointers
+            .iter()
+            .find(|r| r.try_get::<_, String>(0).is_ok_and(|e| e == *env))
+        else {
             continue;
         };
-        let rows = family.get("rows").and_then(serde_json::Value::as_i64);
+        let job: String = row.try_get(1)?;
+        let Some(family) = row.try_get::<_, Option<serde_json::Value>>(2)? else {
+            continue;
+        };
+        let stored = family.get("rows").and_then(serde_json::Value::as_i64);
         if family.get("job").and_then(serde_json::Value::as_str) == Some(job.as_str())
-            && rows.is_some_and(|n| n >= 3)
+            && stored.is_some_and(|n| n >= 3)
         {
             current = Some((*source, job));
         }
@@ -1678,60 +1680,50 @@ fn list_jobs(
         let Some((source, _, _)) = sides.iter().find(|(_, e, _)| *e == env) else {
             continue;
         };
-        if !row.try_get::<_, Option<i64>>(4)?.is_some_and(|n| n >= 3) {
-            continue;
-        }
         let job_id: String = row.try_get(1)?;
         // `participant_visible/1` and its kind: the rule without its version.
         let rule = row
             .try_get::<_, Option<String>>(2)?
             .and_then(|s| Selection::parse(s.split('/').next().unwrap_or("")));
-        if asked.is_some_and(|a| rule != Some(a)) {
-            continue;
-        }
-        let names = match row.try_get::<_, Option<i64>>(6)? {
-            None | Some(0) => contract::Names {
-                by: contract::NamedBy::None,
-                model: None,
-            },
-            Some(_) => {
-                let tokens_out = row
-                    .try_get::<_, Option<String>>(8)?
-                    .and_then(|t| t.parse::<f64>().ok())
-                    .unwrap_or(0.0);
-                let model = row.try_get::<_, Option<String>>(7)?;
-                if tokens_out > 0.0 {
-                    contract::Names {
-                        by: contract::NamedBy::Model,
-                        model,
-                    }
-                } else {
-                    contract::Names {
-                        by: contract::NamedBy::Keywords,
-                        model: None,
-                    }
-                }
-            }
-        };
         jobs.push(contract::ListedJob {
             current: current.as_ref() == Some(&(*source, job_id.clone())),
             job_id,
             source: *source,
             selection: rule,
-            created_at: row.try_get(3)?,
-            points: row
-                .try_get::<_, Option<i64>>(5)?
-                .and_then(|n| u64::try_from(n).ok()),
+            created_at: row.try_get(4)?,
+            points: None,
             levels: None,
-            names,
+            names: named(row.try_get::<_, Option<serde_json::Value>>(3)?.as_ref()),
         });
-        if jobs.len() == contract::MAX_LISTED {
-            break;
-        }
     }
     Ok(jobs)
 }
 
+/// Who named a run's topics, from its configuration's `naming`: a run whose
+/// configuration names the model that named them (`naming.model`) was named
+/// by that model; any other run by the keyword fallback.
+fn named(naming: Option<&serde_json::Value>) -> contract::Names {
+    match naming
+        .and_then(|n| n.get("model"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|m| !m.is_empty())
+    {
+        Some(model) => contract::Names {
+            by: contract::NamedBy::Model,
+            model: Some(model.to_owned()),
+        },
+        None => contract::Names {
+            by: contract::NamedBy::Keywords,
+            model: None,
+        },
+    }
+}
+
+/// Whether a side has nothing stored for the query, so that a query naming
+/// no `source` reads the next side: no served run, a run whose own batch
+/// holds no map family, or no such job. Anything the run itself stored (a
+/// map, a stored no-map reason, a map too large, rows that are not a map) is
+/// that side's answer.
 fn nothing_stored(found: &Found) -> bool {
     matches!(
         found,

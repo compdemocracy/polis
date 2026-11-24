@@ -38,7 +38,9 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
          CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
            generation bigint, artifact_id uuid, job_id text);
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
-           status text, job_config jsonb, created_at text);
+           status text, job_config jsonb, created_at text,
+           job_type text NOT NULL DEFAULT 'full_pipeline');
+         CREATE INDEX ON delphi_result_jobs(env, conversation_id);
          CREATE TABLE stand_in_runs(env text, job_id uuid, record jsonb);
          CREATE TABLE stand_in_wires(env text, artifact_id uuid, family text, wire text,
            delay float8 NOT NULL DEFAULT 0);
@@ -1746,12 +1748,10 @@ fn a_readers_form_is_made_once_per_held_back_set_and_bounded() {
     });
 }
 
-/// A finished run for the list: its job row (created at `at`), and a record
-/// whose families are the map family the run produced with `map_rows` rows
-/// at `artifact` (none when `None`), its cluster assignments (`points` rows)
-/// and its topic names (`names` rows, none when `None`), and a manifest
-/// whose topic model is `model` with `tokens_out` model output tokens.
-#[allow(clippy::too_many_arguments)]
+/// A finished full pipeline run for the list: its job row (created at
+/// `at`, its configuration naming `selection` and, when given, the model
+/// that named its topics), and a record whose families are the map family
+/// the run produced with `map_rows` rows at `artifact` (none when `None`).
 fn listed_run(
     c: &mut postgres::Client,
     env: &str,
@@ -1759,38 +1759,24 @@ fn listed_run(
     selection: &str,
     at: &str,
     map: Option<(i64, &str)>,
-    points: i64,
-    names: Option<i64>,
-    tokens_out: i64,
+    naming: Option<&str>,
 ) -> String {
     let job = uuid(0x7000);
+    let mut config = json!({"selection": selection});
+    if let Some(model) = naming {
+        config["naming"] = json!({"model": model});
+    }
     c.execute(
         "INSERT INTO delphi_result_jobs VALUES($1,$2,$3,'COMPLETED',$4::text::jsonb,$5)",
-        &[
-            &env,
-            &job,
-            &zid.to_string(),
-            &json!({"selection": selection}).to_string(),
-            &at,
-        ],
+        &[&env, &job, &zid.to_string(), &config.to_string(), &at],
     )
     .unwrap();
-    let mut families = vec![
-        json!({"family": "Delphi_CommentHierarchicalClusterAssignments",
-        "job_id": job, "artifact_id": uuid(0xa100), "row_count": points}),
-    ];
+    let mut families = vec![];
     if let Some((rows, artifact)) = map {
         families.push(json!({"family": contract::FAMILY, "job_id": job,
             "artifact_id": artifact, "row_count": rows, "scope": "delphi"}));
     }
-    if let Some(rows) = names {
-        families.push(json!({"family": "Delphi_CommentClustersLLMTopicNames",
-            "job_id": job, "artifact_id": uuid(0xa100), "row_count": rows}));
-    }
-    let record = json!({"job_id": job, "zid": zid, "families": families,
-        "manifest": {"models": {"embed": "all-MiniLM-L6-v2", "topic": "claude-haiku-4-5-20251001",
-            "narrative": null}, "cost": {"llm_tokens_in": 0, "llm_tokens_out": tokens_out,
-            "provider_batches": 0}}});
+    let record = json!({"job_id": job, "zid": zid, "families": families});
     c.execute(
         "INSERT INTO stand_in_runs VALUES($1,$2::text::uuid,$3::text::jsonb)",
         &[&env, &job, &record.to_string()],
@@ -1820,16 +1806,19 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
     // Served: what participants see (published, its map stored), every
     // comment (named by a model), all but moderated out (no names), a run
     // that stored no map, and a run that failed.
+    let pv = "participant_visible/1";
+    let at = |day: u8| format!("2026-11-{day:02}T00:00:00.000000Z");
+    // Served: what participants see (published, its map stored), every
+    // comment (named by a model), all but moderated out, a run that stored
+    // no map, a run that failed and a run that is not a full pipeline run.
     let a = listed_run(
         &mut c,
         "test",
         ZID,
-        "participant_visible/1",
-        "2026-11-01T00:00:00.000000Z",
+        pv,
+        &at(1),
         Some((4, &served_artifact)),
-        500,
-        Some(12),
-        0,
+        None,
     );
     wire_at(&mut c, "test", &served_artifact, &wire, &a);
     publish(&mut c, "test", ZID, "delphi", &a, &served_artifact);
@@ -1838,73 +1827,67 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
         "test",
         ZID,
         "all_comments/1",
-        "2026-11-02T00:00:00.000000Z",
+        &at(2),
         Some((3, &uuid(0xa300))),
-        520,
-        Some(12),
-        9000,
+        Some("claude-haiku-4-5-20251001"),
     );
     let m = listed_run(
         &mut c,
         "test",
         ZID,
         "all_but_moderated_out/1",
-        "2026-11-03T00:00:00.000000Z",
+        &at(3),
         Some((4, &uuid(0xa300))),
-        510,
         None,
-        0,
     );
-    listed_run(
+    let n = listed_run(
         &mut c,
         "test",
         ZID,
-        "participant_visible/1",
-        "2026-11-04T00:00:00.000000Z",
+        pv,
+        &at(4),
         Some((2, &uuid(0xa300))),
-        3,
-        Some(1),
-        0,
+        None,
     );
     let failed = listed_run(
         &mut c,
         "test",
         ZID,
-        "participant_visible/1",
-        "2026-11-06T00:00:00.000000Z",
+        pv,
+        &at(6),
         Some((4, &uuid(0xa300))),
-        500,
-        Some(12),
-        0,
+        None,
     );
     c.execute(
         "UPDATE delphi_result_jobs SET status='FAILED' WHERE job_id=$1",
         &[&failed],
     )
     .unwrap();
-    // The shadow's: what participants see, newest of all.
+    let child = listed_run(&mut c, "test", ZID, pv, &at(8), None, None);
+    c.execute(
+        "UPDATE delphi_result_jobs SET job_type='umap' WHERE job_id=$1",
+        &[&child],
+    )
+    .unwrap();
+    // The shadow's: what participants see.
     let s = listed_run(
         &mut c,
         "shadow-test",
         ZID,
-        "participant_visible/1",
-        "2026-11-05T00:00:00.000000Z",
+        pv,
+        &at(5),
         Some((4, &shadow_artifact)),
-        505,
-        Some(12),
-        0,
+        None,
     );
-    // Another conversation's run, with a map, newer than all of them.
+    // Another conversation's run, newer than all of them.
     listed_run(
         &mut c,
         "test",
         77,
-        "participant_visible/1",
-        "2026-11-07T00:00:00.000000Z",
+        pv,
+        &at(7),
         Some((4, &uuid(0xa300))),
-        900,
-        Some(12),
-        0,
+        None,
     );
     runtime().block_on(async {
         let mut app = app_on(&db);
@@ -1917,7 +1900,10 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
         let list = listed(&out);
         assert_eq!(list.report_id, "r1");
         let ids: Vec<_> = list.jobs.iter().map(|j| j.job_id.as_str()).collect();
-        assert_eq!(ids, [s.as_str(), m.as_str(), b.as_str(), a.as_str()]);
+        assert_eq!(
+            ids,
+            [s.as_str(), n.as_str(), m.as_str(), b.as_str(), a.as_str()]
+        );
         let words: Vec<_> = list
             .jobs
             .iter()
@@ -1927,13 +1913,14 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
             words,
             [
                 ("shadow", Some("participant_visible")),
+                ("served", Some("participant_visible")),
                 ("served", Some("all_but_moderated_out")),
                 ("served", Some("all_comments")),
                 ("served", Some("participant_visible"))
             ]
         );
         let points: Vec<_> = list.jobs.iter().map(|j| j.points).collect();
-        assert_eq!(points, [Some(505), Some(510), Some(520), Some(500)]);
+        assert!(points.iter().all(Option::is_none), "{points:?}");
         assert!(list.jobs.iter().all(|j| j.levels.is_none()));
         let names: Vec<_> = list
             .jobs
@@ -1944,13 +1931,14 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
             names,
             [
                 (contract::NamedBy::Keywords, None),
-                (contract::NamedBy::None, None),
+                (contract::NamedBy::Keywords, None),
+                (contract::NamedBy::Keywords, None),
                 (contract::NamedBy::Model, Some("claude-haiku-4-5-20251001")),
                 (contract::NamedBy::Keywords, None)
             ]
         );
         assert_eq!(
-            list.jobs[3].created_at.as_deref(),
+            list.jobs[4].created_at.as_deref(),
             Some("2026-11-01T00:00:00.000000Z")
         );
         // `current` is the run the read with the report id alone answers.
@@ -2027,7 +2015,7 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
             other
                 .jobs
                 .iter()
-                .all(|j| ![&a, &b, &m, &s].contains(&&j.job_id))
+                .all(|j| ![&a, &b, &m, &n, &s].contains(&&j.job_id))
         );
         // A list names runs: with `job_id` it is 400, and a `list` this route
         // does not know is 400 as an unknown `source` is.
@@ -2059,7 +2047,7 @@ fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
 }
 
 #[test]
-fn a_list_names_the_newest_fifty_runs_with_maps() {
+fn a_list_names_the_newest_fifty_runs() {
     let db = Db::new("list_cap");
     let mut c = db.connect();
     c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
@@ -2073,9 +2061,7 @@ fn a_list_names_the_newest_fifty_runs_with_maps() {
                 "participant_visible/1",
                 &format!("2026-10-{:02}T00:00:{i:02}.000000Z", 1 + i % 28),
                 Some((4, &uuid(0xa400))),
-                100 + i as i64,
-                Some(5),
-                0,
+                None,
             )
         })
         .collect();
@@ -2110,5 +2096,92 @@ fn a_list_names_the_newest_fifty_runs_with_maps() {
         assert_eq!(ids, expected);
         // No pointer is served: no run is current.
         assert!(list.jobs.iter().all(|j| !j.current));
+    });
+}
+
+/// However many runs the conversation has, the list is the same two
+/// statements and calls the run record once per side with a served pointer
+/// (here one), never once per run: 1, 50 and 2,000 finished runs, the
+/// oldest of them served with its map. The whole request's time (the median
+/// of 21) is printed for each. Then each run record is made to take 50 ms
+/// (the route's transaction is read-only, so a call is shown by its time,
+/// not counted): the list of 2,000 still answers at once, where a call per
+/// listed run (50 of them) would pass the statement's 2 s timeout.
+#[test]
+fn a_list_reads_no_run_record_per_run_however_many_runs_there_are() {
+    let db = Db::new("list_many");
+    let map = stored(document(50, "j"));
+    let wire = map_family(ZID, &map);
+    let artifact = uuid(0xa500);
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let oldest = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "participant_visible/1",
+        "2026-01-01T00:00:00.000000Z",
+        Some((4, &artifact)),
+        None,
+    );
+    wire_at(&mut c, "test", &artifact, &wire, &oldest);
+    publish(&mut c, "test", ZID, "delphi", &oldest, &artifact);
+    const URL: &str = "/api/v3/delphi/topicMap?report_id=r1&list=jobs";
+    let mut have = 1;
+    for runs in [1usize, 50, 2000] {
+        if runs > have {
+            c.execute(
+                "INSERT INTO delphi_result_jobs(env, job_id, conversation_id, status, job_config, created_at) \
+                 SELECT 'test', '00000000-0000-4000-9000-'||lpad(g::text,12,'0'), $1, 'COMPLETED', \
+                  '{\"selection\":\"participant_visible/1\"}', \
+                  to_char(timestamp '2026-02-01' + g * interval '1 minute','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"') \
+                 FROM generate_series($2::int, $3::int) g",
+                &[&ZID.to_string(), &(have as i32), &(runs as i32 - 1)],
+            )
+            .unwrap();
+            have = runs;
+        }
+        runtime().block_on(async {
+            let app = Arc::new(app_on(&db));
+            let mut took = Vec::new();
+            for _ in 0..21 {
+                let start = std::time::Instant::now();
+                let out = crate::dispatch(app.clone(), None, with(URL, &[])).await;
+                took.push(start.elapsed());
+                let list = listed(&out);
+                assert_eq!(list.jobs.len(), runs.min(contract::MAX_LISTED));
+                // The served run is current while it is among the listed.
+                let current = list.jobs.iter().filter(|j| j.current).count();
+                assert_eq!(current, usize::from(runs <= contract::MAX_LISTED));
+                assert!(
+                    list.jobs
+                        .windows(2)
+                        .all(|w| w[0].created_at >= w[1].created_at)
+                );
+            }
+            took.sort();
+            println!(
+                "list of {runs} runs: whole request median {:?}, max {:?}",
+                took[took.len() / 2],
+                took[took.len() - 1]
+            );
+        });
+    }
+    c.batch_execute(
+        "CREATE OR REPLACE FUNCTION pd_run_record(p_env text, p_job uuid) RETURNS jsonb
+           LANGUAGE sql VOLATILE AS
+           $$ SELECT record FROM stand_in_runs, LATERAL (SELECT pg_sleep(0.05)) z
+              WHERE env=p_env AND job_id=p_job $$;",
+    )
+    .unwrap();
+    runtime().block_on(async {
+        let app = Arc::new(app_on(&db));
+        let start = std::time::Instant::now();
+        let out = crate::dispatch(app, None, with(URL, &[])).await;
+        let took = start.elapsed();
+        println!("list of 2000 runs, each run record 50 ms: {took:?}");
+        assert_eq!(listed(&out).jobs.len(), contract::MAX_LISTED);
+        assert!(took < Duration::from_secs(1), "{took:?}");
     });
 }
