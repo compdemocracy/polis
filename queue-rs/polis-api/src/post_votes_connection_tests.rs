@@ -533,15 +533,19 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
         // How many are answered depends on the machine: the route has more
         // places than read connections, so a request holding a place is shed
         // too when it waits longer than its pool's acquire timeout while two
-        // others read. What the route guarantees is that one is answered: a
-        // request is shed at the pool only while others hold its connections,
-        // and the last of those to read is never shed there.
+        // others read. At least one answer is a liveness expectation for this
+        // healthy fixture, assuming successful reads and scheduling progress
+        // within the deadlines. It is not an unconditional route guarantee:
+        // even a connection holder can fail a statement or the route deadline.
         let answered = maps.iter().filter(|(s, ..)| *s == 200).count();
         eprintln!(
             "warm topic map flood: {answered} of {} answered",
             maps.len()
         );
-        assert!(answered > 0, "{maps:?}");
+        assert!(
+            answered > 0,
+            "the healthy fixture should answer at least one map within the deadlines: {maps:?}"
+        );
         let writer_after = [
             writer.pool.evidence.snapshot(),
             writer.reads.evidence.snapshot(),
@@ -560,9 +564,9 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
             "stored bytes held at once are bounded by the places: {}",
             state.max_held()
         );
-        // The flood gives back every place and every byte it held, and the
-        // route then serves again: one request, alone, is answered with the
-        // whole document as stored, within the route's deadline.
+        // Check that the flood gives back every place and byte it held. With
+        // this healthy fixture and scheduling progress within the deadline,
+        // a lone request should then receive the whole stored document.
         wait_for("the flood's places and bytes given back", || {
             state.in_flight() == 0 && state.held_now() == 0
         })
@@ -1641,8 +1645,10 @@ fn connection_bounds_held_topic_map_answers_keep_their_places_until_written() {
         // before holds its answer, so none of them waits for a read
         // connection: the route has more places than read connections, and a
         // request reading beside two others can be shed at its pool on a slow
-        // machine, which is not what this test is about. Then eight more,
-        // which find every place taken.
+        // machine, which is not what this test is about. This healthy-fixture
+        // setup requires all four answers to become held before the earlier
+        // answers reach their write deadlines. Then eight more arrive while
+        // every place is taken.
         let mut clients = Vec::new();
         for n in 1..=crate::delphi_topic_map::MAX_IN_FLIGHT {
             clients.push(stalled(address).await);
