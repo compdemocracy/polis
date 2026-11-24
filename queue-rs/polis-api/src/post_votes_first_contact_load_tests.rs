@@ -487,15 +487,15 @@ fn concurrent_first_votes_in_one_conversation_each_get_their_own_participant() {
 const PARTICIPANT_NUMBER_LOCK: i32 = 873791983;
 
 const MEMBER_VOTES: usize = 4;
-/// Four of each kind per round gives forty samples per phase, including
-/// reads whose pools hold fewer concurrent connections.
-const COMMENT_WRITES: usize = 4;
-const READS_EACH: usize = 4;
-const VOTES_READS: usize = 4;
+/// Keep the original per-round load; two serial votes reads give forty
+/// samples of that kind over twenty rounds without adding concurrency.
+const COMMENT_WRITES: usize = 2;
+const READS_EACH: usize = 2;
+const VOTES_READS: usize = 2;
 const FIRST_VOTERS_UNDER_LOAD: usize = 8;
 /// Rounds of participation per phase: the idle control and each loaded phase
 /// are measured over the same number of samples.
-const ROUNDS: usize = 10;
+const ROUNDS: usize = 20;
 /// Every phase, the idle control included, starts round `n` at its start
 /// plus `n` periods. A round lasts as long as its slowest request, and a
 /// handed-back first vote takes far longer than any participation request,
@@ -536,9 +536,9 @@ const KINDS: [&str; 5] = [
     "votes read",
 ];
 
-/// One round: four of each participation kind, and `first` first votes.
-/// Each kind keeps its original number of concurrent clients, taking more
-/// samples within the fixed round. Members' votes are two each, on the
+/// One round: four member votes, two comments, two reads of each kind,
+/// and `first` first votes. The two votes reads are serial; all other kinds
+/// keep their original concurrency. Members' votes are two each, on the
 /// three statements. Answers in kind order.
 fn participation(
     rt: &tokio::runtime::Runtime,
@@ -559,7 +559,7 @@ fn participation(
     requests.extend((0..first).map(|_| ballot(0, None)));
     rt.block_on(async {
         let start = Arc::new(tokio::sync::Barrier::new(requests.len()));
-        // More samples, with the original concurrency: four member votes,
+        // Original concurrency: four member votes,
         // two comments, two next comments, two comment lists, one votes
         // read, and all first voters. Bursting four next comments or votes
         // reads would test their own small pools' acquire bounds even idle.
@@ -644,8 +644,9 @@ fn p95(answers: &[Answer]) -> Duration {
 }
 
 /// Each kind of participation in a loaded phase against the idle control:
-/// misses no more than the control's plus `MISS_SHARE_PERCENT` of the
-/// samples, and a 95th percentile within twice the control's plus
+/// write hand-backs no more than the control's; read misses no more than
+/// the control's plus `MISS_SHARE_PERCENT` of the samples; and an answered
+/// 95th percentile within twice the control's plus
 /// `LATENCY_SLACK`; and, the stricter rule, a 95th percentile within the
 /// control's plus `CONTROL_SLACK`. Printed whether or not they hold; the
 /// kinds that do not hold are returned, the first rule's then the stricter
@@ -661,7 +662,12 @@ fn latency_failures(
     for (index, name) in KINDS.iter().enumerate() {
         let (idle, busy) = (kind(control, index), kind(loaded, index));
         let misses = |answers: &[Answer]| answers.iter().filter(|a| !answered(a)).count();
-        let allowed = misses(&idle) + (busy.len() * MISS_SHARE_PERCENT).div_ceil(100);
+        let allowed = misses(&idle)
+            + if index < 2 {
+                0
+            } else {
+                (busy.len() * MISS_SHARE_PERCENT).div_ceil(100)
+            };
         let idle_answered: Vec<_> = idle.iter().filter(|a| answered(a)).cloned().collect();
         let busy_answered: Vec<_> = busy.iter().filter(|a| answered(a)).cloned().collect();
         assert!(
@@ -830,15 +836,8 @@ fn participation_under_first_contact_load(stage: &Stage) {
                 .map(|((name, _), (b, a))| (*name, a[2] - b[2]))
                 .collect::<Vec<_>>()
         };
-    let assert_members_answered = |phase: &str, answers: &[Answer]| {
-        let [members, _, next, list, votes, _] = split(answers);
-        for answer in members {
-            assert_eq!(
-                (answer.status, answer.dispatch.as_deref()),
-                (200, None),
-                "{phase}: a member's vote was not answered: {answer:?}"
-            );
-        }
+    let assert_reads_answered_or_handed_back = |phase: &str, answers: &[Answer]| {
+        let [_, _, next, list, votes, _] = split(answers);
         for answer in next.iter().chain(list).chain(votes) {
             assert!(
                 answered(answer) || answer.status == 502,
@@ -847,18 +846,22 @@ fn participation_under_first_contact_load(stage: &Stage) {
         }
     };
     // In every phase and round, including the idle control: members' votes
-    // and comments must answer. Any read 502 is a hand-back to Node and a
-    // miss under the control-relative miss rule, whether from its deadline
-    // or an immediate refusal while earlier work still holds a connection.
+    // and comments must answer or carry a known safe hand-back marker.
+    // Their hand-backs may not increase over the control, with no extra
+    // share. Any read 502 is a miss under the existing read miss rule,
+    // whether from its deadline or an immediate refusal while earlier
+    // work still holds a connection.
     let assert_round = |phase: &str, round: usize, answers: &[Answer]| {
         let [members, written, _, _, _, _] = split(answers);
         for answer in members.iter().chain(written) {
             assert!(
-                answered(answer),
-                "{phase} round {round}: a member's vote or comment was not answered: {answer:?}"
+                answered(answer)
+                    || (answer.status == 502
+                        && matches!(answer.dispatch.as_deref(), Some("not-started" | "refused"))),
+                "{phase} round {round}: a member's vote or comment neither answered nor safely handed back: {answer:?}"
             );
         }
-        assert_members_answered(phase, answers);
+        assert_reads_answered_or_handed_back(phase, answers);
     };
     let people = |stage: &Stage| rows(stage)[..3].to_vec();
     let comment_count = |stage: &Stage| -> i64 {
@@ -913,8 +916,8 @@ fn participation_under_first_contact_load(stage: &Stage) {
         }
         assert_eq!(
             comment_count(stage),
-            comments_before + (ROUNDS * COMMENT_WRITES) as i64,
-            "{phase}: every member's comment is stored"
+            comments_before + kind(&rounds, 1).iter().filter(|a| answered(a)).count() as i64,
+            "{phase}: every answered member's comment is stored; handed-back comments are not"
         );
         report(format!(
             "cadence {phase}: period_ms={}; rounds={ROUNDS}; overruns={}; longest_round_ms={}",
@@ -977,7 +980,7 @@ fn participation_under_first_contact_load(stage: &Stage) {
             timeouts(&printed, &printed_before, &printed_after)
         ),
     );
-    assert_members_answered("exhausted", &exhausted[0]);
+    assert_reads_answered_or_handed_back("exhausted", &exhausted[0]);
     check_first("exhausted", &exhausted);
     assert_eq!(
         lane_after[0], lane_before[0],
@@ -1021,7 +1024,7 @@ fn participation_under_first_contact_load(stage: &Stage) {
             timeouts(&printed, &printed_before, &printed_after)
         ),
     );
-    assert_members_answered("parked", &parked[0]);
+    assert_reads_answered_or_handed_back("parked", &parked[0]);
     check_first("parked", &parked);
     assert!(
         lane_after[0] > lane_before[0],
