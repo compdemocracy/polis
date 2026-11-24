@@ -1649,3 +1649,99 @@ fn a_bearer_while_the_identity_database_is_down_is_shed() {
         );
     });
 }
+
+/// A reader's form is made once per stored map and held-back set: the same
+/// request again, with or without gzip, is the kept form, never a rewrite; a
+/// moderator receives the map as stored, never the kept form, and adds none;
+/// a comment moderated out makes another form at once (another ETag, its
+/// point bare). A conversation that holds back more than a reader's form is
+/// made for gives such a reader no map (422 `too_large`), and a moderator
+/// the map.
+#[test]
+fn a_readers_form_is_made_once_per_held_back_set_and_bounded() {
+    let db = Db::new("kept_forms");
+    let every = stored(small_map());
+    {
+        let mut c = db.connect();
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('r1',{ZID});
+             INSERT INTO users VALUES(3,'owners');
+             INSERT INTO oidc_user_mappings VALUES(3,'owner');
+             INSERT INTO conversations VALUES({ZID},3);
+             INSERT INTO comments VALUES({ZID},10,0),({ZID},11,1),({ZID},12,1),({ZID},13,1),({ZID},14,-1);"
+        ))
+        .unwrap();
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &every)),
+        );
+    }
+    let mut app = app_on(&db);
+    let signer = Signer::new(&mut app);
+    let owner = signer.bearer("owner");
+    runtime().block_on(async {
+        let app = Arc::new(app);
+        let state = app.delphi_topic_map.clone();
+        let all = "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments";
+        let get_with = |h: Vec<(&'static str, String)>| {
+            let app = app.clone();
+            async move {
+                let headers: Vec<(&str, &str)> = h.iter().map(|(k, v)| (*k, v.as_str())).collect();
+                Box::pin(crate::dispatch(app, None, with(all, &headers))).await
+            }
+        };
+        let gz = || vec![("accept-encoding", "gzip".to_string())];
+        let first = get_with(gz()).await;
+        assert_eq!(first.status, 200, "{}", text(&first));
+        assert_eq!((state.rewrites(), state.kept().0), (1, 1));
+        let again = get_with(gz()).await;
+        let plain = get_with(vec![]).await;
+        assert_eq!(bytes(&again), bytes(&first));
+        assert_eq!(header(&again, "ETag"), header(&first, "ETag"));
+        assert_eq!(bytes(&plain), gunzipped(&first));
+        assert_eq!(state.rewrites(), 1, "the kept form, gzip or not");
+        let doc: contract::TopicMap = serde_json::from_slice(&gunzipped(&first)).unwrap();
+        assert_eq!(doc.points.moderated_out, 1);
+        // A moderator: the stored map, and nothing kept or made for it.
+        let moderator = get_with(vec![
+            ("accept-encoding", "gzip".into()),
+            ("authorization", owner.clone()),
+        ])
+        .await;
+        assert_eq!(moderator.status, 200, "{}", text(&moderator));
+        assert_eq!(gunzipped(&moderator), every.document.as_bytes());
+        assert_eq!((state.rewrites(), state.kept().0), (1, 1));
+        // Comment 13 moderated out: the next request is another form.
+        moderate(
+            &db,
+            &format!("UPDATE comments SET mod=-1 WHERE zid={ZID} AND tid=13"),
+        );
+        let changed = get_with(gz()).await;
+        assert_eq!(changed.status, 200);
+        assert_ne!(header(&changed, "ETag"), header(&first, "ETag"));
+        let doc: contract::TopicMap = serde_json::from_slice(&gunzipped(&changed)).unwrap();
+        assert_eq!(doc.points.moderated_out, 2);
+        assert!(!doc.points.id.contains(&Some(13)));
+        assert_eq!((state.rewrites(), state.kept().0), (2, 2));
+        assert!(state.max_rewriting() <= crate::delphi_topic_map::MAX_REWRITES);
+        // Past the bound: a reader gets no map, a moderator the map.
+        moderate(
+            &db,
+            &format!(
+                "INSERT INTO comments SELECT {ZID}, n, -1 FROM generate_series(1000, {}) n",
+                999 + crate::delphi_topic_map::MAX_HELD_BACK
+            ),
+        );
+        let refused = get_with(gz()).await;
+        assert_eq!(refused.status, 422, "{}", text(&refused));
+        assert!(text(&refused).contains("too_large"), "{}", text(&refused));
+        assert_eq!(state.rewrites(), 2);
+        let moderator = get_with(vec![("authorization", owner.clone())]).await;
+        assert_eq!(moderator.status, 200, "{}", text(&moderator));
+        assert_eq!(bytes(&moderator), every.document.as_bytes());
+    });
+}

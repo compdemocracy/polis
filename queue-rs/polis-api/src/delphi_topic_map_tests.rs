@@ -960,3 +960,50 @@ fn the_readers_form_of_a_large_map_is_timed() {
         gz.len()
     );
 }
+
+/// The kept readers' forms stay within both bounds, least recently kept out
+/// first, and a form larger than the byte bound is not kept at all.
+#[test]
+fn kept_readers_forms_stay_within_their_bounds() {
+    use super::{Forms, Kept, READER_FORM_BYTES_KEPT, READER_FORMS_KEPT};
+    let form = |n: usize| {
+        Arc::new(Kept::Form {
+            plain: vec![b'x'; n],
+            gzip: vec![b'z'; n / 4],
+        })
+    };
+    let key = |i: usize| (format!("{i:064x}"), format!(":held-back/2:{i}"));
+    let mut forms = Forms::default();
+    for i in 0..READER_FORMS_KEPT * 2 {
+        forms.keep(key(i), form(1000));
+        assert!(forms.kept.len() <= READER_FORMS_KEPT);
+    }
+    assert_eq!(forms.kept.front().unwrap().0, key(READER_FORMS_KEPT));
+    assert_eq!(forms.bytes, READER_FORMS_KEPT * 1250);
+    let big = READER_FORM_BYTES_KEPT / 3;
+    for i in 0..5 {
+        forms.keep(key(1000 + i), form(big));
+        assert!(forms.bytes <= READER_FORM_BYTES_KEPT, "{}", forms.bytes);
+    }
+    assert_eq!(forms.kept.len(), 2, "two of a third and their gzip fit");
+    forms.keep(key(2000), form(READER_FORM_BYTES_KEPT));
+    assert!(forms.kept.iter().all(|(k, _)| *k != key(2000)));
+    let total: usize = forms.kept.iter().map(|(_, k)| k.bytes()).sum();
+    assert_eq!(total, forms.bytes);
+}
+
+/// The rewrites' budget: a quiet process may spend its burst at once, then
+/// waits for the share to repay what it spent past it.
+#[test]
+fn the_rewrites_budget_repays_what_it_spends() {
+    use super::{REWRITE_BURST, REWRITE_SHARE, State};
+    let state = State::default();
+    assert_eq!(state.budget_wait(), Duration::ZERO);
+    // Spending the burst and one second's share more: about a second to wait.
+    let wait = state.spend(REWRITE_BURST + REWRITE_SHARE);
+    assert!(
+        wait > Duration::from_millis(900) && wait <= Duration::from_secs(1),
+        "{wait:?}"
+    );
+    assert!(state.budget_wait() > Duration::from_millis(900));
+}

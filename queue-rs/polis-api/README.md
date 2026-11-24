@@ -1418,7 +1418,18 @@ are and on the comments' moderation at the time of the read, not of the run:
   304 for it is correct (the bytes are the same). The reader's form is made
   off the runtime's threads while the request keeps its place (in a release
   build, about 15 ms for a 9,000-comment map of 440 topics: inflate, rewrite,
-  colours, deflate); nothing of it is kept.
+  colours, deflate). The form and its gzip are kept per stored map and
+  held-back set (the key is the stored digest and the keyed digest of the
+  set), at most 64 forms and 32 MiB in the process, least recently used out
+  first; a moderator's map is never one of them, and a held-back set that
+  changes is another key, so nothing kept is ever stale. The held-back set
+  is still read on every request. A form not yet kept is made once however
+  many ask for it at once, at most one at a time in the process, and within
+  a budget of 100 ms of rewriting per second (200 ms banked at most); a
+  request that cannot start one within the route's deadline is answered 503
+  with `Retry-After`, as the route sheds any other. A conversation that
+  holds back more than 25,000 comments gives a reader no map (422
+  `too_large`); a moderator still receives it.
 - The route's database login must be able to `SELECT` on `comments`
   (`zid`, `tid`, `mod`, `active`, `velocity`). Without it the route answers
   500 `polis_err_topic_map_unreadable`, naming nothing, and sends no map.

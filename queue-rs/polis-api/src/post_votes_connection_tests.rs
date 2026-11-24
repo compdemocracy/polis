@@ -895,7 +895,14 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
         use crate::delphi_topic_map::tests::database_tests as t;
         for z in 2..=(many as i32 + 1) {
             let family = t::map_family(z, &map);
-            t::served(&mut c, "test", z, "delphi", "participant_visible/1", Some(&family));
+            t::served(
+                &mut c,
+                "test",
+                z,
+                "delphi",
+                "participant_visible/1",
+                Some(&family),
+            );
         }
         (2..=many + 1).map(|z| format!("r{z}")).collect()
     };
@@ -1061,6 +1068,12 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
         assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
         assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
         assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
+        // Never more rewrites at once than the bound; for one hot map, the
+        // form is made once (again only if the flood outran a first attempt).
+        assert!(state.max_rewriting() <= crate::delphi_topic_map::MAX_REWRITES);
+        if many == 0 {
+            assert!(state.rewrites() <= 2, "one map, one form: {} rewrites", state.rewrites());
+        }
         for (before, after) in writer_before.iter().zip(&writer_after) {
             assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
         }

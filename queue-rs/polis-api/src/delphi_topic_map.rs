@@ -117,6 +117,27 @@ pub const DEFAULT_SCOPE: &str = "delphi";
 pub const SHADOW_PREFIX: &str = "shadow-";
 /// Stored families whose verdict a process keeps.
 const VERDICTS: usize = 4096;
+/// Readers' forms being made at once in the process ([`reader_body`]). The
+/// service runs with half a CPU on a web box of two: one rewrite at a time
+/// can take at most one CPU, and [`REWRITE_SHARE`] bounds that over time.
+pub const MAX_REWRITES: usize = 1;
+/// Time the rewrites may take in the process, per second of time: a tenth of
+/// a second, a fifth of the service's half CPU, so the participation path
+/// keeps the rest. It is wall time of the rewrite, at least its CPU time.
+pub const REWRITE_SHARE: Duration = Duration::from_millis(100);
+/// Rewrite time a quiet process may bank, and so spend at once.
+pub const REWRITE_BURST: Duration = Duration::from_millis(200);
+/// Readers' forms a process keeps, least recently used out first: at most
+/// this many, so a lookup reads a short list...
+pub const READER_FORMS_KEPT: usize = 64;
+/// ...and at most this many bytes of them (the form and its gzip): 32 MiB,
+/// a sixteenth of the service's 512 MiB, about forty forms of a map of 9,000
+/// comments (641 KB, and its gzip).
+pub const READER_FORM_BYTES_KEPT: usize = 32 * 1024 * 1024;
+/// Held-back comments a reader's form is made for. A conversation that holds
+/// back more is refused to readers who are not moderators (422 `too_large`,
+/// as a map too large to send): the read stops one past it.
+pub const MAX_HELD_BACK: usize = 25_000;
 
 /// Two slots, one statement each: the run record walks the job's publication
 /// history, so the statement timeout is the typed result read's. The
@@ -150,6 +171,16 @@ struct Inner {
     /// The key of the readers' validators ([`reader_form`]), drawn when the
     /// process starts and never written anywhere.
     validator_key: [u8; 32],
+    /// The rewrites' places ([`MAX_REWRITES`]) and their time budget
+    /// ([`REWRITE_SHARE`]): seconds banked, and when last counted.
+    rewriting: Arc<Semaphore>,
+    rewriting_now: AtomicUsize,
+    max_rewriting: AtomicUsize,
+    rewrites: AtomicU64,
+    budget: std::sync::Mutex<(f64, std::time::Instant)>,
+    /// Readers' forms kept, and those being made.
+    forms: std::sync::Mutex<Forms>,
+    forms_reused: AtomicU64,
     /// A test sets this to hold every read inside its connection.
     #[cfg(all(test, feature = "db-tests"))]
     reads_held: (std::sync::Mutex<bool>, std::sync::Condvar),
@@ -206,6 +237,13 @@ impl State {
             checked: AtomicU64::new(0),
             verdicts: std::sync::Mutex::new(std::collections::VecDeque::new()),
             validator_key: rand::random(),
+            rewriting: Arc::new(Semaphore::new(MAX_REWRITES)),
+            rewriting_now: AtomicUsize::new(0),
+            max_rewriting: AtomicUsize::new(0),
+            rewrites: AtomicU64::new(0),
+            budget: std::sync::Mutex::new((REWRITE_BURST.as_secs_f64(), std::time::Instant::now())),
+            forms: std::sync::Mutex::new(Forms::default()),
+            forms_reused: AtomicU64::new(0),
             #[cfg(all(test, feature = "db-tests"))]
             reads_held: (std::sync::Mutex::new(false), std::sync::Condvar::new()),
         }))
@@ -292,7 +330,81 @@ impl State {
         body.set("heldBytes", num(self.0.held.load(Ordering::SeqCst) as f64));
         body.set("maxHeldBytes", num(self.max_held() as f64));
         body.set("checked", num(self.checked() as f64));
+        body.set("rewrites", num(self.rewrites() as f64));
+        body.set("maxRewriting", num(self.max_rewriting() as f64));
+        body.set(
+            "formsReused",
+            num(self.0.forms_reused.load(Ordering::Relaxed) as f64),
+        );
+        let (kept, kept_bytes) = self.kept();
+        body.set("formsKept", num(kept as f64));
+        body.set("formBytesKept", num(kept_bytes as f64));
         crate::js::Js::Obj(body)
+    }
+    /// Readers' forms made since start.
+    pub(crate) fn rewrites(&self) -> u64 {
+        self.0.rewrites.load(Ordering::Relaxed)
+    }
+    /// Readers' forms being made at most at once, since start.
+    pub(crate) fn max_rewriting(&self) -> usize {
+        self.0.max_rewriting.load(Ordering::SeqCst)
+    }
+    /// Readers' forms kept now, and their bytes.
+    pub(crate) fn kept(&self) -> (usize, usize) {
+        let forms = self.forms();
+        (forms.kept.len(), forms.bytes)
+    }
+    fn forms(&self) -> std::sync::MutexGuard<'_, Forms> {
+        self.0.forms.lock().unwrap_or_else(|e| e.into_inner())
+    }
+    /// How long until the rewrites' budget allows another, after counting
+    /// the time banked since it was last counted.
+    fn budget_wait(&self) -> Duration {
+        self.spend(Duration::ZERO)
+    }
+    /// Takes `took` from the rewrites' budget; returns the wait as
+    /// [`State::budget_wait`].
+    fn spend(&self, took: Duration) -> Duration {
+        let mut budget = self.0.budget.lock().unwrap_or_else(|e| e.into_inner());
+        let now = std::time::Instant::now();
+        let share = REWRITE_SHARE.as_secs_f64();
+        let banked = budget.0 + now.duration_since(budget.1).as_secs_f64() * share;
+        *budget = (
+            banked.min(REWRITE_BURST.as_secs_f64()) - took.as_secs_f64(),
+            now,
+        );
+        if budget.0 >= 0.0 {
+            Duration::ZERO
+        } else {
+            Duration::from_secs_f64(-budget.0 / share)
+        }
+    }
+    /// A kept form for `key`, the rewrite in progress for it, or this
+    /// request's own rewrite to make: decided under one lock, so a form is
+    /// made once however many ask for it at once.
+    fn role(&self, key: &FormKey) -> Role {
+        let mut forms = self.forms();
+        if let Some(entry) = forms
+            .kept
+            .iter()
+            .position(|(k, _)| k == key)
+            .and_then(|i| forms.kept.remove(i))
+        {
+            let kept = entry.1.clone();
+            forms.kept.push_back(entry);
+            self.0.forms_reused.fetch_add(1, Ordering::Relaxed);
+            return Role::Kept(kept);
+        }
+        if let Some(flight) = forms.flights.get(key) {
+            return Role::Follow(flight.clone());
+        }
+        let (tx, rx) = tokio::sync::watch::channel(None);
+        forms.flights.insert(key.clone(), rx);
+        Role::Lead(Flying {
+            state: self.clone(),
+            key: key.clone(),
+            tx: Some(tx),
+        })
     }
     /// Requests holding a place now.
     #[cfg(all(test, feature = "db-tests"))]
@@ -658,10 +770,14 @@ async fn answer(
             let _place = reading;
             classified((|| {
                 // What is held back now, before the map: one indexed read.
+                // More than a reader's form is made for: no map.
                 let hidden = if moderator {
                     Vec::new()
                 } else {
-                    held_back(c, zid)?
+                    match held_back(c, zid)? {
+                        Some(hidden) => hidden,
+                        None => return Ok(None),
+                    }
                 };
                 let form = reader_form(state.validator_key(), zid, &hidden);
                 let mut first = None;
@@ -670,18 +786,19 @@ async fn answer(
                     let scope = ask.scope.clone();
                     let read = read(c, ask, &state)?;
                     if !nothing_stored(&read.found) {
-                        return Ok((read, source, scope, hidden, form));
+                        return Ok(Some((read, source, scope, hidden, form)));
                     }
                     first.get_or_insert((read, source, scope));
                 }
                 let (read, source, scope) =
                     first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
-                Ok((read, source, scope, hidden, form))
+                Ok(Some((read, source, scope, hidden, form)))
             })())
         })
         .await;
     let (Read { found, selection }, source, scope, hidden, form) = match read {
-        Ok(Ok(read)) => read,
+        Ok(Ok(Some(read))) => read,
+        Ok(Ok(None)) => return refused(Refused::TooLarge),
         Ok(Err(r)) => return refused(r),
         Err(e) => return refused(failure(&e)),
     };
@@ -715,8 +832,9 @@ async fn answer(
             // bare points; a map holding none of it is sent as stored.
             let body = match body {
                 Some((bytes, held)) if !hidden.is_empty() => {
-                    match reader_body(&app.delphi_topic_map, bytes, held, hidden, gzip, place).await
-                    {
+                    let key = (sha.clone(), form.clone());
+                    let state = &app.delphi_topic_map;
+                    match reader_body(state, key, bytes, held, hidden, gzip, place).await {
                         Ok(body) => Some(body),
                         Err(r) => return refused(r),
                     }
@@ -783,14 +901,17 @@ async fn moderates(app: &App, authorization: &str, zid: i32) -> Option<Result<bo
 /// (`server/src/comment.ts`, `participantVisibleClause`). A comment not yet
 /// moderated (`mod = 0`) is not held back, under strict moderation too: a
 /// job that laid it out may show it. One statement on the comments' `(zid)`
-/// index.
-fn held_back(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Vec<i64>> {
+/// index, which reads at most one id past [`MAX_HELD_BACK`]: `None` when the
+/// conversation holds back more than that.
+fn held_back(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Option<Vec<i64>>> {
     let row = c.query_one(
-        "SELECT COALESCE(array_agg(tid::bigint ORDER BY tid), '{}'::bigint[]) \
-         FROM public.comments WHERE zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0)",
-        &[&zid],
+        "SELECT COALESCE(array_agg(tid ORDER BY tid), '{}'::bigint[]) FROM \
+         (SELECT tid::bigint AS tid FROM public.comments \
+          WHERE zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0) ORDER BY 1 LIMIT $2) h",
+        &[&zid, &(MAX_HELD_BACK as i64 + 1)],
     )?;
-    Ok(row.try_get::<_, Vec<i64>>(0)?)
+    let hidden = row.try_get::<_, Vec<i64>>(0)?;
+    Ok((hidden.len() <= MAX_HELD_BACK).then_some(hidden))
 }
 
 /// What a reader's ETag adds to the stored digest: nothing when no comment
@@ -852,47 +973,192 @@ fn sha256_hex(bytes: &[u8]) -> String {
         .collect()
 }
 
-/// The reader's form of the stored part `bytes` (the gzip when `gzip`),
-/// made off the runtime's threads while the request keeps its place. A map
-/// that holds none of `hidden` is the stored bytes; one whose document does
-/// not read as the contract's closed type is not sent at all.
+/// A reader's form or the request kept to make it: the stored digest and the
+/// form's part of the ETag ([`reader_form`]: the held-back set, keyed). A
+/// moderator's map is never one (it is sent as stored), so a kept form is
+/// only ever a reader's, and a held-back set that changes is another key.
+type FormKey = (String, String);
+/// A rewrite's result, once it is made.
+type Made = Option<Result<Arc<Kept>, Refused>>;
+type Flight = tokio::sync::watch::Receiver<Made>;
+
+/// A reader's form, kept.
+enum Kept {
+    /// The map holds none of the held-back comments: the stored part, as read.
+    Stored,
+    Form {
+        plain: Vec<u8>,
+        gzip: Vec<u8>,
+    },
+}
+
+impl Kept {
+    fn bytes(&self) -> usize {
+        match self {
+            Kept::Stored => 0,
+            Kept::Form { plain, gzip } => plain.len() + gzip.len(),
+        }
+    }
+}
+
+/// Readers' forms kept, least recently used first, within
+/// [`READER_FORMS_KEPT`] and [`READER_FORM_BYTES_KEPT`]; and the rewrites in
+/// progress, each one's result shared with every request for its key.
+#[derive(Default)]
+struct Forms {
+    kept: std::collections::VecDeque<(FormKey, Arc<Kept>)>,
+    bytes: usize,
+    flights: std::collections::HashMap<FormKey, Flight>,
+}
+
+impl Forms {
+    fn keep(&mut self, key: FormKey, kept: Arc<Kept>) {
+        let n = kept.bytes();
+        if n > READER_FORM_BYTES_KEPT {
+            return;
+        }
+        while self.kept.len() >= READER_FORMS_KEPT || self.bytes + n > READER_FORM_BYTES_KEPT {
+            let Some((_, old)) = self.kept.pop_front() else {
+                break;
+            };
+            self.bytes -= old.bytes();
+        }
+        self.bytes += n;
+        self.kept.push_back((key, kept));
+    }
+}
+
+enum Role {
+    Kept(Arc<Kept>),
+    Follow(Flight),
+    Lead(Flying),
+}
+
+/// A rewrite in progress: its result is kept and shared when it is made
+/// ([`Flying::land`]); when it ends any other way (the request gave up
+/// before it started, or it panicked) its key is let go, and the requests
+/// that waited for it are shed.
+struct Flying {
+    state: State,
+    key: FormKey,
+    tx: Option<tokio::sync::watch::Sender<Made>>,
+}
+
+impl Flying {
+    fn land(mut self, made: Result<Arc<Kept>, Refused>) {
+        let Some(tx) = self.tx.take() else {
+            return;
+        };
+        {
+            let mut forms = self.state.forms();
+            if let Ok(kept) = &made {
+                forms.keep(self.key.clone(), kept.clone());
+            }
+            forms.flights.remove(&self.key);
+        }
+        let _ = tx.send(Some(made));
+    }
+}
+
+impl Drop for Flying {
+    fn drop(&mut self) {
+        if self.tx.is_some() {
+            self.state.forms().flights.remove(&self.key);
+        }
+    }
+}
+
+/// The reader's form of the stored part `bytes` (the gzip when `gzip`) of the
+/// map whose stored digest and reader's form are `key`. A form already made
+/// in this process is sent again; one being made is waited for; otherwise
+/// this request makes it, once at most [`MAX_REWRITES`] are being made and
+/// the rewrites' budget ([`REWRITE_SHARE`]) allows. Every wait is within the
+/// route's deadline, after which the request is shed (503) as any other. The
+/// rewrite runs off the runtime's threads, holding the request's place, the
+/// rewrite's place and the stored bytes' count until it is done, even when
+/// the request has given up; its result is then kept for the next request.
+/// A map that holds none of `hidden` is the stored bytes; one whose document
+/// does not read as the contract's closed type is not sent at all.
 async fn reader_body(
     state: &State,
+    key: FormKey,
     bytes: Vec<u8>,
     held: Held,
     hidden: Vec<i64>,
     gzip: bool,
     place: Place,
 ) -> Result<(Vec<u8>, Held), Refused> {
-    let made = tokio::task::spawn_blocking(move || {
-        let _place = place;
-        let document = if gzip {
-            gunzip(&bytes, MAX_PART_BYTES as usize)
-        } else {
-            Some(bytes.clone())
-        };
-        let hidden: std::collections::BTreeSet<i64> = hidden.into_iter().collect();
-        let form = match document.map(|d| public_form(&d, &hidden)) {
-            Some(Ok(form)) => form,
-            _ => return (Err(Refused::Unreadable), held),
-        };
-        match form {
-            None => (Ok(bytes), held),
-            Some(document) if gzip => match crate::compress::node_stream(&document, true) {
-                Ok(parts) => (Ok(parts.concat()), held),
-                Err(_) => (Err(Refused::Unreadable), held),
-            },
-            Some(document) => (Ok(document), held),
+    let (kept, bytes, held) = match state.role(&key) {
+        Role::Kept(kept) => (kept, bytes, held),
+        Role::Follow(mut flight) => {
+            let made = flight.wait_for(Option::is_some).await.map(|m| m.clone());
+            match made {
+                Ok(Some(made)) => (made?, bytes, held),
+                _ => return Err(Refused::Busy),
+            }
         }
-    })
-    .await;
-    let Ok((made, held)) = made else {
-        return Err(Refused::Busy);
+        Role::Lead(flying) => {
+            let Ok(permit) = state.0.rewriting.clone().acquire_owned().await else {
+                return Err(Refused::Busy);
+            };
+            loop {
+                let wait = state.budget_wait();
+                if wait.is_zero() {
+                    break;
+                }
+                tokio::time::sleep(wait).await;
+            }
+            let s = state.clone();
+            let made = tokio::task::spawn_blocking(move || {
+                let (_place, _permit) = (place, permit);
+                let now = s.0.rewriting_now.fetch_add(1, Ordering::SeqCst) + 1;
+                s.0.max_rewriting.fetch_max(now, Ordering::SeqCst);
+                let started = std::time::Instant::now();
+                let made = make_form(&bytes, hidden, gzip).map(Arc::new);
+                s.spend(started.elapsed());
+                s.0.rewriting_now.fetch_sub(1, Ordering::SeqCst);
+                s.0.rewrites.fetch_add(1, Ordering::Relaxed);
+                flying.land(made.clone());
+                (made, bytes, held)
+            })
+            .await;
+            let Ok((made, bytes, held)) = made else {
+                return Err(Refused::Busy);
+            };
+            (made?, bytes, held)
+        }
     };
-    let bytes = made?;
+    let bytes = match &*kept {
+        Kept::Stored => bytes,
+        Kept::Form { gzip: z, .. } if gzip => z.clone(),
+        Kept::Form { plain, .. } => plain.clone(),
+    };
     drop(held);
     let held = state.hold(bytes.len());
     Ok((bytes, held))
+}
+
+/// The reader's form of the stored part `bytes` (the gzip when `gzip`), and
+/// its gzip, for keeping.
+fn make_form(bytes: &[u8], hidden: Vec<i64>, gzip: bool) -> Result<Kept, Refused> {
+    let inflated;
+    let document = if gzip {
+        inflated = gunzip(bytes, MAX_PART_BYTES as usize).ok_or(Refused::Unreadable)?;
+        &inflated[..]
+    } else {
+        bytes
+    };
+    let hidden: std::collections::BTreeSet<i64> = hidden.into_iter().collect();
+    match public_form(document, &hidden) {
+        Ok(None) => Ok(Kept::Stored),
+        Ok(Some(plain)) => {
+            let gzip = crate::compress::node_stream(&plain, true)
+                .map_err(|_| Refused::Unreadable)?
+                .concat();
+            Ok(Kept::Form { plain, gzip })
+        }
+        Err(()) => Err(Refused::Unreadable),
+    }
 }
 
 /// The map as a reader who may not see moderated-out comments receives it:
