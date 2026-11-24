@@ -230,7 +230,8 @@ fi
 # input is present under /app/projgate. Recordings tests also load the packer
 # and its digest helper from ci/; representative payload tests import the box
 # planner/gate and their helpers from this same root; light-shadow triage tests
-# import the compare/triage modules.
+# import the compare/triage modules; the topic naming tests read the topic map's
+# Bowling Green layout and a saved Sonnet reply from queue-rs.
 compose exec -T delphi mkdir -p /app/projgate
 # Iterate a captured list: `docker compose exec` inside a while-read loop drains
 # the piped stdin and truncates the list.
@@ -243,7 +244,9 @@ for rel in $inputs \
   ci/private_cert/image_admission.py ci/probe_box/receipt.py \
   ci/probe_box/contracts.py ci/probe_box/light_shadow.py ci/probe_box/light_shadow_queries.py \
   ci/private_cert/images/light_shadow_compare.py ci/private_cert/images/light_shadow_triage.py \
-  ci/private_cert/images/recipe.py scripts/run-import-dry-run.py; do
+  ci/private_cert/images/recipe.py scripts/run-import-dry-run.py \
+  queue-rs/polis-topic-map/tests/fixtures/bg2050/proximity.json \
+  queue-rs/polis-topic-names/tests/fixtures/replies/bg2050/sonnet-default-r1.json; do
   compose exec -T delphi mkdir -p "/app/projgate/$(dirname "$rel")" </dev/null
   compose cp "$rel" "delphi:/app/projgate/$rel" </dev/null || die "failed to copy scan input: $rel"
 done

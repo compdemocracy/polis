@@ -40,7 +40,9 @@ from polismath.delphi_storage import topic_map
 from polismath.delphi_storage.codec import decode_family
 from polismath.job_child import names_of
 
-ROOT = Path(__file__).resolve().parents[2]
+# The checkout (in the Delphi test image, the checkout-shaped copy the check
+# makes at $POLIS_CHECKOUT_DIR, which holds the saved reply).
+ROOT = Path(os.environ.get("POLIS_CHECKOUT_DIR") or Path(__file__).resolve().parents[2])
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "topic_names"
 SONNET_REPLY = ROOT / "queue-rs/polis-topic-names/tests/fixtures/replies/bg2050/sonnet-default-r1.json"
 ZID = 4242

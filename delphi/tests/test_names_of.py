@@ -5,6 +5,7 @@ which never makes a fresh layout and sends nothing when a comment of the
 source's layout is no longer shown. Offline; no model, no database."""
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -13,7 +14,9 @@ import pytest
 from polismath.delphi_storage.codec import encode_family
 from polismath.job_child import names_of
 
-ROOT = Path(__file__).resolve().parents[2]
+# The checkout (in the Delphi test image, the checkout-shaped copy the check
+# makes at $POLIS_CHECKOUT_DIR, which holds this input).
+ROOT = Path(os.environ.get("POLIS_CHECKOUT_DIR") or Path(__file__).resolve().parents[2])
 PROXIMITY = ROOT / "queue-rs/polis-topic-map/tests/fixtures/bg2050/proximity.json"
 ZID = 4242
 
