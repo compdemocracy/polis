@@ -9,7 +9,6 @@
 use super::*;
 use super::{ZID, bytes, document, get, header, text};
 use base64::Engine;
-use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
 use polis_queue_adapter::jobs::transport::Connector;
 use postgres::NoTls;
 use serde_json::json;
@@ -21,18 +20,15 @@ pub(crate) struct Db {
     pub(crate) config: postgres::Config,
 }
 
-/// The result store's objects the route reads, and the Node tables identity
-/// and the moderator rule read; `reports` too unless the database has it.
+/// The result store's objects the route reads; `reports` too unless the
+/// database has it.
 pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
     if reports {
         c.batch_execute("CREATE TABLE reports(report_id text, zid integer)")
             .unwrap();
     }
     c.batch_execute(
-        "CREATE TABLE IF NOT EXISTS users(uid integer, site_id text);
-         CREATE TABLE IF NOT EXISTS oidc_user_mappings(uid integer, oidc_sub text);
-         CREATE TABLE IF NOT EXISTS conversations(zid integer, owner integer);
-         CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
+        "CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
            generation bigint, artifact_id uuid, job_id text);
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
            status text, job_config jsonb);
@@ -296,7 +292,6 @@ fn runtime() -> tokio::runtime::Runtime {
 pub(crate) fn app_on(db: &Db) -> App {
     let mut app = super::app();
     app.delphi_topic_map_db = Some(db.pool(pool_limits()));
-    app.delphi_topic_map_auth_db = Some(db.pool(auth_pool_limits()));
     app.delphi_topic_map_env = "test".into();
     app
 }
@@ -666,52 +661,44 @@ fn runs_without_a_map_and_each_refusal_answer_clearly() {
     });
 }
 
-struct Signer {
-    key: EncodingKey,
+/// What a reader sees: the status, the body, and the headers that say which
+/// run it is and how it may be cached.
+fn seen(out: &Outgoing) -> (u16, String, [Option<String>; 6]) {
+    let h = |name: &str| header(out, name).map(str::to_owned);
+    (
+        out.status,
+        text(out),
+        [
+            h(contract::HEADER_JOB),
+            h(contract::HEADER_SOURCE),
+            h(contract::HEADER_SCOPE),
+            h(contract::HEADER_SELECTION),
+            h("Cache-Control"),
+            h("Vary"),
+        ],
+    )
 }
 
-impl Signer {
-    fn new(app: &mut App) -> Self {
-        let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
-        let jwks = serde_json::from_value(
-            json!({"keys":[{"kty":"RSA","alg":"RS256","use":"sig","kid":"fixture",
-            "n":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(rsa.n().to_vec()),
-            "e":base64::engine::general_purpose::URL_SAFE_NO_PAD.encode(rsa.e().to_vec())}]}),
-        )
-        .unwrap();
-        app.read_oidc = Some(Arc::new(crate::hybrid_read::Oidc::for_tests(
-            crate::owner::Verifier::new(jwks, "issuer", "audience").unwrap(),
-            "namespace/",
-        )));
-        Self {
-            key: EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap(),
-        }
-    }
-    fn bearer(&self, sub: &str) -> String {
-        let now = (crate::clock::now_ms() / 1000.0) as u64;
-        let mut h = Header::new(Algorithm::RS256);
-        h.kid = Some("fixture".into());
-        let claims = json!({"sub":sub,"iss":"issuer","aud":"audience","exp":now+300,"email":"fixture@example.invalid"});
-        format!("Bearer {}", encode(&h, &claims, &self.key).unwrap())
-    }
-}
+/// What a request carries in `Authorization`; the route reads none of it.
+const CREDENTIALS: [Option<&str>; 4] = [
+    None,
+    Some("Basic abc"),
+    Some("Bearer not-a-token"),
+    Some("Bearer eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJhZG1pbiJ9.c2ln"),
+];
 
 #[test]
-fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
-    let db = Db::new("signed_in");
+fn every_run_of_the_report_is_read_with_the_report_id_alone() {
+    let db = Db::new("public");
     let served_map = stored(document(4, "served"));
     let all_map = stored(document(6, "all"));
     let named_map = stored(document(7, "named"));
     let shadow_map = stored(document(8, "shadow"));
-    let (named, later, running, foreign, all_job, removed) = {
+    let shadow_all_map = stored(document(9, "shadow-all"));
+    let (named, later, running, foreign, all_job, removed, shadow_all, shadow_foreign) = {
         let mut c = db.connect();
-        c.batch_execute(&format!(
-            "INSERT INTO reports VALUES('r1',{ZID});
-             INSERT INTO users VALUES(3,'owners'),(4,'others'),(6,'admins');
-             INSERT INTO oidc_user_mappings VALUES(3,'owner'),(4,'stranger'),(6,'admin');
-             INSERT INTO conversations VALUES({ZID},3),(99,4);"
-        ))
-        .unwrap();
+        c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+            .unwrap();
         served(
             &mut c,
             "test",
@@ -790,7 +777,8 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
             "participant_visible/1",
             None,
         );
-        // The shadow's own run of the same conversation, in its own env.
+        // The shadow's own runs of the same conversation, in its own env:
+        // one under each of two comment rules.
         served(
             &mut c,
             "shadow-delphi-1",
@@ -799,119 +787,299 @@ fn named_runs_other_rules_and_the_shadow_are_signed_in_reads() {
             "participant_visible/1",
             Some(&map_family(ZID, &shadow_map)),
         );
-        (named, later, running, foreign, all_job, removed)
+        let shadow_all = served(
+            &mut c,
+            "shadow-delphi-1",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &shadow_all_map)),
+        );
+        // A shadow run of another conversation, with a map.
+        let shadow_foreign = served(
+            &mut c,
+            "shadow-delphi-1",
+            99,
+            "delphi",
+            "participant_visible/1",
+            Some(&map_family(99, &stored(document(3, "other")))),
+        );
+        (
+            named,
+            later,
+            running,
+            foreign,
+            all_job,
+            removed,
+            shadow_all,
+            shadow_foreign,
+        )
     };
     runtime().block_on(async {
         let mut app = app_on(&db);
-        let signer = Signer::new(&mut app);
-        app.legacy_admin_uids = vec![6];
         app.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
         let app = Arc::new(app);
-        let (owner, stranger, admin) = (signer.bearer("owner"), signer.bearer("stranger"), signer.bearer("admin"));
-        let ask = |query: &str, token: Option<&str>| {
+        let ask = |query: &str, credential: Option<&str>| {
             let url = format!("/api/v3/delphi/topicMap?report_id=r1{query}");
-            match token {
+            match credential {
                 Some(t) => with(&url, &[("authorization", t)]),
                 None => with(&url, &[]),
             }
         };
-        let status = |out: &Outgoing| out.status;
-        let named_q = format!("&job_id={named}");
-        let all_q = format!("&job_id={all_job}");
-        for (query, token, expected) in [
-            // Ruled public: a past run's map, made under the participants'
-            // rule, whoever asks and whatever they send.
-            (named_q.as_str(), None, 200),
-            (named_q.as_str(), Some("Basic abc"), 200),
-            (named_q.as_str(), Some("Bearer not-a-token"), 200),
-            (named_q.as_str(), Some(stranger.as_str()), 200),
-            // A past run of another comment rule stays that rule's.
-            (all_q.as_str(), None, 401),
-            (all_q.as_str(), Some("Bearer not-a-token"), 401),
-            (all_q.as_str(), Some(stranger.as_str()), 403),
-            (all_q.as_str(), Some(owner.as_str()), 200),
-            ("&selection=all_comments", None, 401),
-            ("&selection=all_comments", Some(stranger.as_str()), 403),
-            ("&source=shadow", None, 401),
-            // A moderator of the conversation is not a site administrator.
-            ("&source=shadow", Some(owner.as_str()), 403),
-            ("&job_id=00000000-0000-4000-8000-00000000000F", Some(owner.as_str()), 404),
-            ("&job_id=not-a-job", Some(owner.as_str()), 404),
-        ] {
-            let out = crate::dispatch(app.clone(), None, ask(query, token)).await;
-            assert_eq!(status(&out), expected, "{query} {token:?}: {}", text(&out));
+        let public = (Some("no-cache".to_owned()), Some("Accept-Encoding".to_owned()));
+        // (query, the map, its job, source, scope, comment rule)
+        let maps: [(String, &Stored, &str, &str, &str, &str); 10] = [
+            // The current map: the served side has one, so it is the served one.
+            ("".into(), &served_map, "", "served", "delphi", "participant_visible/1"),
+            ("&selection=all_comments".into(), &all_map, &all_job, "served", "delphi:all_comments", "all_comments/1"),
+            (format!("&job_id={named}"), &named_map, &named, "served", "delphi", "participant_visible/1"),
+            // A named run of another comment rule: as public as any other.
+            (format!("&job_id={all_job}"), &all_map, &all_job, "served", "delphi", "all_comments/1"),
+            // The shadow's runs, with no sign-in.
+            ("&source=shadow".into(), &shadow_map, "", "shadow", "delphi", "participant_visible/1"),
+            ("&source=shadow&selection=all_comments".into(), &shadow_all_map, &shadow_all, "shadow", "delphi:all_comments", "all_comments/1"),
+            (format!("&source=shadow&job_id={shadow_all}"), &shadow_all_map, &shadow_all, "shadow", "delphi", "all_comments/1"),
+            // A shadow job named without a source: the served side has no
+            // such job, so the shadow's is read.
+            (format!("&job_id={shadow_all}"), &shadow_all_map, &shadow_all, "shadow", "delphi", "all_comments/1"),
+            ("&source=served".into(), &served_map, "", "served", "delphi", "participant_visible/1"),
+            ("&source=served&selection=all_comments".into(), &all_map, &all_job, "served", "delphi:all_comments", "all_comments/1"),
+        ];
+        for (query, map, job, source, scope, selection) in &maps {
+            let first = seen(&crate::dispatch(app.clone(), None, ask(query, None)).await);
+            assert_eq!(first.0, 200, "{query}: {}", first.1);
+            assert_eq!(&first.1, &map.document, "{query}");
+            if !job.is_empty() {
+                assert_eq!(first.2[0].as_deref(), Some(*job), "{query}");
+            }
+            assert_eq!(first.2[1].as_deref(), Some(*source), "{query}");
+            assert_eq!(first.2[2].as_deref(), Some(*scope), "{query}");
+            assert_eq!(first.2[3].as_deref(), Some(*selection), "{query}");
+            assert_eq!((first.2[4].clone(), first.2[5].clone()), public, "{query}");
+            // The same answer, byte for byte and header for header, whatever
+            // the request says about who is asking.
+            for credential in CREDENTIALS {
+                let out = crate::dispatch(app.clone(), None, ask(query, credential)).await;
+                assert_eq!(seen(&out), first, "{query} {credential:?}");
+            }
         }
-        // Another conversation's run is no run of this report's.
-        let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={foreign}"), Some(&owner))).await;
-        assert_eq!(out.status, 404);
-        let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={running}"), Some(&owner))).await;
+        // Refusals that are not about who is asking, as before.
+        for (query, expected) in [
+            // Another conversation's run is no run of this report's, on
+            // either side and with or without a source.
+            (format!("&job_id={foreign}"), 404),
+            (format!("&source=served&job_id={foreign}"), 404),
+            (format!("&source=shadow&job_id={shadow_foreign}"), 404),
+            (format!("&job_id={shadow_foreign}"), 404),
+            // A named side is read alone.
+            (format!("&source=served&job_id={shadow_all}"), 404),
+            (format!("&source=shadow&job_id={named}"), 404),
+            ("&job_id=00000000-0000-4000-8000-00000000000F".into(), 404),
+            ("&job_id=not-a-job".into(), 404),
+        ] {
+            for credential in CREDENTIALS {
+                let out = crate::dispatch(app.clone(), None, ask(&query, credential)).await;
+                assert_eq!(out.status, expected, "{query} {credential:?}: {}", text(&out));
+                assert_eq!(text(&out), r#"{"status":"error","message":"Job not found"}"#);
+                assert_eq!(header(&out, "Cache-Control"), Some("no-store"));
+            }
+        }
+        let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={running}"), None)).await;
         assert_eq!(
             text(&out),
             format!(r#"{{"status":"success","message":"The Delphi run has not finished","report_id":"r1","job_id":"{running}","source":"served","scope":null,"reason":"run_not_ready"}}"#)
         );
-        let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={later}"), Some(&owner))).await;
+        let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={later}"), None)).await;
         let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
-        assert_eq!((body.reason, body.job_id.as_deref()), (NoMapReason::NotStored, Some(later.as_str())));
+        assert_eq!(
+            (body.reason, body.job_id.as_deref(), body.source),
+            (NoMapReason::NotStored, Some(later.as_str()), Source::Served)
+        );
         // A past run whose map was removed answers as one that never stored
-        // one: 200, `not_stored`, for anyone.
-        for token in [None, Some(owner.as_str())] {
-            let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={removed}"), token)).await;
+        // one: 200, `not_stored`, the served side's answer (the shadow has no
+        // such job), for anyone.
+        for credential in CREDENTIALS {
+            let out = crate::dispatch(app.clone(), None, ask(&format!("&job_id={removed}"), credential)).await;
             assert_eq!(
                 text(&out),
                 format!(r#"{{"status":"success","message":"The Delphi run has no stored topic map","report_id":"r1","job_id":"{removed}","source":"served","scope":null,"reason":"not_stored"}}"#)
             );
         }
-        // The named run is a public answer; the other rule's past run a
-        // private one.
-        let out = crate::dispatch(app.clone(), None, ask(&named_q, None)).await;
-        assert_eq!(text(&out), named_map.document);
-        assert_eq!(header(&out, contract::HEADER_JOB), Some(named.as_str()));
-        // A named run's scope is the one its map was published in.
-        assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi"));
-        assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
-        assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
-        let out = crate::dispatch(app.clone(), None, ask(&all_q, Some(&owner))).await;
-        assert_eq!(text(&out), all_map.document);
-        assert_eq!(header(&out, contract::HEADER_SELECTION), Some("all_comments/1"));
-        assert_eq!(header(&out, "Cache-Control"), Some("private, no-store"));
-        assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
-        // The owner and a site administrator read the other rule's current
-        // run, and only the administrator the shadow's.
-        for token in [&owner, &admin] {
-            let out = crate::dispatch(app.clone(), None, ask("&selection=all_comments", Some(token))).await;
-            assert_eq!(text(&out), all_map.document);
-            assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi:all_comments"));
-            assert_eq!(header(&out, contract::HEADER_SELECTION), Some("all_comments/1"));
-        }
-        let out = crate::dispatch(app.clone(), None, ask("&source=shadow", Some(&admin))).await;
+        // The shadow has no run under the third rule: said, not substituted.
+        let out = crate::dispatch(app.clone(), None, ask("&source=shadow&selection=all_but_moderated_out", None)).await;
+        let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
+        assert_eq!(
+            (body.reason, body.source, body.scope.as_deref()),
+            (NoMapReason::NoRun, Source::Shadow, Some("delphi:all_but_moderated_out"))
+        );
+    });
+}
+
+#[test]
+fn a_query_naming_no_source_reads_the_served_side_then_the_shadow() {
+    let db = Db::new("sides");
+    let shadow_map = stored(document(8, "shadow"));
+    let shadow_all_map = stored(document(9, "shadow-all"));
+    let served_map = stored(document(5, "served"));
+    // 'shadow': the served side never stored a map (no run at all), the
+    // shadow did, under two rules. 'before': the served run stored none (it
+    // ran before runs stored maps), the shadow's did. 'few': the served run
+    // stored its own no-map reason, which is its answer. 'none': neither
+    // side has a run. 'served': both sides have a map.
+    let (zs, zb, zf, zn, zv) = (ZID + 1, ZID + 2, ZID + 3, ZID + 4, ZID + 5);
+    let (shadow_job, shadow_all, before_job, before_shadow, served_job) = {
+        let mut c = db.connect();
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('shadow',{zs}),('before',{zb}),('few',{zf}),('none',{zn}),('served',{zv})"
+        ))
+        .unwrap();
+        let p = "participant_visible/1";
+        let shadow = "shadow-delphi-1";
+        let shadow_job = served(
+            &mut c,
+            shadow,
+            zs,
+            "delphi",
+            p,
+            Some(&map_family(zs, &shadow_map)),
+        );
+        let shadow_all = served(
+            &mut c,
+            shadow,
+            zs,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(zs, &shadow_all_map)),
+        );
+        let before_job = served(&mut c, "test", zb, "delphi", p, None);
+        let before_shadow = served(
+            &mut c,
+            shadow,
+            zb,
+            "delphi",
+            p,
+            Some(&map_family(zb, &shadow_map)),
+        );
+        served(
+            &mut c,
+            "test",
+            zf,
+            "delphi",
+            p,
+            Some(&no_map_family(zf, "too_few_comments")),
+        );
+        served(
+            &mut c,
+            shadow,
+            zf,
+            "delphi",
+            p,
+            Some(&map_family(zf, &shadow_map)),
+        );
+        let served_job = served(
+            &mut c,
+            "test",
+            zv,
+            "delphi",
+            p,
+            Some(&map_family(zv, &served_map)),
+        );
+        served(
+            &mut c,
+            shadow,
+            zv,
+            "delphi",
+            p,
+            Some(&map_family(zv, &shadow_map)),
+        );
+        (
+            shadow_job,
+            shadow_all,
+            before_job,
+            before_shadow,
+            served_job,
+        )
+    };
+    runtime().block_on(async {
+        let mut app = app_on(&db);
+        app.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
+        let app = Arc::new(app);
+        let get_ = |q: &str| crate::dispatch(app.clone(), None, with(&format!("/api/v3/delphi/topicMap?{q}"), &[]));
+        // The report id alone: the shadow's current map under the
+        // participants' rule, when the served side has none stored.
+        let out = get_("report_id=shadow").await;
         assert_eq!(text(&out), shadow_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(shadow_job.as_str()));
         assert_eq!(header(&out, contract::HEADER_SOURCE), Some("shadow"));
         assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi"));
-        // The shadow has no run under the other rule: said, not substituted.
-        let out = crate::dispatch(app.clone(), None, ask("&source=shadow&selection=all_comments", Some(&admin))).await;
+        assert_eq!(header(&out, contract::HEADER_SELECTION), Some("participant_visible/1"));
+        // The other rule is asked for by name, and read the same way.
+        let out = get_("report_id=shadow&selection=all_comments").await;
+        assert_eq!(text(&out), shadow_all_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(shadow_all.as_str()));
+        assert_eq!(header(&out, contract::HEADER_SOURCE), Some("shadow"));
+        assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi:all_comments"));
+        // A served run that stored no map: the shadow's.
+        let out = get_("report_id=before").await;
+        assert_eq!(text(&out), shadow_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(before_shadow.as_str()));
+        // Named, the served run's own answer is kept.
+        let out = get_(&format!("report_id=before&job_id={before_job}")).await;
         let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
-        assert_eq!((body.reason, body.source, body.scope.as_deref()), (NoMapReason::NoRun, Source::Shadow, Some("delphi:all_comments")));
-        // And nobody's public read changed: the served map, with or without a
-        // sign-in.
-        for token in [None, Some(stranger.as_str()), Some(admin.as_str())] {
-            let out = crate::dispatch(app.clone(), None, ask("", token)).await;
-            assert_eq!(text(&out), served_map.document, "{token:?}");
-            assert_eq!(header(&out, "Cache-Control"), Some("no-cache"));
-        }
-        // The identity database not answering is the route shedding its
-        // load (503), never "not signed in".
-        let mut unanswered = app_on(&db);
-        let signer = Signer::new(&mut unanswered);
-        unanswered.legacy_admin_uids = vec![6];
-        unanswered.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
-        unanswered.delphi_topic_map_auth_db = Some(crate::db::Pool::new(
-            Connector::Plain(Box::new("postgresql://test@127.0.0.1:1/test".parse().unwrap())),
-            auth_pool_limits(),
-        ));
-        let unanswered = Arc::new(unanswered);
-        let admin = signer.bearer("admin");
-        let out = crate::dispatch(unanswered, None, ask("&source=shadow", Some(&admin))).await;
-        assert_eq!((out.status, header(&out, "Retry-After")), (503, Some("1")), "{}", text(&out));
+        assert_eq!((body.reason, body.source), (NoMapReason::NotStored, Source::Served));
+        // `source=served` reads the served side alone, as before.
+        let out = get_("report_id=before&source=served").await;
+        let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
+        assert_eq!(
+            (body.reason, body.source, body.job_id.as_deref()),
+            (NoMapReason::NotStored, Source::Served, Some(before_job.as_str()))
+        );
+        let out = get_("report_id=shadow&source=served").await;
+        assert_eq!(
+            text(&out),
+            r#"{"status":"success","message":"No Delphi run found for this report","report_id":"shadow","job_id":null,"source":"served","scope":"delphi","reason":"no_run"}"#
+        );
+        // A reason the served run stored itself is the served side's answer.
+        let out = get_("report_id=few").await;
+        let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
+        assert_eq!((body.reason, body.source), (NoMapReason::TooFewComments, Source::Served));
+        // Both sides with a map: the served one.
+        let out = get_("report_id=served").await;
+        assert_eq!(text(&out), served_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(served_job.as_str()));
+        assert_eq!(header(&out, contract::HEADER_SOURCE), Some("served"));
+        // Neither side has anything: the served side's answer, as before.
+        let none = r#"{"status":"success","message":"No Delphi run found for this report","report_id":"none","job_id":null,"source":"served","scope":"delphi","reason":"no_run"}"#;
+        assert_eq!(text(&get_("report_id=none").await), none);
+        let out = get_("report_id=shadow&selection=all_but_moderated_out").await;
+        let body: contract::NoMap = serde_json::from_slice(&bytes(&out)).unwrap();
+        assert_eq!(
+            (body.reason, body.source, body.scope.as_deref()),
+            (NoMapReason::NoRun, Source::Served, Some("delphi:all_but_moderated_out"))
+        );
+        // The shadow's map revalidates as any other: its own digest, 304.
+        let etag = format!("W/\"{}\"", shadow_map.sha256);
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with("/api/v3/delphi/topicMap?report_id=shadow", &[("if-none-match", etag.as_str())]),
+        )
+        .await;
+        assert_eq!(out.status, 304);
+        assert_eq!(header(&out, "ETag"), Some(etag.as_str()));
+        // A deployment that reads no shadow answers a query naming no source
+        // from the served side alone, exactly as before.
+        let mut alone = app_on(&db);
+        alone.delphi_topic_map_shadow_env = None;
+        let alone = Arc::new(alone);
+        let out = crate::dispatch(alone.clone(), None, with("/api/v3/delphi/topicMap?report_id=shadow", &[])).await;
+        assert_eq!(
+            text(&out),
+            r#"{"status":"success","message":"No Delphi run found for this report","report_id":"shadow","job_id":null,"source":"served","scope":"delphi","reason":"no_run"}"#
+        );
+        let out = crate::dispatch(alone, None, with("/api/v3/delphi/topicMap?report_id=shadow&source=shadow", &[])).await;
+        assert_eq!(out.status, 404);
+        assert_eq!(text(&out), r#"{"status":"error","message":"polis_err_topic_map_no_source"}"#);
     });
 }
 

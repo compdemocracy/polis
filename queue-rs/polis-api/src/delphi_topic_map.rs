@@ -10,7 +10,10 @@
 //! Which run: without `job_id`, the run the conversation's results are served
 //! from, in the publication scope of the comment rule asked for
 //! ([`contract::Selection::scope`]; what participants are shown when none is
-//! named), in the served env or, for `source=shadow`, the shadow's. The scope
+//! named); with `job_id`, that run, whichever rule it ran under. In the served
+//! env for `source=served`, the shadow's for `source=shadow`, and without
+//! `source` the served env first and the shadow's when the served one has
+//! nothing stored for the query ([`nothing_stored`]). The scope
 //! is always named, so two rules' runs are never read as one. A map is one
 //! run's: its parts are read from one stored family of one batch, never
 //! put together from two, and it is read from the run's own batch only (a
@@ -18,16 +21,14 @@
 //! map), each row naming the run's job. The run read, its scope and its
 //! comment rule are in the answer's headers.
 //!
-//! Who: the served map under the participants' rule is as public as the
-//! report's other Delphi reads (the report id reads it). A named run and any
-//! other rule: the conversation's moderators and the site administrators. The
-//! shadow: the site administrators ([`App::legacy_admin_uids`]).
+//! Who: anyone who holds the report id, for every query, as for the report's
+//! other Delphi reads. The route verifies no identity and reads no
+//! `Authorization` header.
 //!
 //! The participation path (votes, comments, the next comment) shares nothing
 //! with this route. Before anything is read a request takes one of
 //! [`MAX_IN_FLIGHT`] places; with none free it is answered 503 at once. It
-//! reads on its own pool ([`pool_limits`]) and identities on its own
-//! ([`auth_pool_limits`]), never a participation pool, holds a connection
+//! reads on its own pool ([`pool_limits`]), never a participation pool, holds a connection
 //! only for its own statements, and keeps nothing between requests. The
 //! stored part crosses the connection only when it is within
 //! [`MAX_PART_BYTES`], checked in the statement, so the bytes a request can
@@ -68,12 +69,6 @@ pub const DEADLINE: Duration = Duration::from_millis(3000);
 pub const DEFAULT_SCOPE: &str = "delphi";
 /// A shadow env's prefix: a served env never reads as the shadow.
 pub const SHADOW_PREFIX: &str = "shadow-";
-/// Whether a stored run named by `job_id` is as public as the served map:
-/// yes (ruled; a past run's map may later be removed to save storage, and
-/// then answers `not_stored`). Only for a run made under the participants'
-/// rule; a run of another rule stays its moderators', and the shadow its site
-/// administrators'. `false` makes named runs moderators-only again.
-pub const PUBLIC_RUN_HISTORY: bool = true;
 /// Stored families whose verdict a process keeps.
 const VERDICTS: usize = 4096;
 
@@ -84,16 +79,6 @@ pub fn pool_limits() -> crate::db::Limits {
         size: 2,
         acquire_timeout: Duration::from_millis(50),
         statement_timeout: Duration::from_millis(2000),
-        max_lifetime: Duration::from_secs(300),
-    }
-}
-
-/// Identity and the moderator rule: indexed single-row reads.
-pub fn auth_pool_limits() -> crate::db::Limits {
-    crate::db::Limits {
-        size: 1,
-        acquire_timeout: Duration::from_millis(50),
-        statement_timeout: Duration::from_millis(100),
         max_lifetime: Duration::from_secs(300),
     }
 }
@@ -292,7 +277,6 @@ pub struct Parsed {
     request: contract::Request,
     /// A `source` or `selection` value this route does not know: 400.
     bad: Option<&'static str>,
-    authorization: Option<String>,
 }
 
 pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
@@ -331,7 +315,7 @@ pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
             "report_id" => request.report_id = Some(v.into_owned()),
             "job_id" => request.job_id = Some(v.into_owned()),
             "source" => match Source::parse(&v) {
-                Some(source) => request.source = source,
+                Some(source) => request.source = Some(source),
                 None => bad = bad.or(Some("source")),
             },
             _ => match Selection::parse(&v) {
@@ -340,11 +324,7 @@ pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
             },
         }
     }
-    Some(Parsed {
-        request,
-        bad,
-        authorization: req.headers.get("authorization").map(str::to_owned),
-    })
+    Some(Parsed { request, bad })
 }
 
 /// A stored map, ready to send.
@@ -360,7 +340,6 @@ struct Map {
     gzip: bool,
     /// `None`: the client's ETag is the stored one (304).
     body: Option<(Vec<u8>, Held)>,
-    privileged: bool,
 }
 
 enum Answer {
@@ -405,18 +384,15 @@ fn send(state: &State, req: &Request, mut res: Res, map: Map, place: Place) -> O
     if let Some(selection) = map.selection {
         res.set(contract::HEADER_SELECTION, selection);
     }
-    if map.privileged {
-        res.set("Cache-Control", "private, no-store");
-    }
     match map.body {
         None => {
             state.0.not_modified.fetch_add(1, Ordering::Relaxed);
-            route::stored_json(req, res, None, map.gzip, &map.etag, map.privileged)
+            route::stored_json(req, res, None, map.gzip, &map.etag)
         }
         Some((bytes, held)) => {
             state.0.sent.fetch_add(1, Ordering::Relaxed);
             crate::http::hold_until_written((place, held));
-            route::stored_json(req, res, Some(bytes), map.gzip, &map.etag, map.privileged)
+            route::stored_json(req, res, Some(bytes), map.gzip, &map.etag)
         }
     }
 }
@@ -469,31 +445,6 @@ fn is_digest(s: &str) -> bool {
     s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
-/// Who a request must be.
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Need {
-    Anyone,
-    Moderator,
-    SiteAdministrator,
-}
-
-/// Who a request must be, from its query alone. A named run is as public as
-/// the current map ([`PUBLIC_RUN_HISTORY`]) only when it was made under the
-/// participants' rule, which is known once its job is read ([`answer`]).
-fn need(q: &contract::Request) -> Need {
-    if q.source == Source::Shadow {
-        Need::SiteAdministrator
-    } else if q
-        .selection
-        .is_some_and(|s| s != Selection::ParticipantVisible)
-        || (q.job_id.is_some() && !PUBLIC_RUN_HISTORY)
-    {
-        Need::Moderator
-    } else {
-        Need::Anyone
-    }
-}
-
 /// What a failed database exchange answers. Stored rows the database itself
 /// cannot read as declared (a value that is not base64, a line that is not
 /// JSON) and a statement this login may not run are this run's map being
@@ -532,19 +483,29 @@ async fn answer(
     if q.job_id.is_some() && q.selection.is_some() {
         return refused(Refused::BadParameter("selection"));
     }
-    let (env, base) = match q.source {
-        Source::Served => (
-            app.delphi_topic_map_env.clone(),
-            app.delphi_topic_map_scope
-                .clone()
-                .unwrap_or_else(|| DEFAULT_SCOPE.to_owned()),
-        ),
-        Source::Shadow => match &app.delphi_topic_map_shadow_env {
-            Some(env) => (env.clone(), DEFAULT_SCOPE.to_owned()),
+    let served = || {
+        let base = app
+            .delphi_topic_map_scope
+            .clone()
+            .unwrap_or_else(|| DEFAULT_SCOPE.to_owned());
+        (Source::Served, app.delphi_topic_map_env.clone(), base)
+    };
+    let shadow = || {
+        app.delphi_topic_map_shadow_env
+            .clone()
+            .map(|env| (Source::Shadow, env, DEFAULT_SCOPE.to_owned()))
+    };
+    // The sides read, in order: the one named, or without `source` the served
+    // side and then, when the deployment reads one, the shadow's.
+    let sides: Vec<(Source, String, String)> = match q.source {
+        Some(Source::Served) => vec![served()],
+        Some(Source::Shadow) => match shadow() {
+            Some(side) => vec![side],
             None => return refused(Refused::SourceUnavailable),
         },
+        None => std::iter::once(served()).chain(shadow()).collect(),
     };
-    let scope = q.selection.unwrap_or_default().scope(&base);
+    let selection_asked = q.selection.unwrap_or_default();
     let pool = app.delphi_topic_map_db.as_ref()?;
     let rid = report.clone();
     let first = place.clone();
@@ -567,12 +528,6 @@ async fn answer(
         Ok(None) => return refused(Refused::UnknownReport(report)),
         Err(e) => return refused(failure(&e)),
     };
-    let mut need = need(&q);
-    if need != Need::Anyone
-        && let Err(r) = authorize(app, parsed.authorization.as_deref(), zid, need).await?
-    {
-        return refused(r);
-    }
     let job = match q.job_id {
         // Job ids are lowercase canonical uuids; any other spelling names no run.
         Some(job) => match JobId::new(job) {
@@ -582,38 +537,43 @@ async fn answer(
         None => None,
     };
     let named_run = job.is_some();
-    let ask = Ask {
-        env,
-        scope: scope.clone(),
-        zid,
-        job,
-        gzip,
-        tags,
-    };
+    let asks: Vec<(Source, Ask)> = sides
+        .into_iter()
+        .map(|(source, env, base)| {
+            let ask = Ask {
+                env,
+                scope: selection_asked.scope(&base),
+                zid,
+                job: job.clone(),
+                gzip,
+                tags: tags.clone(),
+            };
+            (source, ask)
+        })
+        .collect();
     let state = app.delphi_topic_map.clone();
     let reading = place.clone();
+    // Every side on one connection, one after the other: the first side with
+    // something stored answers; when none has, the first side's answer.
     let read = pool
         .with(move |c| {
             let _place = reading;
-            read(c, ask, &state)
+            let mut first = None;
+            for (source, ask) in asks {
+                let scope = ask.scope.clone();
+                let read = read(c, ask, &state)?;
+                if !nothing_stored(&read.found) {
+                    return Ok((read, source, scope));
+                }
+                first.get_or_insert((read, source, scope));
+            }
+            first.ok_or_else(|| anyhow::anyhow!("no side to read"))
         })
         .await;
-    let Read { found, selection } = match read {
+    let (Read { found, selection }, source, scope) = match read {
         Ok(read) => read,
         Err(e) => return refused(failure(&e)),
     };
-    // A named run made under another comment rule is that rule's: its
-    // moderators' and the site administrators', whoever may read past runs.
-    if named_run
-        && need == Need::Anyone
-        && !matches!(found, Found::NoSuchRun)
-        && selection.as_deref() != Some(PARTICIPANT_VISIBLE)
-    {
-        need = Need::Moderator;
-        if let Err(r) = authorize(app, parsed.authorization.as_deref(), zid, need).await? {
-            return refused(r);
-        }
-    }
     let found = match found {
         Found::Unverified(u) => match verify(&app.delphi_topic_map, *u, place.clone()).await {
             Ok(found) => found,
@@ -629,8 +589,8 @@ async fn answer(
         Found::NoMap { job, reason } => Answer::NoMap(NoMap::new(
             report,
             job,
-            q.source,
-            (!named_run).then(|| scope.clone()),
+            source,
+            (!named_run).then_some(scope),
             reason,
         )),
         Found::Unverified(_) => Answer::Refused(Refused::Unreadable),
@@ -641,65 +601,30 @@ async fn answer(
             body,
         } => Answer::Map(Box::new(Map {
             job,
-            source: q.source,
+            source,
             scope,
             selection,
             etag: format!("W/\"{sha}\""),
             gzip,
             body,
-            privileged: need != Need::Anyone,
         })),
     })
 }
 
-/// The comment rule what participants are shown, as a run's configuration
-/// names it.
-const PARTICIPANT_VISIBLE: &str = "participant_visible/1";
-
-/// `Err` is the refusal; `None` hands back.
-async fn authorize(
-    app: &App,
-    authorization: Option<&str>,
-    zid: i32,
-    need: Need,
-) -> Option<Result<(), Refused>> {
-    let Some(raw) = authorization.filter(|h| h.starts_with("Bearer ")) else {
-        return Some(Err(Refused::Unauthenticated));
-    };
-    let auth_pool = app.delphi_topic_map_auth_db.as_ref()?;
-    let uid = match crate::hybrid_read::resolve_or_unavailable(
-        Some(raw),
-        app.participant_verifier.as_deref(),
-        app.read_oidc.as_deref(),
-        auth_pool,
+/// Whether a side has nothing stored for the query, so that a query naming
+/// no `source` reads the next side: no served run, a run whose own batch
+/// holds no map family, or no such job. Anything the run itself stored (a
+/// map, a stored no-map reason, a map too large, rows that are not a map) is
+/// that side's answer.
+fn nothing_stored(found: &Found) -> bool {
+    matches!(
+        found,
+        Found::NoSuchRun
+            | Found::NoMap {
+                reason: NoMapReason::NoRun | NoMapReason::NotStored,
+                ..
+            }
     )
-    .await
-    {
-        // The identity database did not answer: shed, never "not signed in".
-        Err(_) => return Some(Err(Refused::Busy)),
-        Ok(identity) => identity.and_then(|identity| identity.uid()),
-    };
-    let Some(uid) = uid else {
-        return Some(Err(Refused::Unauthenticated));
-    };
-    let admins = app.legacy_admin_uids.clone();
-    if admins.contains(&uid.0) {
-        return Some(Ok(()));
-    }
-    if need == Need::SiteAdministrator {
-        return Some(Err(Refused::Denied));
-    }
-    match auth_pool
-        .with(move |c| crate::treevite_read::permits(c, zid, uid, &admins))
-        .await
-    {
-        Ok(true) => Some(Ok(())),
-        Ok(false) => Some(Err(Refused::Denied)),
-        Err(e) => Some(Err(match failure(&e) {
-            Refused::Unreadable => Refused::Unreadable,
-            _ => Refused::Busy,
-        })),
-    }
 }
 
 /// What one request reads.

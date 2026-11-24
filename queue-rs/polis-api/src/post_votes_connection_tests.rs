@@ -237,7 +237,6 @@ async fn topic_map_beside_participation(
     {
         let app = Arc::get_mut(app).unwrap();
         app.delphi_topic_map_db = Some(topic_map);
-        app.delphi_topic_map_auth_db = Some(healthy(crate::delphi_topic_map::auth_pool_limits()));
         app.delphi_topic_map_env = "test".into();
         app.next_comment_db = Some(healthy(next_comment::pool_limits()));
         app.next_comment_plain = true;

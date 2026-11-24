@@ -1,5 +1,5 @@
-//! The report topic map route without a database: what it admits, who must be
-//! signed in for what, the ETags it reads, the places it sheds on, and the
+//! The report topic map route without a database: what it admits, the ETags
+//! it reads, the places it sheds on, and the
 //! answers it gives before it reads anything. The database tests (the whole
 //! request against PostgreSQL) are in `delphi_topic_map_database_tests.rs`.
 use super::*;
@@ -63,7 +63,6 @@ pub(crate) fn app() -> App {
     };
     let mut app = App::new(&cfg, pool(cfg.pool.clone()));
     app.delphi_topic_map_db = Some(pool(pool_limits()));
-    app.delphi_topic_map_auth_db = Some(pool(auth_pool_limits()));
     app.delphi_topic_map_env = "test".into();
     app
 }
@@ -108,11 +107,20 @@ fn only_this_routes_query_is_admitted() {
     .unwrap();
     assert_eq!(p.request.report_id.as_deref(), Some("r1"));
     assert_eq!(p.request.job_id.as_deref(), Some("j-1"));
-    assert_eq!(p.request.source, Source::Shadow);
+    assert_eq!(p.request.source, Some(Source::Shadow));
     assert_eq!(p.request.selection, Some(Selection::AllComments));
     assert!(p.bad.is_none());
     let p = parse(&app, &get("/api/v3/delphi/topicMap?report_id=")).unwrap();
     assert_eq!(p.request, contract::Request::default());
+    // A query that names no source is not one that names `served`.
+    let p = parse(&app, &get("/api/v3/delphi/topicMap?report_id=r1")).unwrap();
+    assert_eq!(p.request.source, None);
+    let p = parse(
+        &app,
+        &get("/api/v3/delphi/topicMap?report_id=r1&source=served"),
+    )
+    .unwrap();
+    assert_eq!(p.request.source, Some(Source::Served));
     // A known key with a value this route does not know is a 400, not Node's.
     for (target, key) in [
         (
@@ -152,34 +160,6 @@ fn only_this_routes_query_is_admitted() {
     let mut off = app;
     off.delphi_topic_map_db = None;
     assert!(parse(&off, &get("/api/v3/delphi/topicMap?report_id=r1")).is_none());
-}
-
-#[test]
-fn who_must_be_signed_in_for_what() {
-    let q = |job: Option<&str>, source, selection| contract::Request {
-        report_id: Some("r".into()),
-        job_id: job.map(str::to_owned),
-        source,
-        selection,
-    };
-    use Selection::*;
-    use Source::*;
-    for (request, expected) in [
-        (q(None, Served, None), Need::Anyone),
-        (q(None, Served, Some(ParticipantVisible)), Need::Anyone),
-        (q(None, Served, Some(AllComments)), Need::Moderator),
-        (q(None, Served, Some(AllButModeratedOut)), Need::Moderator),
-        // Ruled public: a past run's map (made under the participants' rule,
-        // checked once its job is read) is as public as the current one.
-        (q(Some("j"), Served, None), Need::Anyone),
-        (q(None, Shadow, None), Need::SiteAdministrator),
-        (q(Some("j"), Shadow, None), Need::SiteAdministrator),
-        (q(None, Shadow, Some(AllComments)), Need::SiteAdministrator),
-    ] {
-        assert_eq!(need(&request), expected, "{request:?}");
-    }
-    // The ruling this waits on is one constant.
-    const { assert!(PUBLIC_RUN_HISTORY) };
 }
 
 #[test]
@@ -300,7 +280,6 @@ fn stored_bytes_are_sent_as_they_are() {
         Some(gz.clone()),
         true,
         &etag,
-        false,
     );
     assert_eq!(out.status, 200);
     assert_eq!(header(&out, "Content-Encoding"), Some("gzip"));
@@ -324,12 +303,11 @@ fn stored_bytes_are_sent_as_they_are() {
         Some(doc.clone()),
         false,
         &etag,
-        true,
     );
     assert_eq!(header(&out, "Content-Encoding"), None);
-    assert_eq!(header(&out, "Vary"), Some("Authorization, Accept-Encoding"));
+    assert_eq!(header(&out, "Vary"), Some("Accept-Encoding"));
     assert_eq!(bytes(&out), doc);
-    let out = route::stored_json(&req, route::res_for_tests(200), None, true, &etag, false);
+    let out = route::stored_json(&req, route::res_for_tests(200), None, true, &etag);
     assert_eq!(out.status, 304);
     assert!(matches!(out.body, Body::Empty));
     assert_eq!(header(&out, "ETag"), Some(etag.as_str()));

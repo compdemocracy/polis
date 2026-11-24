@@ -1177,8 +1177,9 @@ async fn startup() -> Result<Startup> {
         state.delphi_topic_map_scope = std::env::var("DELPHI_RESULT_SCOPE")
             .ok()
             .filter(|s| !s.is_empty());
-        // Off unless named: the shadow's runs, read by site administrators
-        // only (`source=shadow`). Never a served env.
+        // Off unless named: the shadow's runs (`source=shadow`, and a query
+        // naming no source when the served env has nothing stored). Never a
+        // served env.
         state.delphi_topic_map_shadow_env = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV")
             .ok()
             .filter(|s| !s.is_empty());
@@ -1189,30 +1190,10 @@ async fn startup() -> Result<Startup> {
                 "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
             );
         }
-        // Identity and the moderator rule read Node's tables with Node's read
-        // login unless a dedicated one is given.
-        let auth_dsn = [
-            "POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL",
-            "READ_ONLY_DATABASE_URL",
-        ]
-        .iter()
-        .find_map(|k| std::env::var(k).ok().filter(|s| !s.is_empty()))
-        .or_else(|| std::env::var("DATABASE_URL").ok())
-        .context("a database for report topic map identity reads is required")?;
         state.delphi_topic_map_db = Some(db::Pool::new(
             config::connector_for_dsn(&dsn, "polis-api-delphi-topic-map/1")?,
             delphi_topic_map::pool_limits(),
         ));
-        state.delphi_topic_map_auth_db = Some(db::Pool::new(
-            config::connector_for_dsn(&auth_dsn, "polis-api-delphi-topic-map-auth/1")?,
-            delphi_topic_map::auth_pool_limits(),
-        ));
-        state.read_oidc = hybrid_read::Oidc::from_env()?;
-        let admins = std::env::var("ADMIN_UIDS")
-            .ok()
-            .filter(|s| !s.is_empty())
-            .unwrap_or_else(|| "[]".into());
-        state.legacy_admin_uids = recent_started::admin_uids(&admins)?;
     }
     if std::env::var("POLIS_API_COLLECTIVE_STATEMENT_READS")
         .ok()

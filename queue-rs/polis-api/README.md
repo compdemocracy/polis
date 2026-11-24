@@ -1338,12 +1338,20 @@ rule asked for: `selection=participant_visible` (the default) reads the
 deployment's scope (`DELPHI_RESULT_SCOPE`, else `delphi`), `all_comments` and
 `all_but_moderated_out` read `<scope>:all_comments` and
 `<scope>:all_but_moderated_out`. The scope is always named, so two rules' runs
-are never read as one. `source=shadow` reads the same way in the env named by
+are never read as one. `source=served` reads the served env
+(`DELPHI_RESULT_ENV`); `source=shadow` reads the same way in the env named by
 `POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV` (a `shadow-` env other than
 `DELPHI_RESULT_ENV`; unset, `source=shadow` is 404
-`polis_err_topic_map_no_source`). `job_id` names one stored run
+`polis_err_topic_map_no_source`). Without `source`, the served env is read
+first; when it has nothing stored for the query (no served run in the scope,
+a run whose own batch holds no map, or no such job), the shadow env is read
+the same way on the same connection, and when the shadow has nothing stored
+either, the served env's answer is given. Anything a run stored itself (a
+map, a stored no-map reason, `too_large`, rows that are not a map) is that
+side's answer. With no shadow env named, a query without `source` reads the
+served env alone. `job_id` names one stored run
 (`delphi_result_jobs`), which must be the report's conversation's and
-finished. The map is read from the run's own batch only: the published
+finished, whichever comment rule it ran under. The map is read from the run's own batch only: the published
 artifact for a served run, and for a named run the artifact its run record
 (`pd_run_record`) gives for a family the run itself produced. Reads that walk
 a publication's earlier batches would find an earlier run's map for a run
@@ -1357,20 +1365,13 @@ the map), `X-Polis-Topic-Map-Source`, `X-Polis-Topic-Map-Scope` and
 names it); the document's own `provenance`, when the step writes one, says
 how it was made.
 
-Who: the served map under the participants' rule is as public as the report's
-other Delphi reads (`/api/v3/delphi`, `/delphi/reports`,
-`/delphi/visualizations`, which Node registers without sign-in): the report id
-reads it. A past run named by `job_id` is as public too when it was made under
-the participants' rule (`PUBLIC_RUN_HISTORY`); a past run's map may later be
-removed to save storage, and then answers `not_stored`, as a run that never
-stored one does. Any other `selection`, and a named run made under another
-rule, need a sign-in of one of the conversation's moderators or a site
-administrator (`ADMIN_UIDS`), the rule of the typed result reads;
-`source=shadow` needs a site administrator. Without a
-verifiable bearer token: 401 `polis_err_topic_map_sign_in`; signed in without
-the right: 403 `polis_err_topic_map_auth`. Those answers are
-`Cache-Control: private, no-store` with `Vary: Authorization, Accept-Encoding`.
-An identity lookup the database does not answer is 503, never 401.
+Who: anyone who holds the report id, for every query (any `selection`, any
+`job_id` of the conversation, either `source`), as for the report's other
+Delphi reads (`/api/v3/delphi`, `/delphi/reports`, `/delphi/visualizations`,
+which Node registers without sign-in). The route verifies no identity and
+reads no `Authorization` header; every answer is `Vary: Accept-Encoding`. A
+past run's map may later be removed to save storage, and then answers
+`not_stored`, as a run that never stored one does.
 
 Refusals as the neighbours': no `report_id` is 400; a report that does not
 exist or has no conversation is 404 `Could not find conversation for
@@ -1397,9 +1398,7 @@ Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
 `POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
 a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout
-and a 2 s statement timeout; identity and the moderator rule use their own
-one-slot pool (`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else Node's read
-login), 50 ms and 100 ms.
+and a 2 s statement timeout. It has no other pool.
 
 The participation path shares nothing with this route. Before anything is
 read a request takes one of four places in the process; with none free it is

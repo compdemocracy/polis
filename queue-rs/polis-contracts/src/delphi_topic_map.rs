@@ -15,23 +15,27 @@
 //! A Rust-only route: Node has no handler for this path, so a request
 //! polis-api hands back reaches Node's 404.
 //!
-//! Who may read what:
+//! Who may read what: anyone who holds the report id, as for the report's
+//! other Delphi reads (`GET /api/v3/delphi`, `/api/v3/delphi/reports`,
+//! `/api/v3/delphi/visualizations` take no sign-in: knowing the report id is
+//! what reads them). The route verifies no identity: every query below is
+//! answered the same whoever asks and whatever `Authorization` says.
 //!
-//! - Without `job_id`, `source` or `selection`: the map of the run the
-//!   conversation's results are served from, under the comment rule
-//!   participants are shown (`participant_visible/1`). As public as the
-//!   report's other Delphi reads (`GET /api/v3/delphi`,
-//!   `/api/v3/delphi/reports`, `/api/v3/delphi/visualizations` take no
-//!   sign-in: knowing the report id is what reads them).
-//! - `job_id` (one stored run): as public as the current map when the run
-//!   was made under the participants' rule; a past run's map may later be
-//!   removed to save storage, and then answers `not_stored`, as a run that
-//!   never stored one does.
-//! - A `selection` other than `participant_visible`, and a named run made
-//!   under another rule: the conversation's moderators and the site
-//!   administrators only.
-//! - `source=shadow` (the shadow's runs, which no other reader serves): the
-//!   site administrators only.
+//! Which map:
+//!
+//! - Without `job_id`: the map of the run the conversation's results are
+//!   served from under `selection` (what participants are shown,
+//!   `participant_visible/1`, when absent).
+//! - `job_id`: that one stored run of the report's conversation, whichever
+//!   comment rule it ran under; a past run's map may later be removed to save
+//!   storage, and then answers `not_stored`, as a run that never stored one
+//!   does.
+//! - `source=served` reads the runs the deployment serves; `source=shadow`
+//!   the shadow's. Without `source`, the served side is read first, and when
+//!   it has nothing stored for the query (no served run, a run that stored
+//!   no map, or no such job) the shadow's side is read; if the shadow has
+//!   nothing stored either, the served side's answer is given. The answer
+//!   says which side it is from ([`HEADER_SOURCE`], [`NoMap::source`]).
 //!
 //! Every answer is one of the types below:
 //!
@@ -40,7 +44,7 @@
 //!   and [`HEADER_SELECTION`]; 304 when the client's ETag is the stored one.
 //! - 200, [`NoMap`]: the report exists and there is nothing to draw, with the
 //!   reason from a closed set ([`NoMapReason`]).
-//! - 400, 401, 403, 404, 422, 500, 503: the closed set of refusals
+//! - 400, 404, 422, 500, 503: the closed set of refusals
 //!   ([`Refused`]).
 //!   503 is the route shedding its own load: nothing is wrong with the
 //!   conversation and asking again after `Retry-After` is safe.
@@ -158,24 +162,14 @@ impl Selection {
 
 /// The query. Without `job_id`, the run the conversation's results are
 /// served from under `selection` (what participants are shown when absent).
+/// Without `source`, the served side and then the shadow's (module docs).
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
 pub struct Request {
     pub report_id: Option<String>,
     pub job_id: Option<String>,
-    pub source: Source,
+    pub source: Option<Source>,
     pub selection: Option<Selection>,
-}
-
-impl Request {
-    /// Whether the request reads anything beyond the public served map.
-    pub fn privileged(&self) -> bool {
-        self.job_id.is_some()
-            || self.source != Source::Served
-            || self
-                .selection
-                .is_some_and(|s| s != Selection::ParticipantVisible)
-    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
@@ -211,13 +205,6 @@ pub enum Refused {
     /// 400: `source` or `selection` names nothing this route knows, or
     /// `selection` is given with `job_id` (a stored run has its own rule).
     BadParameter(&'static str),
-    /// 401: the request needs a sign-in (a stored run, another comment rule,
-    /// the shadow) and carries none this route can verify.
-    Unauthenticated,
-    /// 403: signed in, but not a moderator of the report's conversation (a
-    /// stored run, another comment rule) or not a site administrator (the
-    /// shadow).
-    Denied,
     /// 404: no report with this id, or a report without a conversation (as
     /// `/delphi/visualizations` and `/api/v3/delphi`).
     UnknownReport(String),
@@ -225,7 +212,7 @@ pub enum Refused {
     /// canonical job id, no such run, or another conversation's run. One
     /// answer for all three (as `/delphi/runs/:job_id`).
     JobNotFound,
-    /// 404: this deployment reads no shadow.
+    /// 404: `source=shadow`, and this deployment reads no shadow.
     SourceUnavailable,
     /// 422: the run stored no map because it was too large, or a stored part
     /// is larger than this route sends. The map is refused, never truncated.
@@ -235,8 +222,8 @@ pub enum Refused {
     /// is not the document. The map is refused, never served unchecked.
     Unreadable,
     /// 503 with `Retry-After`: the route is full (as many map reads in flight
-    /// as it admits, all its connections in use, or its reads or the identity
-    /// lookup slower than their deadlines or unanswered). Nothing is wrong
+    /// as it admits, all its connections in use, or its reads slower than
+    /// their deadlines or unanswered). Nothing is wrong
     /// with the conversation; asking again later is safe.
     Busy,
 }
@@ -245,8 +232,6 @@ pub enum Refused {
 pub const TOO_LARGE: &str = "polis_err_topic_map_too_large";
 pub const BUSY: &str = "polis_err_topic_map_busy";
 pub const BAD_PARAMETER: &str = "polis_err_topic_map_parameter";
-pub const SIGN_IN: &str = "polis_err_topic_map_sign_in";
-pub const DENIED: &str = "polis_err_topic_map_auth";
 pub const NO_SOURCE: &str = "polis_err_topic_map_no_source";
 pub const UNREADABLE: &str = "polis_err_topic_map_unreadable";
 /// The seconds a busy refusal asks the client to wait.
@@ -256,8 +241,6 @@ impl Refused {
     pub fn status(&self) -> u16 {
         match self {
             Self::MissingReport | Self::BadParameter(_) => 400,
-            Self::Unauthenticated => 401,
-            Self::Denied => 403,
             Self::UnknownReport(_) | Self::JobNotFound | Self::SourceUnavailable => 404,
             Self::TooLarge => 422,
             Self::Unreadable => 500,
@@ -268,8 +251,6 @@ impl Refused {
         let (message, report_id, parameter) = match self {
             Self::MissingReport => ("report_id is required", None, None),
             Self::BadParameter(key) => (BAD_PARAMETER, None, Some((*key).to_owned())),
-            Self::Unauthenticated => (SIGN_IN, None, None),
-            Self::Denied => (DENIED, None, None),
             Self::UnknownReport(id) => (
                 "Could not find conversation for report_id",
                 Some(id.clone()),
@@ -488,16 +469,6 @@ mod tests {
                 r#"{"status":"error","message":"polis_err_topic_map_parameter","parameter":"source"}"#,
             ),
             (
-                Refused::Unauthenticated,
-                401,
-                r#"{"status":"error","message":"polis_err_topic_map_sign_in"}"#,
-            ),
-            (
-                Refused::Denied,
-                403,
-                r#"{"status":"error","message":"polis_err_topic_map_auth"}"#,
-            ),
-            (
                 Refused::UnknownReport("r1".into()),
                 404,
                 r#"{"status":"error","message":"Could not find conversation for report_id","report_id":"r1"}"#,
@@ -587,28 +558,19 @@ mod tests {
         assert_eq!(Selection::parse("participant_visible/1"), None);
         assert_eq!(Source::parse("shadow"), Some(Source::Shadow));
         assert_eq!(Source::parse("Shadow"), None);
-        let public = Request {
+        // A query that names no source asks for the served side, then the
+        // shadow's: it is not the same query as `source=served`.
+        let bare = Request {
             report_id: Some("r".into()),
-            selection: Some(Selection::ParticipantVisible),
             ..Request::default()
         };
-        assert!(!public.privileged());
-        for privileged in [
-            Request {
-                job_id: Some("j".into()),
-                ..public.clone()
-            },
-            Request {
-                source: Source::Shadow,
-                ..public.clone()
-            },
-            Request {
-                selection: Some(Selection::AllComments),
-                ..public.clone()
-            },
-        ] {
-            assert!(privileged.privileged(), "{privileged:?}");
-        }
+        assert_eq!(bare.source, None);
+        let parsed: Request = serde_json::from_str(r#"{"report_id":"r"}"#).unwrap();
+        assert_eq!(parsed, bare);
+        let served: Request =
+            serde_json::from_str(r#"{"report_id":"r","source":"served"}"#).unwrap();
+        assert_eq!(served.source, Some(Source::Served));
+        assert_ne!(served, bare);
     }
 
     #[test]

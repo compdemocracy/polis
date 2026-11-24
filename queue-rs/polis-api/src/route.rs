@@ -222,7 +222,6 @@ pub struct App {
     pub delphi_result_served: AtomicU64,
     pub delphi_result_fallback: AtomicU64,
     pub delphi_topic_map_db: Option<Arc<Pool>>,
-    pub delphi_topic_map_auth_db: Option<Arc<Pool>>,
     pub delphi_topic_map_env: String,
     pub delphi_topic_map_scope: Option<String>,
     pub delphi_topic_map_shadow_env: Option<String>,
@@ -493,7 +492,6 @@ impl App {
             delphi_result_served: AtomicU64::new(0),
             delphi_result_fallback: AtomicU64::new(0),
             delphi_topic_map_db: None,
-            delphi_topic_map_auth_db: None,
             delphi_topic_map_env: String::new(),
             delphi_topic_map_scope: None,
             delphi_topic_map_shadow_env: None,
@@ -973,24 +971,15 @@ pub(crate) fn negotiate_gzip(req: &Request) -> bool {
 /// A JSON body stored ready by the work that made it: sent as it is, already
 /// in the coding named (`gzip`), with the stored digest as its ETag, so no
 /// hashing or compression happens here. `None` is the client already holding
-/// it (304). `private` adds `Authorization` to `Vary`: the answer depended on
-/// the reader.
+/// it (304).
 pub(crate) fn stored_json(
     req: &Request,
     mut res: Res,
     body: Option<Vec<u8>>,
     gzip: bool,
     etag: &str,
-    private: bool,
 ) -> Outgoing {
-    res.set(
-        "Vary",
-        if private {
-            "Authorization, Accept-Encoding"
-        } else {
-            "Accept-Encoding"
-        },
-    );
+    res.set("Vary", "Accept-Encoding");
     res.set("ETag", etag);
     let Some(body) = body else {
         res.status = 304;

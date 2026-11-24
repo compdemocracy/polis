@@ -124,7 +124,6 @@ impl App {
                 delphi_result_db,
                 delphi_result_auth_db,
                 delphi_topic_map_db,
-                delphi_topic_map_auth_db,
                 collective_statement_db,
                 delphi_topics_db,
                 delphi_read_db,
