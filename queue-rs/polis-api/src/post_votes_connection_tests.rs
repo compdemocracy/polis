@@ -850,8 +850,16 @@ fn connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_late
 /// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
 #[test]
 fn connection_bounds_layered_topic_maps_evicted_and_remade_keep_participation_latency() {
-    rewritten_topic_map_load("topic_map_rewrite_layered", 64, true);
+    rewritten_topic_map_load("topic_map_rewrite_layered", LAYERED_MAPS, true);
 }
+
+/// The layered case's conversations, each with its own reader's form, and
+/// the forms its route keeps (a bound the test sets, smaller than the
+/// process's own): three times as many forms as are kept, so the flood lets
+/// forms go and makes them again after a handful of rewrites, in a debug
+/// build within the rewrites' budget as in a release one.
+const LAYERED_MAPS: usize = 12;
+const LAYERED_FORMS_KEPT: usize = 4;
 
 /// The cgroup's CPU used and throttled, in microseconds, if there is one.
 fn cgroup_cpu() -> Option<(u64, u64)> {
@@ -898,10 +906,13 @@ fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
     const CLIENTS: u64 = 16;
     let database = Database::new(name);
     let (mut app, vote) = setup(&database);
-    // The costly shape is 16,000 comments in four levels, its document near
-    // the stored row's bound (so a reader that takes no gzip has a map too);
-    // the other, 30,000 in one topic.
-    let points = if layered { 16_000 } else { 30_000 };
+    // The layered shape is four levels of 300, 100, 30 and 10 topics over
+    // 4,000 comments (every topic recoloured for a reader), so that a debug
+    // build makes enough forms within the rewrites' budget to let some go;
+    // the costliest map's charge is the budget's own test
+    // (`a_rewrite_costlier_than_the_burst_is_charged_in_full`). The other,
+    // 30,000 comments in one topic.
+    let points = if layered { 4_000 } else { 30_000 };
     let map = if layered {
         store_topic_map_document(
             &database,
@@ -1041,6 +1052,9 @@ fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
         let reports = Arc::new(reports);
         let (gzip_len, plain_len) = (map.gzip.len(), map.document.len());
         let state = app.delphi_topic_map.clone();
+        if layered {
+            state.keep_at_most(LAYERED_FORMS_KEPT, crate::delphi_topic_map::READER_FORM_BYTES_KEPT);
+        }
         let flood_started = std::time::Instant::now();
         // The split run: the flood arrives over TCP from outside, and the
         // burst sample starts as the server starts listening.
@@ -1150,8 +1164,7 @@ fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
                 state.forms_evicted(),
                 state.rewrite_time().0,
                 state.rewrite_time().1,
-                crate::delphi_topic_map::REWRITE_BURST.as_secs_f64()
-                    + crate::delphi_topic_map::REWRITE_SHARE.as_secs_f64() * flood_time.as_secs_f64()
+                state.rewrite_bound(flood_time.as_secs_f64())
             ),
         ];
         for (i, name) in names.iter().enumerate() {
@@ -1190,10 +1203,11 @@ fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
         // by no more than what they took past their charges.
         // (Rewrites may still start while the clients finish: the window is
         // the flood's start until this reading.)
-        let (charged, overrun) = state.rewrite_time();
-        let budget = crate::delphi_topic_map::REWRITE_BURST.as_secs_f64()
-            + crate::delphi_topic_map::REWRITE_SHARE.as_secs_f64() * flood_started.elapsed().as_secs_f64();
-        assert!(charged <= budget + overrun + 1e-6, "rewrite time {charged:.3} s, budget {budget:.3} s");
+        // The first term is the larger of the burst and the costliest
+        // estimate charged: a costly rewrite is charged in full.
+        let (charged, _) = state.rewrite_time();
+        let budget = state.rewrite_bound(flood_started.elapsed().as_secs_f64());
+        assert!(charged <= budget + 1e-6, "rewrite time {charged:.3} s, bound {budget:.3} s");
         if layered {
             assert!(
                 state.forms_evicted() > 0 && state.rewrites() > many as u64,

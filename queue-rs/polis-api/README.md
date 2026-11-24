@@ -1432,9 +1432,12 @@ are and on the comments' moderation at the time of the read, not of the run:
   process has seen, with half again as headroom; before the first, the whole
   burst for a part at the stored-row bound) and settled with what it took
   when it ends, so rewrites arriving together cannot start on the same
-  credit: from any moment, the rewrite time spent `t` seconds later is at
-  most 200 ms plus `t` tenths of a second, plus what rewrites took beyond
-  their estimates. A rewrite is not interrupted: one slower than its
+  credit. The estimate is charged in full: a rewrite estimated above the
+  200 ms bank starts only from a full bank and leaves the budget owing the
+  rest, which the next rewrite waits to see repaid. So from any moment, the
+  rewrite time spent `t` seconds later is at most 200 ms or the costliest
+  single estimate, whichever is more, plus `t` tenths of a second, plus what
+  rewrites took beyond their estimates. A rewrite is not interrupted: one slower than its
   estimate runs to its end and the next waits until the difference is
   repaid. The budget is wall time of the rewrite, not a reservation of CPU,
   and it covers making the form, not the rest of the request. A request

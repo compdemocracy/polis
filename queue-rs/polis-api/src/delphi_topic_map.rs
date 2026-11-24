@@ -127,14 +127,17 @@ pub const MAX_REWRITES: usize = 1;
 /// (its estimated time, [`REWRITE_ESTIMATE`]) and settled when it ends (what
 /// it took), so rewrites arriving together cannot start on the same credit:
 /// from any moment, the rewrite time spent by a later moment `t` seconds on
-/// is at most [`REWRITE_BURST`] plus `t` times this share, plus whatever the
-/// rewrites took beyond their estimates. A rewrite is not interrupted: a
-/// rewrite slower than its estimate runs to its end, and the next waits until
-/// the difference is repaid.
+/// is at most the larger of [`REWRITE_BURST`] and the costliest single
+/// estimate, plus `t` times this share, plus whatever the rewrites took
+/// beyond their estimates. The estimate is charged in full: a rewrite
+/// costlier than the burst starts from a full bank and leaves the budget
+/// owing the rest. A rewrite is not interrupted: a rewrite slower than its
+/// estimate runs to its end, and the next waits until the difference is
+/// repaid.
 pub const REWRITE_SHARE: Duration = Duration::from_millis(100);
-/// Rewrite time a quiet process may bank, and so spend at once; also the most
-/// a single rewrite is charged before it starts (a larger one waits for a
-/// full bank).
+/// Rewrite time a quiet process may bank, and so spend at once. A rewrite
+/// whose estimate is larger waits for a full bank and is charged its whole
+/// estimate, the budget owing the rest.
 pub const REWRITE_BURST: Duration = Duration::from_millis(200);
 /// A rewrite's estimate before the process has timed one, in seconds per
 /// byte of the stored part: a part at the stored-row bound is charged the
@@ -404,16 +407,23 @@ impl State {
     /// Charges the estimate of a rewrite of a stored part of `len` bytes
     /// before it starts: the seconds charged, or how long until the budget
     /// holds them (nothing is charged then).
+    ///
+    /// The estimate is charged in full. One costlier than the burst starts
+    /// only from a full bank and leaves the budget owing the difference, so
+    /// the next rewrite waits until that is repaid: a costly map is charged
+    /// what it is expected to take, never only the burst.
     fn reserve(&self, len: usize, gzip: bool) -> Result<f64, Duration> {
         let mut b = self.budget();
         b.refill();
         let cost = b.estimate(len, gzip);
-        if b.balance >= cost {
+        let needed = cost.min(REWRITE_BURST.as_secs_f64());
+        if b.balance >= needed {
             b.balance -= cost;
+            b.largest = b.largest.max(cost);
             Ok(cost)
         } else {
             Err(Duration::from_secs_f64(
-                (cost - b.balance) / REWRITE_SHARE.as_secs_f64(),
+                (needed - b.balance) / REWRITE_SHARE.as_secs_f64(),
             ))
         }
     }
@@ -437,6 +447,24 @@ impl State {
     pub(crate) fn rewrite_time(&self) -> (f64, f64) {
         let b = self.budget();
         (b.charged, b.overrun)
+    }
+    /// The rewrites' bound over a window of `window` seconds, as charged so
+    /// far: the larger of the burst and the largest estimate charged, plus
+    /// the share of the window ([`REWRITE_SHARE`]), plus what the rewrites
+    /// took beyond their charges.
+    #[cfg(test)]
+    pub(crate) fn rewrite_bound(&self, window: f64) -> f64 {
+        let b = self.budget();
+        REWRITE_BURST.as_secs_f64().max(b.largest)
+            + REWRITE_SHARE.as_secs_f64() * window
+            + b.overrun
+    }
+    /// Keep at most `forms` readers' forms and `bytes` of them from now on,
+    /// for a test that needs forms let go with fewer maps than the
+    /// process's own bounds take.
+    #[cfg(test)]
+    pub(crate) fn keep_at_most(&self, forms: usize, bytes: usize) {
+        self.forms().bounds = Some((forms, bytes));
     }
     /// Readers' forms let go to keep within the bounds, since start.
     #[cfg(test)]
@@ -1074,15 +1102,21 @@ struct Forms {
     bytes: usize,
     evicted: u64,
     flights: std::collections::HashMap<FormKey, Flight>,
+    /// Forms and bytes kept at most, when a test sets smaller bounds than
+    /// [`READER_FORMS_KEPT`] and [`READER_FORM_BYTES_KEPT`].
+    bounds: Option<(usize, usize)>,
 }
 
 impl Forms {
     fn keep(&mut self, key: FormKey, kept: Arc<Kept>) {
+        let (most, most_bytes) = self
+            .bounds
+            .unwrap_or((READER_FORMS_KEPT, READER_FORM_BYTES_KEPT));
         let n = kept.bytes();
-        if n > READER_FORM_BYTES_KEPT {
+        if n > most_bytes {
             return;
         }
-        while self.kept.len() >= READER_FORMS_KEPT || self.bytes + n > READER_FORM_BYTES_KEPT {
+        while self.kept.len() >= most || self.bytes + n > most_bytes {
             let Some((_, old)) = self.kept.pop_front() else {
                 break;
             };
@@ -1220,6 +1254,8 @@ struct Budget {
     rate: [Option<f64>; 2],
     charged: f64,
     overrun: f64,
+    /// The largest estimate charged before a rewrite started.
+    largest: f64,
 }
 
 impl Budget {
@@ -1230,6 +1266,7 @@ impl Budget {
             rate: [None; 2],
             charged: 0.0,
             overrun: 0.0,
+            largest: 0.0,
         }
     }
     /// Banks the share since it was last counted, up to the burst.
@@ -1241,10 +1278,11 @@ impl Budget {
         self.at = now;
     }
     /// What a rewrite of a part of `len` bytes is charged before it starts:
-    /// at least a millisecond, at most the burst.
+    /// at least a millisecond, and in full however costly
+    /// ([`State::reserve`]).
     fn estimate(&self, len: usize, gzip: bool) -> f64 {
         let rate = self.rate[gzip as usize].map_or(REWRITE_ESTIMATE, |r| r * REWRITE_HEADROOM);
-        (rate * len as f64).clamp(0.001, REWRITE_BURST.as_secs_f64())
+        (rate * len as f64).max(0.001)
     }
 }
 

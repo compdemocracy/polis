@@ -1008,6 +1008,49 @@ fn the_rewrites_budget_repays_what_it_spends() {
     assert!(state.budget_wait() > Duration::from_millis(900));
 }
 
+/// A rewrite costlier than the burst is charged its whole estimate, so the
+/// bound (the larger of the burst and the costliest estimate, plus the share
+/// of the time, plus what went beyond the estimates) holds for it: the next
+/// rewrite waits until all of it is repaid, and a rewrite that takes what it
+/// was charged adds nothing beyond its charge.
+#[test]
+fn a_rewrite_costlier_than_the_burst_is_charged_in_full() {
+    use super::{REWRITE_BURST, REWRITE_HEADROOM, REWRITE_SHARE, State};
+    let state = State::default();
+    let len = 1_000_000;
+    // The process has timed a rewrite of this part at 0.3 s, a burst and a half.
+    let first = state.reserve(len, true).unwrap();
+    state.settle(first, Duration::from_millis(300), len, true);
+    let (_, overrun_before) = state.rewrite_time();
+    // Until the bank is full again, as in a quiet process.
+    std::thread::sleep(
+        state.budget_wait()
+            + REWRITE_BURST.div_f64(REWRITE_SHARE.as_secs_f64())
+            + Duration::from_millis(50),
+    );
+    let cost = 0.3 * REWRITE_HEADROOM;
+    let charged = state.reserve(len, true).expect("a full bank starts it");
+    assert!(
+        (charged - cost).abs() < 1e-6,
+        "{charged} charged, {cost} expected"
+    );
+    assert!(charged > REWRITE_BURST.as_secs_f64());
+    // The budget owes the estimate beyond the bank; the next rewrite waits
+    // for that and a full bank: the whole estimate at the share.
+    let wait = state.reserve(len, true).unwrap_err().as_secs_f64();
+    let owed = cost / REWRITE_SHARE.as_secs_f64();
+    assert!(
+        wait > owed - 0.1 && wait <= owed,
+        "{wait} s, {owed} s expected"
+    );
+    state.settle(charged, Duration::from_secs_f64(cost), len, true);
+    let (_, overrun) = state.rewrite_time();
+    assert!(
+        (overrun - overrun_before).abs() < 1e-9,
+        "{overrun} beyond charges"
+    );
+}
+
 /// A `polis-topic-map/1` document of `points` comments in four levels of
 /// 300, 100, 30 and 10 topics (the costly shape for a reader's form: every
 /// topic of every level is recoloured from what the reader may see), without
@@ -1048,7 +1091,7 @@ pub(crate) fn layered_document(points: usize, job: &str, seed: usize) -> String 
 /// made before the process had timed any).
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_burst_of_distinct_maps_stays_within_the_rewrites_budget() {
-    use super::{MAX_REWRITES, REWRITE_BURST, REWRITE_SHARE, State, reader_body};
+    use super::{MAX_REWRITES, State, reader_body};
     const MAPS: usize = 6;
     let state = State::new(MAPS);
     let hidden: Vec<i64> = (0..9_000).filter(|i| i % 2 == 0).collect();
@@ -1085,13 +1128,12 @@ async fn a_burst_of_distinct_maps_stays_within_the_rewrites_budget() {
     let (charged, overrun) = state.rewrite_time();
     println!(
         "{MAPS} layered maps at once: rewrite time {charged:.3} s ({overrun:.3} s beyond charges) over {window:.3} s; bound {:.3} s",
-        REWRITE_BURST.as_secs_f64() + REWRITE_SHARE.as_secs_f64() * window + overrun
+        state.rewrite_bound(window)
     );
     assert_eq!(state.rewrites(), MAPS as u64);
     assert!(state.max_rewriting() <= MAX_REWRITES);
     assert!(
-        charged
-            <= REWRITE_BURST.as_secs_f64() + REWRITE_SHARE.as_secs_f64() * window + overrun + 1e-6,
+        charged <= state.rewrite_bound(window) + 1e-6,
         "rewrite time {charged:.3} s over {window:.3} s"
     );
     // Beyond the charges by at most one rewrite's time: the estimate after
