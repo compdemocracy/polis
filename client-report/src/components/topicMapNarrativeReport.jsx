@@ -49,19 +49,19 @@ export default ({ conversation, report_id, ptptCountTotal, math, computeVoteTota
       <section style={{ maxWidth: 1200, display: "flex", justifyContent: "space-between", gap: "1rem" }}>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Participants</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{ptptCountTotal}</p>
+          <p style={{ fontFamily: "monospace", fontSize: "2.5rem", margin: 0}}>{ptptCountTotal}</p>
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Comments</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"] ?? 0}</p>
+          <p style={{ fontFamily: "monospace", fontSize: "2.5rem", margin: 0}}>{math["n-cmts"] ?? 0}</p>
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Votes</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{computeVoteTotal(math["user-vote-counts"])}</p>
+          <p style={{ fontFamily: "monospace", fontSize: "2.5rem", margin: 0}}>{computeVoteTotal(math["user-vote-counts"])}</p>
         </div>
         <div style={{ flex: 1, minWidth: "200px", border: "1px solid #333", padding: "1rem", textAlign: "center"}}>
           <h3>Opinion Groups</h3>
-          <p style={{ fontFamily: "'VT323', monospace", fontSize: "2.5rem", margin: 0}}>{(math["group-clusters"] || []).length}</p>
+          <p style={{ fontFamily: "monospace", fontSize: "2.5rem", margin: 0}}>{(math["group-clusters"] || []).length}</p>
         </div>
       </section>
       <TopicsVizReport report_id={report_id} />

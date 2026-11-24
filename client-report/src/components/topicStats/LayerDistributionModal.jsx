@@ -95,6 +95,8 @@ const LayerDistributionModal = ({
           tickangle: -45
         },
         showlegend: false,
+        // Plotly's default list without "Open Sans", which no page loads.
+        font: { family: 'verdana, arial, sans-serif' },
         margin: {
           l: 80,
           r: 40,

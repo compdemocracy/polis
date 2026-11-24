@@ -252,6 +252,8 @@ const TopicScatterplot = ({ data, config = {}, onHover, onClick }) => {
       },
       hovermode: 'closest',
       showlegend: false,
+      // Plotly's default list without "Open Sans", which no page loads.
+      font: { family: 'verdana, arial, sans-serif' },
       height: mergedConfig.height,
       plot_bgcolor: 'rgba(0,0,0,0)',
       paper_bgcolor: 'rgba(0,0,0,0)',
