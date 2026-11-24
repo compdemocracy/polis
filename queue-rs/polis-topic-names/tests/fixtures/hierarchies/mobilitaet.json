@@ -1,1967 +1,1143 @@
 {
- "schema": "polis-topic-names.hierarchy/1",
- "layers": [
-  0,
-  1,
-  2
- ],
- "topics": {
-  "0_0": {
-   "id": "0_0",
-   "layer": 0,
-   "cluster": 0,
-   "size": 7,
-   "keywords": [
-    "rücksendungen",
-    "handel",
-    "online",
-    "kostenpflichtig",
-    "machen"
-   ],
-   "parent": null,
-   "samples3": [
-    "Klimarat: 'Im Online-Handel machen Rücksendungen einen Großteil der Transportwege aus. Um diese zu verringern, sollen Rücksendungen im Online-Handel kostenpflichtig sein. Sowohl Kund:innen als auch Unternehmen sollen jeweils die Hälfte zahlen.",
-    "Rücksendung online Handel: Ware die vernichtet werden soll, Hilfswerken übergeben, statt Transportkosten u Umweltbelastung",
-    "Im Online-Handel machen Rücksendungen einen Großteil der Transportwege aus. Um diese zu verringern, sollen Rücksendungen im Online-Handel kostenpflichtig sein. Sowohl Kund:innen als auch Unternehmen sollen jeweils die Hälfte zahlen."
-   ]
-  },
-  "0_1": {
-   "id": "0_1",
-   "layer": 0,
-   "cluster": 1,
-   "size": 33,
-   "keywords": [
-    "pendlerpauschale",
-    "abschaffen",
-    "wenn",
-    "abschaffung",
-    "öffi"
-   ],
-   "parent": "1_1",
-   "samples3": [
-    "Pendlerpauschale nur für Menschen mit niedrigem Einkommen, die WIRKLICH aufs Auto angewiesen sind",
-    "Pendlerpauschale umgestalten:, nur für kleine Autos, nur für Menschen mit niedrigen Einkommen, nur, wenn es keine Öffi-Alternative gibt",
-    "Kein Pendlerpauschale für größere Autos"
-   ]
-  },
-  "0_2": {
-   "id": "0_2",
-   "layer": 0,
-   "cluster": 2,
-   "size": 12,
-   "keywords": [
-    "billiger",
-    "echte",
-    "sein",
-    "tickets",
-    "werden"
-   ],
-   "parent": "1_0",
-   "samples3": [
-    "Inlandsflüge durch attraktive Bahnfahrten (-und Ticketpreise) ersetzen",
-    "Bahnfahrten innerhalb Europas sollten billiger werden",
-    "Die Bahn sollte deutlich schneller und günstiger sein um überhaupt mit Flug, Auto mithalten zu können."
-   ]
-  },
-  "0_3": {
-   "id": "0_3",
-   "layer": 0,
-   "cluster": 3,
-   "size": 20,
-   "keywords": [
-    "kerosin",
-    "besteuern",
-    "besteuert",
-    "werden",
-    "wie"
-   ],
-   "parent": "1_0",
-   "samples3": [
-    "Kerosinsteuer (Flugzeuge)",
-    "Fliegen muss auf alle Faelle teurer werden. Kerosin muss zumindest fuer Fluege innerhalb der EU ordentlich besteuert werden.",
-    "Klimarat: Österreich soll sich für eine EU-weite Umsetzung einer Kerosinsteuer einsetzen. Dadurch können die Preise für Flugtickets den wahren Klimakosten angenähert werden und das Flugverkehrsaufkommen verringert werden."
-   ]
-  },
-  "0_4": {
-   "id": "0_4",
-   "layer": 0,
-   "cluster": 4,
-   "size": 7,
-   "keywords": [
-    "co2",
-    "3x",
-    "ausstoß",
-    "billigflieger",
-    "klimawirksamkeit"
-   ],
-   "parent": "1_0",
-   "samples3": [
-    "Fliegen und Flugtickets gehören nach der CO2 Belastung bepreist",
-    "Klimawirksamkeit im Flugverkehr = erwiesen 3x so hoch wie CO2-Ausstoß!! Billigflieger weg und für Klimaschaden zahlen, Steuer auf Kerosin!!",
-    "Klimawirksamkeit d.Flugverkehr = 3x so hoch wie CO2-Ausstoß Flugpreis fehlt Kostenwahrheit, Billigflieger weg bzw. für Klimaschaden zahlen!"
-   ]
-  },
-  "0_5": {
-   "id": "0_5",
-   "layer": 0,
-   "cluster": 5,
-   "size": 22,
-   "keywords": [
-    "kurzstreckenflüge",
-    "flüge",
-    "verbieten",
-    "verbot",
-    "km"
-   ],
-   "parent": "1_0",
-   "samples3": [
-    "Keine Inlandsflüge mehr",
-    "Kurzstreckenflüge (< 1000 km) verbieten",
-    "Keine Flüge ohne Sondergenehmigung bei Distanzen unter 800 km"
-   ]
-  },
-  "0_6": {
-   "id": "0_6",
-   "layer": 0,
-   "cluster": 6,
-   "size": 7,
-   "keywords": [
-    "pro",
-    "kostenwahrheit",
-    "reduzieren",
-    "mwst",
-    "preisen"
-   ],
-   "parent": "1_0",
-   "samples3": [
-    "Endlich Steuern (MWSt) auf internationale Flugtickets!",
-    "Verbot von Dumping-Preisen auf Flug-Tickets",
-    "Flugreisen nach individuellen Kontingenten besteuern (z.B. alle 3000 km pro Jahr höherer Prozentsatz)."
-   ]
-  },
-  "0_7": {
-   "id": "0_7",
-   "layer": 0,
-   "cluster": 7,
-   "size": 8,
-   "keywords": [
-    "ig",
-    "100er",
-    "abschaffen",
-    "regeln",
-    "abschaffung"
-   ],
-   "parent": "1_2",
-   "samples3": [
-    "100er IG-L Zonen sollen sofort abgeschafft werden.",
-    "IG-L Beschränkungen sollen sofort abgeschafft werden.",
-    "IG-L Regeln abschaffen"
-   ]
-  },
-  "0_8": {
-   "id": "0_8",
-   "layer": 0,
-   "cluster": 8,
-   "size": 16,
-   "keywords": [
-    "lkw",
-    "auf",
-    "autobahnen",
-    "maut",
-    "allen"
-   ],
-   "parent": "1_2",
-   "samples3": [
-    "Bei Stadtautobahnen (z.B. Tangente) ist der LKW Verkehr zu den Stoßzeiten zu verbieten!",
-    "Bundes- und Landstrassen - Höchstgeschwindigkeit 80 km/h, LKW Fahrverbot außer Lebensmittel - u. Kleintransporter mit E- u. H-Antrieb",
-    "Warum durften im Lockdown LKW die für Private gesperrte Grenzen passieren? So eine Chance den LKW Verkehr einzudämmen kommt nie wieder!"
-   ]
-  },
-  "0_9": {
-   "id": "0_9",
-   "layer": 0,
-   "cluster": 9,
-   "size": 11,
-   "keywords": [
-    "priorität",
-    "verkehrsplanung",
-    "fußgänger",
-    "nach",
-    "geschehen"
-   ],
-   "parent": null,
-   "samples3": [
-    "Das System von Amsterdam übernehmen. Prio 1: Öffis (nicht Fußgänger), Prio 2: Fuß und Rad. Empfehlung dazu Not Just Bike",
-    "Verkehrsplanung muss CaseByCase optimiert nach den zu erwartenden Anforderungen erfolgen. Nur so können effizients Lösungen einstehen.",
-    "Verkehrsplanung muss nach der Priorität Fußgänger > Radfahrer > ÖV (inkl. Taxi) > motorisierter Individualverkehr erfolgen"
-   ]
-  },
-  "0_10": {
-   "id": "0_10",
-   "layer": 0,
-   "cluster": 10,
-   "size": 8,
-   "keywords": [
-    "tempo",
-    "80",
-    "100",
-    "30",
-    "autobahnen"
-   ],
-   "parent": "1_2",
-   "samples3": [
-    "Tempo 80/ 110 für frieden in der ukraine",
-    "Tempo 100 auf Autobahnen, Tempo 80 auf Landstraßen, Wohnstraßen 30",
-    "Tempo 30 im verbauten Gebiet, Tempo 80 auf Freilandstraßen, Tempo 100 auf Autobahnen und Schnellstraßen - Höchstgeschwindigkeiten!"
-   ]
-  },
-  "0_11": {
-   "id": "0_11",
-   "layer": 0,
-   "cluster": 11,
-   "size": 7,
-   "keywords": [
-    "geschwindigkeit",
-    "eine",
-    "starke",
-    "auf",
-    "bedeuten"
-   ],
-   "parent": "1_2",
-   "samples3": [
-    "Schrittgeschwindigkeit verursacht Staus. Bitte weiterdenken",
-    "Geschwindigkeit in Städten auf max. 40 km/h senken. V..a auf Bundesstrassen z.b. ab Stadtgrenze Wien zur Feinstaub- & Lärmreduktion!",
-    "Klimarat: Ich bin für eine Geschwindigkeitsbegrenzung auf Landstraßen auf 80 km/h, da niedrigere Geschwindigkeiten eine starke Reduktion der klimaschädlichen Emissionen bedeuten."
-   ]
-  },
-  "0_12": {
-   "id": "0_12",
-   "layer": 0,
-   "cluster": 12,
-   "size": 7,
-   "keywords": [
-    "130",
-    "ist",
-    "staus",
-    "fahren",
-    "emissionen"
-   ],
-   "parent": "1_2",
-   "samples3": [
-    "Langsames Fahren und immer wieder beschleunigen erhöht den Schadstoffausstoß",
-    "Hohe Leistungen bei Autos fördern. Je schneller man am Ziel ist, desto weniger zeitliche Emissionen, Staus werden verursacht.",
-    "Emissionen wie Feinstaub von Bremsen und Gummiabrieb bei Maßnahmen zur optimalen Geschwindigkeitsfestlegung berücksichtigen"
-   ]
-  },
-  "0_13": {
-   "id": "0_13",
-   "layer": 0,
-   "cluster": 13,
-   "size": 23,
-   "keywords": [
-    "ampeln",
-    "ampelschaltungen",
-    "kreisverkehre",
-    "staus",
-    "optimieren"
-   ],
-   "parent": "1_3",
-   "samples3": [
-    "Keine klimaschädlichen und emissionsfördernden Behinderungen des Kfz-Verkehrs durch falsche Ampelschaltungen und übertriebene Benachrangung.",
-    "Ampelkreuzungen mit sensoren versehen, damit eine effektive Steuerung möflich ist. Reduzierung von Standzeiten bei keinem Querverkehr!",
-    "Ampelschaltungen auf großen Kreuzungen sollen Fußgängern und Radfahrern flüssiges queren ermöglichen und nicht zugunsten Autos unterbrechen"
-   ]
-  },
-  "0_14": {
-   "id": "0_14",
-   "layer": 0,
-   "cluster": 14,
-   "size": 8,
-   "keywords": [
-    "zuwanderung",
-    "mehr",
-    "erhöht",
-    "energieverbrauch",
-    "verkehr"
-   ],
-   "parent": null,
-   "samples3": [
-    "Illegale und umgesteuerte Zuwanderung erhöht unsere Umweltprobleme",
-    "Verkehrszunahme & erh. Energiebedarf in Ö sind direkte Folge des Bevölkerungswachstums durch Zuwanderung. Das ist zu ändern",
-    "Wer Zuwanderung fördert , sorgt auch für höheren Energieverbrauch und mehr Verkehr"
-   ]
-  },
-  "0_15": {
-   "id": "0_15",
-   "layer": 0,
-   "cluster": 15,
-   "size": 24,
-   "keywords": [
-    "öffis",
-    "gratis",
-    "alle",
-    "günstige",
-    "personen"
-   ],
-   "parent": "1_4",
-   "samples3": [
-    "Alle Öffis gratis",
-    "Wer einen Ausweis für SOMA-Einkäufe hat, soll auch für den Öffi-Gebrauch einen Ausweis bekommen und super günstig damit fahren können.",
-    "Gratis Öffi Ticket wer kein Fahrzeug (Zulassung) besitzt"
-   ]
-  },
-  "0_16": {
-   "id": "0_16",
-   "layer": 0,
-   "cluster": 16,
-   "size": 29,
-   "keywords": [
-    "klimaticket",
-    "klimatickets",
-    "pendlerpauschale",
-    "gratis",
-    "statt"
-   ],
-   "parent": "1_5",
-   "samples3": [
-    "Zum Klimaticket optional um 100 Euro zusätzlich 500 Taxikilometer pro Jahr",
-    "Saisonales Klimaticket (z.B. für Winter, wo man nicht so oft radfahren kann)",
-    "Mobilität: Klimaticket super Ergänzung Beispiel bestehende Micro ÖV AST unbedingt einbinden- vereinfachen der Nutzung am Land"
-   ]
-  },
-  "0_17": {
-   "id": "0_17",
-   "layer": 0,
-   "cluster": 17,
-   "size": 13,
-   "keywords": [
-    "elterntaxis",
-    "eltern",
-    "zu",
-    "schule",
-    "kinder"
-   ],
-   "parent": null,
-   "samples3": [
-    "Betriebskindergärten ersparen den Eltern zusätzliche Wege.",
-    "Schüler sollten wieder vermehrt mit Öffis, zu Fuß, mit Fahrrad in die Schule kommen. Nicht von den Eltern chauffiert werden.",
-    "Schulbus statt 1000e Eltern Autos: jede Klasse einen Schulbus, der alle bei der Schule abholt und wieder nach Hause bringt"
-   ]
-  },
-  "0_18": {
-   "id": "0_18",
-   "layer": 0,
-   "cluster": 18,
-   "size": 27,
-   "keywords": [
-    "mobilität",
-    "ist",
-    "klimaziele",
-    "individualverkehr",
-    "mit"
-   ],
-   "parent": "1_7",
-   "samples3": [
-    "Keine Werbung mehr für fossile Mobilitätsformen - gilt auch für Reisen (Flüge und Kfeuzfahrten)",
-    "In Zukunft müssen fast alle Wege mit Rad/zu Fuß zurückgelegt werden. Der Rest mit Öffis. Sonst landen wir unweigerlich in Klimakatastrophe",
-    "Anreize statt Verbote: jede/r soll auch weiterhin die Freiheit haben, selbst über seine Mobilitätsform entscheiden zu können."
-   ]
-  },
-  "0_19": {
-   "id": "0_19",
-   "layer": 0,
-   "cluster": 19,
-   "size": 9,
-   "keywords": [
-    "öffis",
-    "wieder",
-    "unattraktiv",
-    "leute",
-    "den"
-   ],
-   "parent": "1_7",
-   "samples3": [
-    "Öffis sollten hygienischer gestaltet werden. Oftmals fahren nur eigenartige arme Leute in Öffis, man fühlt sich nicht wohl/sicher.",
-    "Wieder viele Abteilwägen in Öffis, auch Kurzstrecke. Bequem, helfen gegen Infektionen, schaffen Privatgefühl. Komfort wie im Auto schaffen!",
-    "Freiheitsbeschränkungen, fehlendes Gepäckmanagement, unbequeme Sitze etc. machen Öffis unattraktiv und sollen wieder abeschafft werden."
-   ]
-  },
-  "0_20": {
-   "id": "0_20",
-   "layer": 0,
-   "cluster": 20,
-   "size": 30,
-   "keywords": [
-    "flächen",
-    "bäume",
-    "grünflächen",
-    "von",
-    "begrünung"
-   ],
-   "parent": "1_6",
-   "samples3": [
-    "Versiegelung stoppen. Raumplanung weg von den Kommunen, max 2,5 Hektar versiegeln statt 11,5 ha täglich und Renaturierung von Brachen",
-    "Verpflichtende Begrünung öffentlicher Gebäude + regelmäßig Pflege",
-    "Asfinag und Co müssen sämtliche Grünflächen sorgsam mähen, 2x im Jahr, keine Verletzung der Grasnaben"
-   ]
-  },
-  "0_21": {
-   "id": "0_21",
-   "layer": 0,
-   "cluster": 21,
-   "size": 6,
-   "keywords": [
-    "schulen",
-    "flächen",
-    "förderung",
-    "senken",
-    "tag"
-   ],
-   "parent": "1_6",
-   "samples3": [
-    "Landwirte, die mit landw. Schulen, interessierten Arbeitslosen oder Auszubildenden brachliegende Flächen bewirtschaften= Lohn mtl. 2000 EUR",
-    "Forcierung des Ausbaus der Landwirtschaft mit Hilfe landwirtschaftlicher Schulen, kleinstrukturierte Landwirtschaft (Förderung AMS, Bund)",
-    "Sämtliche freien landwirtschaftlichen Flächen sofort nutzen für Streuobstwiesen, Getreide, Gemüse, Bio Hühner, Schweine etc.,Permakultur"
-   ]
-  },
-  "0_22": {
-   "id": "0_22",
-   "layer": 0,
-   "cluster": 22,
-   "size": 8,
-   "keywords": [
-    "städten",
-    "tiere",
-    "besonders",
-    "begrünung",
-    "bau"
-   ],
-   "parent": null,
-   "samples3": [
-    "Tierschutz in Städten! Erholungsgebiete und Freilauf-flächen!",
-    "Tiere besonders in Städten fördern (z.B. durch mehr Nistkästen / Insektenhäuser / Blumeninseln / Schutzgebiete / Begrünung)",
-    "Bau und Pflege von Nistplätzen für Vögel, besonders in Städten"
-   ]
-  },
-  "0_23": {
-   "id": "0_23",
-   "layer": 0,
-   "cluster": 23,
-   "size": 8,
-   "keywords": [
-    "klimaschutz",
-    "verankert",
-    "schule",
-    "werden",
-    "muss"
-   ],
-   "parent": null,
-   "samples3": [
-    "Klimaschutz muss in Lehr- und Studienplänen verankert werden.",
-    "„Klimaschutz“ soll verpflichtend in der Volksschule unterrichtet werden, um Kinder schon in jungen Jahren Dringlichkeit bewusst zu machen!",
-    "„Klimaschutz“ als verpflichtendes, eigenes Fach in der (Volks-)schule!"
-   ]
-  },
-  "0_24": {
-   "id": "0_24",
-   "layer": 0,
-   "cluster": 24,
-   "size": 17,
-   "keywords": [
-    "euro",
-    "treibstoff",
-    "ist",
-    "mind",
-    "pro"
-   ],
-   "parent": "1_8",
-   "samples3": [
-    "Mindestpreis für Treibstoff. Bei 2€/l überlegt sich jeder genau ob nicht auch 100km/h statt 130km/h auf der Autobahn ausreichen.",
-    "Spritpreise mind 2 Euro",
-    "Mindestpreis für Treibstoff. Bei 2€/l überlegt sich jeder zweimal ob die Fahrt mit dem Auto wirklich nötig ist."
-   ]
-  },
-  "0_25": {
-   "id": "0_25",
-   "layer": 0,
-   "cluster": 25,
-   "size": 5,
-   "keywords": [
-    "mineralölsteuer",
-    "abschaffung",
-    "abgeschafft",
-    "des",
-    "benzin"
-   ],
-   "parent": "1_8",
-   "samples3": [
-    "Dieselprivileg bei der Mineralölsteuer endlich abschaffen! Gleicher Steuersatz wie für Benzin.",
-    "Abschaffung des Dieselprivilegs.",
-    "Mineralölsteuer massiv erhöhen und das Geld in den öffentlichen Verkehr stecken"
-   ]
-  },
-  "0_26": {
-   "id": "0_26",
-   "layer": 0,
-   "cluster": 26,
-   "size": 21,
-   "keywords": [
-    "ab",
-    "verbot",
-    "autos",
-    "von",
-    "verbrennungsmotoren"
-   ],
-   "parent": "1_9",
-   "samples3": [
-    "Generelles Verbot von Zweitaktmotoren, weil es Schadstoff-Schleudern sind und fürchterlich stinken",
-    "Ein zeitnahes Verbot für Zweitaktmotoren ist überfällig. In China werden längst fast ausschließlich Elektromopeds verkauft.",
-    "Ab 2026 Verbot der Neuzulassung von Autos mit Motor"
-   ]
-  },
-  "0_27": {
-   "id": "0_27",
-   "layer": 0,
-   "cluster": 27,
-   "size": 13,
-   "keywords": [
-    "verbieten",
-    "gesetzlich",
-    "massentierhaltung",
-    "österreich",
-    "standard"
-   ],
-   "parent": null,
-   "samples3": [
-    "Die Massentierhaltung(MT) wird zu wenig thematisiert. Die MT erzeugt die meisten Emissionen. Das tägliche Schnitzel darf kein Standard sein.",
-    "Bio-Richtlinien sollen der neue Standard in der Tierhaltung sein.",
-    "Massentierhaltung endgültig gesetzlich verbieten, Freilandhaltung muss Standard werden!!!"
-   ]
-  },
-  "0_28": {
-   "id": "0_28",
-   "layer": 0,
-   "cluster": 28,
-   "size": 13,
-   "keywords": [
-    "ladestationen",
-    "elektromobilität",
-    "zu",
-    "es",
-    "mit"
-   ],
-   "parent": null,
-   "samples3": [
-    "Es muss der Einbau/die Nachrüstung von Ladestationen verpflichtend sein. Unabhängig von einer Eigentümermehrheit.",
-    "Klimarat: Wenn die Dichte der Ladestationen höher ist, bin ich bereit, auf ein E-Auto umzusteigen.",
-    "Genossenschaften sollen verpflichtet werden Ladestationen für ihre Mieter zu errichten dann würden viele auf E-Autos umsteigen."
-   ]
-  },
-  "0_29": {
-   "id": "0_29",
-   "layer": 0,
-   "cluster": 29,
-   "size": 13,
-   "keywords": [
-    "energie",
-    "wasserstoff",
-    "wie",
-    "aus",
-    "politik"
-   ],
-   "parent": null,
-   "samples3": [
-    "KEINE Importe mehr von Atomstrom, Umstellung auf nachhaltig bessere Alternativen!",
-    "Energiewende: nur grüner Strom und grüner Wasserstoff als saubere Energieträger!",
-    "Revitalisierung bestehender Wasserkraftwerke fördern statt neuer Kraftwerke an jedem Bach, ineffizienter Windräder und Umweltzerstörung."
-   ]
-  },
-  "0_30": {
-   "id": "0_30",
-   "layer": 0,
-   "cluster": 30,
-   "size": 26,
-   "keywords": [
-    "carsharing",
-    "sharing",
-    "werden",
-    "car",
-    "fördern"
-   ],
-   "parent": "1_11",
-   "samples3": [
-    "Carsharing forcieren, Rufbusse und (autonome) E Taxis an Verkehrsknotenpunkten fördern",
-    "Haltestationen am Land besser erreichbar machen: Car sharing auf Gemeindeebene fördern bzw. Citybike-Konzept am Land etablieren",
-    "Darauf abzielen, dass vorrangig Räder / E-Bikes, E-Autos im Carsharing und sonst Transportmittel wie Öffis, Taxis etc. verwendet werden."
-   ]
-  },
-  "0_31": {
-   "id": "0_31",
-   "layer": 0,
-   "cluster": 31,
-   "size": 10,
-   "keywords": [
-    "homeoffice",
-    "pflicht",
-    "möglich",
-    "den",
-    "tage"
-   ],
-   "parent": "1_10",
-   "samples3": [
-    "Verpflichtendes Homeoffice (wo immer möglich), damit gibt es auch weniger Pendlerverkehr.",
-    "Home-Office, wo möglich, ausbauen und fördern um Arbeitswege zu sparen.",
-    "Homeoffice spart einer Studie zufolge Millionen Tonnen CO2 und senkt spürbar die Verkehrsbelastung."
-   ]
-  },
-  "0_32": {
-   "id": "0_32",
-   "layer": 0,
-   "cluster": 32,
-   "size": 12,
-   "keywords": [
-    "menschen",
-    "ältere",
-    "angewiesen",
-    "sind",
-    "taxis"
-   ],
-   "parent": "1_10",
-   "samples3": [
-    "Jeder wohnt anders, arbeitet anders, hat einen anderen Alltag. Daher muss sich jeder sein Verkehrsmittel selbst aussuchen können!",
-    "Ab einem bestimmten Alter Überprüfungen der Fahrtauglichkeit einführen. Infrastruktur passend für ältere Menschen ausbauen und fördern.",
-    "Auch alte und behinderte Menschen müssen mobil bleiben, und sind auf Autos/Krankentransporte/Taxis angewiesen."
-   ]
-  },
-  "0_33": {
-   "id": "0_33",
-   "layer": 0,
-   "cluster": 33,
-   "size": 15,
-   "keywords": [
-    "ich",
-    "auto",
-    "habe",
-    "arbeit",
-    "deiner"
-   ],
-   "parent": "1_10",
-   "samples3": [
-    "die Mobilitaet bleibt auch erhalten wenn man das Auto nicht mehr sinnlos benuetzen darf.",
-    "Zu: „Ich möchte mir nicht vorschreiben lassen, welches Verkehrsmittel …„ Genau das ist aber in der Automobilhesellschaft der Fall",
-    "Ich möchte mir nicht vorschreiben lassen, welches Verkehrsmittel ich zu benützen habe."
-   ]
-  },
-  "0_34": {
-   "id": "0_34",
-   "layer": 0,
-   "cluster": 34,
-   "size": 14,
-   "keywords": [
-    "wien",
-    "bezirk",
-    "den",
-    "mehr",
-    "von"
-   ],
-   "parent": null,
-   "samples3": [
-    "Der 1.Bezirk in Wien soll autofrei werden, aber sonst soll es ein Miteinander von allen Verkehrsteilnehmern geben, auch für Autofahrer!",
-    "Wien: Gassen parallel zu Hauptstraßen für den Autoverkehr sperren/einschränken und für den Radverkehr reservieren",
-    "Einführung von Begegnungszonen in sämtlichen Ortsgebieten Österreichs."
-   ]
-  },
-  "0_35": {
-   "id": "0_35",
-   "layer": 0,
-   "cluster": 35,
-   "size": 8,
-   "keywords": [
-    "city",
-    "maut",
-    "eine",
-    "großstädten",
-    "eingeführt"
-   ],
-   "parent": null,
-   "samples3": [
-    "Zur City-Maut: Also Innenstadt nur noch für die oberen 10.000?",
-    "City maut in jeder größeren Stadt",
-    "Einführung der City-Maut in den Innestädten am Beispiel London. Städte brauchen eine bessere Luftqualität und weniger Lärm."
-   ]
-  },
-  "0_36": {
-   "id": "0_36",
-   "layer": 0,
-   "cluster": 36,
-   "size": 10,
-   "keywords": [
-    "keine",
-    "werbung",
-    "verbrenner",
-    "wie",
-    "produzieren"
-   ],
-   "parent": null,
-   "samples3": [
-    "Werbung für Verbrenner-Fahrzeuge ähnlich kennzeichnen wie die Angaben auf Zigarettenpackungen \"fossile Energieträger zerstören ihre Zukunft\"",
-    "Keine Werbungen mehr für Verbrenner",
-    "Kennzeichnung von Verbrennerfahrzeugen als gesundheits- und klimaschädlich in etwa wie auf Zigarettenpackungen"
-   ]
-  },
-  "0_37": {
-   "id": "0_37",
-   "layer": 0,
-   "cluster": 37,
-   "size": 20,
-   "keywords": [
-    "autofahrer",
-    "von",
-    "abzocke",
-    "weitere",
-    "das"
-   ],
-   "parent": "1_12",
-   "samples3": [
-    "AutofahrerInnen werden unsinnigerweise vom Staat alimentiert, das gehoert beendet.",
-    "Mit Abzocke und Benachteiligung der Autofahrer muss Schluss sein",
-    "Offenbar soll diese Plattform nur weitere Belastung&Diskrimierung von KFZ legitimieren. Nicht gewünschte Argumente werden unterdrückt"
-   ]
-  },
-  "0_38": {
-   "id": "0_38",
-   "layer": 0,
-   "cluster": 38,
-   "size": 10,
-   "keywords": [
-    "verbieten",
-    "verbot",
-    "autos",
-    "auch",
-    "nur"
-   ],
-   "parent": "1_12",
-   "samples3": [
-    "Würde man sich auch trauen, Fahrverbote und dgl. auch in Moskau oder Nordkorea vorzuschlagen?",
-    "Der wahre Klimarat: Verbot von SUVs und schweren Lkws im Stadtgebiet. Im Bedarfsfall nur mit Warnposten und Schrittgeschwindigkeit erlaubt.",
-    "Verbot von motorisierten Zweirädern im Stadtgebiet sofort!"
-   ]
-  },
-  "0_39": {
-   "id": "0_39",
-   "layer": 0,
-   "cluster": 39,
-   "size": 24,
-   "keywords": [
-    "land",
-    "anbindung",
-    "den",
-    "wohne",
-    "gute"
-   ],
-   "parent": "1_13",
-   "samples3": [
-    "Ich wohne auf dem Land und habe keine gute Anbindung an den öffentlichen Verkehr.",
-    "Sie leben sicher nicht auf dem Land, und die nächste Bushaltestelle ist 8 km entfernt",
-    "Was ist, wenn ich in einem Dorf wohne und es im Umkreis von 3 km keine Öffis gibt"
-   ]
-  },
-  "0_40": {
-   "id": "0_40",
-   "layer": 0,
-   "cluster": 40,
-   "size": 20,
-   "keywords": [
-    "co2",
-    "steuer",
-    "steuern",
-    "klimaschutz",
-    "werden"
-   ],
-   "parent": null,
-   "samples3": [
-    "Steuergelder sollen für unsere Klimaziele eingesetzt werden!",
-    "CO2-Preis: Entwicklungspfad bis Umwelt- und Gesundheitskosten abgedeckt sind (Verursacheerprinzip). Rückvergütung der Steuererlöse.",
-    "Realistische Steuern!!"
-   ]
-  },
-  "0_41": {
-   "id": "0_41",
-   "layer": 0,
-   "cluster": 41,
-   "size": 16,
-   "keywords": [
-    "lobautunnel",
-    "wien",
-    "stadtautobahn",
-    "bau",
-    "werden"
-   ],
-   "parent": null,
-   "samples3": [
-    "Keine Lobau-Autobahn, keine Stadtautobahn",
-    "Ostbahnbrücke 4-spurig ausbauen, neue Schnellbahn über die Strecke Praterkai-Süßenbrunn, kein Lobautunnel",
-    "Lobautunnel muss endlich gebaut werden damit LKW Wien umfahren können"
-   ]
-  },
-  "0_42": {
-   "id": "0_42",
-   "layer": 0,
-   "cluster": 42,
-   "size": 17,
-   "keywords": [
-    "raumplanung",
-    "wege",
-    "straßen",
-    "kurze",
-    "grünflächen"
-   ],
-   "parent": "1_17",
-   "samples3": [
-    "Der Vermeidung von (längeren) Alltagswegen sollte mehr Aufmerksamkeit gewidmet werden (Prinzip \"Stadt der kurzen Wege\" forcieren).",
-    "Ländliches Gebiet wird vernachlässigt. Rücksicht auf Augebiete, wassernahe Bereiche und Grünflächen bei der Verkehrsplanung ist wichtig.",
-    "Die Raumordnung vor allem am Land muss eine Dorf- und Städteentwicklung fördern, die Alltagswege automatisch reduziert (kurze Wege)."
-   ]
-  },
-  "0_43": {
-   "id": "0_43",
-   "layer": 0,
-   "cluster": 43,
-   "size": 16,
-   "keywords": [
-    "straßen",
-    "keine",
-    "neuen",
-    "mehr",
-    "strassen"
-   ],
-   "parent": "1_17",
-   "samples3": [
-    "Hochrangige Straßen entlasten Siedlungsbereiche. 2050 bei verm. 10,5 Mill Einwohnern werden sie trotz mehr Öffi und Fahrrad benötigt.",
-    "Keine neuen Straßen mehr.",
-    "Keine Autobahnen oder Schnellstraßen mehr und Rückbau von wenig genutzten Strassen"
-   ]
-  },
-  "0_44": {
-   "id": "0_44",
-   "layer": 0,
-   "cluster": 44,
-   "size": 23,
-   "keywords": [
-    "besteuert",
-    "kfz",
-    "mit",
-    "werden",
-    "höher"
-   ],
-   "parent": "1_18",
-   "samples3": [
-    "Familienautos müssen höher besteuert werden, da Menschen mit Kindern die Umwelt stärker belasten.",
-    "Klimarat: Autos sollen umso stärker besteuert werden, je mehr CO2-Emissionen sie pro gefahrenem Kilometer verursachen.",
-    "Familienautos müssen höher besteuert werden, da Menschen mit Kindern die Umwelt besonders schädigen."
-   ]
-  },
-  "0_45": {
-   "id": "0_45",
-   "layer": 0,
-   "cluster": 45,
-   "size": 25,
-   "keywords": [
-    "ich",
-    "wir",
-    "auch",
-    "sollte",
-    "kein"
-   ],
-   "parent": "1_15",
-   "samples3": [
-    "Dann sinds am Land",
-    "Was hat das mit dem Thema zu tun?",
-    "Ist Fortnite ein tolles Game"
-   ]
-  },
-  "0_46": {
-   "id": "0_46",
-   "layer": 0,
-   "cluster": 46,
-   "size": 10,
-   "keywords": [
-    "nur",
-    "politiker",
-    "unabhängige",
-    "gas",
-    "wenn"
-   ],
-   "parent": "1_15",
-   "samples3": [
-    "Aber nur wenn es sich dabei um unabhängige und politisch korrekte Beamte handelt.",
-    "Die Befragung des Volks ist okay, aber die Politik muss unbedingt unabhängige Experten hören und ernst nehmen. Die Themen sind zu komplex.",
-    "Viele Politiker und Bürgermeister füttern Wähler u. Medien mit Falschaussagen und Teilwahrheit über Initiativen. Strenge Strafen einführen."
-   ]
-  },
-  "0_47": {
-   "id": "0_47",
-   "layer": 0,
-   "cluster": 47,
-   "size": 5,
-   "keywords": [
-    "tag",
-    "vor",
-    "autofreie",
-    "wollen",
-    "städte"
-   ],
-   "parent": null,
-   "samples3": [
-    "Autofreier Sonntag",
-    "Autofreier Tag",
-    "\"Autofrei\" heißt auch oft schlechte Erreichbarkeit (vor allem mit Gepäck), keine schönen Autos mehr auf der Straße, kein Lichtermeer abends."
-   ]
-  },
-  "0_48": {
-   "id": "0_48",
-   "layer": 0,
-   "cluster": 48,
-   "size": 8,
-   "keywords": [
-    "innenstädte",
-    "autofrei",
-    "städte",
-    "autofreie",
-    "das"
-   ],
-   "parent": null,
-   "samples3": [
-    "Das Ziel sollte sein, große Teile unserer Städte autofrei und damit lebenswerter zu gestalten. Jeden diesbezüglichen Schritt begrüße ich.",
-    "Vision: Innenstädte sind frei von motorisiertem Verkehr. Öffis verkehren im 15 Minuten-Takt, Haltestellen z. B. alle 250 Meter",
-    "In Städten wohnen viele Leute auf wenig Platz. Autos transportieren wenige Leute auf viel Platz. Daher sollten Städte autofrei werden."
-   ]
-  },
-  "0_49": {
-   "id": "0_49",
-   "layer": 0,
-   "cluster": 49,
-   "size": 25,
-   "keywords": [
-    "förderung",
-    "autos",
-    "gefördert",
-    "keine",
-    "elektroautos"
-   ],
-   "parent": "1_20",
-   "samples3": [
-    "Abschaffung der Förderung für Elektro-Fahrzeuge",
-    "E-Autos nur bis zu einer Leistung von bis zu 140PS und max.35.000€ Neupreis fördern. Dafür aber mit 50% und nur ein Auto für Privathaushalte",
-    "es sollte eine kombi.förderung geben ->> wenn privat strom erzeugt wird (was,win,pho) und ein e.auto angeschafft wird ->> extra förderung"
-   ]
-  },
-  "0_50": {
-   "id": "0_50",
-   "layer": 0,
-   "cluster": 50,
-   "size": 6,
-   "keywords": [
-    "nicht",
-    "durch",
-    "klima",
-    "keine",
-    "dieser"
-   ],
-   "parent": "1_14",
-   "samples3": [
-    "Der globale Klimawandel ist leider nicht zu verhindern (siehe Russland usw). Eine derartige Öko-Prohibitionszeit macht alles nur noch ärger.",
-    "Ich will die Umwelt schützen, aber wer sagt den Großkonzernen dieser Erde das die es auch machen müssen",
-    "Wenn sich das Welt-Klima wirklich durch diese Extrem-Maßnahmen in den wenigen Wohlstandsländern ändern ließe... Ist leider nicht so!"
-   ]
-  },
-  "0_51": {
-   "id": "0_51",
-   "layer": 0,
-   "cluster": 51,
-   "size": 11,
-   "keywords": [
-    "klimarat",
-    "gerecht",
-    "sozial",
-    "immer",
-    "werden"
-   ],
-   "parent": "1_14",
-   "samples3": [
-    "Klimarat: Klimaschutzmaßnahmen müssen immer sozial gerecht gestaltet werden.",
-    "Klimarat auflösen",
-    "Klimarat und linksgrüne Klimapolitik zum Nachteil arbeitender Bürger sofort einstellen."
-   ]
-  },
-  "0_52": {
-   "id": "0_52",
-   "layer": 0,
-   "cluster": 52,
-   "size": 11,
-   "keywords": [
-    "parkpickerl",
-    "wien",
-    "ganz",
-    "nicht",
-    "nur"
-   ],
-   "parent": "1_16",
-   "samples3": [
-    "Das Parkpickerl in Wien ist nicht gut durchdacht und wenn, dann für ganz Wien oder wenigstens 2-3 Bezirke.",
-    "Parkpickerl nur für PKW ab einer Länge von 3,5m. Und das sehr teuer.",
-    "Ein Parkpickerl für ganz Wien! Und nicht für jeden einzelnen Bezirk. Zumindest ein Parkpickerl für zwei Bezirke(Wohnung und Arbeit)!"
-   ]
-  },
-  "0_53": {
-   "id": "0_53",
-   "layer": 0,
-   "cluster": 53,
-   "size": 8,
-   "keywords": [
-    "parkgebühren",
-    "parkplätze",
-    "auf",
-    "haben",
-    "soll"
-   ],
-   "parent": "1_16",
-   "samples3": [
-    "Es soll ein Anrecht auf Gratisparkplätze geben",
-    "Viel teurere Parkgebühren",
-    "Parken soll gratis werden."
-   ]
-  },
-  "0_54": {
-   "id": "0_54",
-   "layer": 0,
-   "cluster": 54,
-   "size": 9,
-   "keywords": [
-    "parkplätze",
-    "öffentlichen",
-    "einkaufszentren",
-    "platz",
-    "mehr"
-   ],
-   "parent": "1_16",
-   "samples3": [
-    "Grünflächen sind hübsch. Aber Parkplätze sind ein praktisches, gutgemeintes HILFSANGEBOT FÜR MENSCHEN, um ihnen den Alltag zu erleichtern.",
-    "Parkplätze im öffentlichen Raum müssen radikal reduziert werden - wir brauchen den Platz für Begrünung und Radinfrastruktur!",
-    "Wie viel Platz wäre ohne Parkplätze! Mehr Grünraum, Platz für Kinder, Schanigärten, konsumfreie Freiräume, öffentlicher Raum für alle!"
-   ]
-  },
-  "0_55": {
-   "id": "0_55",
-   "layer": 0,
-   "cluster": 55,
-   "size": 5,
-   "keywords": [
-    "nutzen",
-    "verkehrsmittel",
-    "bahnstrecken",
-    "ausbauen",
-    "nebenbahnen"
-   ],
-   "parent": "1_21",
-   "samples3": [
-    "Nebenbahnen ausbauen und attraktivieren und nicht Bahnstrecken einstellen bzw. auflassen",
-    "Bahngleise nicht rückbauen sondern ausbauen.",
-    "Bau von Seilbahnen, um es als innerstädtisches Verkehrsmittel nutzen zu können."
-   ]
-  },
-  "0_56": {
-   "id": "0_56",
-   "layer": 0,
-   "cluster": 56,
-   "size": 13,
-   "keywords": [
-    "ländlichen",
-    "busse",
-    "öffentliche",
-    "verkehr",
-    "auch"
-   ],
-   "parent": "1_21",
-   "samples3": [
-    "In ländlichen Ortschaften ab 500 EW muss verpflichtend ein Nahversorger angesiedelt werden, damit keine Fahrten zu EKZ notwendig werden.",
-    "Öffentliche Busse auch an Wochenenden und Feiertagen, Tourismus soll für mehr Auslastung werben: Kurzurlaube, Land kennenlernen",
-    "Öffentliche Busse sollten im Weinviertel auch am Wochenende und an Feiertagen fahren."
-   ]
-  },
-  "0_57": {
-   "id": "0_57",
-   "layer": 0,
-   "cluster": 57,
-   "size": 7,
-   "keywords": [
-    "busse",
-    "großer",
-    "elektro",
-    "öffentlichen",
-    "kleine"
-   ],
-   "parent": "1_21",
-   "samples3": [
-    "Ausbau kleiner Ruf-E-Busse in Ballungszentren und deren Umland, um Individualverkehr zu beggrenzen.",
-    "Verdichtung des öffentlichen Verkehrs, mehr Kleinbusse, Rufbusse , Shuttlebusse mit E- oder H- Antrieb anstatt leerer großer Busse",
-    "Vor allem am Land Investitionen in kleine selbstfahrende Elektro-Busse statt der großen Diesel-Busse mit oft weniger als 3 Fahrgästen"
-   ]
-  },
-  "0_58": {
-   "id": "0_58",
-   "layer": 0,
-   "cluster": 58,
-   "size": 5,
-   "keywords": [
-    "verkehrs",
-    "ausbau",
-    "bahnhöfe",
-    "gestalten",
-    "des"
-   ],
-   "parent": "1_21",
-   "samples3": [
-    "Ausbau des öffentlichen Verkehrs im Ländlichen Raum, Zugverbindungen entlang von Autobahnen erschaffen.",
-    "Nein eher die Anbindungen und die Erreichbarkeiten von Bahnhöfen etc. verbessern und die Öffipreise senken, dann erledigt sich das v. allein",
-    "Ausbau des öffentichen Verkehrs und den Umstieg fördern/belohnen."
-   ]
-  },
-  "0_59": {
-   "id": "0_59",
-   "layer": 0,
-   "cluster": 59,
-   "size": 7,
-   "keywords": [
-    "graz",
-    "linz",
-    "ausbau",
-    "endlich",
-    "salzburg"
-   ],
-   "parent": "1_21",
-   "samples3": [
-    "Endlich die Bahnstrecke Graz - Fehring - Szombathely ausbauen und elektrifizieren!",
-    "Anbindung der Mühlkreisbahn an den Hauptbahnhof Linz",
-    "Dreispuriger Ausbau der A9 zwischen Graz und Spielfeld!!! Dringend nötig! Um endlich Staus zu reduzieren!"
-   ]
-  },
-  "0_60": {
-   "id": "0_60",
-   "layer": 0,
-   "cluster": 60,
-   "size": 12,
-   "keywords": [
-    "fahrräder",
-    "oft",
-    "sichere",
-    "beim",
-    "ausbau"
-   ],
-   "parent": null,
-   "samples3": [
-    "Ausbau von Fahrradboxen für hochwertige Fahrräder",
-    "Ich wünsche mir mehr Diebstahl-sichere und wettergeschützte Parkplätze für Fahrräder.",
-    "Bauordnungen etc.: überdachte, gut erreichbare, sichere Radabstellplätze reichlich vorschreiben!"
-   ]
-  },
-  "0_61": {
-   "id": "0_61",
-   "layer": 0,
-   "cluster": 61,
-   "size": 5,
-   "keywords": [
-    "schiene",
-    "auf",
-    "ab",
-    "lkw",
-    "verlegen"
-   ],
-   "parent": "1_22",
-   "samples3": [
-    "Ressourcen auf Schiene statt LKWs transportieren: verpflichtende \"Schienenquote\" in der Wertschöpfungskette einführen.",
-    "Warentransporte von LKW - wo möglich - auf Schiene verlegen",
-    "In erster Linie gehören Lastenferntransporte auf die Schiene, für den regionalen Verkehr genügen Kontainer-Laster unter 25 Tonnen."
-   ]
-  },
-  "0_62": {
-   "id": "0_62",
-   "layer": 0,
-   "cluster": 62,
-   "size": 5,
-   "keywords": [
-    "möbel",
-    "einkäufe",
-    "haus",
-    "firmen",
-    "usw"
-   ],
-   "parent": "1_22",
-   "samples3": [
-    "Förderung und Bahn-Unterstützung für Unternehmen die dies anbieten: Haus-zu-Haus-Gepäcktransport grösserer Kisten (Grösse wie Kofferraum)",
-    "Wie transp. Private größere Einkäufe (Baumarkt, Möbel)? Was ist mit Firmen und Dientleisterfahrzeugen (Installateur)? Taxis? Usw...",
-    "Gratislieferservice für große Gegenstände (z.B. Möbel, Elektrogeräte, Gartenprodukte etc.). Alles was nicht mit einem Lastenfahrrad geht."
-   ]
-  },
-  "0_63": {
-   "id": "0_63",
-   "layer": 0,
-   "cluster": 63,
-   "size": 17,
-   "keywords": [
-    "ampeln",
-    "fußgänger",
-    "grün",
-    "bei",
-    "ampel"
-   ],
-   "parent": null,
-   "samples3": [
-    "Grünphasen bei den Ampel 1. Für die zufußgehenden Menschen 2. für die Menschen auf dem Rad!",
-    "Grün-Phasen bei Ampeln 1. ) für die Menschen, die zufußgehen, zb alles GRÜN für Fußgängerinnen! 2. Für die Öffis, 3. für die Radfahrenden",
-    "Speziell bei ampelgeregelten Kreuzungen sollte Fußgänger, Radfahrer,..etc. früher die Grünphase bekommen als Auofahrer!!"
-   ]
-  },
-  "0_64": {
-   "id": "0_64",
-   "layer": 0,
-   "cluster": 64,
-   "size": 28,
-   "keywords": [
-    "akkus",
-    "elektromobilität",
-    "entsorgung",
-    "autos",
-    "forcieren"
-   ],
-   "parent": "1_19",
-   "samples3": [
-    "Wer E-Auto will - will auch Atomkraftwerke (oder kommt der Strom aus der Steckdose)",
-    "Elektromobilität: unsere Bequemlichkeit DARF nicht zu Lasten von sozial- und umweltschädlichem Rohstoffabbau in anderen Ländern gehen !",
-    "Elektromobilität NICHT fördern, solange wir die Batterien nicht sicher und umweltfreundlich entsorgen können!"
-   ]
-  },
-  "0_65": {
-   "id": "0_65",
-   "layer": 0,
-   "cluster": 65,
-   "size": 9,
-   "keywords": [
-    "autos",
-    "ist",
-    "möglichkeiten",
-    "lösung",
-    "noch"
-   ],
-   "parent": "1_19",
-   "samples3": [
-    "Elektromotorräder anstatt Autos &E Autos forcieren. Schneller Ausbau: Strom zu Kraftstoff -siehe AVL Alte Fahrzeu.klimafreundlich nutzen",
-    "Ziel sollte unbedingt der Ausbau des ÖPNV sein, nicht zielführend ist der reine Ersatz von Verbrennermotoren durch E-Autos",
-    "Elektro-Autos statt Verbrenner-Autos ist keine Lösung. Mehr Öffis und Radwege schon!"
-   ]
-  },
-  "0_66": {
-   "id": "0_66",
-   "layer": 0,
-   "cluster": 66,
-   "size": 36,
-   "keywords": [
-    "radwege",
-    "auch",
-    "von",
-    "sind",
-    "fahrradwege"
-   ],
-   "parent": "1_24",
-   "samples3": [
-    "Breite, sichere Radhighways entlang aller wichtiger Routen",
-    "Radwege wo möglich baulich (z.B. durch Leitpfosten, Poller etc) von der Fahrbahn abtrennen. Schützt den Radfahrer aber auch den Autofahrer.",
-    "Fahrradwege baulich besser von Längs-Parkplätzen trennen (Geländer?) Plötzlich aufgehende Autotüren sind extrem gefährlich für Radler:innen!"
-   ]
-  },
-  "0_67": {
-   "id": "0_67",
-   "layer": 0,
-   "cluster": 67,
-   "size": 7,
-   "keywords": [
-    "aller",
-    "fahrrädern",
-    "städten",
-    "frei",
-    "bleiben"
-   ],
-   "parent": "1_24",
-   "samples3": [
-    "\"Öffnungen\" aller Tunnels und Brücken für alle sich zu Fuß, auf Fahrrädern und Rollern fortbewegende Menschen, sowie für landwi. Fahrzeuge.",
-    "Sicherstellen, dass Wanderwege für die Öffentlichkeit frei begehbar bleiben",
-    "Alle Wege im Wald für MTB freigeben, damit man zu Hause und im Urlaub nicht erst weit mit dem Auto zum nächsten legalen Angebot fahren muß."
-   ]
-  },
-  "0_68": {
-   "id": "0_68",
-   "layer": 0,
-   "cluster": 68,
-   "size": 20,
-   "keywords": [
-    "radfahrer",
-    "haftpflichtversicherung",
-    "fahrräder",
-    "nummerntafeln",
-    "kennzeichenpflicht"
-   ],
-   "parent": "1_23",
-   "samples3": [
-    "Verpflichtende Haftpflichtversicherung für Radfahrende",
-    "Bei dem starken Zuwachs von (E)Fahrrädern endlich Kennzeichenpflicht und Versicherungszwang zum Schutz der Fußgänger.",
-    "Wenn neue Radsteifen, dann auch die Pflicht, diese zu benutzen! Und endlich eine Kennzeichenpflicht!"
-   ]
-  },
-  "0_69": {
-   "id": "0_69",
-   "layer": 0,
-   "cluster": 69,
-   "size": 9,
-   "keywords": [
-    "verkehrsregeln",
-    "fahrradfahrer",
-    "bei",
-    "zu",
-    "von"
-   ],
-   "parent": "1_23",
-   "samples3": [
-    "Eigenartig, dass sich die \"so moralischen Radfahrer\" immer gegen Kennzeichenpflicht und Verkehrsregeln wehren!",
-    "Viele Radler keine Ahnung von Verkehrsregeln. Unbedingt Führerscheinpflicht!",
-    "Beim Führerscheinkurs deutlich auf die Nachteile vom motorisierten Verkehr und Rücksichtnahne auf RadfahrerInnen hinweisen."
-   ]
-  },
-  "1_0": {
-   "id": "1_0",
-   "layer": 1,
-   "cluster": 0,
-   "size": 115,
-   "keywords": [
-    "flüge",
-    "kerosin",
-    "fliegen",
-    "werden",
-    "von"
-   ],
-   "parent": "2_0",
-   "samples3": [
-    "Kurzstreckenflüge massiv einschränken oder verbieten. Kostenwahrheit beim Fliegen. Keine Start und Landerechte für Billigflieger.",
-    "Nur für Flüge und Kreuzfahrten",
-    "Keine Subventionierung mehr von Flughafen und Flügen"
-   ]
-  },
-  "1_1": {
-   "id": "1_1",
-   "layer": 1,
-   "cluster": 1,
-   "size": 33,
-   "keywords": [
-    "pendlerpauschale",
-    "abschaffen",
-    "wenn",
-    "abschaffung",
-    "öffi"
-   ],
-   "parent": null,
-   "samples3": [
-    "Pendlerpauschale nur für Menschen mit niedrigem Einkommen, die WIRKLICH aufs Auto angewiesen sind",
-    "Pendlerpauschale umgestalten:, nur für kleine Autos, nur für Menschen mit niedrigen Einkommen, nur, wenn es keine Öffi-Alternative gibt",
-    "Kein Pendlerpauschale für größere Autos"
-   ]
-  },
-  "1_2": {
-   "id": "1_2",
-   "layer": 1,
-   "cluster": 2,
-   "size": 142,
-   "keywords": [
-    "auf",
-    "km",
-    "autobahnen",
-    "lkw",
-    "autobahn"
-   ],
-   "parent": "2_1",
-   "samples3": [
-    "Autobahnen als hohleistungstrassen, sollte die geschwindigkeitbeschränkung auf 160 kmh erhöht werden",
-    "Strengere Lärmgrenzen für Fahrzeuge einführen.",
-    "Weniger Geschwindigkeitskontrollen!"
-   ]
-  },
-  "1_3": {
-   "id": "1_3",
-   "layer": 1,
-   "cluster": 3,
-   "size": 23,
-   "keywords": [
-    "ampeln",
-    "ampelschaltungen",
-    "kreisverkehre",
-    "staus",
-    "optimieren"
-   ],
-   "parent": null,
-   "samples3": [
-    "Keine klimaschädlichen und emissionsfördernden Behinderungen des Kfz-Verkehrs durch falsche Ampelschaltungen und übertriebene Benachrangung.",
-    "Ampelkreuzungen mit sensoren versehen, damit eine effektive Steuerung möflich ist. Reduzierung von Standzeiten bei keinem Querverkehr!",
-    "Ampelschaltungen auf großen Kreuzungen sollen Fußgängern und Radfahrern flüssiges queren ermöglichen und nicht zugunsten Autos unterbrechen"
-   ]
-  },
-  "1_4": {
-   "id": "1_4",
-   "layer": 1,
-   "cluster": 4,
-   "size": 24,
-   "keywords": [
-    "öffis",
-    "gratis",
-    "alle",
-    "günstige",
-    "personen"
-   ],
-   "parent": "2_2",
-   "samples3": [
-    "Alle Öffis gratis",
-    "Wer einen Ausweis für SOMA-Einkäufe hat, soll auch für den Öffi-Gebrauch einen Ausweis bekommen und super günstig damit fahren können.",
-    "Gratis Öffi Ticket wer kein Fahrzeug (Zulassung) besitzt"
-   ]
-  },
-  "1_5": {
-   "id": "1_5",
-   "layer": 1,
-   "cluster": 5,
-   "size": 29,
-   "keywords": [
-    "klimaticket",
-    "klimatickets",
-    "pendlerpauschale",
-    "gratis",
-    "statt"
-   ],
-   "parent": "2_2",
-   "samples3": [
-    "Zum Klimaticket optional um 100 Euro zusätzlich 500 Taxikilometer pro Jahr",
-    "Saisonales Klimaticket (z.B. für Winter, wo man nicht so oft radfahren kann)",
-    "Mobilität: Klimaticket super Ergänzung Beispiel bestehende Micro ÖV AST unbedingt einbinden- vereinfachen der Nutzung am Land"
-   ]
-  },
-  "1_6": {
-   "id": "1_6",
-   "layer": 1,
-   "cluster": 6,
-   "size": 51,
-   "keywords": [
-    "flächen",
-    "von",
-    "bäume",
-    "werden",
-    "begrünung"
-   ],
-   "parent": null,
-   "samples3": [
-    "Versiegelung stoppen. Raumplanung weg von den Kommunen, max 2,5 Hektar versiegeln statt 11,5 ha täglich und Renaturierung von Brachen",
-    "gewerbliche Abstellflächen, Supermarktparkplätze MÜSSEN binnen 5 Jahren Grasgittersteine verlegen, 25 % Grünflächen davon 50% Bäume",
-    "Sofortiger Entzug der Baugenehmigungen von Gemeinden und Ländern, versiegelte Flächen MÜSSEN in 10 bisw 20 facher Höhe renaturiert werden"
-   ]
-  },
-  "1_7": {
-   "id": "1_7",
-   "layer": 1,
-   "cluster": 7,
-   "size": 37,
-   "keywords": [
-    "mobilität",
-    "öffis",
-    "ist",
-    "zu",
-    "wieder"
-   ],
-   "parent": null,
-   "samples3": [
-    "In Mobilitätskonzept überarbeiten (falls nötig) - Plan für Erreichung der Pariser Klimaziele",
-    "zukunfts- und klimataugliche Mobilitätskonzepte - mit einem Plan für Erreichung der Pariser Klimaziele",
-    "Umweltfreundliche Mobilität (Radwege, Öffis) muss ÜBERALL möglich sein, auch am Land"
-   ]
-  },
-  "1_8": {
-   "id": "1_8",
-   "layer": 1,
-   "cluster": 8,
-   "size": 24,
-   "keywords": [
-    "mineralölsteuer",
-    "euro",
-    "treibstoff",
-    "abschaffung",
-    "ist"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "Kraftstoff Preise senken. Die Steuer gehört weg.",
-    "Reduzierung der Spritpreise 1€ pro liter",
-    "Treibstoff ist zu billig, es laufen täglich noch immer unzählige Autos im Stand warm"
-   ]
-  },
-  "1_9": {
-   "id": "1_9",
-   "layer": 1,
-   "cluster": 9,
-   "size": 21,
-   "keywords": [
-    "ab",
-    "verbot",
-    "autos",
-    "von",
-    "verbrennungsmotoren"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "Generelles Verbot von Zweitaktmotoren, weil es Schadstoff-Schleudern sind und fürchterlich stinken",
-    "Ein zeitnahes Verbot für Zweitaktmotoren ist überfällig. In China werden längst fast ausschließlich Elektromopeds verkauft.",
-    "Ab 2026 Verbot der Neuzulassung von Autos mit Motor"
-   ]
-  },
-  "1_10": {
-   "id": "1_10",
-   "layer": 1,
-   "cluster": 10,
-   "size": 40,
-   "keywords": [
-    "ich",
-    "auto",
-    "homeoffice",
-    "arbeit",
-    "zu"
-   ],
-   "parent": null,
-   "samples3": [
-    "Die Menschen werden immer ein persönliches Transportmittel dass jederzeit zur Verfügung steht bevorzugen. Ist ein Luxusthema.",
-    "Man müsste sich mal nach den Arbeitszeiten der Firmen richten und diese auch anfahren!!!",
-    "Für Ältere, Kranke, psychisch Kranke, Menschen mit Einschränkung muss es wohlwollende Maßnahmen im Öffentlichen Verkehr geben!"
-   ]
-  },
-  "1_11": {
-   "id": "1_11",
-   "layer": 1,
-   "cluster": 11,
-   "size": 26,
-   "keywords": [
-    "carsharing",
-    "sharing",
-    "werden",
-    "car",
-    "fördern"
-   ],
-   "parent": null,
-   "samples3": [
-    "Carsharing forcieren, Rufbusse und (autonome) E Taxis an Verkehrsknotenpunkten fördern",
-    "Haltestationen am Land besser erreichbar machen: Car sharing auf Gemeindeebene fördern bzw. Citybike-Konzept am Land etablieren",
-    "Darauf abzielen, dass vorrangig Räder / E-Bikes, E-Autos im Carsharing und sonst Transportmittel wie Öffis, Taxis etc. verwendet werden."
-   ]
-  },
-  "1_12": {
-   "id": "1_12",
-   "layer": 1,
-   "cluster": 12,
-   "size": 44,
-   "keywords": [
-    "von",
-    "autofahrer",
-    "verbieten",
-    "auto",
-    "motorisierten"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "Bitte endlich aufhören, die versch. Verkehrsteilnehmer gegeneinander aufzuhusten! Gegenseitige Toleranz!",
-    "Als ob die Frächter freiwillig Leerfahrten machen wollten...",
-    "Fair f. weniger Verkehr: Autoverbot f. alle, die vor der eigenen Tür Verkehrsberuhigung wollen! Und selbst durch fremde Gassen fahren!"
-   ]
-  },
-  "1_13": {
-   "id": "1_13",
-   "layer": 1,
-   "cluster": 13,
-   "size": 24,
-   "keywords": [
-    "land",
-    "anbindung",
-    "den",
-    "wohne",
-    "gute"
-   ],
-   "parent": "2_5",
-   "samples3": [
-    "Ich wohne auf dem Land und habe keine gute Anbindung an den öffentlichen Verkehr.",
-    "Sie leben sicher nicht auf dem Land, und die nächste Bushaltestelle ist 8 km entfernt",
-    "Was ist, wenn ich in einem Dorf wohne und es im Umkreis von 3 km keine Öffis gibt"
-   ]
-  },
-  "1_14": {
-   "id": "1_14",
-   "layer": 1,
-   "cluster": 14,
-   "size": 48,
-   "keywords": [
-    "klimarat",
-    "österreich",
-    "werden",
-    "klimaschutz",
-    "klimawandel"
-   ],
-   "parent": "2_4",
-   "samples3": [
-    "Lokale Gebote + Verbote nur wenn sie global statistisch relevant sind, sonst sind sie ideologischer Masochismus + ruinieren Lebensqualität.",
-    "Klimarat: Österreich muss im Klimaschutz global eine Vorbildrolle übernehmen.",
-    "Frage an den Klimarat: Geht es da auch korrekt zu? Nicht, dass 100 Leute „bearbeitet“ werden und dann heißt es „Ganz Österreich will das so“"
-   ]
-  },
-  "1_15": {
-   "id": "1_15",
-   "layer": 1,
-   "cluster": 15,
-   "size": 57,
-   "keywords": [
-    "zu",
-    "ist",
-    "nicht",
-    "ich",
-    "wir"
-   ],
-   "parent": "2_4",
-   "samples3": [
-    "Bei all den wirren Vorschlägen komme ich zum Schluss, dass ich in der Einöde leben möchte, um endlich meine Ruhe vor den Menschen zu haben.",
-    "Der Staat sind wir alle!!!",
-    "Grenzt das nicht ein bisschen an Diktatur?"
-   ]
-  },
-  "1_16": {
-   "id": "1_16",
-   "layer": 1,
-   "cluster": 16,
-   "size": 58,
-   "keywords": [
-    "parkplätze",
-    "wien",
-    "parkpickerl",
-    "parkgebühren",
-    "auf"
-   ],
-   "parent": "2_6",
-   "samples3": [
-    "Parkplätze bei Geschäften müssen von mehreren Geschäften genutzt werden. Verpflichtung zu Tiefgaragen",
-    "Da gibt's \"Verweilplätze\" & die arbeitenden Anwohner (die keine Zeit zum \"Bankerlsitzen\" haben) kriegen keinen Parkplatz! Z.B. Ottakringerst",
-    "Alle Parkplätze bei Kaufzentren mit PV Überdachung verpflichtend auf Kosten der Zentren ausrüsten"
-   ]
-  },
-  "1_17": {
-   "id": "1_17",
-   "layer": 1,
-   "cluster": 17,
-   "size": 38,
-   "keywords": [
-    "straßen",
-    "mehr",
-    "keine",
-    "neuen",
-    "raumplanung"
-   ],
-   "parent": "2_7",
-   "samples3": [
-    "Man wird Straßen brauchen, zumindest für den Lieferverkehr, die Feuerwehr, die Rettung und die Polizei.",
-    "Ökostädte ohne Straßen schaffen und die Bobos umsiedeln",
-    "Integrative und systemische Raumplanung mindestens gemäß ÖREK 2030"
-   ]
-  },
-  "1_18": {
-   "id": "1_18",
-   "layer": 1,
-   "cluster": 18,
-   "size": 23,
-   "keywords": [
-    "besteuert",
-    "kfz",
-    "mit",
-    "werden",
-    "höher"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "Familienautos müssen höher besteuert werden, da Menschen mit Kindern die Umwelt stärker belasten.",
-    "Klimarat: Autos sollen umso stärker besteuert werden, je mehr CO2-Emissionen sie pro gefahrenem Kilometer verursachen.",
-    "Familienautos müssen höher besteuert werden, da Menschen mit Kindern die Umwelt besonders schädigen."
-   ]
-  },
-  "1_19": {
-   "id": "1_19",
-   "layer": 1,
-   "cluster": 19,
-   "size": 88,
-   "keywords": [
-    "autos",
-    "ist",
-    "nicht",
-    "sind",
-    "wasserstoff"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "E-bikes verursachen zusätzliche CO2 Belastungen (Stromerzeugung, Produktion von Akkus etc) und sollten daher einer CO2 Steuer unterliegen",
-    "Elektromobilität: Unsere Bequemlichkeit DARF nicht zu Lasten eines sozial- und umweltschädlichen Rohstoffabbaus in anderen Ländern gehen",
-    "Elektroautos sollten nicht leistungsstark und schwer sein, das verschiebt nur die Probleme der Energiebeschaffung."
-   ]
-  },
-  "1_20": {
-   "id": "1_20",
-   "layer": 1,
-   "cluster": 20,
-   "size": 25,
-   "keywords": [
-    "förderung",
-    "autos",
-    "gefördert",
-    "keine",
-    "elektroautos"
-   ],
-   "parent": "2_3",
-   "samples3": [
-    "Abschaffung der Förderung für Elektro-Fahrzeuge",
-    "E-Autos nur bis zu einer Leistung von bis zu 140PS und max.35.000€ Neupreis fördern. Dafür aber mit 50% und nur ein Auto für Privathaushalte",
-    "es sollte eine kombi.förderung geben ->> wenn privat strom erzeugt wird (was,win,pho) und ein e.auto angeschafft wird ->> extra förderung"
-   ]
-  },
-  "1_21": {
-   "id": "1_21",
-   "layer": 1,
-   "cluster": 21,
-   "size": 57,
-   "keywords": [
-    "busse",
-    "ausbauen",
-    "ausbau",
-    "verkehr",
-    "ländlichen"
-   ],
-   "parent": "2_5",
-   "samples3": [
-    "Langenlois, Hollabrunn,... sollten einen Citybus bekommen, der mindestens stündlich im Rundkurs Bahnhof, Geschäfte und Wohngebiete verbindet",
-    "Bahnfahren attraktiv gestalten durch einladende Bahnhöfe mit persönlicher Betreuung, gemütlichen Wartesälen etc",
-    "Bei öffentlichen Verkehrsmitteln sollen die Anschlüsse besser gesichert werden. Das gilt auch für Anschlüsse von der Bahn zum Bus."
-   ]
-  },
-  "1_22": {
-   "id": "1_22",
-   "layer": 1,
-   "cluster": 22,
-   "size": 34,
-   "keywords": [
-    "schiene",
-    "lkw",
-    "auf",
-    "möbel",
-    "größere"
-   ],
-   "parent": "2_5",
-   "samples3": [
-    "Lieferung per LKW ist wie Individualverkehr zu sehen. Eine Art Seilbahnsystem wäre erstebenswert.",
-    "Echtkosten beim Transport verrechnen! Letzten Kilometer, vor allem in Städten und Kommunen über Lastenradverkehr abwickeln.",
-    "Nord-Süd/Ost-West-Transit-Teile des LKW-Verkehrs auf die Schiene mittels Fast-Load Technik (LKW auf Waggon und umgekehrt) bringen"
-   ]
-  },
-  "1_23": {
-   "id": "1_23",
-   "layer": 1,
-   "cluster": 23,
-   "size": 49,
-   "keywords": [
-    "radfahrer",
-    "fahrräder",
-    "stvo",
-    "haftpflichtversicherung",
-    "kennzeichenpflicht"
-   ],
-   "parent": "2_7",
-   "samples3": [
-    "Radfahrer wollen alle Rechte haben. Dann brauchen sie auch Pflichten (Führerschein, Kennzeichen).",
-    "Und wann kommt ein Führerschein für Radfahrer? Kein Wunder, dass viele kein Verständnis für den Straßenverkehr und seine Regeln haben!!!",
-    "Für Radfahrer eine verpflichtende Ausbildung im Straßenverkehrrecht und eine verpflichtende Haftpflichtversicherung."
-   ]
-  },
-  "1_24": {
-   "id": "1_24",
-   "layer": 1,
-   "cluster": 24,
-   "size": 55,
-   "keywords": [
-    "radwege",
-    "von",
-    "radwegen",
-    "auch",
-    "zu"
-   ],
-   "parent": "2_7",
-   "samples3": [
-    "Ausbau von Radwegen nicht zu Lasten der Fußgänger. Keine gemeinsamen Geh- und Radwege. Zusätzlichen Raum für Räder von der Straße \"abziehen\"",
-    "Breite, sichere Radhighways entlang aller wichtiger Routen",
-    "Radwege wo möglich baulich (z.B. durch Leitpfosten, Poller etc) von der Fahrbahn abtrennen. Schützt den Radfahrer aber auch den Autofahrer."
-   ]
-  },
-  "2_0": {
-   "id": "2_0",
-   "layer": 2,
-   "cluster": 0,
-   "size": 115,
-   "keywords": [
-    "flüge",
-    "kerosin",
-    "fliegen",
-    "werden",
-    "von"
-   ],
-   "parent": null,
-   "samples3": [
-    "Kurzstreckenflüge massiv einschränken oder verbieten. Kostenwahrheit beim Fliegen. Keine Start und Landerechte für Billigflieger.",
-    "Nur für Flüge und Kreuzfahrten",
-    "Keine Subventionierung mehr von Flughafen und Flügen"
-   ]
-  },
-  "2_1": {
-   "id": "2_1",
-   "layer": 2,
-   "cluster": 1,
-   "size": 142,
-   "keywords": [
-    "auf",
-    "km",
-    "autobahnen",
-    "lkw",
-    "autobahn"
-   ],
-   "parent": null,
-   "samples3": [
-    "Autobahnen als hohleistungstrassen, sollte die geschwindigkeitbeschränkung auf 160 kmh erhöht werden",
-    "Strengere Lärmgrenzen für Fahrzeuge einführen.",
-    "Weniger Geschwindigkeitskontrollen!"
-   ]
-  },
-  "2_2": {
-   "id": "2_2",
-   "layer": 2,
-   "cluster": 2,
-   "size": 83,
-   "keywords": [
-    "klimaticket",
-    "gratis",
-    "öffis",
-    "bei",
-    "verkehr"
-   ],
-   "parent": null,
-   "samples3": [
-    "Nur Einzeltickets bei Öffis, günstige Jahreskarten generieren Verkehr!",
-    "Günstigere Einzelfahrscheine statt div. Vergünstigungskarten (ÖBB VC)",
-    "Einheitliches Fahrplan-, Buchungs- und Ticketsystem (eine App) für öffentlichen Verkehr, spesenfrei, EU-weit + CH."
-   ]
-  },
-  "2_3": {
-   "id": "2_3",
-   "layer": 2,
-   "cluster": 3,
-   "size": 352,
-   "keywords": [
-    "autos",
-    "von",
-    "werden",
-    "mit",
-    "nicht"
-   ],
-   "parent": null,
-   "samples3": [
-    "Spezielle Führerscheinkurse und Füherscheinprüfungen für E-Autos.",
-    "Vorteile für (kleine) Elektroautos (zB: gratis Parkpickerl für ganz Wien; einführen von E-Auto Straßen) -> E-Mobilität attraktiver machen",
-    "Wenn schon E-Autos: dann IN JEDER GEMEINDE für JEDES auf öffentlichen Straßen abgestellte Kfz. EINE LADESTATION mit gleichem Zahlsystem!"
-   ]
-  },
-  "2_4": {
-   "id": "2_4",
-   "layer": 2,
-   "cluster": 4,
-   "size": 215,
-   "keywords": [
-    "verbieten",
-    "ist",
-    "das",
-    "nicht",
-    "klimaschutz"
-   ],
-   "parent": null,
-   "samples3": [
-    "Nachhaltige Lösung muss global erwirkt werden -> Ein Kind Politik! Damit auch unsere Enkel noch Privatsphäre, Natur und Fleisch kennen!",
-    "Es gibt Pandemie+Krieg und wir denken darüber nach, wie Ö „Klima-Vorbild“ (für wen?) wird u wie man unser Leben noch mehr einschränken kann!",
-    "Ich will die Umwelt schützen, aber wer sagt den Großkonzernen dieser Erde das die es auch machen müssen"
-   ]
-  },
-  "2_5": {
-   "id": "2_5",
-   "layer": 2,
-   "cluster": 5,
-   "size": 206,
-   "keywords": [
-    "den",
-    "mit",
-    "wien",
-    "auf",
-    "nicht"
-   ],
-   "parent": null,
-   "samples3": [
-    "Langenlois, Hollabrunn,... sollten einen Citybus bekommen, der mindestens stündlich im Rundkurs Bahnhof, Geschäfte und Wohngebiete verbindet",
-    "U-Bahnen sollten im 2-Minuten-Takt fahren, Schnellbahnen im 5-Minuten-Takt fahren - auch am Wochenende und schulfreien Zeiten.",
-    "Busspuren für Fahrgemeinschaften öffnen (zB ab 3 Personen im Auto)"
-   ]
-  },
-  "2_6": {
-   "id": "2_6",
-   "layer": 2,
-   "cluster": 6,
-   "size": 58,
-   "keywords": [
-    "parkplätze",
-    "wien",
-    "parkpickerl",
-    "parkgebühren",
-    "auf"
-   ],
-   "parent": null,
-   "samples3": [
-    "Parkplätze bei Geschäften müssen von mehreren Geschäften genutzt werden. Verpflichtung zu Tiefgaragen",
-    "Da gibt's \"Verweilplätze\" & die arbeitenden Anwohner (die keine Zeit zum \"Bankerlsitzen\" haben) kriegen keinen Parkplatz! Z.B. Ottakringerst",
-    "Alle Parkplätze bei Kaufzentren mit PV Überdachung verpflichtend auf Kosten der Zentren ausrüsten"
-   ]
-  },
-  "2_7": {
-   "id": "2_7",
-   "layer": 2,
-   "cluster": 7,
-   "size": 299,
-   "keywords": [
-    "radfahrer",
-    "radwege",
-    "von",
-    "fußgänger",
-    "zu"
-   ],
-   "parent": null,
-   "samples3": [
-    "wie soll das bitte funktionieren? auf den wr,gürtelstraßen und den RINGSTRAßen",
-    "Sicherstellen, dass Wanderwege für die Öffentlichkeit frei begehbar bleiben",
-    "\"Öffnungen\" aller Tunnels und Brücken für alle sich zu Fuß, auf Fahrrädern und Rollern fortbewegende Menschen, sowie für landwi. Fahrzeuge."
-   ]
+  "schema": "polis-topic-names.hierarchy/1",
+  "layers": [
+    0,
+    1,
+    2
+  ],
+  "topics": {
+    "0_0": {
+      "id": "0_0",
+      "layer": 0,
+      "cluster": 0,
+      "size": 7,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_1": {
+      "id": "0_1",
+      "layer": 0,
+      "cluster": 1,
+      "size": 33,
+      "keywords": [],
+      "parent": "1_1",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_2": {
+      "id": "0_2",
+      "layer": 0,
+      "cluster": 2,
+      "size": 12,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_3": {
+      "id": "0_3",
+      "layer": 0,
+      "cluster": 3,
+      "size": 20,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_4": {
+      "id": "0_4",
+      "layer": 0,
+      "cluster": 4,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_5": {
+      "id": "0_5",
+      "layer": 0,
+      "cluster": 5,
+      "size": 22,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_6": {
+      "id": "0_6",
+      "layer": 0,
+      "cluster": 6,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_7": {
+      "id": "0_7",
+      "layer": 0,
+      "cluster": 7,
+      "size": 8,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_8": {
+      "id": "0_8",
+      "layer": 0,
+      "cluster": 8,
+      "size": 16,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_9": {
+      "id": "0_9",
+      "layer": 0,
+      "cluster": 9,
+      "size": 11,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_10": {
+      "id": "0_10",
+      "layer": 0,
+      "cluster": 10,
+      "size": 8,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_11": {
+      "id": "0_11",
+      "layer": 0,
+      "cluster": 11,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_12": {
+      "id": "0_12",
+      "layer": 0,
+      "cluster": 12,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_13": {
+      "id": "0_13",
+      "layer": 0,
+      "cluster": 13,
+      "size": 23,
+      "keywords": [],
+      "parent": "1_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_14": {
+      "id": "0_14",
+      "layer": 0,
+      "cluster": 14,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_15": {
+      "id": "0_15",
+      "layer": 0,
+      "cluster": 15,
+      "size": 24,
+      "keywords": [],
+      "parent": "1_4",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_16": {
+      "id": "0_16",
+      "layer": 0,
+      "cluster": 16,
+      "size": 29,
+      "keywords": [],
+      "parent": "1_5",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_17": {
+      "id": "0_17",
+      "layer": 0,
+      "cluster": 17,
+      "size": 13,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_18": {
+      "id": "0_18",
+      "layer": 0,
+      "cluster": 18,
+      "size": 27,
+      "keywords": [],
+      "parent": "1_7",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_19": {
+      "id": "0_19",
+      "layer": 0,
+      "cluster": 19,
+      "size": 9,
+      "keywords": [],
+      "parent": "1_7",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_20": {
+      "id": "0_20",
+      "layer": 0,
+      "cluster": 20,
+      "size": 30,
+      "keywords": [],
+      "parent": "1_6",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_21": {
+      "id": "0_21",
+      "layer": 0,
+      "cluster": 21,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_6",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_22": {
+      "id": "0_22",
+      "layer": 0,
+      "cluster": 22,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_23": {
+      "id": "0_23",
+      "layer": 0,
+      "cluster": 23,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_24": {
+      "id": "0_24",
+      "layer": 0,
+      "cluster": 24,
+      "size": 17,
+      "keywords": [],
+      "parent": "1_8",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_25": {
+      "id": "0_25",
+      "layer": 0,
+      "cluster": 25,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_8",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_26": {
+      "id": "0_26",
+      "layer": 0,
+      "cluster": 26,
+      "size": 21,
+      "keywords": [],
+      "parent": "1_9",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_27": {
+      "id": "0_27",
+      "layer": 0,
+      "cluster": 27,
+      "size": 13,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_28": {
+      "id": "0_28",
+      "layer": 0,
+      "cluster": 28,
+      "size": 13,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_29": {
+      "id": "0_29",
+      "layer": 0,
+      "cluster": 29,
+      "size": 13,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_30": {
+      "id": "0_30",
+      "layer": 0,
+      "cluster": 30,
+      "size": 26,
+      "keywords": [],
+      "parent": "1_11",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_31": {
+      "id": "0_31",
+      "layer": 0,
+      "cluster": 31,
+      "size": 10,
+      "keywords": [],
+      "parent": "1_10",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_32": {
+      "id": "0_32",
+      "layer": 0,
+      "cluster": 32,
+      "size": 12,
+      "keywords": [],
+      "parent": "1_10",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_33": {
+      "id": "0_33",
+      "layer": 0,
+      "cluster": 33,
+      "size": 15,
+      "keywords": [],
+      "parent": "1_10",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_34": {
+      "id": "0_34",
+      "layer": 0,
+      "cluster": 34,
+      "size": 14,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_35": {
+      "id": "0_35",
+      "layer": 0,
+      "cluster": 35,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_36": {
+      "id": "0_36",
+      "layer": 0,
+      "cluster": 36,
+      "size": 10,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_37": {
+      "id": "0_37",
+      "layer": 0,
+      "cluster": 37,
+      "size": 20,
+      "keywords": [],
+      "parent": "1_12",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_38": {
+      "id": "0_38",
+      "layer": 0,
+      "cluster": 38,
+      "size": 10,
+      "keywords": [],
+      "parent": "1_12",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_39": {
+      "id": "0_39",
+      "layer": 0,
+      "cluster": 39,
+      "size": 24,
+      "keywords": [],
+      "parent": "1_13",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_40": {
+      "id": "0_40",
+      "layer": 0,
+      "cluster": 40,
+      "size": 20,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_41": {
+      "id": "0_41",
+      "layer": 0,
+      "cluster": 41,
+      "size": 16,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_42": {
+      "id": "0_42",
+      "layer": 0,
+      "cluster": 42,
+      "size": 17,
+      "keywords": [],
+      "parent": "1_17",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_43": {
+      "id": "0_43",
+      "layer": 0,
+      "cluster": 43,
+      "size": 16,
+      "keywords": [],
+      "parent": "1_17",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_44": {
+      "id": "0_44",
+      "layer": 0,
+      "cluster": 44,
+      "size": 23,
+      "keywords": [],
+      "parent": "1_18",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_45": {
+      "id": "0_45",
+      "layer": 0,
+      "cluster": 45,
+      "size": 25,
+      "keywords": [],
+      "parent": "1_15",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_46": {
+      "id": "0_46",
+      "layer": 0,
+      "cluster": 46,
+      "size": 10,
+      "keywords": [],
+      "parent": "1_15",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_47": {
+      "id": "0_47",
+      "layer": 0,
+      "cluster": 47,
+      "size": 5,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_48": {
+      "id": "0_48",
+      "layer": 0,
+      "cluster": 48,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_49": {
+      "id": "0_49",
+      "layer": 0,
+      "cluster": 49,
+      "size": 25,
+      "keywords": [],
+      "parent": "1_20",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_50": {
+      "id": "0_50",
+      "layer": 0,
+      "cluster": 50,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_14",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_51": {
+      "id": "0_51",
+      "layer": 0,
+      "cluster": 51,
+      "size": 11,
+      "keywords": [],
+      "parent": "1_14",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_52": {
+      "id": "0_52",
+      "layer": 0,
+      "cluster": 52,
+      "size": 11,
+      "keywords": [],
+      "parent": "1_16",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_53": {
+      "id": "0_53",
+      "layer": 0,
+      "cluster": 53,
+      "size": 8,
+      "keywords": [],
+      "parent": "1_16",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_54": {
+      "id": "0_54",
+      "layer": 0,
+      "cluster": 54,
+      "size": 9,
+      "keywords": [],
+      "parent": "1_16",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_55": {
+      "id": "0_55",
+      "layer": 0,
+      "cluster": 55,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_21",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_56": {
+      "id": "0_56",
+      "layer": 0,
+      "cluster": 56,
+      "size": 13,
+      "keywords": [],
+      "parent": "1_21",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_57": {
+      "id": "0_57",
+      "layer": 0,
+      "cluster": 57,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_21",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_58": {
+      "id": "0_58",
+      "layer": 0,
+      "cluster": 58,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_21",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_59": {
+      "id": "0_59",
+      "layer": 0,
+      "cluster": 59,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_21",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_60": {
+      "id": "0_60",
+      "layer": 0,
+      "cluster": 60,
+      "size": 12,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_61": {
+      "id": "0_61",
+      "layer": 0,
+      "cluster": 61,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_22",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_62": {
+      "id": "0_62",
+      "layer": 0,
+      "cluster": 62,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_22",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_63": {
+      "id": "0_63",
+      "layer": 0,
+      "cluster": 63,
+      "size": 17,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_64": {
+      "id": "0_64",
+      "layer": 0,
+      "cluster": 64,
+      "size": 28,
+      "keywords": [],
+      "parent": "1_19",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_65": {
+      "id": "0_65",
+      "layer": 0,
+      "cluster": 65,
+      "size": 9,
+      "keywords": [],
+      "parent": "1_19",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_66": {
+      "id": "0_66",
+      "layer": 0,
+      "cluster": 66,
+      "size": 36,
+      "keywords": [],
+      "parent": "1_24",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_67": {
+      "id": "0_67",
+      "layer": 0,
+      "cluster": 67,
+      "size": 7,
+      "keywords": [],
+      "parent": "1_24",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_68": {
+      "id": "0_68",
+      "layer": 0,
+      "cluster": 68,
+      "size": 20,
+      "keywords": [],
+      "parent": "1_23",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "0_69": {
+      "id": "0_69",
+      "layer": 0,
+      "cluster": 69,
+      "size": 9,
+      "keywords": [],
+      "parent": "1_23",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_0": {
+      "id": "1_0",
+      "layer": 1,
+      "cluster": 0,
+      "size": 115,
+      "keywords": [],
+      "parent": "2_0",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_1": {
+      "id": "1_1",
+      "layer": 1,
+      "cluster": 1,
+      "size": 33,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_2": {
+      "id": "1_2",
+      "layer": 1,
+      "cluster": 2,
+      "size": 142,
+      "keywords": [],
+      "parent": "2_1",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_3": {
+      "id": "1_3",
+      "layer": 1,
+      "cluster": 3,
+      "size": 23,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_4": {
+      "id": "1_4",
+      "layer": 1,
+      "cluster": 4,
+      "size": 24,
+      "keywords": [],
+      "parent": "2_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_5": {
+      "id": "1_5",
+      "layer": 1,
+      "cluster": 5,
+      "size": 29,
+      "keywords": [],
+      "parent": "2_2",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_6": {
+      "id": "1_6",
+      "layer": 1,
+      "cluster": 6,
+      "size": 51,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_7": {
+      "id": "1_7",
+      "layer": 1,
+      "cluster": 7,
+      "size": 37,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_8": {
+      "id": "1_8",
+      "layer": 1,
+      "cluster": 8,
+      "size": 24,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_9": {
+      "id": "1_9",
+      "layer": 1,
+      "cluster": 9,
+      "size": 21,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_10": {
+      "id": "1_10",
+      "layer": 1,
+      "cluster": 10,
+      "size": 40,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_11": {
+      "id": "1_11",
+      "layer": 1,
+      "cluster": 11,
+      "size": 26,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_12": {
+      "id": "1_12",
+      "layer": 1,
+      "cluster": 12,
+      "size": 44,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_13": {
+      "id": "1_13",
+      "layer": 1,
+      "cluster": 13,
+      "size": 24,
+      "keywords": [],
+      "parent": "2_5",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_14": {
+      "id": "1_14",
+      "layer": 1,
+      "cluster": 14,
+      "size": 48,
+      "keywords": [],
+      "parent": "2_4",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_15": {
+      "id": "1_15",
+      "layer": 1,
+      "cluster": 15,
+      "size": 57,
+      "keywords": [],
+      "parent": "2_4",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_16": {
+      "id": "1_16",
+      "layer": 1,
+      "cluster": 16,
+      "size": 58,
+      "keywords": [],
+      "parent": "2_6",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_17": {
+      "id": "1_17",
+      "layer": 1,
+      "cluster": 17,
+      "size": 38,
+      "keywords": [],
+      "parent": "2_7",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_18": {
+      "id": "1_18",
+      "layer": 1,
+      "cluster": 18,
+      "size": 23,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_19": {
+      "id": "1_19",
+      "layer": 1,
+      "cluster": 19,
+      "size": 88,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_20": {
+      "id": "1_20",
+      "layer": 1,
+      "cluster": 20,
+      "size": 25,
+      "keywords": [],
+      "parent": "2_3",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_21": {
+      "id": "1_21",
+      "layer": 1,
+      "cluster": 21,
+      "size": 57,
+      "keywords": [],
+      "parent": "2_5",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_22": {
+      "id": "1_22",
+      "layer": 1,
+      "cluster": 22,
+      "size": 34,
+      "keywords": [],
+      "parent": "2_5",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_23": {
+      "id": "1_23",
+      "layer": 1,
+      "cluster": 23,
+      "size": 49,
+      "keywords": [],
+      "parent": "2_7",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "1_24": {
+      "id": "1_24",
+      "layer": 1,
+      "cluster": 24,
+      "size": 55,
+      "keywords": [],
+      "parent": "2_7",
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_0": {
+      "id": "2_0",
+      "layer": 2,
+      "cluster": 0,
+      "size": 115,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_1": {
+      "id": "2_1",
+      "layer": 2,
+      "cluster": 1,
+      "size": 142,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_2": {
+      "id": "2_2",
+      "layer": 2,
+      "cluster": 2,
+      "size": 83,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_3": {
+      "id": "2_3",
+      "layer": 2,
+      "cluster": 3,
+      "size": 352,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_4": {
+      "id": "2_4",
+      "layer": 2,
+      "cluster": 4,
+      "size": 215,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_5": {
+      "id": "2_5",
+      "layer": 2,
+      "cluster": 5,
+      "size": 206,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_6": {
+      "id": "2_6",
+      "layer": 2,
+      "cluster": 6,
+      "size": 58,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    },
+    "2_7": {
+      "id": "2_7",
+      "layer": 2,
+      "cluster": 7,
+      "size": 299,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
+      ]
+    }
   }
- }
 }
