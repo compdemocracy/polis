@@ -10,7 +10,8 @@ use crate::{
 };
 use anyhow::{Context, Result};
 use contract::{AcceptedVote, DurableSuccess, FollowOn, FollowOnState, NotificationState};
-use polis_auth::{Zid, participant};
+use polis_auth::{PostgresLookup, Uid, Zid, admission as join, participant, xid_account};
+use polis_queue_adapter::jobs::transport::Connector;
 use postgres::Client;
 use std::{
     sync::{
@@ -51,7 +52,66 @@ pub(crate) struct Writer {
     admins: Vec<i32>,
     priorities: Arc<writer_priorities::Cache>,
     follow_on: Arc<FollowOnLane>,
+    /// `POLIS_API_POST_VOTES_IDENTITY_NO_WRITE=1`: the identity cases that
+    /// write nothing (`IDENTITY_NO_WRITE_SWITCH`). Off, admission is exactly
+    /// what it was before the switch existed.
+    pub(crate) identity_no_write: bool,
+    /// With the identity switch: the pool every admission that is not an
+    /// ordinary member token's reads on (`identity_read_limits`). An external
+    /// id's token, no token, a first contact and an account's token for
+    /// another conversation never take or keep a members' admission slot.
+    /// None with the switch off.
+    pub(crate) identity_reads: Option<Arc<db::Pool>>,
+    /// `POLIS_API_POST_VOTES_FIRST_CONTACT=1`: a first vote with no token and
+    /// no external id (`FIRST_CONTACT_SWITCH`). None, the request is handed
+    /// back exactly as before the switch existed.
+    pub(crate) first_contact: Option<FirstContact>,
 }
+
+/// What a first contact writes with: a pool of its own on the primary, and the
+/// participant signing key. Nothing else uses this pool. A first vote takes
+/// no connection of the vote append pool: its person, its vote and its star
+/// are written here.
+#[derive(Clone)]
+pub(crate) struct FirstContact {
+    pub(crate) pool: Arc<db::Pool>,
+    pub(crate) keys: Arc<polis_auth::keys::Keys>,
+    pub(crate) issuer: String,
+    pub(crate) audience: String,
+}
+
+/// The first contact's pool: two connections, 100 ms to get one, one second a
+/// statement. The transaction's own bounds are `FIRST_CONTACT_BOUNDS`.
+pub(crate) fn first_contact_limits() -> db::Limits {
+    db::Limits {
+        size: 2,
+        acquire_timeout: Duration::from_millis(100),
+        statement_timeout: Duration::from_millis(1000),
+        max_lifetime: Duration::from_secs(300),
+    }
+}
+
+/// The identity reads' pool: two connections, 50 ms to get one, 100 ms a
+/// statement. Full, it sheds: the request is handed back before dispatch,
+/// inside the one admission deadline (`ADMISSION_DEADLINE`).
+pub(crate) fn identity_read_limits() -> db::Limits {
+    db::Limits {
+        size: 2,
+        acquire_timeout: Duration::from_millis(50),
+        statement_timeout: Duration::from_millis(100),
+        max_lifetime: Duration::from_secs(300),
+    }
+}
+
+/// Each attempt's transaction, the person's statements and the vote's
+/// together: 100 ms for a lock (the participant-number lock among them), one
+/// second a statement and between statements, two seconds in all.
+const FIRST_CONTACT_BOUNDS: join::Bounds = join::Bounds {
+    statement: Duration::from_millis(1000),
+    lock: Duration::from_millis(100),
+    idle: Duration::from_millis(1000),
+    transaction: Duration::from_millis(2000),
+};
 
 impl Writer {
     #[cfg(all(test, feature = "db-tests"))]
@@ -65,11 +125,17 @@ impl Writer {
             admins: _,
             priorities: _,
             follow_on: _,
+            identity_no_write: _,
+            // Built only with the identity switch, which these inventories
+            // never set; its own tests count it.
+            identity_reads: _,
+            first_contact: _,
         } = self;
         let NotificationPool {
             pool: background_pool,
             admitted: _,
             dropped: _,
+            extended_info_dropped: _,
         } = background.as_ref();
         [pool, background_pool, reads]
     }
@@ -104,6 +170,9 @@ impl Writer {
             admins: &self.admins,
             priorities: &self.priorities,
             follow_on: &self.follow_on,
+            identity: self.identity_no_write,
+            identity_reads: self.identity_reads.as_ref(),
+            first_contact: self.first_contact.is_some(),
         }
     }
 }
@@ -125,6 +194,80 @@ fn switch() -> Result<Switch> {
         Some("observe") => Ok(Switch::Observe),
         Some(_) => anyhow::bail!("POLIS_API_POST_VOTES must be unset, 0, 1 or observe"),
     }
+}
+
+/// The identity switch of the live writer. Unset, empty or `0` is off: every
+/// request is admitted, refused and handed back exactly as before the switch
+/// existed. `1` also serves, with no row written and no token minted, an
+/// external-id token's member, a member token beside the four external-id
+/// keys, a member of a conversation that requires or lists external ids, and
+/// a Treevite member whose row is the token's; and it answers, with Node's
+/// bytes, the refusals Node's participant middleware makes before writing.
+/// Read only by the main role, and accepted only beside
+/// `POLIS_API_POST_VOTES=1`; another value is a startup error.
+pub(crate) const IDENTITY_NO_WRITE_SWITCH: &str = "POLIS_API_POST_VOTES_IDENTITY_NO_WRITE";
+
+fn identity_no_write_switch() -> Result<bool> {
+    match std::env::var(IDENTITY_NO_WRITE_SWITCH).ok().as_deref() {
+        None | Some("" | "0") => Ok(false),
+        Some("1") => Ok(true),
+        Some(_) => anyhow::bail!("{IDENTITY_NO_WRITE_SWITCH} must be unset, 0 or 1"),
+    }
+}
+
+/// The first-contact switch of the live writer. Unset, empty or `0` is off:
+/// a vote with no token and no external id is handed back, as before the
+/// switch existed. `1` serves it: the conversation's open check and the
+/// fields first, with nothing written; then a user and a participant on a pool
+/// of the first contact's own, the vote, and an anonymous participant token in
+/// the reply. Read only by the main role, and accepted only beside
+/// `POLIS_API_POST_VOTES=1` and `POLIS_API_POST_VOTES_IDENTITY_NO_WRITE=1`;
+/// the participant signing key is then required. Another value is a startup
+/// error.
+pub(crate) const FIRST_CONTACT_SWITCH: &str = "POLIS_API_POST_VOTES_FIRST_CONTACT";
+
+fn first_contact_switch() -> Result<bool> {
+    match std::env::var(FIRST_CONTACT_SWITCH).ok().as_deref() {
+        None | Some("" | "0") => Ok(false),
+        Some("1") => Ok(true),
+        Some(_) => anyhow::bail!("{FIRST_CONTACT_SWITCH} must be unset, 0 or 1"),
+    }
+}
+
+/// The first contact signs the tokens this writer later verifies. A signing
+/// key that is not the pair of the verifier's public key would issue tokens
+/// the writer itself refuses, so startup proves the two agree: a token signed
+/// with `keys` must verify with `verifier`. The error names the settings and
+/// never a key.
+fn signer_matches_verifier(
+    keys: &polis_auth::keys::Keys,
+    verifier: &participant::Verifier,
+    issuer: &str,
+    audience: &str,
+) -> Result<()> {
+    const CODE: &str = "startupcheck";
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let token = polis_auth::participant_mint::mint(
+        keys,
+        polis_auth::participant_mint::Identity::anonymous(Uid(1)),
+        CODE,
+        polis_auth::Pid(0),
+        issuer,
+        audience,
+        || now,
+    )
+    .map_err(|_| {
+        anyhow::anyhow!(
+            "{FIRST_CONTACT_SWITCH}=1: the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH) cannot sign a participant token"
+        )
+    })?;
+    anyhow::ensure!(
+        verifier
+            .verify_unobserved(&format!("Bearer {token}"), CODE, now)
+            .is_some(),
+        "{FIRST_CONTACT_SWITCH}=1: the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH) does not match the public key the vote writer verifies with (POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE when set, otherwise JWT_PUBLIC_KEY or JWT_PUBLIC_KEY_PATH): every token it issued would be refused"
+    );
+    Ok(())
 }
 
 pub(crate) enum Configured {
@@ -152,6 +295,18 @@ pub(crate) fn configure(
         !observe_identity || switch == Switch::Observe,
         "{}=observe requires POLIS_API_POST_VOTES=observe",
         identity::SWITCH
+    );
+    // The live writer's identity switch: never read by the shadow role.
+    let identity_no_write = role == crate::shadow::Role::Main && identity_no_write_switch()?;
+    anyhow::ensure!(
+        !identity_no_write || switch == Switch::Live,
+        "{IDENTITY_NO_WRITE_SWITCH}=1 requires POLIS_API_POST_VOTES=1"
+    );
+    // The first-contact switch: never read by the shadow role.
+    let first_contact = role == crate::shadow::Role::Main && first_contact_switch()?;
+    anyhow::ensure!(
+        !first_contact || identity_no_write,
+        "{FIRST_CONTACT_SWITCH}=1 requires {IDENTITY_NO_WRITE_SWITCH}=1 and POLIS_API_POST_VOTES=1"
     );
     match (role, switch) {
         (_, Switch::Off) => return Ok(Configured::Off),
@@ -223,6 +378,29 @@ pub(crate) fn configure(
         }
         return Ok(Configured::Observe(observer));
     }
+    let first_contact = if first_contact {
+        let keys = polis_auth::keys::Keys::from_env()
+            .map_err(|error| anyhow::anyhow!("{FIRST_CONTACT_SWITCH}=1: {error:?}"))?;
+        anyhow::ensure!(
+            keys.private_key().is_some(),
+            "{FIRST_CONTACT_SWITCH}=1 requires the participant signing key (JWT_PRIVATE_KEY or JWT_PRIVATE_KEY_PATH)"
+        );
+        signer_matches_verifier(&keys, &verifier, &issuer, &audience)?;
+        Some(FirstContact {
+            pool: db::Pool::writer(
+                first_contact_connector(config::connector_for_dsn(
+                    &dsn,
+                    "polis-api-vote-first-contact/1",
+                )?),
+                first_contact_limits(),
+            ),
+            keys: Arc::new(keys),
+            issuer: issuer.clone(),
+            audience: audience.clone(),
+        })
+    } else {
+        None
+    };
     Ok(Configured::Live(Writer {
         pool: db::Pool::writer(
             config::connector_for_dsn(&dsn, "polis-api-post-votes/1")?,
@@ -250,6 +428,16 @@ pub(crate) fn configure(
         admins,
         priorities,
         follow_on: Arc::new(FollowOnLane::default()),
+        identity_no_write,
+        identity_reads: if identity_no_write {
+            Some(db::Pool::new(
+                config::connector_for_dsn(&dsn, "polis-api-vote-identity-reads/1")?,
+                identity_read_limits(),
+            ))
+        } else {
+            None
+        },
+        first_contact,
     }))
 }
 
@@ -260,6 +448,12 @@ struct Admission<'a> {
     admins: &'a [i32],
     priorities: &'a Arc<writer_priorities::Cache>,
     follow_on: &'a Arc<FollowOnLane>,
+    /// The live writer's identity switch; always false in observe mode.
+    identity: bool,
+    /// The identity reads' pool; always None in observe mode.
+    identity_reads: Option<&'a Arc<db::Pool>>,
+    /// The live writer's first-contact switch; always false in observe mode.
+    first_contact: bool,
 }
 
 fn request(req: &Request) -> Option<(String, contract::Request)> {
@@ -326,12 +520,65 @@ fn request_reasoned(req: &Request) -> Result<(String, contract::Request), &'stat
     Ok((cid, raw))
 }
 
+/// The body keys that name an external id. Node's vote route parses only
+/// `xid` (`want("xid", getStringLimitLength(1, 999))`); the profile keys are
+/// not parsed there and change nothing.
+const EXTERNAL_ID_KEYS: [&str; 4] = ["xid", "x_name", "x_profile_image_url", "x_email"];
+
+/// `request_reasoned` with the identity switch on: the four external-id keys
+/// are taken out of the body before the same checks, and the external id the
+/// body names is returned. An external id Node's parser would refuse, or one
+/// that is only whitespace, is handed back for Node to answer.
+fn request_identity(
+    req: &Request,
+) -> Result<(String, contract::Request, Option<String>), &'static str> {
+    match request_reasoned(req) {
+        Err("shape_keys") => {}
+        other => return other.map(|(cid, raw)| (cid, raw, None)),
+    }
+    let value: serde_json::Value = serde_json::from_slice(&req.body).map_err(|_| "shape_json")?;
+    let mut object = value.as_object().ok_or("shape_json")?.clone();
+    if !EXTERNAL_ID_KEYS.iter().any(|key| object.contains_key(*key)) {
+        return Err("shape_keys");
+    }
+    let xid = object.get("xid").cloned();
+    for key in EXTERNAL_ID_KEYS {
+        object.remove(key);
+    }
+    let rest = Request {
+        method: req.method.clone(),
+        target: req.target.clone(),
+        headers: req.headers.clone(),
+        body: serde_json::to_vec(&serde_json::Value::Object(object)).map_err(|_| "shape_json")?,
+    };
+    let (cid, raw) = request_reasoned(&rest)?;
+    let xid = match xid {
+        None | Some(serde_json::Value::Null) => None,
+        Some(value) => match contract::string(&value, 999) {
+            Some(xid)
+                if !matches!(
+                    join::Identity::without_token(Some(&xid)),
+                    join::Identity::Anonymous
+                ) =>
+            {
+                Some(xid)
+            }
+            _ => return Err("xid_parameter"),
+        },
+    };
+    Ok((cid, raw, xid))
+}
+
 pub(crate) fn eligible(app: &App, req: &Request) -> bool {
     // Cookies neither authenticate nor disqualify a caller. handle still
     // requires a supported verified Bearer and membership before dispatch.
+    let shape = match &app.post_votes {
+        Some(writer) if writer.identity_no_write => request_identity(req).is_ok(),
+        _ => request(req).is_some(),
+    };
     (app.post_votes.is_some() || app.post_votes_observe.is_some())
         && app.production
-        && request(req).is_some()
+        && shape
         && (app.dev_mode
             || app.use_network_host
             || req.headers.get("x-forwarded-proto") == Some("https"))
@@ -367,21 +614,165 @@ fn priorities(c: &mut Client, zid: i32, env: &str) -> Result<Option<Js>> {
         .raw_for_test()
 }
 
-/// Admission's reads. A refusal is Ok(Err(reason)); live hands every one back.
+/// Who a request is, as admission reads it.
+enum Caller {
+    /// A participant token for this conversation that is not an external
+    /// id's: the only caller when the identity switch is off.
+    Member(participant::Verified),
+    /// Identity switch on: an external-id token for this conversation, for
+    /// the external id it is bound to.
+    Xid {
+        member: participant::Verified,
+        xid: String,
+    },
+    /// Identity switch on: no token, and the external id the body names.
+    /// Only Node's refusals before any write are answered; the rest is
+    /// handed back.
+    Tokenless(Option<String>),
+    /// First-contact switch on: no token and no external id, or an
+    /// anonymous participant token for another conversation code (`other`,
+    /// the token's code). A new person either way. Admission's reads decide;
+    /// a first contact is written only after the fields.
+    FirstContact { other: Option<String> },
+    /// First-contact switch on: a signed-in account's participant token for
+    /// another conversation code (`other`), and no external id. The account
+    /// keeps its user and gets a participant in this conversation.
+    Account { uid: Uid, other: String },
+}
+
+/// The person a first contact creates: for a signed-in account its user and
+/// subject (a standard-user token); None, a new anonymous user. The code the
+/// token names is read when the person is created (`create`), as Node reads
+/// it when it signs: not the code the request used.
+struct NewParticipant {
+    account: Option<(Uid, String)>,
+}
+
+/// Whether a token issued for conversation code `code` is for the
+/// conversation `zid`, as Node decides it: by resolved conversation, so an
+/// alias of the same conversation is the same one. A code that resolves to
+/// nothing is another conversation.
+fn token_names(c: &mut Client, code: &str, zid: i32) -> Result<bool> {
+    Ok(db::zid_for_conversation_id(c, code)? == Some(zid))
+}
+
+/// A request admission does not admit: handed back for its reason, or
+/// answered with Node's refusal (status and code) before anything is written.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Turned {
+    Back(&'static str),
+    Answer(u16, &'static str),
+    /// A first contact: nobody exists and nothing is written yet. Whether
+    /// the conversation is open, read in the same admission.
+    FirstContact {
+        zid: i32,
+        active: bool,
+    },
+}
+
+/// The refusals Node's participant middleware answers for a request with no
+/// token before it creates anybody. `polis_auth::admission` makes them in
+/// Node's order; any other decision is handed back.
+const TOKENLESS_REFUSALS: [&str; 4] = [
+    "polis_err_xid_not_allowed",
+    "polis_err_xid_required",
+    TREEVITE_REFUSAL,
+    "polis_err_xid_owner_account",
+];
+
+/// Node's refusal of a request with no token into a Treevite conversation
+/// by someone who is not yet a member. Answered only where Node creates
+/// nobody before it (`decided`).
+const TREEVITE_REFUSAL: &str = "polis_err_treevite_auth_required";
+
+/// The server-side bounds of the tokenless decision's read-only snapshot,
+/// within the admission deadline.
+const TOKENLESS_BOUNDS: join::Bounds = join::Bounds {
+    statement: Duration::from_millis(100),
+    lock: Duration::from_millis(100),
+    idle: Duration::from_millis(250),
+    transaction: Duration::from_millis(250),
+};
+
+/// Admission's reads. A refusal is Ok(Err(turned)); with the identity switch
+/// off every one is handed back.
+#[allow(clippy::too_many_arguments)]
 fn admit(
     c: &mut Client,
     cid: &str,
-    identity: &participant::Verified,
+    caller: &Caller,
+    identity_on: bool,
+    admins: &[i32],
     env: &str,
     cache: Arc<writer_priorities::Cache>,
     follow_on: Arc<FollowOnLane>,
-) -> Result<Result<(Admitted, writer_priorities::Snapshot), &'static str>> {
+) -> Result<Result<(Admitted, writer_priorities::Snapshot), Turned>> {
     let Some(zid) = db::zid_for_conversation_id(c, cid)? else {
-        return Ok(Err("unknown_conversation"));
+        return Ok(Err(Turned::Back("unknown_conversation")));
     };
-    let Some(pid) = participant::resolve(c, Zid(zid), identity)? else {
-        return Ok(Err("not_a_participant"));
+    let identity = match caller {
+        Caller::Member(identity) => identity,
+        // Its account and the allow-list are checked after membership, below.
+        Caller::Xid { member, .. } => member,
+        Caller::Tokenless(xid) => {
+            return Ok(Err(tokenless(c, zid, xid.as_deref(), admins, false)));
+        }
+        Caller::FirstContact { other } => {
+            if let Some(code) = other
+                && token_names(c, code, zid)?
+            {
+                return Ok(Err(Turned::Back("token_alias")));
+            }
+            return Ok(Err(first_contact_turn(
+                c,
+                zid,
+                &join::Identity::Anonymous,
+                admins,
+            )?));
+        }
+        Caller::Account { uid, other } => {
+            if token_names(c, other, zid)? {
+                return Ok(Err(Turned::Back("token_alias")));
+            }
+            // The account test a member's standard-user token gets below.
+            if c.query_one(
+                "select coalesce(u.site_id is not null and u.site_id = owner_user.site_id, false)
+                 from conversations c left join users owner_user on owner_user.uid=c.owner
+                 left join users u on u.uid=$2 where c.zid=$1",
+                &[&zid, &uid.0],
+            )?
+            .try_get::<_, bool>(0)?
+            {
+                return Ok(Err(Turned::Back("site_owner_standard_user")));
+            }
+            return Ok(Err(first_contact_turn(
+                c,
+                zid,
+                &join::Identity::Account(*uid),
+                admins,
+            )?));
+        }
     };
+
+    // Node trusts a member token's participant number in a Treevite
+    // conversation too; its Treevite check applies only to a request with none.
+    let pid = if identity_on {
+        participant::resolve_member(c, Zid(zid), identity)?
+    } else {
+        participant::resolve(c, Zid(zid), identity)?
+    };
+    let Some(pid) = pid else {
+        return Ok(Err(Turned::Back("not_a_participant")));
+    };
+    // A token's member is qualified before any answer is given for it: a
+    // token whose row is gone, or is not the token's, has been handed back
+    // above, whatever its account or the allow-list would say. A member's
+    // account is then checked before the allow-list, as Node does.
+    if let Caller::Xid { member, xid } = caller
+        && let Err(turned) = xid_member(c, zid, member, xid, admins)?
+    {
+        return Ok(Err(turned));
+    }
     let row = c.query_one(
         "select c.is_active, c.xid_required, c.use_xid_whitelist,
          u.site_id is not null and u.site_id = owner_user.site_id
@@ -393,13 +784,18 @@ fn admit(
     if identity.kind == participant::Kind::StandardUser
         && row.try_get::<_, Option<bool>>(3)?.unwrap_or(false)
     {
-        return Ok(Err("site_owner_standard_user"));
+        return Ok(Err(Turned::Back("site_owner_standard_user")));
     }
-    if row.try_get::<_, Option<bool>>(1)?.unwrap_or(false) {
-        return Ok(Err("xid_required"));
-    }
-    if row.try_get::<_, Option<bool>>(2)?.unwrap_or(false) {
-        return Ok(Err("xid_allowlist"));
+    // Node refuses neither for a caller with a member token: a required
+    // external id only stops a new user, and the allow-list applies only
+    // where the external id is the identity (checked in `xid_member`).
+    if !identity_on {
+        if row.try_get::<_, Option<bool>>(1)?.unwrap_or(false) {
+            return Ok(Err(Turned::Back("xid_required")));
+        }
+        if row.try_get::<_, Option<bool>>(2)?.unwrap_or(false) {
+            return Ok(Err(Turned::Back("xid_allowlist")));
+        }
     }
     let snapshot = cache.snapshot(c, zid, env)?;
     Ok(Ok((
@@ -414,6 +810,168 @@ fn admit(
         },
         snapshot,
     )))
+}
+
+/// An external-id token's member, as Node checks it on every vote: the
+/// signed user's account first (hybrid auth, `requireXidParticipantAccount`),
+/// then the owner's allow-list (`_requireXidAllowed`). An account check that
+/// cannot be read is handed back, never refused.
+fn xid_member(
+    c: &mut Client,
+    zid: i32,
+    member: &participant::Verified,
+    xid: &str,
+    admins: &[i32],
+) -> Result<Result<(), Turned>> {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let account = xid_account::Check {
+        db: &mut PostgresLookup(c),
+        admin_uids: &admin_uids,
+    }
+    .require_participant(member.uid());
+    match account {
+        Ok(()) => {}
+        Err(xid_account::Refusal::Privileged(_)) => {
+            return Ok(Err(Turned::Answer(403, "polis_err_xid_owner_account")));
+        }
+        Err(xid_account::Refusal::CheckFailed) => {
+            return Ok(Err(Turned::Back("account_check_failed")));
+        }
+    }
+    if !external_id_may_be_sent(c) {
+        return Ok(Err(Turned::Back(EXTERNAL_ID_LOGGING)));
+    }
+    Ok(match join::xid_allowed(c, Zid(zid), xid)? {
+        Some(true) => Ok(()),
+        Some(false) => Err(Turned::Answer(403, "polis_err_xid_not_allowed")),
+        None => Err(Turned::Back("unknown_conversation")),
+    })
+}
+
+/// A first contact's admission: the decision for `identity` (a new anonymous
+/// user, or a signed-in account), and, when it creates, whether the
+/// conversation is open. Nothing is written.
+fn first_contact_turn(
+    c: &mut Client,
+    zid: i32,
+    identity: &join::Identity<'_>,
+    admins: &[i32],
+) -> Result<Turned> {
+    Ok(match decided(c, zid, identity, admins, true) {
+        Turned::FirstContact { .. } => {
+            let row = c.query_one(
+                "select coalesce(is_active,false),
+                 coalesce(xid_required,false) or coalesce(use_xid_whitelist,false)
+                 or coalesce(treevite_enabled,false)
+                 from conversations where zid=$1",
+                &[&zid],
+            )?;
+            let (active, rules) = (row.try_get::<_, bool>(0)?, row.try_get::<_, bool>(1)?);
+            if !active && rules {
+                // Closed, and an identity rule Node checks before it
+                // creates anybody: Node answers that rule. Handed back.
+                Turned::Back("no_token")
+            } else {
+                Turned::FirstContact { zid, active }
+            }
+        }
+        turned => turned,
+    })
+}
+
+/// A request with no token: what admission's participation entry decides, by
+/// reads alone in one read-only snapshot. Node's refusals before any write
+/// are answered; everything else (a first contact, which writes) goes back.
+///
+/// With `first_contact`, a decision to create a user and a participant is a
+/// first contact (`Turned::FirstContact`, its `active` still to be read).
+fn tokenless(
+    c: &mut Client,
+    zid: i32,
+    xid: Option<&str>,
+    admins: &[i32],
+    first_contact: bool,
+) -> Turned {
+    let identity = join::Identity::without_token(xid);
+    decided(c, zid, &identity, admins, first_contact && xid.is_none())
+}
+
+/// What admission's participation entry decides for `identity`, by reads
+/// alone in one read-only snapshot. Node's refusals before any write are
+/// answered. With `first_contact`, a decision to create (a user and a
+/// participant for an anonymous identity, a participant for an account) is
+/// a first contact; everything else goes back.
+fn decided(
+    c: &mut Client,
+    zid: i32,
+    identity: &join::Identity<'_>,
+    admins: &[i32],
+    first_contact: bool,
+) -> Turned {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let account = matches!(identity, join::Identity::Account(_));
+    // The snapshot binds an external id as a parameter.
+    if matches!(identity, join::Identity::Xid { .. }) && !external_id_may_be_sent(c) {
+        return Turned::Back(EXTERNAL_ID_LOGGING);
+    }
+    let Ok(mut snapshot) = join::snapshot(c, &TOKENLESS_BOUNDS) else {
+        return Turned::Back("admission_unavailable");
+    };
+    let decision = snapshot.decide(&join::Participation {
+        zid: Zid(zid),
+        identity,
+        create_if_missing: true,
+        admin_uids: &admin_uids,
+    });
+    snapshot.end();
+    let Ok(decision) = decision else {
+        return Turned::Back("admission_unavailable");
+    };
+    // Node makes the Treevite refusal only after it has created a user for a
+    // request that names no external id, or one bound to nobody: that
+    // refusal is Node's. It is answered only for an external id already
+    // bound to a user here, where Node creates nobody.
+    if matches!(decision.outcome, join::Outcome::Refused(refusal) if refusal.code == TREEVITE_REFUSAL)
+        && !(matches!(identity, join::Identity::Xid { .. })
+            && decision.xid == join::XidSeen::Bound
+            && decision.uid().is_some())
+    {
+        return Turned::Back("treevite_new_user");
+    }
+    match decision.outcome {
+        join::Outcome::Refused(refusal) if TOKENLESS_REFUSALS.contains(&refusal.code) => {
+            Turned::Answer(refusal.status, refusal.code)
+        }
+        join::Outcome::CreateUserAndParticipant if first_contact && !account => {
+            Turned::FirstContact { zid, active: false }
+        }
+        join::Outcome::CreateParticipant if first_contact && account => {
+            Turned::FirstContact { zid, active: false }
+        }
+        // Admission refuses a closed conversation before its other rules;
+        // Node creates first and then refuses. Rust refuses first, after the
+        // fields (`admit` reads the rules the refusal did not reach).
+        join::Outcome::Refused(refusal)
+            if first_contact && refusal.code == "polis_err_conversation_is_closed" =>
+        {
+            Turned::FirstContact { zid, active: false }
+        }
+        _ if account => Turned::Back("account_not_created"),
+        _ => Turned::Back("no_token"),
+    }
+}
+
+/// The reason a request is handed back when its connection's logging
+/// settings could write an external id into the server's log.
+const EXTERNAL_ID_LOGGING: &str = "external_id_logging";
+
+/// Whether an external id (or a first contact's referrer and origin,
+/// `schedule_extended_info`) may be bound as a parameter on this connection:
+/// the vote observer's rule (`identity::xid_lookup_rule`), with the settings read
+/// on this connection for each request, so a setting changed after startup is
+/// seen. Settings that cannot be read count as unsafe.
+fn external_id_may_be_sent(c: &mut Client) -> bool {
+    identity::read_rule(c) == Some(identity::XidLookup::Enabled)
 }
 
 fn next(
@@ -730,6 +1288,10 @@ struct Prepared {
     fields: ParsedFields,
     res: Res,
     admission: Duration,
+    /// A first contact: who is to be created, and the conversation's code
+    /// for the token. Nobody is written yet; `admitted` carries no
+    /// participant until `create`.
+    first_contact: Option<NewParticipant>,
 }
 
 /// A request handed back or refused before dispatch: the live answer, and the
@@ -755,6 +1317,17 @@ impl Refused {
             admission: None,
         })
     }
+
+    /// Node's answer to a request refused before anything is written.
+    fn answered(out: Outgoing, reason: &'static str) -> Box<Self> {
+        Box::new(Self {
+            out,
+            reason,
+            member: None,
+            fields: None,
+            admission: None,
+        })
+    }
 }
 
 /// Everything before dispatch, for live and observe alike: the request
@@ -766,32 +1339,119 @@ async fn prepare(
     req: &Request,
     res: Res,
 ) -> Result<Prepared, Box<Refused>> {
-    let (cid, raw) = request_reasoned(req).map_err(Refused::handback)?;
+    let (cid, raw, named) = if writer.identity {
+        request_identity(req)
+    } else {
+        request_reasoned(req).map(|(cid, raw)| (cid, raw, None))
+    }
+    .map_err(Refused::handback)?;
     let auth = req.headers.get("authorization");
-    let Some(identity) = auth.and_then(|auth| {
-        writer
-            .verifier
-            .verify(auth, &cid, (crate::clock::now_ms() / 1000.0) as u64)
-    }) else {
-        return Err(Refused::handback(if auth.is_none() {
-            "no_token"
-        } else {
-            "token_refused"
-        }));
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let mut account = None;
+    let caller = match auth {
+        None if writer.first_contact && named.is_none() => Caller::FirstContact { other: None },
+        None if writer.identity => Caller::Tokenless(named),
+        None => return Err(Refused::handback("no_token")),
+        Some(auth) if writer.identity => 'caller: {
+            // The account check of an external-id token runs with
+            // admission's reads (`xid_member`), on the signed user.
+            let mut deferred =
+                |_: Uid| Ok::<Option<xid_account::Account>, polis_auth::Unavailable>(None);
+            let scoped = writer
+                .verifier
+                .verify_for_request(
+                    auth,
+                    &cid,
+                    named.as_deref(),
+                    now,
+                    &mut xid_account::Check {
+                        db: &mut deferred,
+                        admin_uids: &[],
+                    },
+                )
+                .ok()
+                .flatten();
+            // A token for another conversation code, with the first-contact
+            // switch on and no external id named: an anonymous token is a
+            // new person, a signed-in account's keeps its user. Whether the
+            // code is another conversation is decided in admission, by
+            // resolved conversation.
+            if writer.first_contact
+                && named.is_none()
+                && let Some(scoped) = scoped.as_ref().filter(|s| !s.same_conversation())
+            {
+                let other = scoped.token_conversation().to_owned();
+                match (scoped.kind, scoped.uid(), scoped.subject()) {
+                    (participant::Kind::Anonymous, None, _) => {
+                        break 'caller Caller::FirstContact { other: Some(other) };
+                    }
+                    (participant::Kind::StandardUser, Some(uid), Some(subject)) => {
+                        if writer.admins.contains(&uid.0) {
+                            return Err(Refused::handback("admin"));
+                        }
+                        account = Some((uid, subject.to_owned()));
+                        break 'caller Caller::Account { uid, other };
+                    }
+                    _ => {}
+                }
+            }
+            let Some((member, xid)) = scoped
+                .as_ref()
+                .and_then(|scoped| Some((scoped.member()?, scoped.xid().map(str::to_owned))))
+            else {
+                return Err(Refused::handback("token_refused"));
+            };
+            match (member.kind, xid) {
+                // Node's hybrid auth refuses an administrator's external-id
+                // token before it reads the conversation. Here that refusal
+                // (`xid_member`) waits for the token's membership: one whose
+                // row is gone, or an unknown conversation, is handed back.
+                (participant::Kind::Xid, Some(xid)) => Caller::Xid { member, xid },
+                (participant::Kind::Xid, None) => return Err(Refused::handback("token_refused")),
+                _ => Caller::Member(member),
+            }
+        }
+        Some(auth) => match writer.verifier.verify(auth, &cid, now) {
+            Some(identity) => Caller::Member(identity),
+            None => return Err(Refused::handback("token_refused")),
+        },
     };
-    if writer.admins.contains(&identity.uid().0) {
+    if let Caller::Member(identity) = &caller
+        && writer.admins.contains(&identity.uid().0)
+    {
         return Err(Refused::handback("admin"));
     }
+    // An ordinary member token's admission reads on the members' pool, as
+    // before the identity switch existed. Every other caller reads on the
+    // identity pool, whose work, finished or cut by the deadline, can never
+    // hold a member's slot.
+    let (pool, unavailable) = match (&caller, writer.identity_reads) {
+        (Caller::Member(_), _) => (writer.reads, "admission_unavailable"),
+        (_, Some(identity_reads)) => (identity_reads, "identity_reads_unavailable"),
+        (_, None) => return Err(Refused::handback("identity_reads_unconfigured")),
+    };
     let env = app.math_env.clone();
     let started = tokio::time::Instant::now();
     let admission = tokio::time::timeout(ADMISSION_DEADLINE, async {
         let cache = writer.priorities.clone();
         let follow_on = writer.follow_on.clone();
-        let prepared = writer
-            .reads
-            .with(move |c| admit(c, &cid, &identity, &env, cache, follow_on))
+        let identity_on = writer.identity;
+        let admins = writer.admins.to_vec();
+        let prepared = pool
+            .with(move |c| {
+                admit(
+                    c,
+                    &cid,
+                    &caller,
+                    identity_on,
+                    &admins,
+                    &env,
+                    cache,
+                    follow_on,
+                )
+            })
             .await
-            .map_err(|_| "admission_unavailable")?;
+            .map_err(|_| Turned::Back(unavailable))?;
         let (mut admitted, snapshot) = prepared?;
         // Parsing, coalescing and shape validation hold no admission SQL
         // slot. A timed-out first caller can leave the generation warming,
@@ -800,20 +1460,45 @@ async fn prepare(
             match tokio::task::spawn_blocking(move || snapshot.validate()).await {
                 Ok(Ok(weights)) => weights,
                 Ok(Err(error)) if error.is::<writer_priorities::CacheBusy>() => {
-                    return Err("priorities_busy");
+                    return Err(Turned::Back("priorities_busy"));
                 }
-                Ok(Err(_)) => return Err("priorities_invalid"),
-                Err(_) => return Err("admission_unavailable"),
+                Ok(Err(_)) => return Err(Turned::Back("priorities_invalid")),
+                Err(_) => return Err(Turned::Back("admission_unavailable")),
             },
         );
-        Ok::<_, &'static str>(admitted)
+        Ok::<_, Turned>(admitted)
     })
     .await;
     let admission_time = started.elapsed();
+    let mut first_contact = None;
     let admitted = match admission {
         Ok(Ok(admitted)) => admitted,
-        Ok(Err(reason)) => {
+        // Nothing is written before the fields parse and the conversation is
+        // found open, below: a first contact is refused first.
+        Ok(Err(Turned::FirstContact { zid, active })) => {
+            first_contact = Some(NewParticipant {
+                account: account.take(),
+            });
+            Admitted {
+                zid,
+                pid: -1,
+                uid: 0,
+                active,
+                _priority_lease: None,
+                priorities: writer.priorities.clone(),
+                follow_on: writer.follow_on.clone(),
+            }
+        }
+        Ok(Err(Turned::Back(reason))) => {
             let mut refused = Refused::handback(reason);
+            refused.admission = Some(admission_time);
+            return Err(refused);
+        }
+        Ok(Err(Turned::Answer(status, code))) => {
+            let mut refused = Refused::answered(
+                route::fail_json(req, res, status, Js::Str(code.into())),
+                code,
+            );
             refused.admission = Some(admission_time);
             return Err(refused);
         }
@@ -823,7 +1508,9 @@ async fn prepare(
             return Err(refused);
         }
     };
-    let member = Some((admitted.zid, admitted.pid));
+    let member = first_contact
+        .is_none()
+        .then_some((admitted.zid, admitted.pid));
     let refused = |out, reason| {
         Box::new(Refused {
             out,
@@ -858,6 +1545,7 @@ async fn prepare(
         fields,
         res,
         admission: admission_time,
+        first_contact,
     })
 }
 
@@ -875,38 +1563,45 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
         fields,
         res,
         admission: _,
+        first_contact,
     } = match prepare(app, writer.admission(), req, res).await {
         Ok(prepared) => prepared,
         Err(refused) => return refused.out,
     };
-    // Publish a receipt immediately after SQL acknowledges the vote transaction commit. A
-    // disconnected caller cannot cancel the task. A deadline without a receipt
-    // is explicitly unknown (202), never a failure that nginx may replay.
     // Once the process is stopping nothing more is dispatched: this vote is
-    // handed back, marked, and nginx gives it to Node (`crate::shutdown`).
+    // handed back, marked, and nginx gives it to Node (`crate::shutdown`). A
+    // first contact begins here too, before anything is written.
     let Some(active_dispatch) = ActiveDispatch::begin() else {
         return route::bad_gateway();
     };
     let receipt = Arc::new(Mutex::new(None));
-    let fallback_pid = admitted.pid;
     let fallback_star = fields.starred.is_some();
     #[cfg(all(test, feature = "db-tests"))]
     if let Some(observation) = &active_dispatch.observation {
         observation.lock().unwrap().receipt = Some(receipt.clone());
     }
-    let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
-    let task = tokio::spawn(dispatch(
-        writer.pool.clone(),
-        writer.reads.clone(),
-        writer.background.clone(),
-        admitted,
-        fields,
-        app.math_env.clone(),
-        next_comment::draw(req),
-        receipt.clone(),
-        reply_deadline,
+    let lane = Dispatch {
+        pool: writer.pool.clone(),
+        reads: writer.reads.clone(),
+        background: writer.background.clone(),
+        env: app.math_env.clone(),
+        unit: next_comment::draw(req),
+        receipt: receipt.clone(),
         active_dispatch,
-    ));
+    };
+    if let Some(new) = first_contact {
+        let Some(first) = &writer.first_contact else {
+            return route::bad_gateway();
+        };
+        return serve_first_contact(req, res, writer, first, new, lane, admitted, fields).await;
+    }
+    // Publish a receipt immediately after SQL acknowledges the vote
+    // transaction commit. A disconnected caller cannot cancel the task. A
+    // deadline without a receipt is explicitly unknown (202), never a failure
+    // that nginx may replay.
+    let fallback_pid = admitted.pid;
+    let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
+    let task = tokio::spawn(lane.run(admitted, fields, reply_deadline));
     match tokio::time::timeout_at(reply_deadline, task).await {
         Ok(Ok(Ok(Outcome::Success(body)))) => accepted(req, res, body),
         Ok(Ok(Ok(Outcome::Failure(status, code)))) => {
@@ -917,15 +1612,643 @@ pub(crate) async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
             if let Some(vote) = vote {
                 accepted(req, res, degraded(fallback_pid, vote, fallback_star))
             } else {
-                route::json_text(
-                    req,
-                    res,
-                    202,
-                    r#"{"acceptance":"unknown","retry":"same_vote"}"#.into(),
-                )
+                // A fixed body of two strings.
+                let body = serde_json::to_string(&contract::UnknownAcceptance::new())
+                    .unwrap_or_else(|_| r#"{"acceptance":"unknown","retry":"same_vote"}"#.into());
+                route::json_text(req, res, 202, body)
             }
         }
     }
+}
+
+/// What a vote is dispatched with, gathered before the dispatch is spawned.
+struct Dispatch {
+    pool: Arc<db::Pool>,
+    reads: Arc<db::Pool>,
+    background: Arc<NotificationPool>,
+    env: String,
+    unit: f64,
+    receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    active_dispatch: ActiveDispatch,
+}
+
+impl Dispatch {
+    async fn run(
+        self,
+        admitted: Admitted,
+        fields: ParsedFields,
+        reply_deadline: tokio::time::Instant,
+    ) -> Result<Outcome> {
+        dispatch(
+            self.pool,
+            self.reads,
+            self.background,
+            admitted,
+            fields,
+            self.env,
+            self.unit,
+            self.receipt,
+            reply_deadline,
+            self.active_dispatch,
+        )
+        .await
+    }
+}
+
+/// How long a first vote's request waits for its answer: the first-contact
+/// pool's acquire (100 ms), the transaction's own bound (2 s,
+/// `FIRST_CONTACT_BOUNDS`) and a second more. A commit is answered well
+/// inside it. Past it the request hands the vote back only if it abandons it
+/// before the worker claims its COMMIT (`FirstVoteOutcome::abandon`): a
+/// transaction timeout cannot stop work that has not begun (a pool wait, a
+/// lock wait, a task not yet scheduled). Once the worker has claimed it, the
+/// request waits for the worker's outcome, which the transaction's bounds and
+/// the first contact's connections (`first_contact_connector`) bound.
+const FIRST_CONTACT_WAIT: Duration = Duration::from_millis(3100);
+
+/// How long a first contact's connection may stay silent before it fails:
+/// data sent and not acknowledged (`tcp_user_timeout`), or a peer that stops
+/// answering keepalives (one second idle, then two probes a second apart). A
+/// read after the worker claims its COMMIT then fails instead of waiting for
+/// the operating system's own limits, which are minutes.
+const FIRST_CONTACT_SILENCE: Duration = Duration::from_secs(3);
+const FIRST_CONTACT_KEEPALIVE: Duration = Duration::from_secs(1);
+const FIRST_CONTACT_KEEPALIVE_PROBES: u32 = 2;
+
+/// The first contact's connector: `connector` with `FIRST_CONTACT_SILENCE`
+/// on every connection it opens. Only the first contact's pool is built with
+/// it; every other pool keeps its connector as it is.
+fn first_contact_connector(connector: Connector) -> Connector {
+    let bound = |mut config: Box<postgres::Config>| {
+        config
+            .tcp_user_timeout(FIRST_CONTACT_SILENCE)
+            .keepalives(true)
+            .keepalives_idle(FIRST_CONTACT_KEEPALIVE)
+            .keepalives_interval(FIRST_CONTACT_KEEPALIVE)
+            .keepalives_retries(FIRST_CONTACT_KEEPALIVE_PROBES);
+        config
+    };
+    match connector {
+        Connector::Tls(config, tls) => Connector::Tls(bound(config), tls),
+        Connector::Plain(config) => Connector::Plain(bound(config)),
+    }
+}
+
+const CLAIM_UNDECIDED: u8 = 0;
+const CLAIM_ABANDONED: u8 = 1;
+const CLAIM_COMMITTING: u8 = 2;
+
+/// What became of a first vote's one transaction: written once, by the
+/// worker's side (`Settler`), and read by the request.
+#[derive(Clone)]
+enum Settled {
+    /// Rolled back, or never begun: nothing was written, and nothing ever
+    /// will be. The reason, one word of a closed set.
+    RolledBack(&'static str),
+    /// The person and the vote were committed together. `confirmed` is the
+    /// transaction's id when its COMMIT's acknowledgement was lost and the
+    /// second look found it committed.
+    Committed {
+        person: Committed,
+        confirmed: Option<i64>,
+    },
+    /// A COMMIT whose outcome cannot be told: the second look could not
+    /// decide (`status`), or the worker ended after it claimed its COMMIT
+    /// with no transaction id to ask about.
+    Unresolved {
+        transaction: Option<i64>,
+        status: &'static str,
+    },
+}
+
+impl Settled {
+    /// The counter this outcome raises, if any. A plain commit raises none:
+    /// the route counts the answer it gives.
+    #[cfg(all(test, feature = "db-tests"))]
+    fn counter(&self) -> Option<&'static str> {
+        match self {
+            Self::RolledBack(_) => Some("handed_back"),
+            Self::Committed {
+                confirmed: Some(_), ..
+            } => Some("confirmed"),
+            Self::Committed {
+                confirmed: None, ..
+            } => None,
+            Self::Unresolved {
+                transaction: Some(_),
+                ..
+            } => Some("unresolved"),
+            Self::Unresolved {
+                transaction: None, ..
+            } => Some("unknown"),
+        }
+    }
+
+    fn count(&self, zid: i32) {
+        match self {
+            Self::RolledBack(reason) => first_contact_handed_back(reason, zid, None),
+            Self::Committed {
+                confirmed: Some(transaction),
+                ..
+            } => first_contact_commit_confirmed(zid, *transaction),
+            Self::Committed {
+                confirmed: None, ..
+            } => {}
+            Self::Unresolved {
+                transaction: Some(transaction),
+                status,
+            } => first_contact_commit_unresolved(zid, *transaction, status),
+            Self::Unresolved {
+                transaction: None, ..
+            } => first_contact_handed_back(FIRST_CONTACT_COMMIT_UNKNOWN, zid, None),
+        }
+    }
+}
+
+struct OutcomeState {
+    /// `CLAIM_UNDECIDED`, `CLAIM_ABANDONED` (the request, or a worker that
+    /// can no longer reach its COMMIT) or `CLAIM_COMMITTING` (the worker).
+    claim: u8,
+    outcome: Option<Settled>,
+    /// The outcome, or the request's abandonment, has been counted.
+    counted: bool,
+    /// The request is gone, or answered by itself: the worker's side counts.
+    unattended: bool,
+}
+
+/// A first vote's outcome: the one place its fate is decided and its
+/// outcome written, under one lock. The request may hand the vote back as
+/// nothing written only after it abandons the vote before the worker claims
+/// its COMMIT; once the worker has claimed it, only the worker's outcome
+/// answers the request. Every outcome is counted and logged exactly once: by
+/// the request when it takes it, by the request's side when it is dropped
+/// with the outcome there (`Attending`), or by the worker's side when the
+/// request is gone.
+struct FirstVoteOutcome {
+    zid: i32,
+    state: Mutex<OutcomeState>,
+    settled: tokio::sync::watch::Sender<bool>,
+    #[cfg(all(test, feature = "db-tests"))]
+    observation: Option<tests::DispatchObservation>,
+}
+
+/// What the request's abandonment found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Abandon {
+    /// Abandoned now: no work of this vote can commit any more, and the
+    /// request counts the hand-back.
+    Now,
+    /// Already abandoned, or already settled without a commit: the outcome
+    /// answers.
+    Already,
+    /// The worker claimed its COMMIT: its outcome answers.
+    Claimed,
+}
+
+impl FirstVoteOutcome {
+    fn new(
+        zid: i32,
+        #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            zid,
+            state: Mutex::new(OutcomeState {
+                claim: CLAIM_UNDECIDED,
+                outcome: None,
+                counted: false,
+                unattended: false,
+            }),
+            settled: tokio::sync::watch::Sender::new(false),
+            #[cfg(all(test, feature = "db-tests"))]
+            observation,
+        })
+    }
+
+    fn lock(&self) -> impl std::ops::DerefMut<Target = OutcomeState> + '_ {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The request, when its wait has run out with no outcome.
+    fn abandon(&self) -> Abandon {
+        let mut state = self.lock();
+        if state.claim == CLAIM_COMMITTING {
+            Abandon::Claimed
+        } else if state.outcome.is_some() || state.claim == CLAIM_ABANDONED {
+            Abandon::Already
+        } else {
+            state.claim = CLAIM_ABANDONED;
+            state.counted = true;
+            state.unattended = true;
+            Abandon::Now
+        }
+    }
+
+    /// The worker, immediately before COMMIT: true when it may commit.
+    fn commit(&self) -> bool {
+        let mut state = self.lock();
+        let may = state.claim == CLAIM_UNDECIDED && state.outcome.is_none();
+        if may {
+            state.claim = CLAIM_COMMITTING;
+        }
+        may
+    }
+
+    /// Whether the worker claimed its COMMIT.
+    #[cfg(all(test, feature = "db-tests"))]
+    fn committing(&self) -> bool {
+        self.lock().claim == CLAIM_COMMITTING
+    }
+
+    /// The request: the outcome, and whether this caller counts it.
+    fn take(&self) -> Option<(Settled, bool)> {
+        let mut state = self.lock();
+        let outcome = state.outcome.clone()?;
+        let counts = !state.counted;
+        state.counted = true;
+        Some((outcome, counts))
+    }
+
+    fn peek(&self) -> Option<Settled> {
+        self.lock().outcome.clone()
+    }
+
+    /// The person, when the vote was committed with its acknowledgement:
+    /// what the task goes on from.
+    fn committed_unconfirmed(&self) -> Option<Committed> {
+        match self.peek()? {
+            Settled::Committed {
+                person,
+                confirmed: None,
+            } => Some(person),
+            _ => None,
+        }
+    }
+
+    /// The person's token, once the task has signed it, for a request that
+    /// answers from the outcome.
+    fn set_auth(&self, auth: &Option<contract::Auth>) {
+        if let Some(Settled::Committed { person, .. }) = self.lock().outcome.as_mut() {
+            person.auth.clone_from(auth);
+        }
+    }
+
+    /// Waits until the outcome is written.
+    async fn settled(&self) {
+        let mut settled = self.settled.subscribe();
+        let _ = settled.wait_for(|settled| *settled).await;
+    }
+
+    /// Writes the outcome, once: `decide` sees the state under the lock. The
+    /// worker's side counts it when the request is gone.
+    fn write(&self, decide: impl FnOnce(&mut OutcomeState) -> Settled) {
+        let counted = {
+            let mut state = self.lock();
+            if state.outcome.is_some() {
+                return;
+            }
+            let outcome = decide(&mut state);
+            let counts = state.unattended && !state.counted;
+            if counts {
+                state.counted = true;
+            }
+            state.outcome = Some(outcome.clone());
+            counts.then_some(outcome)
+        };
+        if let Some(outcome) = counted {
+            self.count(&outcome);
+        }
+        self.settled.send_replace(true);
+    }
+
+    fn count(&self, outcome: &Settled) {
+        outcome.count(self.zid);
+        #[cfg(all(test, feature = "db-tests"))]
+        if let Some(counter) = outcome.counter() {
+            tests::counted(&self.observation, counter);
+        }
+    }
+
+    /// The request abandoned the vote: counted once, by the request.
+    fn count_abandoned(&self) {
+        first_contact_handed_back(FIRST_CONTACT_ABANDONED, self.zid, None);
+        #[cfg(all(test, feature = "db-tests"))]
+        tests::counted(&self.observation, "handed_back");
+    }
+}
+
+/// The worker's side of a first vote's outcome: made with it, moved into the
+/// task, the blocking work and, after a lost acknowledgement, the second
+/// look's task. It writes the outcome once. Dropped without writing it (a
+/// closure the pool never ran, an unwinding worker, a task or a look dropped
+/// by a stopping runtime) it writes what can still be said: nothing written
+/// when the worker never claimed its COMMIT, and unresolved when it did.
+struct Settler {
+    outcome: Option<Arc<FirstVoteOutcome>>,
+}
+
+impl Settler {
+    fn new(outcome: &Arc<FirstVoteOutcome>) -> Self {
+        Self {
+            outcome: Some(outcome.clone()),
+        }
+    }
+
+    /// Immediately before COMMIT: true when the worker may commit.
+    fn claim(&self) -> bool {
+        self.outcome
+            .as_ref()
+            .is_some_and(|outcome| outcome.commit())
+    }
+
+    fn settle(mut self, settled: Settled) {
+        if let Some(outcome) = self.outcome.take() {
+            outcome.write(|_| settled);
+        }
+    }
+}
+
+impl Drop for Settler {
+    fn drop(&mut self) {
+        if let Some(outcome) = self.outcome.take() {
+            outcome.write(|state| {
+                if state.claim == CLAIM_COMMITTING {
+                    Settled::Unresolved {
+                        transaction: None,
+                        status: "worker_ended",
+                    }
+                } else {
+                    state.claim = CLAIM_ABANDONED;
+                    Settled::RolledBack("first_contact_unavailable")
+                }
+            });
+        }
+    }
+}
+
+/// The request's side of a first vote's outcome: dropped however the request
+/// ends, it leaves counting to the worker's side, and counts an outcome that
+/// arrived and was not taken.
+struct Attending(Arc<FirstVoteOutcome>);
+
+impl Drop for Attending {
+    fn drop(&mut self) {
+        let uncounted = {
+            let mut state = self.0.lock();
+            state.unattended = true;
+            if state.counted {
+                None
+            } else {
+                let outcome = state.outcome.clone();
+                state.counted = outcome.is_some();
+                outcome
+            }
+        };
+        if let Some(outcome) = uncounted {
+            self.0.count(&outcome);
+        }
+    }
+}
+
+/// A first contact's person and vote, committed together: the person's ids,
+/// the code the token names, the vote's receipt, and the token once it is
+/// signed.
+#[derive(Clone)]
+struct Committed {
+    uid: Uid,
+    pid: polis_auth::Pid,
+    /// The conversation code the token names.
+    code: String,
+    vote: AcceptedVote,
+    auth: Option<contract::Auth>,
+}
+
+/// Why the vote's statements, inside the first contact's transaction, roll
+/// it back.
+enum InTransaction {
+    /// The person admission created is not this request's.
+    NotThisRequest,
+    /// One of the vote's own statements failed.
+    Vote,
+    /// The request abandoned the vote before the worker could claim its
+    /// COMMIT (`FirstVoteOutcome`): the request has handed it back.
+    Abandoned,
+}
+
+/// A first vote. The person and the vote are written in one transaction, in
+/// a task the request does not own, so a request cancelled at any point
+/// cannot stop work that may still commit; both exist or neither does. The
+/// request answers from the worker's outcome (`FirstVoteOutcome`): until
+/// `FIRST_CONTACT_WAIT`, the task's full reply for a commit, the degraded
+/// 200 from the person when that reply does not come, and the marked
+/// hand-back for nothing written or a COMMIT whose outcome cannot be told.
+/// Past the wait with no outcome, it hands the vote back only if it abandons
+/// it before the worker claims its COMMIT; otherwise it waits for the
+/// worker's outcome and answers from it.
+#[allow(clippy::too_many_arguments)]
+async fn serve_first_contact(
+    req: &Request,
+    res: Res,
+    writer: &Writer,
+    first: &FirstContact,
+    new: NewParticipant,
+    lane: Dispatch,
+    admitted: Admitted,
+    fields: ParsedFields,
+) -> Outgoing {
+    let star = fields.starred.is_some();
+    let subject = new.account.as_ref().map(|(_, subject)| subject.clone());
+    #[cfg(all(test, feature = "db-tests"))]
+    let observation = lane.active_dispatch.observation.clone();
+    let outcome = FirstVoteOutcome::new(
+        admitted.zid,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation.clone(),
+    );
+    let _attending = Attending(outcome.clone());
+    let wait_until = tokio::time::Instant::now() + FIRST_CONTACT_WAIT;
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
+    let _task = tokio::spawn(first_contact_vote(
+        first.clone(),
+        writer.identity_reads.clone(),
+        writer.admins.clone(),
+        new,
+        ExtendedInfo::of(req),
+        lane,
+        admitted,
+        fields,
+        Settler::new(&outcome),
+        outcome.clone(),
+        wait_until,
+        done_tx,
+    ));
+    // A test drops the task itself, as a stopping runtime would.
+    #[cfg(all(test, feature = "db-tests"))]
+    if let Some(observation) = &observation {
+        observation.lock().unwrap().task = Some(_task.abort_handle());
+    }
+    let wait = tokio::time::sleep_until(wait_until);
+    tokio::pin!(wait);
+    let mut task_ended = false;
+    loop {
+        match outcome.peek() {
+            None => tokio::select! {
+                served = &mut done_rx, if !task_ended => match served {
+                    Ok(body) => {
+                        outcome.take();
+                        return accepted(req, res, body);
+                    }
+                    Err(_) => task_ended = true,
+                },
+                () = outcome.settled() => {}
+                () = &mut wait => break,
+            },
+            // A commit: the task's full reply, while it may still come.
+            Some(Settled::Committed {
+                confirmed: None, ..
+            }) if !task_ended => tokio::select! {
+                served = &mut done_rx => match served {
+                    Ok(body) => {
+                        outcome.take();
+                        return accepted(req, res, body);
+                    }
+                    Err(_) => task_ended = true,
+                },
+                () = &mut wait => break,
+            },
+            Some(_) => {
+                return answer_first_vote(req, res, first, subject.as_deref(), star, &outcome)
+                    .await;
+            }
+        }
+    }
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::hold_async(&observation, tests::Hold::AfterRequestWait).await;
+    if outcome.abandon() == Abandon::Now {
+        outcome.count_abandoned();
+        return route::bad_gateway();
+    }
+    // The worker claimed its COMMIT, or has already written its outcome: only
+    // that outcome answers, however long the worker takes to write it.
+    outcome.settled().await;
+    answer_first_vote(req, res, first, subject.as_deref(), star, &outcome).await
+}
+
+/// The request's answer from a first vote's outcome, which it takes, and
+/// counts unless it is already counted: a commit is the degraded 200 with the
+/// person's token (signed here when the task has not); anything else is the
+/// marked hand-back.
+async fn answer_first_vote(
+    req: &Request,
+    res: Res,
+    first: &FirstContact,
+    subject: Option<&str>,
+    star: bool,
+    outcome: &FirstVoteOutcome,
+) -> Outgoing {
+    let Some((settled, counts)) = outcome.take() else {
+        return route::bad_gateway();
+    };
+    if counts {
+        outcome.count(&settled);
+    }
+    let Settled::Committed { person, .. } = settled else {
+        return route::bad_gateway();
+    };
+    let auth = match person.auth {
+        Some(auth) => Some(auth),
+        None => issue(first, person.uid, person.pid, &person.code, subject).await,
+    };
+    let mut body = degraded(person.pid.0 as i32, person.vote, star);
+    body.auth = auth;
+    accepted(req, res, body)
+}
+
+/// A first contact from its one transaction to its reply, in a task the
+/// request does not own. After the COMMIT, the referrer and origin, the token
+/// and the follow-on (the star on the first contact's own connection, the
+/// notification state, the next comment) run whether or not the request is
+/// still there, each best effort: a failure among them degrades the reply,
+/// never the vote. Any other outcome is the request's to answer and count;
+/// the task only stays until it is written, as a stop waits for it.
+#[allow(clippy::too_many_arguments)]
+async fn first_contact_vote(
+    lane: FirstContact,
+    status_reads: Option<Arc<db::Pool>>,
+    admins: Vec<i32>,
+    new: NewParticipant,
+    info: Option<ExtendedInfo>,
+    dispatch: Dispatch,
+    mut admitted: Admitted,
+    fields: ParsedFields,
+    settler: Settler,
+    outcome: Arc<FirstVoteOutcome>,
+    wait_until: tokio::time::Instant,
+    done: tokio::sync::oneshot::Sender<DurableSuccess>,
+) {
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(
+        &dispatch.active_dispatch.observation,
+        tests::Fault::BeforeCreate,
+    );
+    create(
+        &lane,
+        status_reads,
+        &admins,
+        &admitted,
+        new.account.as_ref().map(|(uid, _)| *uid),
+        &fields,
+        &dispatch.receipt,
+        settler,
+        #[cfg(all(test, feature = "db-tests"))]
+        dispatch.active_dispatch.observation.clone(),
+    )
+    .await;
+    let Some(person) = outcome.committed_unconfirmed() else {
+        // Nothing written, a COMMIT whose outcome cannot be told, one the
+        // second look confirmed, or a second look still running in its own
+        // task.
+        outcome.settled().await;
+        return;
+    };
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(
+        &dispatch.active_dispatch.observation,
+        tests::Fault::AfterCommit,
+    );
+    admitted.pid = person.pid.0 as i32;
+    admitted.uid = person.uid.0;
+    // Where the person came from, after the commit and not waited for, as
+    // Node records it: on the notification lane, never on a pool the vote
+    // uses.
+    if let Some(info) = info {
+        schedule_extended_info(&dispatch.background, admitted.zid, admitted.uid, info);
+    }
+    let subject = new.account.as_ref().map(|(_, subject)| subject.as_str());
+    let auth = issue(&lane, person.uid, person.pid, &person.code, subject).await;
+    outcome.set_auth(&auth);
+    // The follow-on budget starts after the token, as a member's starts at
+    // dispatch, and ends with the request's wait.
+    let reply_deadline = (tokio::time::Instant::now() + DISPATCH_DEADLINE).min(wait_until);
+    let mut body = follow_on(
+        lane.pool.clone(),
+        dispatch.reads.clone(),
+        dispatch.background.clone(),
+        admitted,
+        fields,
+        person.vote,
+        dispatch.env.clone(),
+        dispatch.unit,
+        reply_deadline,
+        &dispatch.active_dispatch,
+    )
+    .await;
+    body.auth = auth;
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::inject(
+        &dispatch.active_dispatch.observation,
+        tests::Fault::AfterFollowOn,
+    );
+    let _ = done.send(body);
 }
 
 fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
@@ -942,6 +2265,480 @@ fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
             next_comment: FollowOnState::Degraded,
             notifications: NotificationState::BestEffort,
         },
+        auth: None,
+    }
+}
+
+/// A first contact's writes, on its own pool, in one transaction
+/// (`polis_auth::admission::admit_then`): a user, the participant's extended
+/// row and the participant under the participant-number lock, then the vote's
+/// own statements (`append_in_transaction`), then COMMIT. Both are committed
+/// or neither is. The blocking work owns the `settler` and writes the outcome
+/// the moment `admit_then` returns (the vote in `receipt` too, for a commit),
+/// so a failure after that point is never read as nothing written; a closure
+/// the pool never runs, or one that unwinds, writes it as it is dropped. A
+/// COMMIT whose acknowledgement was lost is handed to the second look, in a
+/// task of its own on this runtime (`look_again`), which writes it.
+///
+/// The code is the one Node signs with: `getZinvite` takes the first row of
+/// `select * from zinvites where zid = ($1);`, so for a conversation with more
+/// than one code it is that row's, whichever code the request used. The same
+/// query is read here, on this connection, before anything is written.
+#[allow(clippy::too_many_arguments)]
+async fn create(
+    lane: &FirstContact,
+    status_reads: Option<Arc<db::Pool>>,
+    admins: &[i32],
+    admitted: &Admitted,
+    account: Option<Uid>,
+    fields: &ParsedFields,
+    receipt: &Arc<Mutex<Option<AcceptedVote>>>,
+    settler: Settler,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+) {
+    let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
+    let zid = admitted.zid;
+    let mut voter = admitted.clone();
+    let fields = fields.clone();
+    let receipt = receipt.clone();
+    let runtime = tokio::runtime::Handle::current();
+    #[cfg(all(test, feature = "db-tests"))]
+    let pool = lane.pool.clone();
+    // However it ends, the blocking work has written the outcome when this
+    // returns, or handed it to the second look's task.
+    let _ = lane
+        .pool
+        .with(move |c| {
+            let settler = settler;
+            let code = c
+                .query("select * from zinvites where zid = ($1);", &[&zid])?
+                .first()
+                .map(|row| row.try_get::<_, String>("zinvite"))
+                .transpose()?;
+            let Some(code) = code else {
+                // The conversation has no code left to name: nothing written.
+                settler.settle(Settled::RolledBack("first_contact_no_code"));
+                return Ok(());
+            };
+            #[cfg(all(test, feature = "db-tests"))]
+            for at in [
+                tests::Fault::InWorkerBeforeCommit,
+                tests::Fault::PauseBeforeCommit,
+            ] {
+                tests::inject_in_creation(&observation, at, &pool);
+            }
+            // The person and vote the transaction returned, kept past a
+            // COMMIT whose acknowledgement is lost, for the second look.
+            let mut staged = None;
+            #[cfg(all(test, feature = "db-tests"))]
+            let mut lost = None;
+            let outcome = join::admit_then(
+                c,
+                &join::Request {
+                    zid: Zid(zid),
+                    identity: account.map_or(join::Identity::Anonymous, join::Identity::Account),
+                    entry: join::Entry::Participation {
+                        create_if_missing: true,
+                    },
+                    admin_uids: &admin_uids,
+                    x_name: None,
+                    x_email: None,
+                    x_profile_image_url: None,
+                },
+                &FIRST_CONTACT_BOUNDS,
+                |tx, person| {
+                    if !created_by_this_request(person, account) {
+                        return Err(InTransaction::NotThisRequest);
+                    }
+                    #[cfg(all(test, feature = "db-tests"))]
+                    tests::inject_in_creation(
+                        &observation,
+                        tests::Fault::PauseInTransaction,
+                        &pool,
+                    );
+                    voter.pid = person.pid.0 as i32;
+                    voter.uid = person.uid.0;
+                    let vote = append_in_transaction(tx, &voter, &fields)
+                        .map_err(|_| InTransaction::Vote)?;
+                    #[cfg(all(test, feature = "db-tests"))]
+                    if tests::loses_acknowledgement(&observation) {
+                        lost = tx
+                            .query_one("select txid_current()", &[])
+                            .ok()
+                            .map(|row| row.get::<_, i64>(0));
+                    }
+                    staged = Some(Committed {
+                        uid: person.uid,
+                        pid: person.pid,
+                        code: code.clone(),
+                        vote: vote.clone(),
+                        auth: None,
+                    });
+                    // The last thing before COMMIT: the worker claims it, or
+                    // rolls back because the request abandoned the vote.
+                    if !settler.claim() {
+                        return Err(InTransaction::Abandoned);
+                    }
+                    #[cfg(all(test, feature = "db-tests"))]
+                    tests::hold(&observation, tests::Hold::AfterClaim);
+                    Ok(vote)
+                },
+            );
+            #[cfg(all(test, feature = "db-tests"))]
+            let outcome = tests::lose_acknowledgement(&observation, outcome, lost);
+            let settled = match outcome {
+                Ok(join::Then::Created {
+                    admitted: person,
+                    value: vote,
+                }) => {
+                    *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(vote.clone());
+                    Ok(Settled::Committed {
+                        person: Committed {
+                            uid: person.uid,
+                            pid: person.pid,
+                            code,
+                            vote,
+                            auth: None,
+                        },
+                        confirmed: None,
+                    })
+                }
+                Err(join::ThenError::CommitUnknown { transaction }) => match staged {
+                    Some(staged) => Err((transaction, staged)),
+                    None => Ok(Settled::Unresolved {
+                        transaction: Some(transaction),
+                        status: "unstaged",
+                    }),
+                },
+                // An existing participant: nothing was written.
+                Ok(join::Then::NotCreated(_)) => {
+                    Ok(Settled::RolledBack("first_contact_not_created"))
+                }
+                Err(join::ThenError::Refused(_)) => {
+                    Ok(Settled::RolledBack("first_contact_refused"))
+                }
+                // A lock wait past 100 ms, a statement past one second, the
+                // transaction past two, a dropped connection or one silent
+                // past `FIRST_CONTACT_SILENCE`: rolled back.
+                Err(join::ThenError::Unavailable) => {
+                    Ok(Settled::RolledBack("first_contact_unavailable"))
+                }
+                Err(join::ThenError::Callback(InTransaction::NotThisRequest)) => {
+                    Ok(Settled::RolledBack("first_contact_not_created"))
+                }
+                // The vote's own statements failed: the person rolled back
+                // with it.
+                Err(join::ThenError::Callback(InTransaction::Vote)) => {
+                    Ok(Settled::RolledBack("first_contact_vote_refused"))
+                }
+                Err(join::ThenError::Callback(InTransaction::Abandoned)) => {
+                    Ok(Settled::RolledBack(FIRST_CONTACT_ABANDONED))
+                }
+            };
+            match settled {
+                Ok(settled) => settler.settle(settled),
+                // The second look decides, in a task of its own: aborting the
+                // first contact's task does not stop it.
+                Err((transaction, staged)) => {
+                    runtime.spawn(look_again(
+                        settler,
+                        status_reads,
+                        transaction,
+                        staged,
+                        receipt,
+                        #[cfg(all(test, feature = "db-tests"))]
+                        observation.clone(),
+                    ));
+                }
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            for at in [
+                tests::Fault::PauseAfterCommit,
+                tests::Fault::InWorkerAfterCommit,
+                tests::Fault::PoolErrorAfterCommit,
+            ] {
+                tests::inject_in_creation(&observation, at, &pool);
+            }
+            Ok(())
+        })
+        .await;
+}
+
+/// The second look at a COMMIT whose acknowledgement was lost, in a task of
+/// its own: it writes what the database says the transaction did. Dropped by
+/// a stopping runtime first, its settler writes it unresolved.
+async fn look_again(
+    settler: Settler,
+    status_reads: Option<Arc<db::Pool>>,
+    transaction: i64,
+    staged: Committed,
+    receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+) {
+    let look = second_look(
+        status_reads.as_ref(),
+        transaction,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation.clone(),
+    )
+    .await;
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::hold_async(&observation, tests::Hold::BeforeLookSettles).await;
+    settler.settle(match look {
+        // Both exist: the reply is the one any failure after a commit gives,
+        // from the ids the transaction returned.
+        SecondLook::Committed => {
+            *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(staged.vote.clone());
+            Settled::Committed {
+                person: staged,
+                confirmed: Some(transaction),
+            }
+        }
+        SecondLook::Aborted => Settled::RolledBack(FIRST_CONTACT_COMMIT_ABORTED),
+        SecondLook::Unresolved(status) => Settled::Unresolved {
+            transaction: Some(transaction),
+            status,
+        },
+    });
+}
+
+const FIRST_CONTACT_COMMIT_UNKNOWN: &str = "first_contact_commit_unknown";
+/// The request's wait ran out before the worker claimed its COMMIT: the
+/// request abandoned the vote, and the worker rolls back whenever it gets
+/// there. Nothing was written, or ever will be.
+const FIRST_CONTACT_ABANDONED: &str = "first_contact_abandoned";
+/// A lost acknowledgement whose transaction the second look found aborted:
+/// nothing was written.
+const FIRST_CONTACT_COMMIT_ABORTED: &str = "first_contact_commit_aborted";
+
+/// The whole second look, every read and every wait between them.
+const SECOND_LOOK_BOUND: Duration = Duration::from_millis(250);
+/// At most this many reads, while the transaction is still in progress.
+const SECOND_LOOK_READS: usize = 3;
+/// The wait between two reads that found it in progress.
+const SECOND_LOOK_PAUSE: Duration = Duration::from_millis(20);
+
+/// What the second look found of a transaction whose COMMIT acknowledgement
+/// was lost.
+enum SecondLook {
+    Committed,
+    Aborted,
+    /// It cannot tell: still in progress after its reads, an id too old to
+    /// answer for, a failed read (the pool full among them), or the bound
+    /// passed. One word of a closed set.
+    Unresolved(&'static str),
+}
+
+/// Asks the database whether a first contact's transaction committed, after
+/// its COMMIT's acknowledgement was lost: `SELECT txid_status($1)`, on a
+/// connection of the identity read pool (never the first contact's pool,
+/// whose connection failed, and never a members' pool), read again while it
+/// is in progress, up to `SECOND_LOOK_READS`, all inside
+/// `SECOND_LOOK_BOUND`. Absence of the person's row would not prove
+/// anything: the old session may still be finishing its COMMIT.
+async fn second_look(
+    pool: Option<&Arc<db::Pool>>,
+    transaction: i64,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+) -> SecondLook {
+    let Some(pool) = pool else {
+        return SecondLook::Unresolved("unconfigured");
+    };
+    let look = async {
+        for read in 0..SECOND_LOOK_READS {
+            if read > 0 {
+                tokio::time::sleep(SECOND_LOOK_PAUSE).await;
+            }
+            #[cfg(all(test, feature = "db-tests"))]
+            let observation = observation.clone();
+            let status = pool
+                .with(move |c| {
+                    #[cfg(all(test, feature = "db-tests"))]
+                    if let Some(status) = tests::second_look_fault(&observation) {
+                        return status;
+                    }
+                    Ok(c.query_one("SELECT txid_status($1)", &[&transaction])?
+                        .try_get::<_, Option<String>>(0)?)
+                })
+                .await;
+            match status.as_ref().map(Option::as_deref) {
+                Ok(Some("committed")) => return SecondLook::Committed,
+                Ok(Some("aborted")) => return SecondLook::Aborted,
+                Ok(Some("in progress")) => {}
+                Ok(Some(_)) => return SecondLook::Unresolved("unrecognized"),
+                Ok(None) => return SecondLook::Unresolved("unknown_transaction"),
+                Err(_) => return SecondLook::Unresolved("read_failed"),
+            }
+        }
+        SecondLook::Unresolved("in_progress")
+    };
+    tokio::time::timeout(SECOND_LOOK_BOUND, look)
+        .await
+        .unwrap_or(SecondLook::Unresolved("bound"))
+}
+
+/// A lost acknowledgement the second look found committed: answered with the
+/// person's token and the vote's receipt. Every one is a line and a count
+/// (`/health`), with the conversation and the transaction's id only.
+fn first_contact_commit_confirmed(zid: i32, transaction: i64) {
+    let count = FIRST_CONTACT_CONFIRMED.fetch_add(1, Ordering::Relaxed) + 1;
+    eprintln!(
+        "{{\"event\":\"post_votes_first_contact_commit_confirmed\",\"zid\":{zid},\"transaction\":{transaction},\"count\":{count}}}"
+    );
+}
+
+/// A lost acknowledgement the second look could not resolve: handed back,
+/// where a person whose COMMIT did land is created again by Node and counted
+/// twice. Every one is a line and a count (`/health`), with the
+/// conversation, the transaction's id and what the look found.
+fn first_contact_commit_unresolved(zid: i32, transaction: i64, status: &'static str) {
+    let count = FIRST_CONTACT_UNRESOLVED.fetch_add(1, Ordering::Relaxed) + 1;
+    eprintln!(
+        "{{\"event\":\"post_votes_first_contact_commit_unresolved\",\"zid\":{zid},\"transaction\":{transaction},\"status\":\"{status}\",\"count\":{count}}}"
+    );
+}
+
+/// Whether an admission's person is this first contact's: a new anonymous
+/// user and its participant, or, for an account, a new participant of that
+/// user.
+fn created_by_this_request(admitted: &join::Admitted, account: Option<Uid>) -> bool {
+    admitted.new_participant
+        && match account {
+            None => admitted.new_user,
+            Some(uid) => !admitted.new_user && admitted.uid == uid,
+        }
+}
+
+/// Where a person came from, as Node's participant middleware records it
+/// when it creates a participant (`addParticipantAndMetadata`): the `Referer`
+/// header (or `Referrer` when that is absent or empty) up to its first `?` or
+/// `#`, and the `Origin` header, each only when the request carries it
+/// non-empty. Neither is truncated to its column. Node's encrypted address,
+/// written only by a deployment named `PolisWebServer`, is not written here.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ExtendedInfo {
+    referrer: Option<String>,
+    origin: Option<String>,
+}
+
+impl ExtendedInfo {
+    /// None when the request carries neither: Node then writes nothing.
+    fn of(req: &Request) -> Option<Self> {
+        let header = |name| req.headers.get(name).filter(|value| !value.is_empty());
+        let referrer = header("referer")
+            .or_else(|| header("referrer"))
+            .map(|referrer| {
+                referrer
+                    .split(['?', '#'])
+                    .next()
+                    .unwrap_or_default()
+                    .to_owned()
+            });
+        let origin = header("origin").map(str::to_owned);
+        (referrer.is_some() || origin.is_some()).then_some(Self { referrer, origin })
+    }
+}
+
+/// Writes `info` to the extended row of the participant just created, best
+/// effort and not waited for, as Node does: on the notification lane, whose
+/// admission bound and pool no vote waits on. One statement, so a value longer
+/// than its column fails it and nothing is written, as in Node. Not admitted
+/// (the lane full) or failed, it is counted and logged with the count only;
+/// the values never reach a line.
+///
+/// A referrer and an origin are personal data, and they are sent only where
+/// the server's log cannot write them: the external id's rule
+/// (`external_id_may_be_sent`), read on the connection that would send them,
+/// just before, for each write, so a setting changed after startup is seen.
+/// Settings that are unsafe or cannot be read: nothing is sent, and the write
+/// is counted as dropped and logged with its reason and a count.
+fn schedule_extended_info(
+    lane: &Arc<NotificationPool>,
+    zid: i32,
+    uid: i32,
+    info: ExtendedInfo,
+) -> bool {
+    // Node stamps the row with its own clock when it sends the update.
+    let modified = crate::clock::now_ms() as i64;
+    lane.schedule_reporting(
+        move |c| {
+            if !external_id_may_be_sent(c) {
+                let count = EXTENDED_INFO_NOT_SENT.fetch_add(1, Ordering::Relaxed) + 1;
+                if count.is_power_of_two() {
+                    eprintln!(
+                        "{{\"event\":\"post_votes_first_contact_extended_info_not_sent\",\"reason\":\"{EXTERNAL_ID_LOGGING}\",\"count\":{count}}}"
+                    );
+                }
+                anyhow::bail!("{EXTERNAL_ID_LOGGING}");
+            }
+            c.execute(
+                "update participants_extended
+                 set referrer=coalesce($3,referrer), origin=coalesce($4,origin), modified=$5
+                 where zid=$1 and uid=$2",
+                &[&zid, &uid, &info.referrer, &info.origin, &modified],
+            )?;
+            Ok(())
+        },
+        NotificationPool::record_extended_info_drop,
+    )
+}
+
+/// A first contact handed back. A commit whose outcome is unknown with no
+/// transaction id to look at (the request's wait ran out) may have created a
+/// participant and its vote that Node, given the request, creates again:
+/// every one is a line and a count (`/health`), never silent.
+fn first_contact_handed_back(reason: &'static str, zid: i32, transaction: Option<i64>) {
+    if reason == FIRST_CONTACT_COMMIT_UNKNOWN {
+        let count = FIRST_CONTACT_UNKNOWN.fetch_add(1, Ordering::Relaxed) + 1;
+        let transaction = transaction.map_or_else(|| "null".to_owned(), |id| id.to_string());
+        eprintln!(
+            "{{\"event\":\"post_votes_first_contact_commit_unknown\",\"zid\":{zid},\"transaction\":{transaction},\"count\":{count}}}"
+        );
+    } else {
+        let count = FIRST_CONTACT_HANDED_BACK.fetch_add(1, Ordering::Relaxed) + 1;
+        if count.is_power_of_two() {
+            eprintln!(
+                "{{\"event\":\"post_votes_first_contact_handed_back\",\"reason\":\"{reason}\",\"count\":{count}}}"
+            );
+        }
+    }
+}
+
+/// The token for a participant this request created, signed after the
+/// commit, off the async runtime, as Node issues it: anonymous for a new
+/// user, a standard user's (its subject from the token it presented) for an
+/// account.
+async fn issue(
+    lane: &FirstContact,
+    uid: Uid,
+    pid: polis_auth::Pid,
+    code: &str,
+    subject: Option<&str>,
+) -> Option<contract::Auth> {
+    let keys = lane.keys.clone();
+    let (issuer, audience, cid) = (lane.issuer.clone(), lane.audience.clone(), code.to_owned());
+    let subject = subject.map(str::to_owned);
+    let token = tokio::task::spawn_blocking(move || {
+        let identity = match subject.as_deref() {
+            None => polis_auth::participant_mint::Identity::anonymous(uid),
+            Some(subject) => polis_auth::participant_mint::Identity::standard_user(uid, subject)?,
+        };
+        polis_auth::participant_mint::mint(&keys, identity, &cid, pid, &issuer, &audience, || {
+            (crate::clock::now_ms() / 1000.0) as u64
+        })
+    })
+    .await;
+    match token {
+        Ok(Ok(token)) => Some(contract::Auth {
+            token,
+            token_type: "Bearer".into(),
+            // Node's one year (ensure-participant.ts, the token's lifetime).
+            expires_in: 31_536_000,
+        }),
+        _ => {
+            eprintln!("{{\"event\":\"post_votes_first_contact_token_unavailable\"}}");
+            None
+        }
     }
 }
 
@@ -988,13 +2785,13 @@ async fn dispatch(
     unit: f64,
     receipt: Arc<Mutex<Option<AcceptedVote>>>,
     reply_deadline: tokio::time::Instant,
-    _active_dispatch: ActiveDispatch,
+    active_dispatch: ActiveDispatch,
 ) -> Result<Outcome> {
     let a = admitted.clone();
     let f = fields.clone();
     let alarm_after = DISPATCH_ACQUIRE_ALARM;
     #[cfg(all(test, feature = "db-tests"))]
-    let observation = _active_dispatch.observation.clone();
+    let observation = active_dispatch.observation.clone();
     #[cfg(all(test, feature = "db-tests"))]
     let alarm_after = observation
         .as_ref()
@@ -1042,6 +2839,41 @@ async fn dispatch(
         Err(outcome) => return Ok(outcome),
     };
     *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(created.clone());
+    Ok(Outcome::Success(
+        follow_on(
+            pool,
+            reads,
+            background,
+            admitted,
+            fields,
+            created,
+            env,
+            unit,
+            reply_deadline,
+            &active_dispatch,
+        )
+        .await,
+    ))
+}
+
+/// What follows a durable vote, all best effort, each failure degrading only
+/// its own part of the reply: the notification state on the notification
+/// lane, the star (on `star_pool`: the append pool for a member, the first
+/// contact's own pool for a first vote), and the next comment on the
+/// follow-on lane and the reads pool.
+#[allow(clippy::too_many_arguments)]
+async fn follow_on(
+    star_pool: Arc<db::Pool>,
+    reads: Arc<db::Pool>,
+    background: Arc<NotificationPool>,
+    admitted: Admitted,
+    fields: ParsedFields,
+    created: AcceptedVote,
+    env: String,
+    unit: f64,
+    reply_deadline: tokio::time::Instant,
+    _active_dispatch: &ActiveDispatch,
+) -> DurableSuccess {
     let notified = schedule_notification(background.clone(), admitted.clone());
     #[cfg(all(test, feature = "db-tests"))]
     if let Some(observation) = &_active_dispatch.observation {
@@ -1054,12 +2886,12 @@ async fn dispatch(
     let lang = fields.lang.clone();
     if fields.starred.is_some() {
         let a = admitted.clone();
-        if pool
+        if star_pool
             .with(move |c| star(c, &a, &fields, created.created))
             .await
             .is_err()
         {
-            return Ok(Outcome::Success(body));
+            return body;
         }
         body.follow_on.star = FollowOnState::Complete;
     }
@@ -1068,7 +2900,7 @@ async fn dispatch(
     // the unchanged HTTP deadline. At most one follow-on enters the reads
     // pool, leaving the other existing slot for admission.
     let Ok(permits) = admitted.follow_on.acquire_until(reply_deadline).await else {
-        return Ok(Outcome::Success(body));
+        return body;
     };
     #[cfg(all(test, feature = "db-tests"))]
     let selection_observation = _active_dispatch.observation.clone();
@@ -1125,7 +2957,7 @@ async fn dispatch(
             body.follow_on.notifications = NotificationState::Degraded;
         }
     }
-    Ok(Outcome::Success(body))
+    body
 }
 
 // Bound retained post-receipt work independently of vote admission. Overflow
@@ -1259,6 +3091,9 @@ struct NotificationPool {
     pool: Arc<db::Pool>,
     admitted: Arc<tokio::sync::Semaphore>,
     dropped: std::sync::atomic::AtomicU64,
+    /// A first contact's extended-row writes not admitted or failed
+    /// (`schedule_extended_info`).
+    extended_info_dropped: std::sync::atomic::AtomicU64,
 }
 
 impl NotificationPool {
@@ -1267,6 +3102,7 @@ impl NotificationPool {
             pool,
             admitted: Arc::new(tokio::sync::Semaphore::new(64)),
             dropped: std::sync::atomic::AtomicU64::new(0),
+            extended_info_dropped: std::sync::atomic::AtomicU64::new(0),
         })
     }
 
@@ -1274,8 +3110,16 @@ impl NotificationPool {
     where
         F: FnOnce(&mut Client) -> Result<()> + Send + 'static,
     {
+        self.schedule_reporting(work, Self::record_drop)
+    }
+
+    /// `schedule`, with the counter a drop is reported to.
+    fn schedule_reporting<F>(self: &Arc<Self>, work: F, dropped: fn(&Self)) -> bool
+    where
+        F: FnOnce(&mut Client) -> Result<()> + Send + 'static,
+    {
         let Ok(permit) = self.admitted.clone().try_acquire_owned() else {
-            self.record_drop();
+            dropped(self);
             return false;
         };
         let lane = self.clone();
@@ -1291,10 +3135,19 @@ impl NotificationPool {
                 })
                 .await;
             if result.is_err() {
-                lane.record_drop();
+                dropped(&lane);
             }
         });
         true
+    }
+
+    fn record_extended_info_drop(&self) {
+        let dropped = self.extended_info_dropped.fetch_add(1, Ordering::Relaxed) + 1;
+        if dropped.is_power_of_two() {
+            eprintln!(
+                "{{\"event\":\"post_votes_first_contact_extended_info_dropped\",\"count\":{dropped}}}"
+            );
+        }
     }
 
     fn record_drop(&self) {
@@ -1354,6 +3207,13 @@ static HANDED_BACK: AtomicU64 = AtomicU64::new(0);
 static DEGRADED: AtomicU64 = AtomicU64::new(0);
 static UNKNOWN: AtomicU64 = AtomicU64::new(0);
 static ACQUIRE_ALARM_HITS: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_UNKNOWN: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_HANDED_BACK: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_CONFIRMED: AtomicU64 = AtomicU64::new(0);
+static FIRST_CONTACT_UNRESOLVED: AtomicU64 = AtomicU64::new(0);
+/// Extended-row writes not sent for the server's logging settings; each is
+/// also counted in `firstContactExtendedInfoDropped`.
+static EXTENDED_INFO_NOT_SENT: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) fn observe(out: &Outgoing) {
     let (counter, event) = if out.status == 502 {
@@ -1404,6 +3264,25 @@ pub(crate) fn health(app: &App) -> Js {
         ("inFlight", &IN_FLIGHT),
     ] {
         body.set(key, Js::Num(value.load(Ordering::Relaxed) as f64));
+    }
+    // Only with the first-contact switch on: off, the body is unchanged.
+    if let Some(writer) = app
+        .post_votes
+        .as_ref()
+        .filter(|w| w.first_contact.is_some())
+    {
+        for (key, value) in [
+            ("firstContactHandedBack", &FIRST_CONTACT_HANDED_BACK),
+            ("firstContactCommitUnknown", &FIRST_CONTACT_UNKNOWN),
+            ("firstContactCommitConfirmed", &FIRST_CONTACT_CONFIRMED),
+            ("firstContactCommitUnresolved", &FIRST_CONTACT_UNRESOLVED),
+            (
+                "firstContactExtendedInfoDropped",
+                &writer.background.extended_info_dropped,
+            ),
+        ] {
+            body.set(key, Js::Num(value.load(Ordering::Relaxed) as f64));
+        }
     }
     body.set(
         "notificationsInFlight",
