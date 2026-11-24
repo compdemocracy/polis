@@ -4,6 +4,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 from polismath import step_log
 from polismath.utils.cli_flags import parse_bool_flag
@@ -109,8 +110,10 @@ def _start_daemon_job(zid):
     return job
 
 
-def _finish_daemon_job(job, zid, region):
-    """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
+def _finish_daemon_job(job, zid, region, naming=None):
+    """Count what the run wrote and write the output manifest; exit 5 if that cannot be done.
+    ``naming`` is how the naming of a run given --namer ended (None for every
+    other run, whose manifest is what it was)."""
     from polismath import embedding_model, job_child
     from polismath.job_child import census
 
@@ -120,10 +123,12 @@ def _finish_daemon_job(job, zid, region):
             job, outcome="succeeded", inputs=job.inputs, outputs=outputs,
             # The embedding model run_pipeline.py loaded (repo@revision:384),
             # the topic model, and the clustering (UMAP and EVoC, default seed).
-            models=job_child.full_pipeline_models(),
+            models=job_child.full_pipeline_models() if naming is None else job_child.full_pipeline_models(naming),
             # Topic naming's provider batches are submitted and awaited inside
             # the UMAP stage; P1 does not observe them, so cost stays unknown.
-            cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None},
+            # A run given --namer counts the tokens of its one naming call.
+            cost=({"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None}
+                  if naming is None else job_child.naming_cost(naming)),
         )
         job_child.write_manifest(job, manifest)
     except (census.CensusError, job_child.ManifestError, embedding_model.ModelMismatch, OSError) as e:
@@ -146,16 +151,31 @@ def main():
     from polismath.selection import SELECTIONS
     parser.add_argument('--selection', choices=SELECTIONS, default=None, help='Embed every comment and lay out, cluster and name only those this selection keeps (the Delphi shadow passes participant_visible/1). Absent, the run is what it was.')
 
+    parser.add_argument('--namer', default=None, help='Name the topics with a model (umap_narrative/topic_namer.py): a JSON object of model, prompt and thinking. Only with --selection=participant_visible/1. Absent, the run is what it was.')
+
     args = parser.parse_args()
 
     if args.help:
         show_usage()
         sys.exit(0)
 
+    args.namer_dir = None
+    if args.namer is not None:
+        from umap_narrative import topic_namer
+        try:
+            args.namer = topic_namer.parse_namer(args.namer)
+            topic_namer.check_selection(args.namer, args.selection)
+        except topic_namer.NamerRefused as e:
+            parser.error(f"--namer refused: {e}")
+        # This attempt's directory for the naming's files, removed when the run ends.
+        args.namer_dir = tempfile.mkdtemp(prefix="delphi-topic-names-")
+
     try:
         with step_log.step("run"):
             run(args)
     finally:
+        if args.namer_dir is not None:
+            shutil.rmtree(args.namer_dir, ignore_errors=True)
         if switch_on(LOCAL_OUTPUT_CLEANUP):
             remove_local_outputs(args.zid, os.environ.get('DELPHI_APP_PATH', '/app'))
 
@@ -245,6 +265,12 @@ def run(args):
     # arguments are byte for byte what they were.
     if args.selection is not None:
         umap_command.append(f"--selection={args.selection}")
+    # Likewise a run given a namer: every other run's arguments are unchanged.
+    namer = getattr(args, "namer", None)
+    if namer is not None:
+        from umap_narrative import topic_namer
+        umap_command.append(f"--namer={topic_namer.namer_argument(namer)}")
+        umap_command.append(f"--namer-dir={args.namer_dir}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
@@ -348,7 +374,14 @@ def run(args):
         print(f"Results stored in DynamoDB for conversation {zid}")
         if job is not None:
             with step_log.step("manifest"):
-                _finish_daemon_job(job, zid, args.region)
+                if namer is None:
+                    _finish_daemon_job(job, zid, args.region)
+                else:
+                    # How the naming ended, as the pipeline recorded it; none
+                    # recorded reads as the keyword labels kept.
+                    naming = topic_namer.read_record(
+                        os.path.join(args.namer_dir, topic_namer.RECORD_FILE)) or {}
+                    _finish_daemon_job(job, zid, args.region, naming=naming)
         sys.exit(0)
 
     summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)

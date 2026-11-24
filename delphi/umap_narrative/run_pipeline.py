@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import sys
+import tempfile
 import time
 import traceback
 import uuid  # For generating job_id
@@ -832,6 +833,9 @@ def process_layers_and_create_visualizations(
     name_topics=False,
     dynamo_storage=None,
     job_id=None,  # Added job_id
+    namer=None,
+    namer_dir=None,
+    naming=None,
 ):
     """
     Process layers, store data, and create visualizations.
@@ -847,6 +851,13 @@ def process_layers_and_create_visualizations(
             LLM_PROVIDER; default anthropic via the Batch API)
         dynamo_storage: Optional DynamoDBStorage object for storing in DynamoDB
         job_id: Job ID for this run
+        namer: A checked namer (umap_narrative/topic_namer.py): the topics are
+            named by polis-topic-names, in place of the provider path below,
+            and keep their keyword labels on any outcome but ``named``. None:
+            the run is what it was.
+        namer_dir: The directory for the naming's files (required with namer)
+        naming: A dict filled with how the naming ended (topic_namer's record,
+            without the names), when a namer is given
     """
     # Process layers and store characteristics
     with step_log.step("keywords", layers=len(cluster_layers)):
@@ -878,8 +889,13 @@ def process_layers_and_create_visualizations(
                 layer_data=layer_data,
             )
 
+    # A run whose job names a namer: the whole hierarchy named in one call by
+    # polis-topic-names, or the keyword labels (never the provider path below).
+    if namer is not None:
+        _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
+                         comment_texts, output_dir, layer_data, dynamo_storage, job_id)
     # If topic naming is requested, generate LLM topic labels.
-    if name_topics:
+    elif name_topics:
         provider_type = resolve_provider_type()
         topic_model = resolve_model_name(provider_type)
         logger.info(
@@ -963,6 +979,84 @@ def process_layers_and_create_visualizations(
             )
 
     return index_file
+
+
+def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
+                     comment_texts, output_dir, layer_data, dynamo_storage, job_id):
+    """Name every layer's topics in one call (umap_narrative/topic_namer.py),
+    or keep the keyword labels. Whatever the program does, this returns: a
+    naming failure never fails the run, and nothing here retries."""
+    from umap_narrative import topic_namer
+    from umap_narrative.topic_naming import _conventional_labels
+
+    with step_log.step("topic_names_call") as facts:
+        try:
+            hierarchy = topic_namer.build_hierarchy(layer_data, cluster_layers, comment_texts, document_map)
+        except Exception as e:  # noqa: BLE001 - naming must never fail the run.
+            logger.error(f"The topic hierarchy could not be built ({type(e).__name__}); keeping keyword labels")
+            hierarchy = None
+            result = topic_namer._result(namer, topic_namer.NAMER_FAILED, "hierarchy_unbuildable")
+        if hierarchy is not None and namer_dir:
+            result = topic_namer.run_namer(namer, hierarchy, namer_dir)
+        elif hierarchy is not None:
+            with tempfile.TemporaryDirectory(prefix="delphi-topic-names-") as tmp:
+                result = topic_namer.run_namer(namer, hierarchy, tmp)
+        facts["topics"] = len(hierarchy["topics"]) if hierarchy is not None else None
+        facts["outcome"] = result["outcome"]
+    named = result["outcome"] == topic_namer.NAMED
+    written_by = namer["model"] if named else topic_namer.KEYWORD_TOPIC_MODEL
+    logger.info(f"Topic naming by {namer['model']}: outcome {result['outcome']}"
+                + ("" if named else f" ({result['reason']}); keeping keyword labels"))
+
+    record = {k: v for k, v in result.items() if k != "names"}
+    if naming is not None:
+        naming.clear()
+        naming.update(record)
+    if namer_dir:
+        try:
+            topic_namer.write_record(os.path.join(namer_dir, topic_namer.RECORD_FILE), result)
+        except OSError as e:
+            # The manifest then reads the run as having kept its keyword labels.
+            logger.error(f"The naming's record could not be written ({type(e).__name__})")
+
+    for layer_idx, cluster_layer in _timed_layers("topic_names", cluster_layers):
+        characteristics = layer_data[layer_idx]["characteristics"]
+        clusters = sorted(int(c) for c in np.unique(cluster_layer[cluster_layer >= 0]))
+        if named:
+            cluster_labels = topic_namer.layer_names(result, layer_idx, clusters)
+            name_origins = {c: "model" for c in cluster_labels}
+        else:
+            cluster_labels = _conventional_labels(characteristics)
+            name_origins = {c: "fallback" for c in cluster_labels}
+
+        # The run's record of how this layer was named: the stored map keeps
+        # the names of model_clusters as written (polis-topic-map.names/3).
+        # A fallback is recorded under "keywords", never under the model's name.
+        if step_log.recording():
+            step_log.note(
+                "topic_names", layer=layer_idx, clusters=len(cluster_labels),
+                **{**topic_namer.step_facts(result), "model": written_by},
+                **origin_facts(cluster_labels, name_origins),
+            )
+
+        with open(
+            os.path.join(output_dir, f"{conversation_id}_comment_layer_{layer_idx}_labels.json"), "w"
+        ) as f:
+            json.dump(cluster_labels, f, indent=2)
+
+        if dynamo_storage:
+            llm_topic_models = DataConverter.batch_convert_llm_topic_names(
+                conversation_id,
+                cluster_labels,
+                layer_idx,
+                model_name=written_by,
+                job_id=job_id,
+            )
+            stored = dynamo_storage.batch_create_llm_topic_names(llm_topic_models)
+            logger.info(
+                f"Stored {stored['success']} topic names for layer {layer_idx} with {stored['failure']} failures"
+            )
+    return record
 
 
 def create_enhanced_multilayer_index(
@@ -1131,7 +1225,7 @@ def create_enhanced_multilayer_index(
 
 def process_conversation(
     zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True,
-    selection=None,
+    selection=None, namer=None, namer_dir=None,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1148,7 +1242,23 @@ def process_conversation(
             named and stored. It is the whole rule, so the two filters above
             must be off. None (the default, and every run but the shadow's):
             the run is what it was.
+        namer: A checked namer (umap_narrative/topic_namer.py parse_namer):
+            the topics are named by polis-topic-names instead of the older
+            provider path, keeping the keyword labels on any outcome but
+            ``named``. Only with the selection participant_visible/1. None
+            (the default): the run is what it was.
+        namer_dir: This attempt's directory for the naming's files; with a
+            namer and no directory, a temporary one is made and removed.
     """
+    if namer is not None:
+        from umap_narrative import topic_namer
+        topic_namer.check_selection(namer, selection)
+    if namer is not None and namer_dir is None:
+        with tempfile.TemporaryDirectory(prefix="delphi-topic-names-") as tmp:
+            return process_conversation(zid, export_dynamo, name_topics, include_moderation,
+                                        exclude_comment_selections, selection=selection,
+                                        namer=namer, namer_dir=tmp)
+
     # Create conversation directory
     output_dir = os.path.join(
         "polis_data", str(zid), "python_output", "comments_enhanced_multilayer"
@@ -1162,9 +1272,10 @@ def process_conversation(
         step_log.record()
 
     with step_log.step("total") as total:
+        extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir}
         ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
                                    include_moderation, exclude_comment_selections, total,
-                                   selection=selection)
+                                   selection=selection, **extra)
         total["ok"] = bool(ok)
     return ok
 
@@ -1344,7 +1455,8 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
 
 
 def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
-                          exclude_comment_selections, total, selection=None):
+                          exclude_comment_selections, total, selection=None, namer=None,
+                          namer_dir=None):
     with step_log.step("inputs") as facts:
         if selection is None:
             comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
@@ -1385,7 +1497,12 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
                                      cluster_layers, comment_texts, comment_ids, metadata,
                                      embedded=embedded)
 
-    # Process layers, store characteristics, and create visualizations
+    # Process layers, store characteristics, and create visualizations. A run
+    # that names a namer is told so, and learns how its naming ended (for the
+    # map's provenance below and for the manifest); every other run's call is
+    # what it was.
+    naming = None if namer is None else {}
+    extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir, "naming": naming}
     process_layers_and_create_visualizations(
         conversation_id,
         conversation_name,
@@ -1396,6 +1513,7 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
         name_topics=name_topics,
         dynamo_storage=dynamo_storage,
         job_id=job_id,  # Pass job_id
+        **extra,
     )
 
     # The topic map step, off unless DELPHI_TOPIC_MAP_DOCUMENT=1: the run's
@@ -1407,7 +1525,7 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
         from polismath.job_child import full_pipeline_models
         with step_log.step("topic_map") as facts:
             stored = topic_map.store_run_map(
-                zid, selection, full_pipeline_models(),
+                zid, selection, full_pipeline_models() if naming is None else full_pipeline_models(naming),
                 execution=topic_map.execution_record(step_log.recorded(), selection))
             facts["outcome"] = stored["outcome"] if stored else "not_stored"
             for key in ("reason", "failure", "document_bytes", "gzip_bytes", "family_bytes"):
@@ -1486,10 +1604,34 @@ def main():
              "(the whole rule: both filters above must be False). Absent, the run is what it was.",
     )
 
+    parser.add_argument(
+        "--namer",
+        default=None,
+        help="Name the topics with a model (umap_narrative/topic_namer.py): a JSON object of "
+             "model, prompt and thinking. Only with --selection=participant_visible/1. "
+             "Absent, the run is what it was.",
+    )
+    parser.add_argument(
+        "--namer-dir",
+        default=None,
+        help="This attempt's directory for the naming's files (run_delphi.py passes it and "
+             "removes it). Absent with --namer, a temporary directory is used and removed.",
+    )
+
     args = parser.parse_args()
     if args.selection is not None and (args.include_moderation or args.exclude_comment_selections):
         parser.error("--selection is the whole rule: it takes --include_moderation=False "
                      "and --exclude_comment_selections=False")
+    namer = None
+    if args.namer is not None:
+        from umap_narrative import topic_namer
+        try:
+            namer = topic_namer.parse_namer(args.namer)
+            topic_namer.check_selection(namer, args.selection)
+        except topic_namer.NamerRefused as e:
+            parser.error(f"--namer refused: {e}")
+    elif args.namer_dir is not None:
+        parser.error("--namer-dir is only for a run with --namer")
 
     # Set up environment
     setup_environment(
@@ -1568,6 +1710,9 @@ def main():
         # Process with real data from PostgreSQL. process_conversation returns
         # False when it could not fetch the conversation; that is a failed
         # stage, and the exit code must say so (run_delphi.py reads it).
+        # Only a run that names a namer passes one: every other run's call
+        # is what it was.
+        extra = {} if namer is None else {"namer": namer, "namer_dir": args.namer_dir}
         ok = process_conversation(
             args.zid,
             export_dynamo=not args.no_dynamo,
@@ -1575,6 +1720,7 @@ def main():
             include_moderation=args.include_moderation,
             exclude_comment_selections=args.exclude_comment_selections,
             selection=args.selection,
+            **extra,
         )
         if not ok:
             logger.error(f"Processing conversation {args.zid} failed.")
