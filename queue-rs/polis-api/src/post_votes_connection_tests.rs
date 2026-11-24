@@ -784,6 +784,220 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
     });
 }
 
+/// The load test of the reader's form: while the report topic map is at its
+/// places with requests from readers who are not moderators, each of which
+/// reads the conversation's held-back comments and rewrites a stored map of
+/// 30,000 comments whose every other comment from 1,000 on is held back
+/// (inflate, rewrite, colours chosen again, deflate), a vote is written, a
+/// comment is written, and the next comment, the comments and the votes are
+/// read, round after round, as when the route is idle. The rules are the
+/// saturation test's above, applied to the two writes as well as the three
+/// reads: every read isolated (no wait for a slot of its own pool), the vote
+/// writer never waiting for a slot, the loaded share of answers other than
+/// 200 at most the control's plus two in forty, and each one's 95th
+/// percentile within twice the control's plus 25 ms. The comment is written
+/// by the comment writer on a database of its own on the same server. The
+/// figures are printed whatever the outcome.
+#[test]
+fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
+    use crate::post_comments::tests::database as comments_db;
+    const ROUNDS: usize = 40;
+    const EXTRA_MISSES: usize = 2;
+    const WINDOW: Duration = Duration::from_secs(2);
+    let database = Database::new("topic_map_rewrite_load");
+    let (mut app, vote) = setup(&database);
+    let map = store_topic_map(&database, 30_000);
+    // Held back: from comment 1,000 on, every other one, moderated out,
+    // inactive or muted in turn.
+    database
+        .connect()
+        .batch_execute(
+            "ALTER TABLE comments DISABLE TRIGGER USER;
+             INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
+               SELECT 1, n, 0, 1, 'held back ' || n,
+                 CASE WHEN n % 6 = 0 THEN -1 ELSE 1 END, n % 6 <> 2, CASE WHEN n % 6 = 4 THEN 0 ELSE 1 END
+               FROM generate_series(1000, 29999, 2) n
+             ON CONFLICT DO NOTHING;
+             ALTER TABLE comments ENABLE TRIGGER USER;",
+        )
+        .unwrap();
+    let comments = comments_db::Database::new("map_rewrite_load");
+    let (writer, key) = comments_db::writer(&comments, vec![]);
+    let author = comments_db::bearer(&key, &comments_db::member());
+    Arc::get_mut(&mut app).unwrap().post_comments = Some(writer);
+    let again = |r: &Request| Request {
+        method: r.method.clone(),
+        target: r.target.clone(),
+        headers: r.headers.clone(),
+        body: r.body.clone(),
+    };
+    let comment = |n: usize| {
+        Request {
+        method: "POST".into(),
+        target: crate::post_comments::PATH.into(),
+        headers: Headers::from_raw(vec![
+            ("host", "localhost"),
+            ("x-forwarded-proto", "https"),
+            ("content-type", "application/json"),
+            ("authorization", author.as_str()),
+        ]),
+        body: json!({"conversation_id": "2p027generated", "txt": format!("Generated load comment {n}")})
+            .to_string()
+            .into_bytes(),
+    }
+    };
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+        topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
+        warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
+        let reads = participation_reads(&app);
+        let writer = app.post_votes.as_ref().unwrap();
+        type Sample = (u16, Duration);
+        let mut written = 0usize;
+        // Rounds of the vote, the comment and the three reads until at least
+        // `min_rounds` rounds and `floor` have passed: samples per call, in
+        // the order vote, comment, reads.
+        let mut sample = async |min_rounds: usize, floor: Duration| -> Vec<Vec<Sample>> {
+            let mut out = vec![Vec::new(); 2 + reads.len()];
+            let started = std::time::Instant::now();
+            let mut rounds = 0;
+            while rounds < min_rounds || started.elapsed() < floor {
+                let start = std::time::Instant::now();
+                let voted = crate::dispatch(app.clone(), None, again(&vote)).await;
+                out[0].push((voted.status, start.elapsed()));
+                written += 1;
+                let start = std::time::Instant::now();
+                let commented = crate::dispatch(app.clone(), None, comment(written)).await;
+                out[1].push((commented.status, start.elapsed()));
+                for (i, (path, pool)) in reads.iter().enumerate() {
+                    let (status, took, delta) = participation_read(app.clone(), path, pool).await;
+                    participation_isolated(path, status, delta);
+                    out[2 + i].push((status, took));
+                }
+                rounds += 1;
+            }
+            out
+        };
+        let _ = sample(ROUNDS / 4, Duration::ZERO).await;
+        let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let control = sample(ROUNDS, WINDOW).await;
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let (gzip_len, plain_len) = (map.gzip.len(), map.document.len());
+        let clients: Vec<_> = (0..16)
+            .map(|n| {
+                let (app, stop) = (app.clone(), stop.clone());
+                tokio::spawn(async move {
+                    // (status, whether a 200 was the reader's form)
+                    let mut answers = std::collections::BTreeMap::<(u16, bool), usize>::new();
+                    let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    while !stop.load(Ordering::SeqCst) {
+                        let out = crate::dispatch(
+                            app.clone(),
+                            None,
+                            forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
+                        )
+                        .await;
+                        let rewritten = match &out.body {
+                            crate::http::Body::Fixed(b) => b.len() != gzip_len && b.len() != plain_len,
+                            _ => false,
+                        };
+                        *answers.entry((out.status, out.status == 200 && rewritten)).or_insert(0) += 1;
+                        if out.status == 503 {
+                            tokio::task::yield_now().await;
+                        }
+                    }
+                    answers
+                })
+            })
+            .collect();
+        let state = app.delphi_topic_map.clone();
+        wait_for("the topic map at its places", || {
+            state.max_in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT && state.busy() > 0
+        })
+        .await;
+        let loaded = sample(control[0].len(), WINDOW).await;
+        stop.store(true, Ordering::SeqCst);
+        let mut maps = std::collections::BTreeMap::<(u16, bool), usize>::new();
+        for client in clients {
+            for (k, n) in client.await.unwrap() {
+                *maps.entry(k).or_insert(0) += n;
+            }
+        }
+        let writer_after = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let names = ["POST /api/v3/votes", "POST /api/v3/comments"]
+            .into_iter()
+            .chain(reads.iter().map(|(path, _)| *path))
+            .collect::<Vec<_>>();
+        fn quantile(samples: &[(u16, Duration)], q: f64) -> Duration {
+            let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+            d.sort();
+            d[((d.len() - 1) as f64 * q).round() as usize]
+        }
+        let mut lines = vec![format!(
+            "rewritten topic map load: control rounds={} loaded rounds={}; maps (status, rewritten)={maps:?} busy={} max_in_flight={} max_held_bytes={}",
+            control[0].len(),
+            loaded[0].len(),
+            state.busy(),
+            state.max_in_flight(),
+            state.max_held()
+        )];
+        for (i, name) in names.iter().enumerate() {
+            let statuses = |v: &[(u16, Duration)]| {
+                let mut s = std::collections::BTreeMap::<u16, usize>::new();
+                for (status, _) in v {
+                    *s.entry(*status).or_insert(0) += 1;
+                }
+                s
+            };
+            lines.push(format!(
+                "  {name}: control {:?} p50={:?} p95={:?} max={:?}; loaded {:?} p50={:?} p95={:?} max={:?}",
+                statuses(&control[i]),
+                quantile(&control[i], 0.5),
+                quantile(&control[i], 0.95),
+                quantile(&control[i], 1.0),
+                statuses(&loaded[i]),
+                quantile(&loaded[i], 0.5),
+                quantile(&loaded[i], 0.95),
+                quantile(&loaded[i], 1.0),
+            ));
+        }
+        let report = lines.join("\n") + "\n";
+        std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
+        assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
+        assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
+        assert!(maps.get(&(503, false)).copied().unwrap_or(0) > 0, "the route was at its bound: {maps:?}");
+        assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
+        for (before, after) in writer_before.iter().zip(&writer_after) {
+            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
+        }
+        for (i, name) in names.iter().enumerate() {
+            let missed = |v: &[(u16, Duration)]| v.iter().filter(|(status, _)| *status != 200).count();
+            let (c_missed, l_missed) = (missed(&control[i]), missed(&loaded[i]));
+            let (n_c, n_l) = (control[i].len(), loaded[i].len());
+            assert!(
+                l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
+                "{name} answered other than 200 more under the rewritten topic map: control {c_missed} of {n_c}, loaded {l_missed} of {n_l}"
+            );
+            let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
+            assert!(
+                l95 <= c95 * 2 + Duration::from_millis(25),
+                "{name} lost its latency under the rewritten topic map: control p95 {c95:?}, loaded p95 {l95:?}"
+            );
+        }
+        // The writes were the participation path's own, answered.
+        assert_eq!(missed_all(&control[0]) + missed_all(&loaded[0]), 0, "every vote was written");
+        assert_eq!(missed_all(&control[1]) + missed_all(&loaded[1]), 0, "every comment was written");
+        fn missed_all(v: &[(u16, Duration)]) -> usize {
+            v.iter().filter(|(status, _)| *status != 200).count()
+        }
+    });
+}
+
 /// The saturation load test split across two processes, so that the flood
 /// and the samplers can run outside the server's CPU quota (the server in a
 /// container limited to half a CPU, the clients in another, over TCP).
