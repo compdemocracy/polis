@@ -208,6 +208,15 @@ def read_names(path: str, hierarchy: Dict[str, Any], namer: Dict[str, str]) -> D
 
 def run_namer(namer: Dict[str, str], hierarchy: Dict[str, Any], work_dir: str,
               timeout: float = WAIT_SECONDS) -> Dict[str, Any]:
+    """Scratch-file failures keep the keyword labels just like program failures."""
+    try:
+        return _run_namer(namer, hierarchy, work_dir, timeout)
+    except OSError as e:
+        return _result(namer, NAMER_FAILED, f"scratch_unavailable ({type(e).__name__})")
+
+
+def _run_namer(namer: Dict[str, str], hierarchy: Dict[str, Any], work_dir: str,
+               timeout: float = WAIT_SECONDS) -> Dict[str, Any]:
     """Write ``hierarchy.json`` into ``work_dir``, run the program, and read
     what it wrote. Never raises for anything the program does: every outcome
     is a result (``named``, the program's word, or ``namer_failed``)."""
