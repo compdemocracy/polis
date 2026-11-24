@@ -101,6 +101,9 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     assert env["DELPHI_SKIP_DATAMAPPLOT"] == "1"
     assert env["DELPHI_LOCAL_OUTPUT_CLEANUP"] == "1"
     assert env["DELPHI_STEP_LOG"] == "1"
+    # The topic map step is off unless the environment document turns it on.
+    assert env["DELPHI_TOPIC_MAP_DOCUMENT"] == "0"
+    assert _environment(service, dict(PRODUCTION_LIKE, DELPHI_TOPIC_MAP_DOCUMENT="1"))["DELPHI_TOPIC_MAP_DOCUMENT"] == "1"
     assert env["SENTENCE_TRANSFORMER_MODEL"] == "ibm-granite/granite-embedding-311m-multilingual-r2"
     assert env["DELPHI_EMBED_MODEL_PATH"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2"
     assert env["DELPHI_EMBED_MODEL_LOCK"] == "/opt/polis/embedding/granite-embedding-311m-multilingual-r2.lock.json"
@@ -190,7 +193,7 @@ def test_the_production_report_service_is_unchanged_by_the_shadow():
     services, _ = _services()
     delphi = _environment(services["delphi"], PRODUCTION_LIKE)
     for key in ("DELPHI_SKIP_DATAMAPPLOT", "DELPHI_STEP_LOG",
-                "DELPHI_LOCAL_OUTPUT_CLEANUP", "HF_HUB_OFFLINE"):
+                "DELPHI_LOCAL_OUTPUT_CLEANUP", "HF_HUB_OFFLINE", "DELPHI_TOPIC_MAP_DOCUMENT"):
         assert key not in delphi, key
 
 

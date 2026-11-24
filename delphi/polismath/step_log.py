@@ -115,13 +115,63 @@ def _interval_s() -> float:
         return 0.02
 
 
+# The run's own record of its steps, kept in memory only while a caller has
+# asked for it (record()): the topic map step stores it with the run's map.
+# None, nothing is kept and every function here is what it was.
+_record: Optional[List[Dict[str, Any]]] = None
+
+
+def record() -> None:
+    """Start keeping, in memory, one entry per step that ends and per note."""
+    global _record
+    _record = []
+
+
+def recording() -> bool:
+    return _record is not None
+
+
+def recorded() -> List[Dict[str, Any]]:
+    """The entries kept since record(), as plain JSON values."""
+    return json.loads(json.dumps(_record or [], default=str))
+
+
+def note(name: str, **facts: Any) -> None:
+    """Keep a fact about how a step ran (an algorithm's parameters), only while
+    recording. Prints nothing."""
+    if _record is not None:
+        _record.append(dict(facts, note=name))
+
+
+@contextmanager
+def _recorded_step(name: str, data: Dict[str, Any]) -> Iterator[Dict[str, Any]]:
+    start = time.monotonic()
+    status = "ok"
+    try:
+        yield data
+    except SystemExit as e:
+        if e.code not in (0, None):
+            status = "failed"
+        raise
+    except BaseException:
+        status = "failed"
+        raise
+    finally:
+        if _record is not None:
+            _record.append(dict(data, step=name, status=status, seconds=round(time.monotonic() - start, 3)))
+
+
 @contextmanager
 def step(name: str, **facts: Any) -> Iterator[Dict[str, Any]]:
     """Time a block and record its peak memory. The yielded dict collects the
     step's facts; it is printed with the line when the block ends."""
     data: Dict[str, Any] = dict(facts)
     if not enabled():
-        yield data
+        if _record is None:
+            yield data
+            return
+        with _recorded_step(name, data):
+            yield data
         return
     sampler = _Sampler(_interval_s())
     start = time.monotonic()
@@ -143,8 +193,11 @@ def step(name: str, **facts: Any) -> Iterator[Dict[str, Any]]:
         scope = "sampled"
         if peak is None:
             peak, scope = _maxrss_mb(), "process"
-        emit(name, status=status, seconds=round(time.monotonic() - start, 3),
+        seconds = round(time.monotonic() - start, 3)
+        emit(name, status=status, seconds=seconds,
              peak_rss_mb=round(peak, 1), peak_scope=scope, **data)
+        if _record is not None:
+            _record.append(dict(data, step=name, status=status, seconds=seconds))
 
 
 def run_child(name: str, command: List[str], **facts: Any) -> int:

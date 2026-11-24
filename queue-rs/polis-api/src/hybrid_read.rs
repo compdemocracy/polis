@@ -11,6 +11,15 @@ pub struct Oidc {
     namespace: String,
 }
 impl Oidc {
+    /// An account verifier for a test outside this module.
+    #[cfg(all(test, feature = "db-tests"))]
+    pub(crate) fn for_tests(verifier: owner::Verifier, namespace: &str) -> Self {
+        Self {
+            verifier,
+            namespace: namespace.into(),
+        }
+    }
+
     /// Signature-only classification for a write route that refuses account
     /// conversion. This neither provisions an account nor grants authority.
     pub(crate) fn verifies(&self, raw: &str, now: u64) -> bool {
@@ -126,28 +135,65 @@ async fn resolve_scoped_observed(
     conversation: Option<&str>,
     counters: &'static Counters,
 ) -> Option<Identity> {
+    resolve_or_database(raw, participant, oidc, pool, conversation, counters)
+        .await
+        .unwrap_or_else(|error| {
+            crate::shadow::reads::credential_database(&error);
+            counters.handoff(Event::HandoffDatabase)
+        })
+}
+
+/// [`resolve`], telling a credential the database did not answer for (a
+/// busy pool, a failed connection or statement: `Err`) from one it refused
+/// (`Ok(None)`). The checks, their order and their counters are
+/// [`resolve`]'s; only a database failure is returned instead of handed
+/// back, after it is recorded as [`resolve`] records it.
+pub async fn resolve_or_unavailable(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+) -> Result<Option<Identity>, ()> {
+    resolve_or_database(raw, participant, oidc, pool, None, &PROCESS)
+        .await
+        .map_err(|error| {
+            crate::shadow::reads::credential_database(&error);
+            let _: Option<Identity> = PROCESS.handoff(Event::HandoffDatabase);
+        })
+}
+
+async fn resolve_or_database(
+    raw: Option<&str>,
+    participant: Option<&polis_auth::participant::Verifier>,
+    oidc: Option<&Oidc>,
+    pool: &Arc<db::Pool>,
+    conversation: Option<&str>,
+    counters: &'static Counters,
+) -> anyhow::Result<Option<Identity>> {
     let Some(raw) = raw else {
-        return Some(Identity::Anonymous);
+        return Ok(Some(Identity::Anonymous));
     };
     // Unlike Node's optional-auth path, non-Bearer headers are conservatively
     // handed back. They must never gain signed-in authority in this process.
     let Some(payload) = credential_hints(raw) else {
-        return counters.handoff(Event::HandoffCredentialShape);
+        return Ok(counters.handoff(Event::HandoffCredentialShape));
     };
     if let Some(reason) = credential_handoff(&payload, conversation) {
-        return counters.handoff(reason);
+        return Ok(counters.handoff(reason));
     }
     let now = (crate::clock::now_ms() / 1000.0) as u64;
     if payload.get("anonymous_participant").is_some()
         || payload.get("standard_user_participant").is_some()
     {
         let Some(cid) = payload.get("conversation_id").and_then(Value::as_str) else {
-            return counters.handoff(Event::HandoffCredentialShape);
+            return Ok(counters.handoff(Event::HandoffCredentialShape));
         };
         let Some(participant) = participant else {
-            return counters.handoff(Event::HandoffVerifierUnavailable);
+            return Ok(counters.handoff(Event::HandoffVerifierUnavailable));
         };
-        let identity = participant.verify_observed(raw, cid, now, counters)?;
+        let Some(identity) = participant.verify_observed(raw, cid, now, counters) else {
+            return Ok(None);
+        };
         let cid = cid.to_owned();
         return pool
             .with(move |c| {
@@ -162,17 +208,13 @@ async fn resolve_scoped_observed(
                 )?
                 .map(|_| Identity::User(identity.uid())))
             })
-            .await
-            .unwrap_or_else(|error| {
-                crate::shadow::reads::credential_database(&error);
-                counters.handoff(Event::HandoffDatabase)
-            });
+            .await;
     }
     let Some(oidc) = oidc else {
-        return counters.handoff(Event::HandoffVerifierUnavailable);
+        return Ok(counters.handoff(Event::HandoffVerifierUnavailable));
     };
     let Ok(sub) = oidc.verifier.subject_at(Some(raw), now) else {
-        return counters.handoff(Event::HandoffOidcVerification);
+        return Ok(counters.handoff(Event::HandoffOidcVerification));
     };
     // Node requires email before looking up even an existing mapping. Refuse
     // non-string/empty shapes here; let Node own its error and creation paths.
@@ -180,24 +222,21 @@ async fn resolve_scoped_observed(
         .get("email")
         .is_some_and(|v| !v.is_null() && !v.is_string())
     {
-        return counters.handoff(Event::HandoffOidcProfile);
+        return Ok(counters.handoff(Event::HandoffOidcProfile));
     }
     let email = payload
         .get("email")
         .filter(|v| v.as_str().is_some_and(|s| !s.is_empty()))
         .or_else(|| payload.get(format!("{}email", oidc.namespace)));
     if !email.and_then(Value::as_str).is_some_and(|s| !s.is_empty()) {
-        return counters.handoff(Event::HandoffOidcProfile);
+        return Ok(counters.handoff(Event::HandoffOidcProfile));
     }
     pool.with(move |c| {
         let rows=c.query("select m.uid from oidc_user_mappings m join users u on u.uid=m.uid where m.oidc_sub=$1", &[&sub])?;
         if rows.len()!=1 { return Ok(counters.handoff(Event::HandoffOidcMapping)); }
         let uid=rows[0].try_get::<_,i32>(0)?;
         Ok(if uid > 0 { Some(Identity::User(polis_auth::Uid(uid))) } else { counters.handoff(Event::HandoffOidcMapping) })
-    }).await.unwrap_or_else(|error| {
-        crate::shadow::reads::credential_database(&error);
-        counters.handoff(Event::HandoffDatabase)
-    })
+    }).await
 }
 
 #[cfg(all(test, feature = "db-tests"))]

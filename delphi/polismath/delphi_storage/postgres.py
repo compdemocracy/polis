@@ -10,12 +10,18 @@ from __future__ import annotations
 from typing import Any, Iterable, Mapping
 
 from .codec import (
-    CODEC_VERSION, FAMILIES, CodecError, decode_family, encode_family,
+    CODEC_VERSION, FAMILIES, POSTGRES_FAMILIES, CodecError, decode_family, encode_family,
     header, item_from_python, to_python,
 )
 import json
 
 RESULT_FAMILIES = frozenset(FAMILIES) - {"Delphi_JobQueue", "Delphi_JobActiveGuard"}
+# The topic map a run stores when its daemon sets DELPHI_TOPIC_MAP_DOCUMENT=1
+# (polismath/delphi_storage/topic_map.py; catalog row 000049). A Postgres-only
+# family, so not in RESULT_FAMILIES: a run's reset neither clears nor emits it,
+# and a run with the step off stores exactly the families it always did.
+TOPIC_MAP_FAMILY = "Delphi_TopicMapDocument"
+assert TOPIC_MAP_FAMILY in POSTGRES_FAMILIES and TOPIC_MAP_FAMILY not in RESULT_FAMILIES
 
 
 def family_files(families: Mapping[str, Iterable[dict[str, Any]]]) -> dict[str, str]:

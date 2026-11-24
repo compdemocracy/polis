@@ -417,6 +417,13 @@ const ROUTES: &[Route] = &[
         "votes_read::ME_PATH"
     ),
     exact!(
+        delphi_topic_map,
+        ["GET", "HEAD"],
+        crate::delphi_topic_map::PATH,
+        ["POLIS_API_DELPHI_TOPIC_MAP_READS"],
+        "delphi_topic_map::PATH"
+    ),
+    exact!(
         votes_famous,
         ["GET", "HEAD"],
         crate::votes_famous::PATH,

@@ -40,6 +40,30 @@ const LIMIT: usize = 1024 * 1024;
 const KEEP_ALIVE: Duration = Duration::from_secs(5);
 /// One request, from its first byte through the response write.
 const REQUEST_DEADLINE: Duration = Duration::from_secs(30);
+/// How long the write of a response that holds something
+/// ([`hold_until_written`]) may take; past it the connection is closed and
+/// what it held is let go. Other responses' writes are unchanged.
+pub const HELD_WRITE_DEADLINE: Duration = Duration::from_secs(5);
+
+/// What a handler asked to keep until its response has been written or its
+/// connection dropped: a route's admission place and byte count, so they bound
+/// the bytes that are still on their way to the client, not only those being
+/// read. One list per connection, emptied after each response.
+type Holds = Arc<std::sync::Mutex<Vec<Box<dyn std::any::Any + Send>>>>;
+
+tokio::task_local! {
+    static RESPONSE_HOLDS: Holds;
+}
+
+/// Keep `value` until the response the current request is building has been
+/// written, or its connection has dropped. `false` (and `value` dropped) when
+/// no connection is writing this request (a test calling a handler
+/// directly).
+pub fn hold_until_written(value: impl std::any::Any + Send) -> bool {
+    RESPONSE_HOLDS
+        .try_with(|holds| holds.lock().map(|mut h| h.push(Box::new(value))).is_ok())
+        .unwrap_or(false)
+}
 
 /// Request headers as Node presents them on `req.headers`: lower-case names,
 /// repeated headers joined (or the first kept, for Node's single-value list).
@@ -706,7 +730,13 @@ where
             headers: head.headers,
             body,
         };
-        let response = match tokio::time::timeout_at(deadline, handler(request)).await {
+        let holds: Holds = Arc::default();
+        let response = match tokio::time::timeout_at(
+            deadline,
+            RESPONSE_HOLDS.scope(holds.clone(), handler(request)),
+        )
+        .await
+        {
             Ok(r) => r,
             Err(_) => bail!("handler deadline"),
         };
@@ -714,7 +744,21 @@ where
         let unframed = head.http10 && matches!(response.body, Body::Chunked(_));
         let keep_alive = !head.close && !response.close && !unframed;
         let bytes = write_response_for(&response, head_only, keep_alive, head.http10, &date_now())?;
-        socket.write_all(&bytes).await?;
+        let held = holds.lock().map(|h| !h.is_empty()).unwrap_or(true);
+        if held {
+            // A response that holds a route's place has a bounded write; an
+            // error or the deadline ends the connection and lets go of it.
+            drop(response);
+            tokio::time::timeout(HELD_WRITE_DEADLINE, socket.write_all(&bytes))
+                .await
+                .map_err(|_| anyhow!("held response write deadline"))??;
+            drop(bytes);
+            if let Ok(mut h) = holds.lock() {
+                h.clear();
+            }
+        } else {
+            socket.write_all(&bytes).await?;
+        }
         if !keep_alive {
             socket.shutdown().await.ok();
             return Ok(());

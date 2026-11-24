@@ -28,6 +28,7 @@ from polismath.utils.cli_flags import parse_bool_flag
 from sentence_transformers import SentenceTransformer
 from umap_narrative.topic_naming import (
     generate_cluster_topic_labels,
+    origin_facts,
     resolve_model_name,
     resolve_provider_type,
 )
@@ -894,6 +895,7 @@ def process_layers_and_create_visualizations(
             logger.info(
                 f"Generating LLM topic names for layer {layer_idx}..."
             )
+            name_origins = {}
             cluster_labels = generate_cluster_topic_labels(
                 characteristics,
                 comment_texts=comment_texts,
@@ -902,7 +904,20 @@ def process_layers_and_create_visualizations(
                 conversation_name=conversation_name,
                 name_topics=True,
                 document_map=document_map,
+                origins=name_origins,
             )
+
+            # How this layer was named, for the run's record (kept only while
+            # the topic map step records the run's steps). Each name's origin
+            # is what the naming decided when it made the name; a label's
+            # shape is never read as proof of who wrote it. The topic map keeps
+            # the names of the clusters listed in model_clusters as written.
+            # Only while recording: with the topic map step off, nothing here runs.
+            if step_log.recording():
+                step_log.note(
+                    "topic_names", layer=layer_idx, provider=provider_type, model=topic_model,
+                    clusters=len(cluster_labels), **origin_facts(cluster_labels, name_origins),
+                )
 
             # Save LLM topic names
             with open(
@@ -1140,6 +1155,12 @@ def process_conversation(
     )
     os.makedirs(output_dir, exist_ok=True)
 
+    # With the topic map step on, the run keeps a record of its steps in
+    # memory, stored with its map (polismath/delphi_storage/topic_map.py).
+    from polismath.delphi_storage import topic_map
+    if topic_map.enabled():
+        step_log.record()
+
     with step_log.step("total") as total:
         ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
                                    include_moderation, exclude_comment_selections, total,
@@ -1376,6 +1397,22 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
         dynamo_storage=dynamo_storage,
         job_id=job_id,  # Pass job_id
     )
+
+    # The topic map step, off unless DELPHI_TOPIC_MAP_DOCUMENT=1: the run's
+    # map, drawn from the families just written, stored in the run's own
+    # result batch (polismath/delphi_storage/topic_map.py). Off, nothing here
+    # runs or prints.
+    from polismath.delphi_storage import topic_map
+    if topic_map.enabled() and export_dynamo:
+        from polismath.job_child import full_pipeline_models
+        with step_log.step("topic_map") as facts:
+            stored = topic_map.store_run_map(
+                zid, selection, full_pipeline_models(),
+                execution=topic_map.execution_record(step_log.recorded(), selection))
+            facts["outcome"] = stored["outcome"] if stored else "not_stored"
+            for key in ("reason", "failure", "document_bytes", "gzip_bytes", "family_bytes"):
+                if stored and key in stored:
+                    facts[key] = stored[key]
 
     # Save metadata
     with open(os.path.join(output_dir, f"{conversation_id}_metadata.json"), "w") as f:
