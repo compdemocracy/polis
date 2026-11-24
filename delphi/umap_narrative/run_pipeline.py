@@ -836,6 +836,7 @@ def process_layers_and_create_visualizations(
     namer=None,
     namer_dir=None,
     naming=None,
+    naming_record_fd=None,
 ):
     """
     Process layers, store data, and create visualizations.
@@ -858,6 +859,8 @@ def process_layers_and_create_visualizations(
         namer_dir: The directory for the naming's files (required with namer)
         naming: A dict filled with how the naming ended (topic_namer's record,
             without the names), when a namer is given
+        naming_record_fd: The pipe run_delphi.py reads that record from, for
+            the run's manifest (with a namer; None: no one reads it)
     """
     # Process layers and store characteristics
     with step_log.step("keywords", layers=len(cluster_layers)):
@@ -893,7 +896,8 @@ def process_layers_and_create_visualizations(
     # polis-topic-names, or the keyword labels (never the provider path below).
     if namer is not None:
         _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
-                         comment_texts, output_dir, layer_data, dynamo_storage, job_id)
+                         comment_texts, output_dir, layer_data, dynamo_storage, job_id,
+                         record_fd=naming_record_fd)
     # If topic naming is requested, generate LLM topic labels.
     elif name_topics:
         provider_type = resolve_provider_type()
@@ -982,10 +986,17 @@ def process_layers_and_create_visualizations(
 
 
 def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
-                     comment_texts, output_dir, layer_data, dynamo_storage, job_id):
+                     comment_texts, output_dir, layer_data, dynamo_storage, job_id, record_fd=None):
     """Name every layer's topics in one call (umap_narrative/topic_namer.py),
-    or keep the keyword labels. Whatever the program does, this returns: a
-    naming failure never fails the run, and nothing here retries."""
+    or keep the keyword labels. Whatever the program or its scratch files do,
+    this returns: a naming failure never fails the run, and nothing here retries.
+
+    The order of writes: the run's record of the naming is sent (to
+    run_delphi.py, for the manifest) before any label is written. If it cannot
+    be sent, the model's names are not published: the keyword labels are,
+    under a record that says so, with the token counts of the call that was
+    made, sent again. So what is stored and what is recorded agree, and the
+    only partial state is keyword labels recorded as keywords with the reason."""
     from umap_narrative import topic_namer
     from umap_narrative.topic_naming import _conventional_labels
 
@@ -1005,28 +1016,32 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
             logger.error(f"The topic hierarchy could not be built ({type(e).__name__}); keeping keyword labels")
             hierarchy = None
             result = topic_namer._result(namer, topic_namer.NAMER_FAILED, "hierarchy_unbuildable")
-        if hierarchy is not None and namer_dir:
-            result = topic_namer.run_namer(namer, hierarchy, namer_dir)
-        elif hierarchy is not None:
-            with tempfile.TemporaryDirectory(prefix="delphi-topic-names-") as tmp:
-                result = topic_namer.run_namer(namer, hierarchy, tmp)
+        if hierarchy is not None:
+            result = _call_namer(topic_namer, namer, hierarchy, namer_dir)
         facts["topics"] = len(hierarchy["topics"]) if hierarchy is not None else None
         facts["outcome"] = result["outcome"]
+
+    if record_fd is not None:
+        try:
+            topic_namer.send_record(record_fd, result)
+        except OSError as e:
+            logger.error(f"The naming's record could not be sent ({type(e).__name__}); keeping keyword labels")
+            if result["outcome"] == topic_namer.NAMED:
+                result = topic_namer.keep_keywords(result, f"record_unsent ({type(e).__name__})")
+                try:
+                    topic_namer.send_record(record_fd, result)
+                except OSError as again:
+                    logger.error(f"The keyword record could not be sent either ({type(again).__name__})")
+
     named = result["outcome"] == topic_namer.NAMED
     written_by = namer["model"] if named else topic_namer.KEYWORD_TOPIC_MODEL
     logger.info(f"Topic naming by {namer['model']}: outcome {result['outcome']}"
                 + ("" if named else f" ({result['reason']}); keeping keyword labels"))
 
-    record = {k: v for k, v in result.items() if k != "names"}
+    record = topic_namer.record_of(result)
     if naming is not None:
         naming.clear()
         naming.update(record)
-    if namer_dir:
-        try:
-            topic_namer.write_record(os.path.join(namer_dir, topic_namer.RECORD_FILE), result)
-        except OSError as e:
-            # The manifest then reads the run as having kept its keyword labels.
-            logger.error(f"The naming's record could not be written ({type(e).__name__})")
 
     for layer_idx, cluster_layer in _timed_layers("topic_names", cluster_layers):
         characteristics = layer_data[layer_idx]["characteristics"]
@@ -1066,6 +1081,23 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
                 f"Stored {stored['success']} topic names for layer {layer_idx} with {stored['failure']} failures"
             )
     return record
+
+
+def _call_namer(topic_namer, namer, hierarchy, namer_dir):
+    """run_namer in this attempt's directory, or in a temporary one; a
+    temporary directory that cannot be made or removed keeps the keywords."""
+    if namer_dir:
+        return topic_namer.run_namer(namer, hierarchy, namer_dir)
+    result = None
+    try:
+        with tempfile.TemporaryDirectory(prefix="delphi-topic-names-") as tmp:
+            result = topic_namer.run_namer(namer, hierarchy, tmp)
+    except OSError as e:
+        reason = f"{topic_namer.SCRATCH_UNAVAILABLE} ({type(e).__name__})"
+        if result is None:
+            return topic_namer._result(namer, topic_namer.NAMER_FAILED, reason)
+        return topic_namer.keep_keywords(result, reason)
+    return result
 
 
 def create_enhanced_multilayer_index(
@@ -1234,7 +1266,7 @@ def create_enhanced_multilayer_index(
 
 def process_conversation(
     zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True,
-    selection=None, namer=None, namer_dir=None,
+    selection=None, namer=None, namer_dir=None, naming_record_fd=None,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1258,15 +1290,11 @@ def process_conversation(
             (the default): the run is what it was.
         namer_dir: This attempt's directory for the naming's files; with a
             namer and no directory, a temporary one is made and removed.
+        naming_record_fd: The pipe the naming's record is sent on (run_delphi.py).
     """
     if namer is not None:
         from umap_narrative import topic_namer
         topic_namer.check_selection(namer, selection)
-    if namer is not None and namer_dir is None:
-        with tempfile.TemporaryDirectory(prefix="delphi-topic-names-") as tmp:
-            return process_conversation(zid, export_dynamo, name_topics, include_moderation,
-                                        exclude_comment_selections, selection=selection,
-                                        namer=namer, namer_dir=tmp)
 
     # Create conversation directory
     output_dir = os.path.join(
@@ -1281,7 +1309,8 @@ def process_conversation(
         step_log.record()
 
     with step_log.step("total") as total:
-        extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir}
+        extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir,
+                                          "naming_record_fd": naming_record_fd}
         ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
                                    include_moderation, exclude_comment_selections, total,
                                    selection=selection, **extra)
@@ -1497,7 +1526,7 @@ def _store_copy(export_dynamo, conversation_id, source, document_map, cluster_la
 
 def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
                           exclude_comment_selections, total, selection=None, namer=None,
-                          namer_dir=None):
+                          namer_dir=None, naming_record_fd=None):
     with step_log.step("inputs") as facts:
         if selection is None:
             comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
@@ -1569,7 +1598,8 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
     # map's provenance below and for the manifest); every other run's call is
     # what it was.
     naming = None if namer is None else ({} if refused is None else {"source_refused": refused})
-    extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir, "naming": naming}
+    extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir, "naming": naming,
+                                      "naming_record_fd": naming_record_fd}
     process_layers_and_create_visualizations(
         conversation_id,
         conversation_name,
@@ -1684,6 +1714,13 @@ def main():
         help="This attempt's directory for the naming's files (run_delphi.py passes it and "
              "removes it). Absent with --namer, a temporary directory is used and removed.",
     )
+    parser.add_argument(
+        "--naming-record-fd",
+        type=int,
+        default=None,
+        help="A pipe run_delphi.py passes: the naming's record (outcome, token counts) is sent "
+             "on it before any label is written, for the run's manifest. Only with --namer.",
+    )
 
     args = parser.parse_args()
     if args.selection is not None and (args.include_moderation or args.exclude_comment_selections):
@@ -1697,8 +1734,11 @@ def main():
             topic_namer.check_selection(namer, args.selection)
         except topic_namer.NamerRefused as e:
             parser.error(f"--namer refused: {e}")
-    elif args.namer_dir is not None:
-        parser.error("--namer-dir is only for a run with --namer")
+    elif args.namer_dir is not None or args.naming_record_fd is not None:
+        parser.error("--namer-dir and --naming-record-fd are only for a run with --namer")
+    if args.naming_record_fd is not None:
+        # Never handed on to a program this pipeline starts.
+        os.set_inheritable(args.naming_record_fd, False)
 
     # Set up environment
     setup_environment(
@@ -1779,7 +1819,8 @@ def main():
         # stage, and the exit code must say so (run_delphi.py reads it).
         # Only a run that names a namer passes one: every other run's call
         # is what it was.
-        extra = {} if namer is None else {"namer": namer, "namer_dir": args.namer_dir}
+        extra = {} if namer is None else {"namer": namer, "namer_dir": args.namer_dir,
+                                          "naming_record_fd": args.naming_record_fd}
         ok = process_conversation(
             args.zid,
             export_dynamo=not args.no_dynamo,

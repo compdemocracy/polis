@@ -206,11 +206,11 @@ mod tests {
 
     #[test]
     fn worst_case_of_bowling_green_is_under_the_suggested_cap() {
-        // 70,448 characters in the saved request body, max_tokens 32,000.
-        let haiku = Model::Haiku.worst_case_usd(70_448, 32_000);
-        let sonnet = Model::Sonnet.worst_case_usd(70_448, 32_000);
-        assert!((haiku - 0.0230448).abs() < 1e-9, "{haiku}");
-        assert!((sonnet - 0.460896).abs() < 1e-9, "{sonnet}");
+        // 70,540 bytes in the saved request body, max_tokens 32,000.
+        let haiku = Model::Haiku.worst_case_usd(70_540, 32_000);
+        let sonnet = Model::Sonnet.worst_case_usd(70_540, 32_000);
+        assert!((haiku - 0.023054).abs() < 1e-9, "{haiku}");
+        assert!((sonnet - 0.46108).abs() < 1e-9, "{sonnet}");
     }
 
     #[test]

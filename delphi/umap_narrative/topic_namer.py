@@ -21,7 +21,8 @@ With it, the naming step does not use the older per-topic provider path
    layer labels, each recorded as written by the model; on any other outcome
    the keyword labels are kept, each recorded as a fallback, with the outcome
    and its reason in the run's record. A naming failure never fails the run
-   and is never retried here.
+   and is never retried here. A failure to create, write, read or remove the
+   step's own files is such a failure (``scratch_unavailable``).
 
 Only the participants' comment rule (``participant_visible/1``) is named in
 this version: a namer with any other selection is refused before the run
@@ -30,7 +31,12 @@ starts, so no comment a moderator removed is ever sent.
 The program, its file shapes and its exit status are described in
 ``queue-rs/polis-topic-names``. This module holds no state between runs:
 ``hierarchy.json`` and ``names.json`` live in a directory of this attempt,
-removed when the run ends.
+removed by the step once read and again when the run ends; under the job
+daemon that directory is inside the attempt directory the daemon removes
+after it has reaped the child, however the child ended (a signal, a timeout,
+SIGKILL). Nothing a later step needs is kept there: the run's record of the
+naming (its outcome and token counts, for the manifest) reaches run_delphi.py
+over a pipe (``send_record`` / ``receive_record``), never through a file.
 """
 
 import json
@@ -64,8 +70,13 @@ SAMPLES = 3
 NAME_MAX = 50
 REASON_MAX = 200
 
-# The file this attempt's naming leaves for run_delphi.py's manifest.
-RECORD_FILE = "naming.json"
+# The step's two scratch files, in its directory.
+HIERARCHY_FILE = "hierarchy.json"
+NAMES_FILE = "names.json"
+# The reason a failure of those files is recorded with (and the class of the error).
+SCRATCH_UNAVAILABLE = "scratch_unavailable"
+# The most of a record run_delphi.py reads from the pipe.
+RECORD_MAX_BYTES = 1 << 20
 # What a run's record names as the writer of keyword labels (never the model
 # that was asked and did not name them).
 KEYWORD_TOPIC_MODEL = "keywords"
@@ -208,19 +219,60 @@ def read_names(path: str, hierarchy: Dict[str, Any], namer: Dict[str, str]) -> D
 
 def run_namer(namer: Dict[str, str], hierarchy: Dict[str, Any], work_dir: str,
               timeout: float = WAIT_SECONDS) -> Dict[str, Any]:
-    """Write ``hierarchy.json`` into ``work_dir``, run the program, and read
-    what it wrote. Never raises for anything the program does: every outcome
-    is a result (``named``, the program's word, or ``namer_failed``)."""
+    """Write ``hierarchy.json`` into ``work_dir``, run the program, read what
+    it wrote and remove both files. Never raises for anything the program or
+    the scratch files do: every outcome is a result (``named``, the program's
+    word, or ``namer_failed``). Scratch-file failures keep the keyword labels
+    just like program failures, with the token counts of a call that was made."""
+    try:
+        result = _run_namer(namer, hierarchy, work_dir, timeout)
+    except OSError as e:
+        _discard_scratch(work_dir)
+        return _result(namer, NAMER_FAILED, f"{SCRATCH_UNAVAILABLE} ({type(e).__name__})")
+    try:
+        remove_scratch(work_dir)
+    except OSError as e:
+        _discard_scratch(work_dir)
+        return keep_keywords(result, f"{SCRATCH_UNAVAILABLE} ({type(e).__name__})")
+    return result
+
+
+def remove_scratch(work_dir: str) -> None:
+    """Remove the step's two files (the hierarchy holds comment text)."""
+    for name in (HIERARCHY_FILE, NAMES_FILE):
+        path = os.path.join(work_dir, name)
+        if os.path.lexists(path):
+            os.remove(path)
+
+
+def _discard_scratch(work_dir: str) -> None:
+    try:
+        remove_scratch(work_dir)
+    except OSError:
+        pass
+
+
+def keep_keywords(result: Dict[str, Any], reason: str) -> Dict[str, Any]:
+    """``result`` with the keyword labels kept for ``reason``: a named result
+    becomes ``namer_failed``; any other keeps its outcome and adds the reason.
+    The token counts of a call that was made are kept either way."""
+    if result["outcome"] == NAMED:
+        return _result(result["namer"], NAMER_FAILED, reason, record=result)
+    return _result(result["namer"], result["outcome"], f"{result['reason']}; {reason}", record=result)
+
+
+def _run_namer(namer: Dict[str, str], hierarchy: Dict[str, Any], work_dir: str,
+               timeout: float = WAIT_SECONDS) -> Dict[str, Any]:
     if not hierarchy["topics"]:
         # The program refuses an empty hierarchy; there is nothing to send.
         return _result(namer, NAMER_FAILED, "no_topics")
     binary = os.environ.get(BINARY) or shutil.which(PROGRAM)
     if not binary:
         return _result(namer, NAMER_FAILED, "not_installed")
-    os.makedirs(work_dir, exist_ok=True)
-    hierarchy_path = os.path.join(work_dir, "hierarchy.json")
-    names_path = os.path.join(work_dir, "names.json")
-    if os.path.exists(names_path):
+    os.makedirs(work_dir, mode=0o700, exist_ok=True)
+    hierarchy_path = os.path.join(work_dir, HIERARCHY_FILE)
+    names_path = os.path.join(work_dir, NAMES_FILE)
+    if os.path.lexists(names_path):
         os.remove(names_path)
     with open(hierarchy_path, "w", encoding="utf-8") as f:
         json.dump(hierarchy, f, ensure_ascii=False)
@@ -259,19 +311,43 @@ def step_facts(result: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def write_record(path: str, result: Dict[str, Any]) -> None:
-    """The naming's result for the run's manifest (read by run_delphi.py):
-    the outcome, the namer and the token counts, never a name or a comment."""
-    keep = {k: v for k, v in result.items() if k != "names"}
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(keep, f, ensure_ascii=False)
+def record_of(result: Dict[str, Any]) -> Dict[str, Any]:
+    """The naming's record: the outcome, the namer and the token counts,
+    never a name or a comment."""
+    return {k: v for k, v in result.items() if k != "names"}
 
 
-def read_record(path: str) -> Optional[Dict[str, Any]]:
-    """The record ``write_record`` wrote, or None when there is none."""
-    try:
-        with open(path, encoding="utf-8") as f:
-            doc = json.load(f)
-    except (OSError, ValueError):
-        return None
-    return doc if isinstance(doc, dict) and doc.get("schema") == RECORD_SCHEMA else None
+def send_record(fd: int, result: Dict[str, Any]) -> None:
+    """Send the naming's record to run_delphi.py over the pipe it gave the
+    pipeline (``--naming-record-fd``): one JSON line, on a line of its own
+    even after a write that failed part way. Raises OSError."""
+    text = json.dumps(record_of(result), ensure_ascii=False, separators=(",", ":"))
+    line = memoryview(("\n" + text + "\n").encode())
+    while line:
+        line = line[os.write(fd, line):]
+
+
+def receive_record(fd: int) -> Optional[Dict[str, Any]]:
+    """The last whole record sent on the pipe, read once the pipeline has
+    exited (without waiting on any process that still holds the pipe), or
+    None when there is none."""
+    os.set_blocking(fd, False)
+    data = b""
+    while len(data) < RECORD_MAX_BYTES:
+        try:
+            chunk = os.read(fd, 65536)
+        except BlockingIOError:
+            break
+        except OSError:
+            break
+        if not chunk:
+            break
+        data += chunk
+    for line in reversed(data.splitlines()):
+        try:
+            doc = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(doc, dict) and doc.get("schema") == RECORD_SCHEMA:
+            return doc
+    return None

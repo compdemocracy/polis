@@ -9,13 +9,22 @@ over three public conversations, each from its public openData export:
 
 The measurement clustered each conversation's comments with the Delphi
 pipeline, built its topic hierarchy (ids, parents, keywords, the three comments
-nearest each topic's centre) and sent it to Claude Haiku 5.5 and Claude
+nearest each topic's centre; what is kept of it here is below) and sent it to Claude Haiku 5.5 and Claude
 Sonnet 5.5 in one call per conversation, three times at each of two thinking
 settings.
 
 - `hierarchies/<conversation>.json`: the hierarchy the calls were built from,
   cut to the fields this crate reads and given the `schema` string. The sample
-  comments are as the measurement chose them from the export.
+  comments for Bowling Green are as the measurement chose them from the export.
+  Bowling Green keeps them because one test reads them: the request-body test
+  rebuilds the call's body from this file and compares it, byte for byte, with
+  the saved request. The vTaiwan and Mobilität files keep only what their
+  tests read: the topic ids, layers, clusters, sizes and parents, and one
+  invented Chinese or German sentence per topic as the sample, which gives the
+  language check the comments' script and language. No source comment is left
+  in them (some of the measurement's samples had been moderated out), and
+  their keywords, which were words taken from the comments, are empty lists.
+  The recorded replies are unchanged.
 - `replies/<conversation>/<model>-<setting>-r<n>.json`: the reply body of each
   whole-hierarchy call, as the provider returned it (JSON re-serialized, content
   unchanged). `off` is the measurement's lowest thinking setting (Haiku
