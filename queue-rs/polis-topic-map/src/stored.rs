@@ -935,6 +935,53 @@ mod tests {
         );
     }
 
+    /// The record a run given a namer writes for each layer
+    /// (`_name_with_namer` in `delphi/umap_narrative/run_pipeline.py`): named,
+    /// every cluster is the model's; on any other outcome it is recorded
+    /// under `keywords` with no model cluster, so its labels are taken by
+    /// their shape.
+    #[test]
+    fn the_namers_record_names_the_models_clusters_only_when_it_named() {
+        let entry = |layer: i64, model: &str, outcome: &str, clusters: Value| {
+            serde_json::json!({"layer": layer, "provider": "polis-topic-names", "model": model,
+                "namer": "{\"model\":\"claude-haiku-5-5\",\"prompt\":\"polis-topic-names/1\",\"thinking\":\"default\"}",
+                "prompt": "polis-topic-names/1", "thinking": "default", "outcome": outcome,
+                "reason": null, "clusters": 2, "written_by_model": 2, "fallback": 0,
+                "origin_unknown": 0, "model_clusters": clusters})
+        };
+        let record = |entries: Value| {
+            serde_json::json!({"schema": EXECUTION_SCHEMA, "available": true,
+                "algorithms": {"topic_names": entries}})
+        };
+        let named = record(serde_json::json!([
+            entry(0, "claude-haiku-5-5", "named", serde_json::json!([0, 1])),
+            entry(1, "claude-haiku-5-5", "named", serde_json::json!([0])),
+        ]));
+        assert_eq!(
+            model_written(&named),
+            BTreeSet::from([(0, 0), (0, 1), (1, 0)])
+        );
+        assert_eq!(
+            safe_name(0, 1, "0_1: Parks, Roads, and Housing", true),
+            (
+                Some("0_1: Parks, Roads, and Housing".to_owned()),
+                NameKind::Model
+            )
+        );
+        let failed = record(serde_json::json!([entry(
+            0,
+            "keywords",
+            "http_429",
+            serde_json::json!([])
+        )]));
+        assert!(model_written(&failed).is_empty());
+        assert_eq!(
+            safe_name(0, 1, "0_1: Parks, Roads, and Housing", false),
+            (None, NameKind::Replaced)
+        );
+        assert!(model_written(&execution_unavailable("none")).is_empty());
+    }
+
     #[test]
     fn rows_are_in_key_order_with_names_in_byte_order() {
         let mut a = Item::new();
