@@ -42,6 +42,9 @@ log = os.environ.get("STUB_ARGV_LOG")
 if log:
     with open(log, "a") as f:
         f.write(json.dumps(args) + "\n")
+    # What it was sent, kept beside the log (the step removes its own files).
+    with open(args[2], encoding="utf-8") as f, open(log + ".hierarchy.json", "w", encoding="utf-8") as g:
+        g.write(f.read())
 if os.environ.get("STUB_SLEEP"):
     time.sleep(float(os.environ["STUB_SLEEP"]))
 if os.environ.get("STUB_EXIT"):
@@ -181,7 +184,9 @@ def test_named_the_programs_names_are_believed(stub):
     [argv] = stub_argv(stub)
     assert argv == ["name", "--in", str(work / "hierarchy.json"), "--out", str(work / "names.json"),
                     "--namer", HAIKU_ARG]
-    assert json.loads((work / "hierarchy.json").read_text()) == small_hierarchy()
+    assert json.loads((stub / "argv.log.hierarchy.json").read_text()) == small_hierarchy()
+    # Read, the step's two files are removed.
+    assert os.listdir(work) == []
 
 
 def test_a_saved_reply_for_bowling_green_names_every_topic(stub, monkeypatch, tmp_path):
@@ -284,7 +289,10 @@ CHARACTERISTICS = {0: {0: {"top_words": ["water", "land"], "sample_comments": ["
                    1: {0: {"top_words": ["town"], "sample_comments": ["c0"]}}}
 
 
-def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None):
+DEFAULT_DIR = object()
+
+
+def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None, record_fd=None, namer_dir=DEFAULT_DIR):
     monkeypatch.setattr(pipeline, "process_layers_and_store_characteristics",
                         lambda *a, **kw: {l: {"characteristics": c, "numeric_topic_names": {}}
                                           for l, c in CHARACTERISTICS.items()})
@@ -295,7 +303,8 @@ def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None):
     pipeline.process_layers_and_create_visualizations(
         "7", "c", np.zeros((60, 2)), LAYERS, [f"c{i}" for i in range(60)], str(out),
         name_topics=True, dynamo_storage=storage, job_id="job", namer=namer,
-        namer_dir=str(tmp_path / "naming"), naming=naming)
+        namer_dir=str(tmp_path / "naming") if namer_dir is DEFAULT_DIR else namer_dir, naming=naming,
+        naming_record_fd=record_fd)
     labels = {layer: json.loads((out / f"7_comment_layer_{layer}_labels.json").read_text()) for layer in (0, 1)}
     notes = [e for e in step_log.recorded() if e.get("note") == "topic_names"]
     return labels, notes, naming
@@ -303,7 +312,8 @@ def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None):
 
 def test_named_the_models_names_are_the_labels_recorded_as_the_models(pipeline, stub, monkeypatch, tmp_path):
     storage = Names()
-    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage)
+    read_end, write_end = os.pipe()
+    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
     assert labels == {0: {"0": "0_0: Generated name 0_0", "1": "0_1: Generated name 0_1",
                           "2": "0_2: Generated name 0_2"}, 1: {"0": "1_0: Generated name 1_0"}}
     assert [(n["layer"], n["model"], n["outcome"], n["model_clusters"], n["written_by_model"], n["fallback"])
@@ -313,8 +323,12 @@ def test_named_the_models_names_are_the_labels_recorded_as_the_models(pipeline, 
     assert (notes[0]["prompt"], notes[0]["thinking"], notes[0]["reason"]) == ("polis-topic-names/1", "default", None)
     assert naming["outcome"] == "named" and "names" not in naming
     assert {r.model_name for r in storage.rows} == {"claude-haiku-5-5"}
-    record = topic_namer.read_record(str(tmp_path / "naming" / topic_namer.RECORD_FILE))
+    os.close(write_end)
+    record = topic_namer.receive_record(read_end)
+    os.close(read_end)
     assert record == naming and record["tokens_in"] == 25445
+    # The step's scratch files are gone once read.
+    assert sorted(os.listdir(tmp_path / "naming")) == []
 
 
 def test_without_a_namer_the_naming_is_todays_and_the_program_never_runs(pipeline, stub, monkeypatch, tmp_path):
@@ -450,10 +464,12 @@ with open(os.environ["PIPELINE_ARGV"], "a") as f:
 for a in sys.argv[1:]:
     if a.startswith("--namer-dir="):
         d = a.split("=", 1)[1]
-        assert os.path.isdir(d)
-        json.dump({"schema": "polis-topic-names.run-record/1", "outcome": "named",
-                   "namer": {"model": "claude-haiku-5-5"}}, open(os.path.join(d, "naming.json"), "w"))
+        os.makedirs(d)
+        open(os.path.join(d, "hierarchy.json"), "w").write("{}")
         open(os.environ["PIPELINE_ARGV"] + ".dir", "w").write(d)
+    if a.startswith("--naming-record-fd="):
+        os.write(int(a.split("=", 1)[1]), (json.dumps({"schema": "polis-topic-names.run-record/1",
+                 "outcome": "named", "namer": {"model": "claude-haiku-5-5"}}) + "\\n").encode())
 '''
 
 
@@ -503,9 +519,10 @@ def test_with_a_namer_the_pipeline_is_told_and_its_directory_is_removed(delphi_a
     assert done.returncode == 0, done.stdout + done.stderr
     [argv] = [json.loads(line) for line in (tmp_path / "argv.log").read_text().splitlines()]
     namer_dir = (tmp_path / "argv.log.dir").read_text()
-    assert argv == ["--zid=7", "--include_moderation=False", "--exclude_comment_selections=False",
-                    "--name-topics", "--selection=participant_visible/1", f"--namer={HAIKU_ARG}",
-                    f"--namer-dir={namer_dir}"]
+    assert argv[:-1] == ["--zid=7", "--include_moderation=False", "--exclude_comment_selections=False",
+                         "--name-topics", "--selection=participant_visible/1", f"--namer={HAIKU_ARG}",
+                         f"--namer-dir={namer_dir}"]
+    assert argv[-1].startswith("--naming-record-fd=") and argv[-1].split("=", 1)[1].isdigit()
     assert not os.path.exists(namer_dir)
 
 

@@ -2,9 +2,11 @@
 import argparse
 import os
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
+import uuid
 
 from polismath import step_log
 from polismath.utils.cli_flags import parse_bool_flag
@@ -137,6 +139,23 @@ def _finish_daemon_job(job, zid, region, naming=None):
         sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
 
 
+def namer_scratch_path():
+    """Where a run given --namer keeps its naming's scratch files (not yet
+    made). Under the job daemon it is inside the attempt directory that holds
+    DELPHI_OUTPUT_MANIFEST: the daemon removes that directory once it has
+    reaped this process group, however the run ended (a timeout, a fence,
+    SIGKILL), so nothing is left behind even where no finally runs. Otherwise
+    a new name in the temporary directory, removed by this run."""
+    manifest = os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip()
+    parent = os.path.dirname(os.path.abspath(manifest)) if manifest else tempfile.gettempdir()
+    return os.path.join(parent, f"delphi-topic-names-{uuid.uuid4().hex}")
+
+
+def _exit_on_sigterm(signum, frame):
+    # A terminated run still runs its finally (the naming's scratch is removed).
+    raise SystemExit(128 + signum)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Process a Polis conversation with the Delphi analytics pipeline.", add_help=False)
     parser.add_argument("--zid", required=True, help="The Polis conversation ID to process")
@@ -167,8 +186,11 @@ def main():
             topic_namer.check_selection(args.namer, args.selection)
         except topic_namer.NamerRefused as e:
             parser.error(f"--namer refused: {e}")
-        # This attempt's directory for the naming's files, removed when the run ends.
-        args.namer_dir = tempfile.mkdtemp(prefix="delphi-topic-names-")
+        # This attempt's directory for the naming's files. The naming step
+        # makes it (a failure to is a naming outcome, never a failed run);
+        # this run removes it when it ends, and on SIGTERM too.
+        args.namer_dir = namer_scratch_path()
+        signal.signal(signal.SIGTERM, _exit_on_sigterm)
 
     try:
         with step_log.step("run"):
@@ -267,14 +289,27 @@ def run(args):
         umap_command.append(f"--selection={args.selection}")
     # Likewise a run given a namer: every other run's arguments are unchanged.
     namer = getattr(args, "namer", None)
+    record_read = record_write = None
     if namer is not None:
         from umap_narrative import topic_namer
+        # The naming's record (outcome, token counts) comes back on a pipe,
+        # not a file: nothing the manifest needs lives in the scratch directory.
+        record_read, record_write = os.pipe()
         umap_command.append(f"--namer={topic_namer.namer_argument(namer)}")
         umap_command.append(f"--namer-dir={args.namer_dir}")
+        umap_command.append(f"--naming-record-fd={record_write}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
-    pipeline_exit_code = step_log.run_child("pipeline", umap_command)
+    if record_write is None:
+        pipeline_exit_code = step_log.run_child("pipeline", umap_command)
+    else:
+        try:
+            pipeline_exit_code = step_log.run_child("pipeline", umap_command, pass_fds=(record_write,))
+        finally:
+            os.close(record_write)
+        naming = topic_namer.receive_record(record_read) or {}
+        os.close(record_read)
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 
@@ -377,10 +412,8 @@ def run(args):
                 if namer is None:
                     _finish_daemon_job(job, zid, args.region)
                 else:
-                    # How the naming ended, as the pipeline recorded it; none
-                    # recorded reads as the keyword labels kept.
-                    naming = topic_namer.read_record(
-                        os.path.join(args.namer_dir, topic_namer.RECORD_FILE)) or {}
+                    # How the naming ended, as the pipeline sent it; none
+                    # sent reads as the keyword labels kept.
                     _finish_daemon_job(job, zid, args.region, naming=naming)
         sys.exit(0)
 

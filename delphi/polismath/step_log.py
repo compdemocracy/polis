@@ -37,7 +37,7 @@ import sys
 import threading
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Sequence
 
 SWITCH = "DELPHI_STEP_LOG"
 PREFIX = "delphi_step/1"
@@ -200,13 +200,16 @@ def step(name: str, **facts: Any) -> Iterator[Dict[str, Any]]:
             _record.append(dict(data, step=name, status=status, seconds=seconds))
 
 
-def run_child(name: str, command: List[str], **facts: Any) -> int:
+def run_child(name: str, command: List[str], pass_fds: Sequence[int] = (), **facts: Any) -> int:
     """Run a child process to completion and return its exit code. With the
-    switch on, also print the step line with the child's exact peak (wait4)."""
+    switch on, also print the step line with the child's exact peak (wait4).
+    ``pass_fds``: descriptors the child keeps (a naming run's record pipe);
+    without them the child is started exactly as before."""
+    extra = {"pass_fds": tuple(pass_fds)} if pass_fds else {}
     if not enabled():
-        return subprocess.run(command).returncode
+        return subprocess.run(command, **extra).returncode
     start = time.monotonic()
-    proc = subprocess.Popen(command)
+    proc = subprocess.Popen(command, **extra)
     _, status, usage = os.wait4(proc.pid, 0)
     code = os.waitstatus_to_exitcode(status)
     proc.returncode = code
