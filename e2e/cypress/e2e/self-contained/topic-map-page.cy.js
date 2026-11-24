@@ -256,12 +256,12 @@ describe('Topic map page', () => {
     cy.fixture(HELD_BACK).then((doc) => {
       expect(doc.points.moderatedOut).to.equal(39)
       answerWith({ statusCode: 200, body: doc })
-      // The report gives its conversation id; the comment list, text for
-      // every comment it holds.
+      // The report gives its conversation id and its moderation level; the
+      // comment list, text for every comment it holds.
       const comments = doc.points.id.filter((id) => id !== null).map((tid) => ({ tid, txt: `Comment ${tid}` }))
       textAnswer = (url) =>
         url.pathname === '/api/v3/reports'
-          ? { statusCode: 200, body: [{ report_id: REPORT_ID, conversation_id: '2fixture' }] }
+          ? { statusCode: 200, body: [{ report_id: REPORT_ID, conversation_id: '2fixture', mod_level: 0 }] }
           : { statusCode: 200, body: comments }
     })
     cy.visit(`/topicsVizReport/${REPORT_ID}`)
@@ -284,6 +284,7 @@ describe('Topic map page', () => {
           ['conversation_id', '2fixture'],
           ['report_id', REPORT_ID],
           ['moderation', 'true'],
+          ['mod_gt', '0'], // the report's own moderation level, as the report pages send it
         ])
       })
       pointUntil(places, 'Moderated out')

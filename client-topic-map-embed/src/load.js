@@ -13,12 +13,19 @@
  *    shell (the chooser), never by the component:
  *      GET /api/v3/delphi/topicMap?report_id=<id>&list=jobs
  * 3. Comment text for the tooltips, at the first pointer move over the map,
- *    once per report, kept in memory:
- *      GET /api/v3/reports?report_id=<id>        (only for its conversation_id;
- *                                                  skipped when the host gives one)
- *      GET /api/v3/comments?conversation_id=<conversation id>&report_id=<id>&moderation=true
- *    the comment list the report pages read; to anyone but the conversation's
- *    moderators it holds only the comments participants can see.
+ *    once per drawn map and reader, kept in memory by the component:
+ *      GET /api/v3/reports?report_id=<id>        (for its conversation_id and
+ *                                                  mod_level; skipped only when
+ *                                                  the host gives both)
+ *      GET /api/v3/comments?conversation_id=<conversation id>&report_id=<id>&moderation=true&mod_gt=<mod_level>
+ *    the comment list as the report pages ask for it (client-report app.jsx
+ *    getComments), with the report's own moderation level as mod_gt, so a
+ *    tooltip never shows a comment's text the report would not show that
+ *    reader. To anyone but the conversation's moderators it holds only the
+ *    comments participants can see. The report pages also send
+ *    include_voting_patterns, which adds vote counts to the same rows; the
+ *    tooltips need none, so it is left out. When no moderation level can be
+ *    had, no comment text is asked for.
  * Nothing else: no datamapplot listing.
  */
 export const TOPIC_MAP_PATH = "/api/v3/delphi/topicMap";
@@ -79,8 +86,18 @@ export function reportUrl(reportId, origin = "") {
   return `${origin}${REPORTS_PATH}?${new URLSearchParams({ report_id: reportId })}`;
 }
 
-export function commentsUrl(conversationId, reportId, origin = "") {
-  const query = new URLSearchParams({ conversation_id: conversationId, report_id: reportId, moderation: "true" });
+/* A report's moderation level (reports.mod_level), sent as the report pages
+   send it: Node keeps comments whose mod is greater (-2: every comment, -1:
+   those not moderated out, 0: those moderated in). Not an integer: none. */
+export const modLevelOrNull = (level) => (Number.isInteger(level) ? level : null);
+
+export function commentsUrl(conversationId, reportId, modLevel, origin = "") {
+  const query = new URLSearchParams({
+    conversation_id: conversationId,
+    report_id: reportId,
+    moderation: "true",
+    mod_gt: String(modLevel),
+  });
   return `${origin}${COMMENTS_PATH}?${query}`;
 }
 
@@ -176,18 +193,26 @@ export async function readJobList(fetchFn, reportId, { origin = "", token = null
   return answerToJobs(answer.status, answer.body);
 }
 
-/* Comment text by comment id, from the comment list; an empty Map when any
-   step does not answer with what it should. Never throws. */
-export async function readCommentText(fetchFn, reportId, { conversationId = null, origin = "", token = null } = {}) {
+/* Comment text by comment id, from the comment list filtered by the report's
+   moderation level; an empty Map when any step does not answer with what it
+   should. The report is read unless the host gives both its conversation id
+   and its moderation level. Never throws. */
+export async function readCommentText(
+  fetchFn,
+  reportId,
+  { conversationId = null, modLevel = null, origin = "", token = null } = {},
+) {
   const text = new Map();
   let conversation = conversationId;
-  if (!conversation) {
+  let level = modLevelOrNull(modLevel);
+  if (!conversation || level === null) {
     const report = await getJson(fetchFn, reportUrl(reportId, origin), token);
     const row = report && report.status === 200 && Array.isArray(report.body) ? report.body[0] : null;
     conversation = row && typeof row.conversation_id === "string" ? row.conversation_id : null;
-    if (!conversation) return text;
+    level = row ? modLevelOrNull(row.mod_level) : null;
+    if (!conversation || level === null) return text;
   }
-  const comments = await getJson(fetchFn, commentsUrl(conversation, reportId, origin), token);
+  const comments = await getJson(fetchFn, commentsUrl(conversation, reportId, level, origin), token);
   if (!comments || comments.status !== 200 || !Array.isArray(comments.body)) return text;
   for (const c of comments.body) {
     if (c && Number.isInteger(c.tid) && typeof c.txt === "string") text.set(c.tid, c.txt);

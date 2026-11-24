@@ -225,11 +225,12 @@ test("every answer of the list but a 200 with jobs is no list, and never throws"
   assert.deepEqual(answerToJobs(200, { jobs: [{ job_id: "" }, null, { job_id: "ok" }] }).jobs.map((j) => j.jobId), ["ok"]);
 });
 
-test("comment text: the report for its conversation id, then the comment list, both by report id", async () => {
+test("comment text: the report for its conversation id and moderation level, then the comment list under that level", async () => {
   const calls = [];
   const fetchFn = async (url, init) => {
     calls.push({ url, init });
-    if (url.startsWith("/api/v3/reports?")) return { status: 200, json: async () => [{ report_id: "r1", conversation_id: "2demo" }] };
+    if (url.startsWith("/api/v3/reports?"))
+      return { status: 200, json: async () => [{ report_id: "r1", conversation_id: "2demo", mod_level: -1 }] };
     return {
       status: 200,
       json: async () => [
@@ -242,10 +243,11 @@ test("comment text: the report for its conversation id, then the comment list, b
   const text = await readCommentText(fetchFn, "r1");
   assert.deepEqual(
     calls.map((c) => c.url),
-    [reportUrl("r1"), commentsUrl("2demo", "r1")],
+    [reportUrl("r1"), commentsUrl("2demo", "r1", -1)],
   );
   assert.equal(calls[0].url, "/api/v3/reports?report_id=r1");
-  assert.equal(calls[1].url, "/api/v3/comments?conversation_id=2demo&report_id=r1&moderation=true");
+  // As client-report's getComments asks: conversation_id, report_id, moderation, mod_gt = report.mod_level.
+  assert.equal(calls[1].url, "/api/v3/comments?conversation_id=2demo&report_id=r1&moderation=true&mod_gt=-1");
   for (const c of calls) {
     assert.equal(c.init.credentials, "omit");
     assert.equal(c.init.headers.Authorization, undefined);
@@ -255,12 +257,59 @@ test("comment text: the report for its conversation id, then the comment list, b
     [5, "Fewer cars"],
   ]);
 
+  // The report's default level (-2, every comment) is sent too, as the report pages send it.
+  const all = [];
+  await readCommentText(async (url, init) => {
+    all.push(url);
+    return url.startsWith("/api/v3/reports?")
+      ? { status: 200, json: async () => [{ conversation_id: "2demo", mod_level: -2 }] }
+      : { status: 200, json: async () => [] };
+  }, "r1");
+  assert.equal(all[1], "/api/v3/comments?conversation_id=2demo&report_id=r1&moderation=true&mod_gt=-2");
+
+  // A host that gives both the conversation id and the level saves the report read.
   const one = [];
-  await readCommentText(fakeFetch(200, [], one), "r1", { conversationId: "2demo" });
+  await readCommentText(fakeFetch(200, [], one), "r1", { conversationId: "2demo", modLevel: 0 });
   assert.deepEqual(
     one.map((c) => c.url),
-    ["/api/v3/comments?conversation_id=2demo&report_id=r1&moderation=true"],
+    ["/api/v3/comments?conversation_id=2demo&report_id=r1&moderation=true&mod_gt=0"],
   );
+});
+
+test("comment text never skips the report's moderation level", async () => {
+  // As Node filters the list: with mod_gt, only comments whose mod is greater.
+  const comments = [
+    { tid: 1, txt: "moderated in", mod: 1 },
+    { tid: 2, txt: "not yet moderated", mod: 0 },
+  ];
+  const node = (report) => {
+    const asked = [];
+    const fetchFn = async (url) => {
+      asked.push(url);
+      const u = new URL(url, "http://x");
+      if (u.pathname === "/api/v3/reports") return { status: 200, json: async () => [report] };
+      const gt = u.searchParams.get("mod_gt");
+      const rows = gt === null || Number(gt) <= -2 ? comments : comments.filter((c) => c.mod > Number(gt));
+      return { status: 200, json: async () => rows.map(({ tid, txt }) => ({ tid, txt })) };
+    };
+    return { fetchFn, asked };
+  };
+
+  // A report at level 0 does not show a comment not yet moderated; neither does its tooltip.
+  const strict = node({ conversation_id: "2demo", mod_level: 0 });
+  assert.deepEqual([...(await readCommentText(strict.fetchFn, "r1"))], [[1, "moderated in"]]);
+
+  // Given only the conversation id, the report is still read for its level.
+  const hosted = node({ conversation_id: "2demo", mod_level: 0 });
+  assert.deepEqual([...(await readCommentText(hosted.fetchFn, "r1", { conversationId: "2demo" }))], [[1, "moderated in"]]);
+  assert.equal(hosted.asked.length, 2);
+
+  // A report with no level the page can read gets no text at all, and the list is not asked for.
+  for (const level of [undefined, null, "0", 0.5]) {
+    const unknown = node({ conversation_id: "2demo", mod_level: level });
+    assert.equal((await readCommentText(unknown.fetchFn, "r1")).size, 0);
+    assert.equal(unknown.asked.length, 1);
+  }
 });
 
 test("comment text that cannot be had is no text, and never throws", async () => {
@@ -282,4 +331,3 @@ test("choosing a run sets job_id in the address, drops selection, keeps the rest
   assert.equal(addressWithJob("?job_id=j1&selection=all_comments&chooser=1", "j2"), "?job_id=j2&chooser=1");
   assert.equal(addressWithJob("?job_id=j1", ""), "");
 });
-

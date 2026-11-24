@@ -17,9 +17,13 @@
  *                  ({ topic | level, previous, origin }) for each event
  *   fetch          optional: the fetch to ask the route with
  *   token          optional: a Bearer token sent with every request, for a
- *                  placement whose reader is signed in; the public page sends none
- *   conversationId optional: the report's conversation id, when the host
- *                  knows it, so the comment text costs one request, not two
+ *                  placement whose reader is signed in; the public page sends
+ *                  none. A new token (or none) reloads the map and its text.
+ *   conversationId, modLevel
+ *                  optional: the report's conversation id and moderation
+ *                  level (reports.mod_level), when the host knows both, so
+ *                  the comment text costs one request, not two; with either
+ *                  missing the report is read for them
  *   commentText    false to ask for no comment text (tooltips then say only
  *                  "Moderated out", on held-back points)
  *   counts         false to leave out the line of counts
@@ -30,8 +34,9 @@
  * position, no id, no topic) are drawn as the package draws a point with no
  * topic, grey and beneath, and their tooltip says "Moderated out". A line
  * under the buttons gives the counts the document holds. Other points' text
- * comes from the report's comment list, asked for at the first pointer move
- * over the map and kept in memory (load.js names the requests).
+ * comes from the report's comment list under the report's moderation level,
+ * asked for at the first pointer move over the map and kept in memory for
+ * that reader only (load.js names the requests; commentText.js the keeping).
  *
  * The map itself is client-topic-map's PolisTopicMap, used as it is. The
  * row of buttons is the host's, as the prototype's host page writes it: one
@@ -42,6 +47,7 @@ import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import h from "@solidjs/h";
 import PolisTopicMap from "../../client-topic-map/topic-map.js";
 import { mapRequest, readCommentText, readTopicMap, TEXT } from "./load.js";
+import { commentTextFor } from "./commentText.js";
 import { countLine, fillText, withTooltipText } from "./points.js";
 import { chromeProperties, themeFor } from "./themes.js";
 
@@ -51,17 +57,6 @@ const RULES = [
 ];
 
 const count = (n) => n.toLocaleString("en-US");
-
-/* Comment text by report, asked for once per page and kept in memory. */
-const commentText = new Map();
-
-function textFor(fetchFn, reportId, conversationId, token) {
-  // Credentialed text must never enter the page-wide anonymous cache.
-  if (token) return readCommentText(fetchFn, reportId, { conversationId, token });
-  const key = `${reportId}|${conversationId || ""}`;
-  if (!commentText.has(key)) commentText.set(key, readCommentText(fetchFn, reportId, { conversationId, token }));
-  return commentText.get(key);
-}
 
 function resolveTheme(theme) {
   return theme && typeof theme === "object" ? theme : themeFor(theme);
@@ -81,11 +76,17 @@ export default function TopicMap(props) {
   let map = null;
 
   const fetchFn = () => untrack(() => props.fetch) || globalThis.fetch.bind(globalThis);
+  // This component's comment text, for one reader at a time (commentText.js),
+  // made afresh with every read of the map.
+  const freshText = () => commentTextFor((reader) => readCommentText(fetchFn(), reader.reportId, reader));
+  let textFor = freshText();
 
-  // The one read: again only if the report, the run or the rule changes.
+  // The one read: again if the report, the run, the rule, the document or
+  // the reader's token changes; the map drawn before, and its text, go.
   createEffect(
     () => [props.reportId, props.jobId, props.selection, props.document, props.token],
     ([reportId, jobId, selection, doc, token]) => {
+      textFor = freshText();
       if (doc) {
         setState({ kind: "map", doc });
         return undefined;
@@ -147,7 +148,12 @@ export default function TopicMap(props) {
         mapElement.removeEventListener("pointermove", askText);
         const reportId = untrack(() => props.reportId);
         if (!reportId || untrack(() => props.commentText) === false) return;
-        textFor(fetchFn(), reportId, untrack(() => props.conversationId), untrack(() => props.token)).then((byId) => {
+        textFor({
+          reportId,
+          conversationId: untrack(() => props.conversationId),
+          modLevel: untrack(() => props.modLevel),
+          token: untrack(() => props.token),
+        }).then((byId) => {
           if (map === made) fillText(data, byId);
         });
       };
