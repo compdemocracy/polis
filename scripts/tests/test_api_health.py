@@ -187,6 +187,51 @@ class DeployHealthCheck(unittest.TestCase):
                 self.check_comments_health('pca2,version,comments', switches,
                                            mutation is None, mutation=mutation)
 
+    # The report topic map (delphiTopicMap): its handler switch is accepted
+    # exactly when the route is selected, beside the other selectors.
+    TOPIC_MAP = 'POLIS_API_DELPHI_TOPIC_MAP_READS'
+
+    def test_topic_map_selection_switch_matrix(self):
+        from itertools import product
+
+        names = ('POLIS_API_VERSION_READS', 'POLIS_API_COMMENT_READS', self.TOPIC_MAP)
+        for pca, version, comments, topic_map in product((False, True), repeat=4):
+            selected = ','.join(name for name, enabled in zip(
+                ('pca2', 'version', 'comments', 'delphiTopicMap'),
+                (pca, version, comments, topic_map)) if enabled)
+            for flags in product((False, True), repeat=3):
+                switches = [name for name, enabled in zip(names, flags) if enabled]
+                accepted = flags == (version, comments, topic_map)
+                with self.subTest(selected=selected, switches=switches):
+                    self.check_comments_health(selected, switches, accepted)
+
+    def test_topic_map_exact_selector_and_unrelated_switches(self):
+        for selected in ('delphitopicmap', 'DelphiTopicMap', 'topicMap', 'delphiTopicMaps',
+                         'xdelphiTopicMap', 'delphiTopicMapShadow'):
+            for switches, accepted in (([], True), ([self.TOPIC_MAP], False)):
+                with self.subTest(selected=selected, switches=switches):
+                    self.check_comments_health(selected, switches, accepted)
+        for selected in (' delphiTopicMap ', 'delphiTopicMap,delphiTopicMap',
+                         'pca2,\tdelphiTopicMap\n'):
+            with self.subTest(selected=selected):
+                self.check_comments_health(selected, [self.TOPIC_MAP], True)
+        for extra in ('POLIS_API_DELPHI_NARRATIVE_READS', 'POLIS_API_TOPIC_SELECTION_WRITES',
+                      'POLIS_API_REPORT_EXPORT_READS', 'POLIS_API_PARTICIPANT_READS'):
+            with self.subTest(extra=extra):
+                self.check_comments_health('delphiTopicMap', [self.TOPIC_MAP, extra], False)
+
+    def test_topic_map_preserves_health_and_version_checks(self):
+        mutations = (None, 'statusCode', 'status', 'mathEnv', 'commit', 'version',
+                     'routes', 'readOnly', 'reachable', 'limit', 'acquireTimeoutMs',
+                     'statementTimeoutMs', 'maxLifetimeMs', 'unreachable',
+                     'missing-switches', 'missing-pool', 'bad-version-status',
+                     'cacheable-version', 'different-version')
+        switches = [self.TOPIC_MAP, 'POLIS_API_VERSION_READS']
+        for mutation in mutations:
+            with self.subTest(mutation=mutation):
+                self.check_comments_health('pca2,version,delphiTopicMap', switches,
+                                           mutation is None, mutation=mutation)
+
     WRITER_COUNTERS = ('served', 'handedBack', 'durableAcceptedWithDegradedFollowOn', 'unknown',
                        'writerAcquireAlarmHits', 'inFlight', 'notificationsInFlight',
                        'notificationDropped')
