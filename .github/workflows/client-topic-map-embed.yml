@@ -6,6 +6,8 @@ on:
     paths:
       - 'client-topic-map/**'
       - 'client-topic-map-embed/**'
+      - 'client-report/src/util/clientErrorReporter.js'
+      - 'scripts/client-error-prelude.cjs'
       - 'ci/local/**'
       - 'Makefile'
       - '.github/workflows/client-topic-map-embed.yml'

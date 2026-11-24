@@ -65,6 +65,18 @@ test("the built page ships NOTICE.txt beside its script and font, and both the p
   for (const part of [SOLID_MIT, SIGNALS_MIT, "SIL OFL 1.1", "/static/topic-map/NOTICE.txt"]) assert.ok(first.includes(part), part);
 });
 
+test("the built page installs the client error reporter, as every client does, in its head, before the font and the script", () => {
+  // The page the test above built.
+  const html = readFileSync(join(OUT, "index.html"), "utf8");
+  const install = html.indexOf('window.PolisClientErrors.install({"client":"report"');
+  assert.ok(install > 0, "the reporter is installed");
+  assert.ok(html.includes(readFileSync(join(here, "..", "client-report", "src", "util", "clientErrorReporter.js"), "utf8").trim()), "the reporter itself, whole");
+  assert.ok(install < html.indexOf("</head>"));
+  assert.ok(install < html.indexOf("@font-face"), "before the font");
+  assert.ok(install < html.indexOf('<script src="/static/topic-map/page.'), "before the script");
+  assert.equal(html.split("<script").length - 1, 2, "the reporter, then the page's script");
+});
+
 test("the standalone file carries the notices whole", () => {
   const dir = mkdtempSync(join(tmpdir(), "topic-map-notices-"));
   try {

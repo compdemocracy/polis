@@ -17,11 +17,16 @@
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const require = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
 const MAP = join(here, "..", "client-topic-map");
+// The client error reporter: the report client's copy (every copy is the same file).
+const REPORTER = join(here, "..", "client-report", "src", "util", "clientErrorReporter.js");
+const PRELUDE = join(here, "..", "scripts", "client-error-prelude.cjs");
 const FONT = join(MAP, "fonts", "Roboto-latin-wght.woff2");
 const NOTICE_NAME = "NOTICE.txt";
 const PUBLIC_DIR = "static/topic-map";
@@ -62,8 +67,18 @@ async function bundle(where) {
   return result.outputFiles[0].contents;
 }
 
-function page(fontUrl, scriptUrl, documentScript, noticesHtml) {
+// The client error reporter every client installs, inline in the head before
+// the font and the script, so their load failures are reported too. This page
+// took /topicsVizReport over from the report client, so it reports as the
+// report client. The standalone file asks no host, so it carries none.
+export function clientErrorPrelude(env = process.env) {
+  const build = /^[a-f0-9]{40}$/.test(env.GIT_HASH || "") ? env.GIT_HASH : undefined;
+  return `<script>${scriptSafe(require(PRELUDE)(REPORTER, "report", build, "/"))}</script>\n`;
+}
+
+function page(fontUrl, scriptUrl, documentScript, noticesHtml, clientErrors = "") {
   return readFileSync(join(here, "src", "index.html"), "utf8")
+    .replace("{{CLIENT_ERRORS}}", () => clientErrors)
     .replace("{{NOTICES}}", () => noticesHtml)
     .replace("{{FONT_URL}}", () => fontUrl)
     .replace("{{DOCUMENT}}", () => documentScript)
@@ -114,6 +129,7 @@ async function main(args) {
     `<script src="/${PUBLIC_DIR}/${jsName}"></script>`,
     "",
     `<!-- The licences of the code and the font this page carries: /${PUBLIC_DIR}/${NOTICE_NAME} -->`,
+    clientErrorPrelude(),
   );
   writeWithHeaders(join(out, "index.html"), html, { "Content-Type": "text/html; charset=UTF-8", "Cache-Control": "no-cache" });
   console.log(`wrote dist/${PUBLIC_DIR}: index.html, ${jsName} (${js.length} bytes), ${fontName}, ${NOTICE_NAME}`);

@@ -163,8 +163,13 @@ RUN npm config set fetch-retries 5 && \
 RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
 
 COPY client-topic-map/ /app/client-topic-map/
+# The client error reporter the page installs inline, as every client does.
+COPY scripts/client-error-prelude.cjs /app/scripts/
+COPY client-report/src/util/clientErrorReporter.js /app/client-report/src/util/
 COPY client-topic-map-embed/. .
 
+ARG GIT_HASH=unknown
+ENV GIT_HASH=$GIT_HASH
 RUN npm test && npm run build
 
 
