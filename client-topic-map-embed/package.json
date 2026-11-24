@@ -1,0 +1,20 @@
+{
+  "name": "polis-client-topic-map-embed",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The topic map as an embeddable page and a Solid component, drawn by client-topic-map",
+  "scripts": {
+    "build": "node build.mjs",
+    "standalone": "node build.mjs --standalone",
+    "test": "node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@solidjs/h": "2.0.2",
+    "@solidjs/web": "2.0.3",
+    "solid-js": "2.0.3"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}
