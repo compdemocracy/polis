@@ -1656,25 +1656,25 @@ fn the_fate_of_a_first_vote_is_claimed_by_exactly_one_side() {
         ("the request first", true, true, false),
         ("the worker first", false, false, true),
     ] {
-        let fate = Fate::default();
+        let fate = FirstVoteOutcome::new(0, None);
         let (request, worker) = if request_first {
-            let request = fate.abandon();
+            let request = abandoned(&fate);
             (request, fate.commit())
         } else {
             let worker = fate.commit();
-            (fate.abandon(), worker)
+            (abandoned(&fate), worker)
         };
         assert_eq!((request, worker), (request_wins, worker_wins), "{case}");
         assert_eq!(fate.committing(), worker_wins, "{case}");
         // A claim already decided stays decided.
-        assert_eq!(fate.abandon(), request_wins, "{case}: abandoned again");
+        assert_eq!(abandoned(&fate), request_wins, "{case}: abandoned again");
         assert!(!fate.commit(), "{case}: committed again");
     }
     // Simultaneous: the two claims race from two threads, many times; each
     // time exactly one of them wins.
     let mut won = [0_u32; 2];
     for _ in 0..2000 {
-        let fate = Arc::new(Fate::default());
+        let fate = FirstVoteOutcome::new(0, None);
         let start = Arc::new(std::sync::Barrier::new(2));
         let (f, s) = (fate.clone(), start.clone());
         let worker = std::thread::spawn(move || {
@@ -1682,7 +1682,7 @@ fn the_fate_of_a_first_vote_is_claimed_by_exactly_one_side() {
             f.commit()
         });
         start.wait();
-        let request = fate.abandon();
+        let request = abandoned(&fate);
         let worker = worker.join().unwrap();
         assert!(request != worker, "exactly one side wins");
         assert_eq!(fate.committing(), worker);
@@ -1692,10 +1692,21 @@ fn the_fate_of_a_first_vote_is_claimed_by_exactly_one_side() {
         "simultaneous claims: request won {}, worker won {}",
         won[0], won[1]
     );
-    // The outcome of a lost acknowledgement is counted by one caller.
-    let fate = Fate::default();
-    assert!(fate.classify());
-    assert!(!fate.classify());
+    // The outcome is counted by one caller.
+    let fate = FirstVoteOutcome::new(0, None);
+    assert!(fate.commit());
+    Settler::new(&fate).settle(Settled::Unresolved {
+        transaction: None,
+        status: "in_progress",
+    });
+    assert!(fate.take().is_some_and(|(_, counts)| counts));
+    assert!(fate.take().is_some_and(|(_, counts)| !counts));
+}
+
+/// The request's claim: abandoned by it, now or before, so that no work of
+/// the vote can commit any more.
+fn abandoned(fate: &FirstVoteOutcome) -> bool {
+    fate.abandon() != Abandon::Claimed
 }
 
 /// A first vote whose blocking work waits at `fault`, through the whole
@@ -1805,6 +1816,166 @@ fn a_first_vote_whose_task_ends_during_its_second_look_is_answered_by_the_reques
         Counted::Unresolved.read() > unresolved,
         "counted unresolved"
     );
+    assert_eq!(person_and_vote(&stage), after(before, true));
+}
+
+/// Whether this caller's first vote has reached `place`.
+fn reached(observation: &DispatchObservation, place: Hold) -> bool {
+    observation.lock().unwrap().reached.contains(&place)
+}
+
+fn reply_of(out: &Outgoing) -> String {
+    match &out.body {
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        _ => String::new(),
+    }
+}
+
+/// A first vote whose worker claims its COMMIT late, and is then held after
+/// that claim (before the transaction's id is read and COMMIT is sent) until
+/// the request's whole wait has run out: the request never hands it back,
+/// and gives no answer while the COMMIT is unsent. Let go, inside the
+/// transaction's one-second idle bound, it commits, and the request answers
+/// with the person's token. One person and one vote, and no outcome counted
+/// as unknown.
+#[test]
+fn a_first_vote_held_after_its_claim_past_the_wait_is_answered_by_its_commit() {
+    let stage = stage("first_contact_held_after_claim");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = person_and_vote(&stage);
+    let unknown = FIRST_CONTACT_UNKNOWN.load(Ordering::Relaxed);
+    let started = std::time::Instant::now();
+    let (observation, task) = paused_first_vote(&rt, &app, Fault::PauseBeforeCommit);
+    observation.lock().unwrap().hold.push(Hold::AfterClaim);
+    // Most of the request's wait passes before the transaction begins.
+    std::thread::sleep(Duration::from_millis(2600).saturating_sub(started.elapsed()));
+    observation.lock().unwrap().worker_released = true;
+    assert!(
+        eventually(|| reached(&observation, Hold::AfterClaim)),
+        "the worker claimed its COMMIT"
+    );
+    assert!(
+        eventually(|| reached(&observation, Hold::AfterRequestWait)),
+        "the request's wait ran out"
+    );
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        !task.is_finished(),
+        "no answer while the claimed COMMIT is unsent"
+    );
+    assert_eq!(person_and_vote(&stage), before, "nothing committed yet");
+    observation.lock().unwrap().let_go.push(Hold::AfterClaim);
+    let out = rt.block_on(task).unwrap();
+    let reply = reply_of(&out);
+    assert_eq!(answer_of(&out, &reply), Answer::Degraded, "{reply}");
+    assert!(!marked_for_node(&out));
+    let pid = i32::try_from(claims(&stage, reply_token(&reply)).2).unwrap();
+    assert_eq!(stored_votes(&stage, pid, 7), vec![agree()]);
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    assert_eq!(
+        person_and_vote(&stage),
+        after(before, true),
+        "one person and one vote"
+    );
+    assert_eq!(FIRST_CONTACT_UNKNOWN.load(Ordering::Relaxed), unknown);
+    assert!(
+        observation.lock().unwrap().counted.is_empty(),
+        "a commit is counted as the answer the route gives, not as an outcome"
+    );
+}
+
+/// A first vote whose COMMIT's acknowledgement is lost, whose request is
+/// cancelled and whose task is dropped while the second look's read is
+/// stalled: the look, in a task of its own, reaches its bound and writes the
+/// outcome unresolved, and with nobody left to answer it counts and logs it
+/// itself, once. Both exist.
+#[test]
+fn a_lost_acknowledgement_with_its_request_and_task_gone_is_counted_once_by_the_second_look() {
+    let stage = stage("first_contact_owners_gone");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = person_and_vote(&stage);
+    let unresolved = Counted::Unresolved.read();
+    let (observation, task) = paused_first_vote(&rt, &app, Fault::StatusReadStalls);
+    assert_eq!(
+        person_and_vote(&stage),
+        after(before, true),
+        "both committed"
+    );
+    task.abort();
+    assert!(matches!(rt.block_on(task), Err(error) if error.is_cancelled()));
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    assert!(
+        eventually(|| !observation.lock().unwrap().counted.is_empty()),
+        "the second look counted its outcome"
+    );
+    observation.lock().unwrap().worker_released = true;
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(observation.lock().unwrap().counted, vec!["unresolved"]);
+    assert!(
+        Counted::Unresolved.read() > unresolved,
+        "counted unresolved"
+    );
+    assert_eq!(person_and_vote(&stage), after(before, true));
+}
+
+/// A first vote whose COMMIT's acknowledgement is lost, and whose second
+/// look finds it committed only after the request's wait has run out: that
+/// confirmation is the request's answer (the degraded 200 with the person's
+/// token), counted confirmed once and as nothing else.
+#[test]
+fn a_confirmation_after_the_request_began_waiting_is_its_answer_counted_once() {
+    let stage = stage("first_contact_late_confirmation");
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let before = person_and_vote(&stage);
+    let confirmed = Counted::Confirmed.read();
+    let observation = DispatchObservation::default();
+    {
+        let mut state = observation.lock().unwrap();
+        state.fault = Some(Fault::AckLostAfterCommit);
+        state.hold = vec![Hold::BeforeLookSettles, Hold::AfterRequestWait];
+    }
+    let watched = observation.clone();
+    let held = app.clone();
+    let task = rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(held, first_request()));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await
+    });
+    assert!(eventually(|| reached(
+        &observation,
+        Hold::BeforeLookSettles
+    )));
+    assert!(eventually(|| reached(&observation, Hold::AfterRequestWait)));
+    // The look writes its confirmation while the request is past its wait.
+    observation
+        .lock()
+        .unwrap()
+        .let_go
+        .push(Hold::BeforeLookSettles);
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    assert!(
+        observation.lock().unwrap().counted.is_empty(),
+        "counted by the request that answers with it"
+    );
+    observation
+        .lock()
+        .unwrap()
+        .let_go
+        .push(Hold::AfterRequestWait);
+    let out = rt.block_on(task).unwrap();
+    let reply = reply_of(&out);
+    assert_eq!(answer_of(&out, &reply), Answer::Degraded, "{reply}");
+    assert!(!marked_for_node(&out));
+    let pid = i32::try_from(claims(&stage, reply_token(&reply)).2).unwrap();
+    assert_eq!(stored_votes(&stage, pid, 7), vec![agree()]);
+    assert_eq!(observation.lock().unwrap().counted, vec!["confirmed"]);
+    assert!(Counted::Confirmed.read() > confirmed, "counted confirmed");
     assert_eq!(person_and_vote(&stage), after(before, true));
 }
 

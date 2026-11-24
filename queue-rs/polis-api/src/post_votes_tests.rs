@@ -456,6 +456,84 @@ pub(super) struct DispatchState {
     pub(super) worker_paused: bool,
     /// The test lets that work go on.
     pub(super) worker_released: bool,
+    /// The places this caller's first vote is held (`Hold`), until the test
+    /// lets each go on.
+    pub(super) hold: Vec<Hold>,
+    /// The places it has reached, held or not.
+    pub(super) reached: Vec<Hold>,
+    /// The held places the test has let go on.
+    pub(super) let_go: Vec<Hold>,
+    /// What this caller's first-vote outcome was counted as, each time it was
+    /// counted: `handed_back`, `confirmed`, `unresolved` or `unknown`.
+    pub(super) counted: Vec<&'static str>,
+}
+
+/// A place a first vote can be held, for a test that orders its worker, its
+/// second look and its request against each other. Nothing is held unless the
+/// test asks; every place is recorded when it is reached.
+#[cfg(feature = "db-tests")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Hold {
+    /// Inside the transaction, right after the worker claimed its COMMIT and
+    /// before the transaction's id is read and COMMIT is sent.
+    AfterClaim,
+    /// In the second look's task, after it read and before it writes the
+    /// outcome.
+    BeforeLookSettles,
+    /// In the request, after its wait ran out and before it abandons the
+    /// vote.
+    AfterRequestWait,
+}
+
+/// Records that `place` was reached; true when it may be passed.
+#[cfg(feature = "db-tests")]
+fn passes(observation: &DispatchObservation, place: Hold) -> bool {
+    let mut state = observation.lock().unwrap();
+    if !state.reached.contains(&place) {
+        state.reached.push(place);
+    }
+    !state.hold.contains(&place) || state.let_go.contains(&place)
+}
+
+/// Inside blocking work: waits at `place` while the test holds it.
+#[cfg(feature = "db-tests")]
+pub(super) fn hold(observation: &Option<DispatchObservation>, place: Hold) {
+    let Some(observation) = observation else {
+        return;
+    };
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !passes(observation, place) {
+        assert!(
+            std::time::Instant::now() < until,
+            "{place:?} was never let go on"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// In a task: waits at `place` while the test holds it, without blocking the
+/// runtime's threads.
+#[cfg(feature = "db-tests")]
+pub(super) async fn hold_async(observation: &Option<DispatchObservation>, place: Hold) {
+    let Some(observation) = observation else {
+        return;
+    };
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !passes(observation, place) {
+        assert!(
+            std::time::Instant::now() < until,
+            "{place:?} was never let go on"
+        );
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+}
+
+/// Records what a caller's first-vote outcome was counted as.
+#[cfg(feature = "db-tests")]
+pub(super) fn counted(observation: &Option<DispatchObservation>, counter: &'static str) {
+    if let Some(observation) = observation {
+        observation.lock().unwrap().counted.push(counter);
+    }
 }
 
 /// Where a first-contact task fails or waits, for a caller that asks for it.
@@ -645,6 +723,32 @@ fn observing_dispatch<T>(observation: &DispatchObservation, poll: impl FnOnce() 
     });
     let _clear = Clear;
     poll()
+}
+
+/// The first contact's connections fail when silent past
+/// `FIRST_CONTACT_SILENCE` (unacknowledged data, or keepalives unanswered),
+/// whatever the transport; the connector is otherwise unchanged.
+#[test]
+fn a_first_contacts_connections_fail_when_silent() {
+    let base: postgres::Config = "host=db user=polis dbname=polis".parse().unwrap();
+    let bounded = first_contact_connector(Connector::Plain(Box::new(base.clone())));
+    let Connector::Plain(config) = bounded else {
+        panic!("the transport is kept");
+    };
+    assert_eq!(config.get_tcp_user_timeout(), Some(&FIRST_CONTACT_SILENCE));
+    assert!(config.get_keepalives());
+    assert_eq!(config.get_keepalives_idle(), FIRST_CONTACT_KEEPALIVE);
+    assert_eq!(
+        config.get_keepalives_interval(),
+        Some(FIRST_CONTACT_KEEPALIVE)
+    );
+    assert_eq!(
+        config.get_keepalives_retries(),
+        Some(FIRST_CONTACT_KEEPALIVE_PROBES)
+    );
+    assert_eq!(config.get_hosts(), base.get_hosts());
+    assert_eq!(config.get_user(), base.get_user());
+    assert_eq!(config.get_dbname(), base.get_dbname());
 }
 
 #[test]

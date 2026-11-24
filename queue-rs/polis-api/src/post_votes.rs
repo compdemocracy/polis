@@ -11,11 +11,12 @@ use crate::{
 use anyhow::{Context, Result};
 use contract::{AcceptedVote, DurableSuccess, FollowOn, FollowOnState, NotificationState};
 use polis_auth::{PostgresLookup, Uid, Zid, admission as join, participant, xid_account};
+use polis_queue_adapter::jobs::transport::Connector;
 use postgres::Client;
 use std::{
     sync::{
         Arc, Mutex,
-        atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -387,7 +388,10 @@ pub(crate) fn configure(
         signer_matches_verifier(&keys, &verifier, &issuer, &audience)?;
         Some(FirstContact {
             pool: db::Pool::writer(
-                config::connector_for_dsn(&dsn, "polis-api-vote-first-contact/1")?,
+                first_contact_connector(config::connector_for_dsn(
+                    &dsn,
+                    "polis-api-vote-first-contact/1",
+                )?),
                 first_contact_limits(),
             ),
             keys: Arc::new(keys),
@@ -1655,97 +1659,359 @@ impl Dispatch {
 /// pool's acquire (100 ms), the transaction's own bound (2 s,
 /// `FIRST_CONTACT_BOUNDS`) and a second more. A commit is answered well
 /// inside it. Past it the request hands the vote back only if it abandons it
-/// first (`Fate`): a transaction timeout cannot stop work that has not begun
-/// (a pool wait, a lock wait, a task not yet scheduled).
+/// before the worker claims its COMMIT (`FirstVoteOutcome::abandon`): a
+/// transaction timeout cannot stop work that has not begun (a pool wait, a
+/// lock wait, a task not yet scheduled). Once the worker has claimed it, the
+/// request waits for the worker's outcome, which the transaction's bounds and
+/// the first contact's connections (`first_contact_connector`) bound.
 const FIRST_CONTACT_WAIT: Duration = Duration::from_millis(3100);
 
-/// A first vote's fate when its request stops waiting for it: decided once,
-/// by whichever side claims it first, in one compare-and-swap from
-/// `FATE_UNDECIDED`. The request may hand the vote back only after it claims
-/// `FATE_ABANDONED`; the worker may COMMIT only after it claims
-/// `FATE_COMMITTING`, inside the transaction, as the last thing before
-/// COMMIT, and rolls back if the request abandoned it first. A request that
-/// finds the worker committing never hands the vote back as nothing written.
-#[derive(Default)]
-struct Fate {
-    state: AtomicU8,
-    /// A COMMIT whose acknowledgement was lost: its transaction's id and the
-    /// person and vote it returned, kept by the blocking work itself, so the
-    /// request can still ask about it when the task's answer never comes.
-    pending: Mutex<Option<(i64, Committed)>>,
-    /// Whether that COMMIT's outcome has been counted and logged: once, by
-    /// the task or by the request.
-    classified: AtomicBool,
+/// How long a first contact's connection may stay silent before it fails:
+/// data sent and not acknowledged (`tcp_user_timeout`), or a peer that stops
+/// answering keepalives (one second idle, then two probes a second apart). A
+/// read after the worker claims its COMMIT then fails instead of waiting for
+/// the operating system's own limits, which are minutes.
+const FIRST_CONTACT_SILENCE: Duration = Duration::from_secs(3);
+const FIRST_CONTACT_KEEPALIVE: Duration = Duration::from_secs(1);
+const FIRST_CONTACT_KEEPALIVE_PROBES: u32 = 2;
+
+/// The first contact's connector: `connector` with `FIRST_CONTACT_SILENCE`
+/// on every connection it opens. Only the first contact's pool is built with
+/// it; every other pool keeps its connector as it is.
+fn first_contact_connector(connector: Connector) -> Connector {
+    let bound = |mut config: Box<postgres::Config>| {
+        config
+            .tcp_user_timeout(FIRST_CONTACT_SILENCE)
+            .keepalives(true)
+            .keepalives_idle(FIRST_CONTACT_KEEPALIVE)
+            .keepalives_interval(FIRST_CONTACT_KEEPALIVE)
+            .keepalives_retries(FIRST_CONTACT_KEEPALIVE_PROBES);
+        config
+    };
+    match connector {
+        Connector::Tls(config, tls) => Connector::Tls(bound(config), tls),
+        Connector::Plain(config) => Connector::Plain(bound(config)),
+    }
 }
 
-const FATE_UNDECIDED: u8 = 0;
-const FATE_ABANDONED: u8 = 1;
-const FATE_COMMITTING: u8 = 2;
+const CLAIM_UNDECIDED: u8 = 0;
+const CLAIM_ABANDONED: u8 = 1;
+const CLAIM_COMMITTING: u8 = 2;
 
-impl Fate {
-    /// The request: true when no work of this vote can commit any more,
-    /// because the request abandoned it, now or before.
-    fn abandon(&self) -> bool {
-        match self.state.compare_exchange(
-            FATE_UNDECIDED,
-            FATE_ABANDONED,
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-        ) {
-            Ok(_) => true,
-            Err(state) => state == FATE_ABANDONED,
+/// What became of a first vote's one transaction: written once, by the
+/// worker's side (`Settler`), and read by the request.
+#[derive(Clone)]
+enum Settled {
+    /// Rolled back, or never begun: nothing was written, and nothing ever
+    /// will be. The reason, one word of a closed set.
+    RolledBack(&'static str),
+    /// The person and the vote were committed together. `confirmed` is the
+    /// transaction's id when its COMMIT's acknowledgement was lost and the
+    /// second look found it committed.
+    Committed {
+        person: Committed,
+        confirmed: Option<i64>,
+    },
+    /// A COMMIT whose outcome cannot be told: the second look could not
+    /// decide (`status`), or the worker ended after it claimed its COMMIT
+    /// with no transaction id to ask about.
+    Unresolved {
+        transaction: Option<i64>,
+        status: &'static str,
+    },
+}
+
+impl Settled {
+    /// The counter this outcome raises, if any. A plain commit raises none:
+    /// the route counts the answer it gives.
+    #[cfg(all(test, feature = "db-tests"))]
+    fn counter(&self) -> Option<&'static str> {
+        match self {
+            Self::RolledBack(_) => Some("handed_back"),
+            Self::Committed {
+                confirmed: Some(_), ..
+            } => Some("confirmed"),
+            Self::Committed {
+                confirmed: None, ..
+            } => None,
+            Self::Unresolved {
+                transaction: Some(_),
+                ..
+            } => Some("unresolved"),
+            Self::Unresolved {
+                transaction: None, ..
+            } => Some("unknown"),
+        }
+    }
+
+    fn count(&self, zid: i32) {
+        match self {
+            Self::RolledBack(reason) => first_contact_handed_back(reason, zid, None),
+            Self::Committed {
+                confirmed: Some(transaction),
+                ..
+            } => first_contact_commit_confirmed(zid, *transaction),
+            Self::Committed {
+                confirmed: None, ..
+            } => {}
+            Self::Unresolved {
+                transaction: Some(transaction),
+                status,
+            } => first_contact_commit_unresolved(zid, *transaction, status),
+            Self::Unresolved {
+                transaction: None, ..
+            } => first_contact_handed_back(FIRST_CONTACT_COMMIT_UNKNOWN, zid, None),
+        }
+    }
+}
+
+struct OutcomeState {
+    /// `CLAIM_UNDECIDED`, `CLAIM_ABANDONED` (the request, or a worker that
+    /// can no longer reach its COMMIT) or `CLAIM_COMMITTING` (the worker).
+    claim: u8,
+    outcome: Option<Settled>,
+    /// The outcome, or the request's abandonment, has been counted.
+    counted: bool,
+    /// The request is gone, or answered by itself: the worker's side counts.
+    unattended: bool,
+}
+
+/// A first vote's outcome: the one place its fate is decided and its
+/// outcome written, under one lock. The request may hand the vote back as
+/// nothing written only after it abandons the vote before the worker claims
+/// its COMMIT; once the worker has claimed it, only the worker's outcome
+/// answers the request. Every outcome is counted and logged exactly once: by
+/// the request when it takes it, by the request's side when it is dropped
+/// with the outcome there (`Attending`), or by the worker's side when the
+/// request is gone.
+struct FirstVoteOutcome {
+    zid: i32,
+    state: Mutex<OutcomeState>,
+    settled: tokio::sync::watch::Sender<bool>,
+    #[cfg(all(test, feature = "db-tests"))]
+    observation: Option<tests::DispatchObservation>,
+}
+
+/// What the request's abandonment found.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Abandon {
+    /// Abandoned now: no work of this vote can commit any more, and the
+    /// request counts the hand-back.
+    Now,
+    /// Already abandoned, or already settled without a commit: the outcome
+    /// answers.
+    Already,
+    /// The worker claimed its COMMIT: its outcome answers.
+    Claimed,
+}
+
+impl FirstVoteOutcome {
+    fn new(
+        zid: i32,
+        #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            zid,
+            state: Mutex::new(OutcomeState {
+                claim: CLAIM_UNDECIDED,
+                outcome: None,
+                counted: false,
+                unattended: false,
+            }),
+            settled: tokio::sync::watch::Sender::new(false),
+            #[cfg(all(test, feature = "db-tests"))]
+            observation,
+        })
+    }
+
+    fn lock(&self) -> impl std::ops::DerefMut<Target = OutcomeState> + '_ {
+        self.state.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// The request, when its wait has run out with no outcome.
+    fn abandon(&self) -> Abandon {
+        let mut state = self.lock();
+        if state.claim == CLAIM_COMMITTING {
+            Abandon::Claimed
+        } else if state.outcome.is_some() || state.claim == CLAIM_ABANDONED {
+            Abandon::Already
+        } else {
+            state.claim = CLAIM_ABANDONED;
+            state.counted = true;
+            state.unattended = true;
+            Abandon::Now
         }
     }
 
     /// The worker, immediately before COMMIT: true when it may commit.
     fn commit(&self) -> bool {
-        self.state
-            .compare_exchange(
-                FATE_UNDECIDED,
-                FATE_COMMITTING,
-                Ordering::SeqCst,
-                Ordering::SeqCst,
-            )
-            .is_ok()
+        let mut state = self.lock();
+        let may = state.claim == CLAIM_UNDECIDED && state.outcome.is_none();
+        if may {
+            state.claim = CLAIM_COMMITTING;
+        }
+        may
     }
 
     /// Whether the worker claimed its COMMIT.
+    #[cfg(all(test, feature = "db-tests"))]
     fn committing(&self) -> bool {
-        self.state.load(Ordering::SeqCst) == FATE_COMMITTING
+        self.lock().claim == CLAIM_COMMITTING
     }
 
-    fn pending(&self) -> Option<(i64, Committed)> {
-        self.pending
-            .lock()
-            .unwrap_or_else(|e| e.into_inner())
-            .clone()
+    /// The request: the outcome, and whether this caller counts it.
+    fn take(&self) -> Option<(Settled, bool)> {
+        let mut state = self.lock();
+        let outcome = state.outcome.clone()?;
+        let counts = !state.counted;
+        state.counted = true;
+        Some((outcome, counts))
     }
 
-    /// True for the one caller that counts and logs a lost acknowledgement's
-    /// outcome.
-    fn classify(&self) -> bool {
-        !self.classified.swap(true, Ordering::SeqCst)
+    fn peek(&self) -> Option<Settled> {
+        self.lock().outcome.clone()
+    }
+
+    /// The person, when the vote was committed with its acknowledgement:
+    /// what the task goes on from.
+    fn committed_unconfirmed(&self) -> Option<Committed> {
+        match self.peek()? {
+            Settled::Committed {
+                person,
+                confirmed: None,
+            } => Some(person),
+            _ => None,
+        }
+    }
+
+    /// The person's token, once the task has signed it, for a request that
+    /// answers from the outcome.
+    fn set_auth(&self, auth: &Option<contract::Auth>) {
+        if let Some(Settled::Committed { person, .. }) = self.lock().outcome.as_mut() {
+            person.auth.clone_from(auth);
+        }
+    }
+
+    /// Waits until the outcome is written.
+    async fn settled(&self) {
+        let mut settled = self.settled.subscribe();
+        let _ = settled.wait_for(|settled| *settled).await;
+    }
+
+    /// Writes the outcome, once: `decide` sees the state under the lock. The
+    /// worker's side counts it when the request is gone.
+    fn write(&self, decide: impl FnOnce(&mut OutcomeState) -> Settled) {
+        let counted = {
+            let mut state = self.lock();
+            if state.outcome.is_some() {
+                return;
+            }
+            let outcome = decide(&mut state);
+            let counts = state.unattended && !state.counted;
+            if counts {
+                state.counted = true;
+            }
+            state.outcome = Some(outcome.clone());
+            counts.then_some(outcome)
+        };
+        if let Some(outcome) = counted {
+            self.count(&outcome);
+        }
+        self.settled.send_replace(true);
+    }
+
+    fn count(&self, outcome: &Settled) {
+        outcome.count(self.zid);
+        #[cfg(all(test, feature = "db-tests"))]
+        if let Some(counter) = outcome.counter() {
+            tests::counted(&self.observation, counter);
+        }
+    }
+
+    /// The request abandoned the vote: counted once, by the request.
+    fn count_abandoned(&self) {
+        first_contact_handed_back(FIRST_CONTACT_ABANDONED, self.zid, None);
+        #[cfg(all(test, feature = "db-tests"))]
+        tests::counted(&self.observation, "handed_back");
     }
 }
 
-/// What a first contact's task tells the request.
-enum FirstVote {
-    /// The person and the vote were committed together: the reply, with the
-    /// person's token as its last key.
-    Served(DurableSuccess),
-    /// Nothing was written, or the COMMIT's outcome is unknown: counted and
-    /// logged by the task.
-    HandedBack,
-    /// The COMMIT's acknowledgement was lost and the second look found it
-    /// committed: the person and the vote are in the record, and the request
-    /// answers from it as for any failure after a commit.
-    Confirmed,
+/// The worker's side of a first vote's outcome: made with it, moved into the
+/// task, the blocking work and, after a lost acknowledgement, the second
+/// look's task. It writes the outcome once. Dropped without writing it (a
+/// closure the pool never ran, an unwinding worker, a task or a look dropped
+/// by a stopping runtime) it writes what can still be said: nothing written
+/// when the worker never claimed its COMMIT, and unresolved when it did.
+struct Settler {
+    outcome: Option<Arc<FirstVoteOutcome>>,
 }
 
-/// A first contact's person and vote, committed together: recorded inside
-/// the blocking work the moment the COMMIT is acknowledged, so the request
-/// can answer with the vote's receipt however the task ends after that. The
-/// token is added once it is signed.
+impl Settler {
+    fn new(outcome: &Arc<FirstVoteOutcome>) -> Self {
+        Self {
+            outcome: Some(outcome.clone()),
+        }
+    }
+
+    /// Immediately before COMMIT: true when the worker may commit.
+    fn claim(&self) -> bool {
+        self.outcome
+            .as_ref()
+            .is_some_and(|outcome| outcome.commit())
+    }
+
+    fn settle(mut self, settled: Settled) {
+        if let Some(outcome) = self.outcome.take() {
+            outcome.write(|_| settled);
+        }
+    }
+}
+
+impl Drop for Settler {
+    fn drop(&mut self) {
+        if let Some(outcome) = self.outcome.take() {
+            outcome.write(|state| {
+                if state.claim == CLAIM_COMMITTING {
+                    Settled::Unresolved {
+                        transaction: None,
+                        status: "worker_ended",
+                    }
+                } else {
+                    state.claim = CLAIM_ABANDONED;
+                    Settled::RolledBack("first_contact_unavailable")
+                }
+            });
+        }
+    }
+}
+
+/// The request's side of a first vote's outcome: dropped however the request
+/// ends, it leaves counting to the worker's side, and counts an outcome that
+/// arrived and was not taken.
+struct Attending(Arc<FirstVoteOutcome>);
+
+impl Drop for Attending {
+    fn drop(&mut self) {
+        let uncounted = {
+            let mut state = self.0.lock();
+            state.unattended = true;
+            if state.counted {
+                None
+            } else {
+                let outcome = state.outcome.clone();
+                state.counted = outcome.is_some();
+                outcome
+            }
+        };
+        if let Some(outcome) = uncounted {
+            self.0.count(&outcome);
+        }
+    }
+}
+
+/// A first contact's person and vote, committed together: the person's ids,
+/// the code the token names, the vote's receipt, and the token once it is
+/// signed.
 #[derive(Clone)]
 struct Committed {
     uid: Uid,
@@ -1756,28 +2022,6 @@ struct Committed {
     auth: Option<contract::Auth>,
 }
 
-/// Why a first contact is handed back, with nothing written. When the
-/// COMMIT's acknowledgement was lost, the transaction's id
-/// (`txid_current()`, read before COMMIT), which the second look asks
-/// about (`second_look`), and the person and vote the transaction returned
-/// before its COMMIT: what the reply is built from if the second look finds
-/// it committed. Nothing of it is minted, logged or answered otherwise.
-struct HandBack {
-    reason: &'static str,
-    transaction: Option<i64>,
-    staged: Option<Box<Committed>>,
-}
-
-impl HandBack {
-    fn of(reason: &'static str) -> Self {
-        Self {
-            reason,
-            transaction: None,
-            staged: None,
-        }
-    }
-}
-
 /// Why the vote's statements, inside the first contact's transaction, roll
 /// it back.
 enum InTransaction {
@@ -1786,22 +2030,20 @@ enum InTransaction {
     /// One of the vote's own statements failed.
     Vote,
     /// The request abandoned the vote before the worker could claim its
-    /// COMMIT (`Fate`): the request has handed it back.
+    /// COMMIT (`FirstVoteOutcome`): the request has handed it back.
     Abandoned,
 }
 
 /// A first vote. The person and the vote are written in one transaction, in
 /// a task the request does not own, so a request cancelled at any point
 /// cannot stop work that may still commit; both exist or neither does. The
-/// request waits for the task's answer up to `FIRST_CONTACT_WAIT`. A task
-/// that ends without one, or a wait that runs out, is answered by what was
-/// committed: the vote's receipt and the person's token in a degraded 200,
-/// never a hand-back. With nothing committed it is handed back only if the
-/// request abandons the vote before the worker claims its COMMIT (`Fate`).
-/// A request that finds the COMMIT claimed waits for its outcome within the
-/// wait: committed, the degraded 200; a lost acknowledgement, a second look
-/// of its own; no outcome at all, the counted and logged hand-back of a
-/// COMMIT whose outcome is unknown.
+/// request answers from the worker's outcome (`FirstVoteOutcome`): until
+/// `FIRST_CONTACT_WAIT`, the task's full reply for a commit, the degraded
+/// 200 from the person when that reply does not come, and the marked
+/// hand-back for nothing written or a COMMIT whose outcome cannot be told.
+/// Past the wait with no outcome, it hands the vote back only if it abandons
+/// it before the worker claims its COMMIT; otherwise it waits for the
+/// worker's outcome and answers from it.
 #[allow(clippy::too_many_arguments)]
 async fn serve_first_contact(
     req: &Request,
@@ -1813,15 +2055,18 @@ async fn serve_first_contact(
     admitted: Admitted,
     fields: ParsedFields,
 ) -> Outgoing {
-    let zid = admitted.zid;
     let star = fields.starred.is_some();
     let subject = new.account.as_ref().map(|(_, subject)| subject.clone());
-    let committed = Arc::new(Mutex::new(None));
-    let fate = Arc::new(Fate::default());
-    let wait_until = tokio::time::Instant::now() + FIRST_CONTACT_WAIT;
-    let (done_tx, done_rx) = tokio::sync::oneshot::channel();
     #[cfg(all(test, feature = "db-tests"))]
     let observation = lane.active_dispatch.observation.clone();
+    let outcome = FirstVoteOutcome::new(
+        admitted.zid,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation.clone(),
+    );
+    let _attending = Attending(outcome.clone());
+    let wait_until = tokio::time::Instant::now() + FIRST_CONTACT_WAIT;
+    let (done_tx, mut done_rx) = tokio::sync::oneshot::channel();
     let _task = tokio::spawn(first_contact_vote(
         first.clone(),
         writer.identity_reads.clone(),
@@ -1831,8 +2076,8 @@ async fn serve_first_contact(
         lane,
         admitted,
         fields,
-        committed.clone(),
-        fate.clone(),
+        Settler::new(&outcome),
+        outcome.clone(),
         wait_until,
         done_tx,
     ));
@@ -1841,87 +2086,77 @@ async fn serve_first_contact(
     if let Some(observation) = &observation {
         observation.lock().unwrap().task = Some(_task.abort_handle());
     }
-    let (ended, confirmed) = match tokio::time::timeout_at(wait_until, done_rx).await {
-        Ok(Ok(FirstVote::Served(body))) => return accepted(req, res, body),
-        Ok(Ok(FirstVote::HandedBack)) => return route::bad_gateway(),
-        // The second look found the COMMIT: answered from the record, below.
-        Ok(Ok(FirstVote::Confirmed)) => (true, true),
-        // The task ended without a word: a panic, or the task dropped.
-        Ok(Err(_)) => (true, false),
-        Err(_) => (false, false),
-    };
-    // Handed back only if no work of this vote can commit any more: the
-    // request abandons it before the worker claims its COMMIT.
-    if !confirmed && fate.abandon() {
-        if !ended {
-            first_contact_handed_back(FIRST_CONTACT_ABANDONED, zid, None);
+    let wait = tokio::time::sleep_until(wait_until);
+    tokio::pin!(wait);
+    let mut task_ended = false;
+    loop {
+        match outcome.peek() {
+            None => tokio::select! {
+                served = &mut done_rx, if !task_ended => match served {
+                    Ok(body) => {
+                        outcome.take();
+                        return accepted(req, res, body);
+                    }
+                    Err(_) => task_ended = true,
+                },
+                () = outcome.settled() => {}
+                () = &mut wait => break,
+            },
+            // A commit: the task's full reply, while it may still come.
+            Some(Settled::Committed {
+                confirmed: None, ..
+            }) if !task_ended => tokio::select! {
+                served = &mut done_rx => match served {
+                    Ok(body) => {
+                        outcome.take();
+                        return accepted(req, res, body);
+                    }
+                    Err(_) => task_ended = true,
+                },
+                () = &mut wait => break,
+            },
+            Some(_) => {
+                return answer_first_vote(req, res, first, subject.as_deref(), star, &outcome)
+                    .await;
+            }
         }
+    }
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::hold_async(&observation, tests::Hold::AfterRequestWait).await;
+    if outcome.abandon() == Abandon::Now {
+        outcome.count_abandoned();
         return route::bad_gateway();
     }
-    // The worker claimed its COMMIT: the vote is never handed back as
-    // nothing written. The task and the blocking work each hold the record
-    // until they end, so their outcome is waited for, within the wait.
-    while Arc::strong_count(&committed) > 1 && tokio::time::Instant::now() < wait_until {
-        tokio::time::sleep(Duration::from_millis(10)).await;
+    // The worker claimed its COMMIT, or has already written its outcome: only
+    // that outcome answers, however long the worker takes to write it.
+    outcome.settled().await;
+    answer_first_vote(req, res, first, subject.as_deref(), star, &outcome).await
+}
+
+/// The request's answer from a first vote's outcome, which it takes, and
+/// counts unless it is already counted: a commit is the degraded 200 with the
+/// person's token (signed here when the task has not); anything else is the
+/// marked hand-back.
+async fn answer_first_vote(
+    req: &Request,
+    res: Res,
+    first: &FirstContact,
+    subject: Option<&str>,
+    star: bool,
+    outcome: &FirstVoteOutcome,
+) -> Outgoing {
+    let Some((settled, counts)) = outcome.take() else {
+        return route::bad_gateway();
+    };
+    if counts {
+        outcome.count(&settled);
     }
-    let mut found = committed.lock().unwrap_or_else(|e| e.into_inner()).clone();
-    if found.is_none() {
-        let Some((transaction, staged)) = fate.pending() else {
-            // No outcome within the wait: a COMMIT whose outcome is unknown,
-            // counted and logged, the accepted fallback.
-            first_contact_handed_back(FIRST_CONTACT_COMMIT_UNKNOWN, zid, None);
-            return route::bad_gateway();
-        };
-        // A lost acknowledgement whose answer never came from the task: the
-        // request asks the database itself, within what is left of its wait.
-        let look = tokio::time::timeout_at(
-            wait_until,
-            second_look(
-                writer.identity_reads.as_ref(),
-                transaction,
-                #[cfg(all(test, feature = "db-tests"))]
-                observation.clone(),
-            ),
-        )
-        .await
-        .unwrap_or(SecondLook::Unresolved("bound"));
-        let classify = fate.classify();
-        match look {
-            SecondLook::Committed => {
-                if classify {
-                    first_contact_commit_confirmed(zid, transaction);
-                }
-                found = Some(staged);
-            }
-            SecondLook::Aborted => {
-                if classify {
-                    first_contact_handed_back(FIRST_CONTACT_COMMIT_ABORTED, zid, Some(transaction));
-                }
-                return route::bad_gateway();
-            }
-            SecondLook::Unresolved(status) => {
-                if classify {
-                    first_contact_commit_unresolved(zid, transaction, status);
-                }
-                return route::bad_gateway();
-            }
-        }
-    }
-    let Some(person) = found else {
+    let Settled::Committed { person, .. } = settled else {
         return route::bad_gateway();
     };
     let auth = match person.auth {
         Some(auth) => Some(auth),
-        None => {
-            issue(
-                first,
-                person.uid,
-                person.pid,
-                &person.code,
-                subject.as_deref(),
-            )
-            .await
-        }
+        None => issue(first, person.uid, person.pid, &person.code, subject).await,
     };
     let mut body = degraded(person.pid.0 as i32, person.vote, star);
     body.auth = auth;
@@ -1933,7 +2168,8 @@ async fn serve_first_contact(
 /// and the follow-on (the star on the first contact's own connection, the
 /// notification state, the next comment) run whether or not the request is
 /// still there, each best effort: a failure among them degrades the reply,
-/// never the vote.
+/// never the vote. Any other outcome is the request's to answer and count;
+/// the task only stays until it is written, as a stop waits for it.
 #[allow(clippy::too_many_arguments)]
 async fn first_contact_vote(
     lane: FirstContact,
@@ -1944,95 +2180,35 @@ async fn first_contact_vote(
     dispatch: Dispatch,
     mut admitted: Admitted,
     fields: ParsedFields,
-    committed: Arc<Mutex<Option<Committed>>>,
-    fate: Arc<Fate>,
+    settler: Settler,
+    outcome: Arc<FirstVoteOutcome>,
     wait_until: tokio::time::Instant,
-    done: tokio::sync::oneshot::Sender<FirstVote>,
+    done: tokio::sync::oneshot::Sender<DurableSuccess>,
 ) {
     #[cfg(all(test, feature = "db-tests"))]
     tests::inject(
         &dispatch.active_dispatch.observation,
         tests::Fault::BeforeCreate,
     );
-    let person = match create(
+    create(
         &lane,
+        status_reads,
         &admins,
         &admitted,
         new.account.as_ref().map(|(uid, _)| *uid),
         &fields,
         &dispatch.receipt,
-        &committed,
-        &fate,
+        settler,
         #[cfg(all(test, feature = "db-tests"))]
         dispatch.active_dispatch.observation.clone(),
     )
-    .await
-    {
-        Ok(person) => person,
-        // A COMMIT whose acknowledgement was lost, with its transaction id:
-        // the database is asked once more whether it committed.
-        Err(HandBack {
-            transaction: Some(transaction),
-            staged: Some(staged),
-            ..
-        }) => {
-            let zid = admitted.zid;
-            match second_look(
-                status_reads.as_ref(),
-                transaction,
-                #[cfg(all(test, feature = "db-tests"))]
-                dispatch.active_dispatch.observation.clone(),
-            )
-            .await
-            {
-                // Counted and logged once: by this task, or by the request
-                // when this task's answer never reaches it.
-                SecondLook::Committed => {
-                    // Both exist: the reply is the one any failure after a
-                    // commit gives, from the ids the transaction returned.
-                    *dispatch.receipt.lock().unwrap_or_else(|e| e.into_inner()) =
-                        Some(staged.vote.clone());
-                    *committed.lock().unwrap_or_else(|e| e.into_inner()) = Some(*staged);
-                    if fate.classify() {
-                        first_contact_commit_confirmed(zid, transaction);
-                    }
-                    let _ = done.send(FirstVote::Confirmed);
-                }
-                SecondLook::Aborted => {
-                    if fate.classify() {
-                        first_contact_handed_back(
-                            FIRST_CONTACT_COMMIT_ABORTED,
-                            zid,
-                            Some(transaction),
-                        );
-                    }
-                    let _ = done.send(FirstVote::HandedBack);
-                }
-                SecondLook::Unresolved(status) => {
-                    if fate.classify() {
-                        first_contact_commit_unresolved(zid, transaction, status);
-                    }
-                    let _ = done.send(FirstVote::HandedBack);
-                }
-            }
-            return;
-        }
-        // The request abandoned the vote and counted its hand-back; the
-        // worker rolled back.
-        Err(HandBack {
-            reason: FIRST_CONTACT_ABANDONED,
-            ..
-        }) => {
-            let _ = done.send(FirstVote::HandedBack);
-            return;
-        }
-        // Nothing written, or a COMMIT whose outcome is unknown with no
-        // transaction id: handed back, as before.
-        Err(handback) => {
-            first_contact_handed_back(handback.reason, admitted.zid, handback.transaction);
-            let _ = done.send(FirstVote::HandedBack);
-            return;
-        }
+    .await;
+    let Some(person) = outcome.committed_unconfirmed() else {
+        // Nothing written, a COMMIT whose outcome cannot be told, one the
+        // second look confirmed, or a second look still running in its own
+        // task.
+        outcome.settled().await;
+        return;
     };
     #[cfg(all(test, feature = "db-tests"))]
     tests::inject(
@@ -2049,9 +2225,7 @@ async fn first_contact_vote(
     }
     let subject = new.account.as_ref().map(|(_, subject)| subject.as_str());
     let auth = issue(&lane, person.uid, person.pid, &person.code, subject).await;
-    if let Some(record) = committed.lock().unwrap_or_else(|e| e.into_inner()).as_mut() {
-        record.auth.clone_from(&auth);
-    }
+    outcome.set_auth(&auth);
     // The follow-on budget starts after the token, as a member's starts at
     // dispatch, and ends with the request's wait.
     let reply_deadline = (tokio::time::Instant::now() + DISPATCH_DEADLINE).min(wait_until);
@@ -2074,7 +2248,7 @@ async fn first_contact_vote(
         &dispatch.active_dispatch.observation,
         tests::Fault::AfterFollowOn,
     );
-    let _ = done.send(FirstVote::Served(body));
+    let _ = done.send(body);
 }
 
 fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
@@ -2099,11 +2273,12 @@ fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
 /// (`polis_auth::admission::admit_then`): a user, the participant's extended
 /// row and the participant under the participant-number lock, then the vote's
 /// own statements (`append_in_transaction`), then COMMIT. Both are committed
-/// or neither is. Ok is the committed person and vote, recorded in
-/// `committed` (and the vote in `receipt`) inside the blocking work as soon
-/// as the COMMIT is acknowledged, so a failure after that point is never read
-/// as nothing written. Err is the reason it is handed back with nothing
-/// written, or with the COMMIT's outcome unknown.
+/// or neither is. The blocking work owns the `settler` and writes the outcome
+/// the moment `admit_then` returns (the vote in `receipt` too, for a commit),
+/// so a failure after that point is never read as nothing written; a closure
+/// the pool never runs, or one that unwinds, writes it as it is dropped. A
+/// COMMIT whose acknowledgement was lost is handed to the second look, in a
+/// task of its own on this runtime (`look_again`), which writes it.
 ///
 /// The code is the one Node signs with: `getZinvite` takes the first row of
 /// `select * from zinvites where zid = ($1);`, so for a conversation with more
@@ -2112,33 +2287,38 @@ fn degraded(pid: i32, vote: AcceptedVote, star: bool) -> DurableSuccess {
 #[allow(clippy::too_many_arguments)]
 async fn create(
     lane: &FirstContact,
+    status_reads: Option<Arc<db::Pool>>,
     admins: &[i32],
     admitted: &Admitted,
     account: Option<Uid>,
     fields: &ParsedFields,
     receipt: &Arc<Mutex<Option<AcceptedVote>>>,
-    committed: &Arc<Mutex<Option<Committed>>>,
-    fate: &Arc<Fate>,
+    settler: Settler,
     #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
-) -> Result<Committed, HandBack> {
+) {
     let admin_uids: Vec<Uid> = admins.iter().copied().map(Uid).collect();
     let zid = admitted.zid;
     let mut voter = admitted.clone();
     let fields = fields.clone();
-    let (receipt, record, claim) = (receipt.clone(), committed.clone(), fate.clone());
+    let receipt = receipt.clone();
+    let runtime = tokio::runtime::Handle::current();
     #[cfg(all(test, feature = "db-tests"))]
     let pool = lane.pool.clone();
-    let result = lane
+    // However it ends, the blocking work has written the outcome when this
+    // returns, or handed it to the second look's task.
+    let _ = lane
         .pool
-        // The blocking work holds `record` until it ends, however it ends.
         .with(move |c| {
+            let settler = settler;
             let code = c
                 .query("select * from zinvites where zid = ($1);", &[&zid])?
                 .first()
                 .map(|row| row.try_get::<_, String>("zinvite"))
                 .transpose()?;
             let Some(code) = code else {
-                return Ok(None);
+                // The conversation has no code left to name: nothing written.
+                settler.settle(Settled::RolledBack("first_contact_no_code"));
+                return Ok(());
             };
             #[cfg(all(test, feature = "db-tests"))]
             for at in [
@@ -2196,35 +2376,80 @@ async fn create(
                     });
                     // The last thing before COMMIT: the worker claims it, or
                     // rolls back because the request abandoned the vote.
-                    if !claim.commit() {
+                    if !settler.claim() {
                         return Err(InTransaction::Abandoned);
                     }
+                    #[cfg(all(test, feature = "db-tests"))]
+                    tests::hold(&observation, tests::Hold::AfterClaim);
                     Ok(vote)
                 },
             );
             #[cfg(all(test, feature = "db-tests"))]
             let outcome = tests::lose_acknowledgement(&observation, outcome, lost);
-            // A lost acknowledgement is kept where the request can read it,
-            // however this operation's result is lost after this.
-            if let (Err(join::ThenError::CommitUnknown { transaction }), Some(staged)) =
-                (&outcome, &staged)
-            {
-                *claim.pending.lock().unwrap_or_else(|e| e.into_inner()) =
-                    Some((*transaction, staged.clone()));
-            }
-            if let Ok(join::Then::Created {
-                admitted: person,
-                value: vote,
-            }) = &outcome
-            {
-                *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(vote.clone());
-                *record.lock().unwrap_or_else(|e| e.into_inner()) = Some(Committed {
-                    uid: person.uid,
-                    pid: person.pid,
-                    code: code.clone(),
-                    vote: vote.clone(),
-                    auth: None,
-                });
+            let settled = match outcome {
+                Ok(join::Then::Created {
+                    admitted: person,
+                    value: vote,
+                }) => {
+                    *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(vote.clone());
+                    Ok(Settled::Committed {
+                        person: Committed {
+                            uid: person.uid,
+                            pid: person.pid,
+                            code,
+                            vote,
+                            auth: None,
+                        },
+                        confirmed: None,
+                    })
+                }
+                Err(join::ThenError::CommitUnknown { transaction }) => match staged {
+                    Some(staged) => Err((transaction, staged)),
+                    None => Ok(Settled::Unresolved {
+                        transaction: Some(transaction),
+                        status: "unstaged",
+                    }),
+                },
+                // An existing participant: nothing was written.
+                Ok(join::Then::NotCreated(_)) => {
+                    Ok(Settled::RolledBack("first_contact_not_created"))
+                }
+                Err(join::ThenError::Refused(_)) => {
+                    Ok(Settled::RolledBack("first_contact_refused"))
+                }
+                // A lock wait past 100 ms, a statement past one second, the
+                // transaction past two, a dropped connection or one silent
+                // past `FIRST_CONTACT_SILENCE`: rolled back.
+                Err(join::ThenError::Unavailable) => {
+                    Ok(Settled::RolledBack("first_contact_unavailable"))
+                }
+                Err(join::ThenError::Callback(InTransaction::NotThisRequest)) => {
+                    Ok(Settled::RolledBack("first_contact_not_created"))
+                }
+                // The vote's own statements failed: the person rolled back
+                // with it.
+                Err(join::ThenError::Callback(InTransaction::Vote)) => {
+                    Ok(Settled::RolledBack("first_contact_vote_refused"))
+                }
+                Err(join::ThenError::Callback(InTransaction::Abandoned)) => {
+                    Ok(Settled::RolledBack(FIRST_CONTACT_ABANDONED))
+                }
+            };
+            match settled {
+                Ok(settled) => settler.settle(settled),
+                // The second look decides, in a task of its own: aborting the
+                // first contact's task does not stop it.
+                Err((transaction, staged)) => {
+                    runtime.spawn(look_again(
+                        settler,
+                        status_reads,
+                        transaction,
+                        staged,
+                        receipt,
+                        #[cfg(all(test, feature = "db-tests"))]
+                        observation.clone(),
+                    ));
+                }
             }
             #[cfg(all(test, feature = "db-tests"))]
             for at in [
@@ -2234,57 +2459,47 @@ async fn create(
             ] {
                 tests::inject_in_creation(&observation, at, &pool);
             }
-            Ok(Some((outcome, staged)))
+            Ok(())
         })
         .await;
-    let (outcome, staged) = match result {
-        // No connection within 100 ms, none could be opened, the code could
-        // not be read, or the blocking work unwound.
-        Err(_) => (None, None),
-        // The conversation has no code left to name: nothing was written.
-        Ok(None) => return Err(HandBack::of("first_contact_no_code")),
-        Ok(Some((outcome, staged))) => (Some(outcome), staged),
-    };
-    // An acknowledged COMMIT is the record, however the operation returned.
-    if let Some(person) = committed.lock().unwrap_or_else(|e| e.into_inner()).clone() {
-        return Ok(person);
-    }
-    // A lost acknowledgement, however the operation returned.
-    if let Some((transaction, staged)) = fate.pending() {
-        return Err(HandBack {
-            reason: FIRST_CONTACT_COMMIT_UNKNOWN,
+}
+
+/// The second look at a COMMIT whose acknowledgement was lost, in a task of
+/// its own: it writes what the database says the transaction did. Dropped by
+/// a stopping runtime first, its settler writes it unresolved.
+async fn look_again(
+    settler: Settler,
+    status_reads: Option<Arc<db::Pool>>,
+    transaction: i64,
+    staged: Committed,
+    receipt: Arc<Mutex<Option<AcceptedVote>>>,
+    #[cfg(all(test, feature = "db-tests"))] observation: Option<tests::DispatchObservation>,
+) {
+    let look = second_look(
+        status_reads.as_ref(),
+        transaction,
+        #[cfg(all(test, feature = "db-tests"))]
+        observation.clone(),
+    )
+    .await;
+    #[cfg(all(test, feature = "db-tests"))]
+    tests::hold_async(&observation, tests::Hold::BeforeLookSettles).await;
+    settler.settle(match look {
+        // Both exist: the reply is the one any failure after a commit gives,
+        // from the ids the transaction returned.
+        SecondLook::Committed => {
+            *receipt.lock().unwrap_or_else(|e| e.into_inner()) = Some(staged.vote.clone());
+            Settled::Committed {
+                person: staged,
+                confirmed: Some(transaction),
+            }
+        }
+        SecondLook::Aborted => Settled::RolledBack(FIRST_CONTACT_COMMIT_ABORTED),
+        SecondLook::Unresolved(status) => Settled::Unresolved {
             transaction: Some(transaction),
-            staged: Some(Box::new(staged)),
-        });
-    }
-    Err(match outcome {
-        // The operation's result is lost after the worker claimed its
-        // COMMIT: whether it committed is unknown.
-        None if fate.committing() => HandBack::of(FIRST_CONTACT_COMMIT_UNKNOWN),
-        None => HandBack::of("first_contact_unavailable"),
-        // An existing participant: nothing was written. (A created person is
-        // recorded above.)
-        Some(Ok(_)) => HandBack::of("first_contact_not_created"),
-        Some(Err(join::ThenError::Refused(_))) => HandBack::of("first_contact_refused"),
-        // A lock wait past 100 ms, a statement past one second, the
-        // transaction past two, a dropped connection: rolled back.
-        Some(Err(join::ThenError::Unavailable)) => HandBack::of("first_contact_unavailable"),
-        Some(Err(join::ThenError::Callback(InTransaction::NotThisRequest))) => {
-            HandBack::of("first_contact_not_created")
-        }
-        // The vote's own statements failed: the person rolled back with it.
-        Some(Err(join::ThenError::Callback(InTransaction::Vote))) => {
-            HandBack::of("first_contact_vote_refused")
-        }
-        Some(Err(join::ThenError::Callback(InTransaction::Abandoned))) => {
-            HandBack::of(FIRST_CONTACT_ABANDONED)
-        }
-        Some(Err(join::ThenError::CommitUnknown { transaction })) => HandBack {
-            reason: FIRST_CONTACT_COMMIT_UNKNOWN,
-            transaction: Some(transaction),
-            staged: staged.map(Box::new),
+            status,
         },
-    })
+    });
 }
 
 const FIRST_CONTACT_COMMIT_UNKNOWN: &str = "first_contact_commit_unknown";
