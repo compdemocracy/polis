@@ -56,6 +56,8 @@ const count = (n) => n.toLocaleString("en-US");
 const commentText = new Map();
 
 function textFor(fetchFn, reportId, conversationId, token) {
+  // Credentialed text must never enter the page-wide anonymous cache.
+  if (token) return readCommentText(fetchFn, reportId, { conversationId, token });
   const key = `${reportId}|${conversationId || ""}`;
   if (!commentText.has(key)) commentText.set(key, readCommentText(fetchFn, reportId, { conversationId, token }));
   return commentText.get(key);
@@ -82,8 +84,8 @@ export default function TopicMap(props) {
 
   // The one read: again only if the report, the run or the rule changes.
   createEffect(
-    () => [props.reportId, props.jobId, props.selection, props.document],
-    ([reportId, jobId, selection, doc]) => {
+    () => [props.reportId, props.jobId, props.selection, props.document, props.token],
+    ([reportId, jobId, selection, doc, token]) => {
       if (doc) {
         setState({ kind: "map", doc });
         return undefined;
@@ -95,7 +97,7 @@ export default function TopicMap(props) {
       }
       let current = true;
       setState({ kind: "loading", text: TEXT.loading });
-      readTopicMap(fetchFn(), request, { token: untrack(() => props.token) }).then((answer) => {
+      readTopicMap(fetchFn(), request, { token }).then((answer) => {
         if (current) setState(answer);
       });
       return () => {
