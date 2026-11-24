@@ -784,27 +784,77 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
     });
 }
 
-/// The load test of the reader's form: while the report topic map is at its
-/// places with requests from readers who are not moderators, each of which
-/// reads the conversation's held-back comments and rewrites a stored map of
-/// 30,000 comments whose every other comment from 1,000 on is held back
-/// (inflate, rewrite, colours chosen again, deflate), a vote is written, a
-/// comment is written, and the next comment, the comments and the votes are
-/// read, round after round, as when the route is idle. The rules are the
-/// saturation test's above, applied to the two writes as well as the three
-/// reads: every read isolated (no wait for a slot of its own pool), the vote
-/// writer never waiting for a slot, the loaded share of answers other than
-/// 200 at most the control's plus two in forty, and each one's 95th
-/// percentile within twice the control's plus 25 ms. The comment is written
-/// by the comment writer on a database of its own on the same server. The
-/// figures are printed whatever the outcome.
+/// The load test of the reader's form, at the proxy's bound: sixteen clients
+/// ask for report topic maps from readers who are not moderators at 200
+/// requests a second in all (the nginx rate of this route), while a vote is
+/// written, a comment is written, and the next comment, the comments and the
+/// votes are read, round after round, as when the route is idle. Each map
+/// asked for needs the reader's form: a stored map of 30,000 comments, of
+/// which the conversation holds some back (inflate, rewrite, colours chosen
+/// again, deflate).
+///
+/// - One hot map ([`connection_bounds_rewritten_topic_map_keeps_participation_latency`]):
+///   every request is for the same map with the same held-back set.
+/// - Many maps ([`connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency`]):
+///   the requests cycle through more conversations than the route keeps
+///   readers' forms for, each with a map and comments held back, so that
+///   every request needs a rewrite of its own.
+///
+/// The rules are the saturation test's, applied to the two writes as well as
+/// the three reads: every read isolated (no wait for a slot of its own pool),
+/// the vote writer never waiting for a slot, the loaded share of answers
+/// other than 200 at most the control's plus two in forty, and each one's
+/// 95th percentile within twice the control's plus 25 ms. The comment is
+/// written by the comment writer on a database of its own on the same
+/// server. The figures, the process's CPU (the cgroup's `cpu.stat`, under a
+/// quota when there is one) in each phase, and the route's counters are
+/// printed whatever the outcome. Run it from a release build under the
+/// service's own budget (half a CPU, 512 MiB) for the figure that matters.
 #[test]
 fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_load", 0);
+}
+
+/// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
+#[test]
+fn connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_many", 72);
+}
+
+/// The cgroup's CPU used and throttled, in microseconds, if there is one.
+fn cgroup_cpu() -> Option<(u64, u64)> {
+    let stat = std::fs::read_to_string("/sys/fs/cgroup/cpu.stat").ok()?;
+    let field = |name: &str| {
+        stat.lines()
+            .find_map(|l| l.strip_prefix(name)?.trim().parse::<u64>().ok())
+    };
+    Some((field("usage_usec ")?, field("throttled_usec ").unwrap_or(0)))
+}
+
+/// The route's `/health` counters, on one line.
+fn topic_map_health(state: &crate::delphi_topic_map::State) -> String {
+    let health = state.health();
+    let Some(obj) = health.as_obj() else {
+        return String::new();
+    };
+    obj.iter()
+        .map(|(k, v)| format!("{k}={}", v.to_js_string()))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// `many`: besides report `r1`, that many more conversations with a map and
+/// held-back comments each, the flood cycling through them; zero, every
+/// request for `r1`.
+fn rewritten_topic_map_load(name: &str, many: usize) {
     use crate::post_comments::tests::database as comments_db;
     const ROUNDS: usize = 40;
     const EXTRA_MISSES: usize = 2;
     const WINDOW: Duration = Duration::from_secs(2);
-    let database = Database::new("topic_map_rewrite_load");
+    // The proxy's rate for this route (`delphiTopicMap-rate.conf.template`).
+    const RATE: u64 = 200;
+    const CLIENTS: u64 = 16;
+    let database = Database::new(name);
     let (mut app, vote) = setup(&database);
     let map = store_topic_map(&database, 30_000);
     // Held back: from comment 1,000 on, every other one, moderated out,
@@ -821,7 +871,35 @@ fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
              ALTER TABLE comments ENABLE TRIGGER USER;",
         )
         .unwrap();
-    let comments = comments_db::Database::new("map_rewrite_load");
+    // The other conversations: the same stored map under each one's own
+    // report, and 2,000 comments of each held back (their own set, so their
+    // own reader's form). Rows only the route reads, so no constraint is
+    // checked.
+    let reports: Vec<String> = if many == 0 {
+        vec!["r1".to_owned()]
+    } else {
+        let mut c = database.connect();
+        c.batch_execute(&format!(
+            "ALTER TABLE comments DISABLE TRIGGER ALL;
+             ALTER TABLE reports DISABLE TRIGGER ALL;
+             INSERT INTO reports(report_id, zid) SELECT 'r' || z, z FROM generate_series(2, {last}) z;
+             INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
+               SELECT z, n, 0, 1, 'held back ' || n, -1, true, 1
+               FROM generate_series(2, {last}) z, generate_series(1000, 4999, 2) n
+             ON CONFLICT DO NOTHING;
+             ALTER TABLE comments ENABLE TRIGGER ALL;
+             ALTER TABLE reports ENABLE TRIGGER ALL;",
+            last = many + 1
+        ))
+        .unwrap();
+        use crate::delphi_topic_map::tests::database_tests as t;
+        for z in 2..=(many as i32 + 1) {
+            let family = t::map_family(z, &map);
+            t::served(&mut c, "test", z, "delphi", "participant_visible/1", Some(&family));
+        }
+        (2..=many + 1).map(|z| format!("r{z}")).collect()
+    };
+    let comments = comments_db::Database::new(&format!("{name}_comments"));
     let (writer, key) = comments_db::writer(&comments, vec![]);
     let author = comments_db::bearer(&key, &comments_db::member());
     Arc::get_mut(&mut app).unwrap().post_comments = Some(writer);
@@ -861,10 +939,10 @@ fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
         let mut written = 0usize;
         // Rounds of the vote, the comment and the three reads until at least
         // `min_rounds` rounds and `floor` have passed: samples per call, in
-        // the order vote, comment, reads.
-        let mut sample = async |min_rounds: usize, floor: Duration| -> Vec<Vec<Sample>> {
+        // the order vote, comment, reads; and the cgroup's CPU across them.
+        let mut sample = async |min_rounds: usize, floor: Duration| -> (Vec<Vec<Sample>>, String) {
             let mut out = vec![Vec::new(); 2 + reads.len()];
-            let started = std::time::Instant::now();
+            let (started, cpu) = (std::time::Instant::now(), cgroup_cpu());
             let mut rounds = 0;
             while rounds < min_rounds || started.elapsed() < floor {
                 let start = std::time::Instant::now();
@@ -881,46 +959,53 @@ fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
                 }
                 rounds += 1;
             }
-            out
+            let window = started.elapsed();
+            let cpu = match (cpu, cgroup_cpu()) {
+                (Some((u0, t0)), Some((u1, t1))) => format!(
+                    "cpu {:.3} s/s, throttled {:.3} s/s over {window:?}",
+                    (u1 - u0) as f64 / 1e6 / window.as_secs_f64(),
+                    (t1 - t0) as f64 / 1e6 / window.as_secs_f64()
+                ),
+                _ => format!("cpu unknown (no cgroup) over {window:?}"),
+            };
+            (out, cpu)
         };
         let _ = sample(ROUNDS / 4, Duration::ZERO).await;
         let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
-        let control = sample(ROUNDS, WINDOW).await;
+        let (control, control_cpu) = sample(ROUNDS, WINDOW).await;
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let reports = Arc::new(reports);
         let (gzip_len, plain_len) = (map.gzip.len(), map.document.len());
-        let clients: Vec<_> = (0..16)
+        let clients: Vec<_> = (0..CLIENTS)
             .map(|n| {
-                let (app, stop) = (app.clone(), stop.clone());
+                let (app, stop, asked, reports) = (app.clone(), stop.clone(), asked.clone(), reports.clone());
                 tokio::spawn(async move {
                     // (status, whether a 200 was the reader's form)
                     let mut answers = std::collections::BTreeMap::<(u16, bool), usize>::new();
                     let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    // Each client its share of the rate, never catching up.
+                    let mut pace = tokio::time::interval(Duration::from_micros(1_000_000 * CLIENTS / RATE));
+                    pace.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                     while !stop.load(Ordering::SeqCst) {
-                        let out = crate::dispatch(
-                            app.clone(),
-                            None,
-                            forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
-                        )
-                        .await;
+                        pace.tick().await;
+                        let k = asked.fetch_add(1, Ordering::SeqCst);
+                        let target = format!("/api/v3/delphi/topicMap?report_id={}", reports[k % reports.len()]);
+                        let out = crate::dispatch(app.clone(), None, forwarded(&target, &[("accept-encoding", coding)])).await;
                         let rewritten = match &out.body {
                             crate::http::Body::Fixed(b) => b.len() != gzip_len && b.len() != plain_len,
                             _ => false,
                         };
                         *answers.entry((out.status, out.status == 200 && rewritten)).or_insert(0) += 1;
-                        if out.status == 503 {
-                            tokio::task::yield_now().await;
-                        }
                     }
                     answers
                 })
             })
             .collect();
         let state = app.delphi_topic_map.clone();
-        wait_for("the topic map at its places", || {
-            state.max_in_flight() == crate::delphi_topic_map::MAX_IN_FLIGHT && state.busy() > 0
-        })
-        .await;
-        let loaded = sample(control[0].len(), WINDOW).await;
+        // The flood is under way (a second of it) before the first loaded sample.
+        wait_for("the topic map flood under way", || asked.load(Ordering::SeqCst) >= RATE as usize).await;
+        let (loaded, loaded_cpu) = sample(control[0].len(), WINDOW).await;
         stop.store(true, Ordering::SeqCst);
         let mut maps = std::collections::BTreeMap::<(u16, bool), usize>::new();
         for client in clients {
@@ -938,14 +1023,19 @@ fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
             d.sort();
             d[((d.len() - 1) as f64 * q).round() as usize]
         }
-        let mut lines = vec![format!(
-            "rewritten topic map load: control rounds={} loaded rounds={}; maps (status, rewritten)={maps:?} busy={} max_in_flight={} max_held_bytes={}",
-            control[0].len(),
-            loaded[0].len(),
-            state.busy(),
-            state.max_in_flight(),
-            state.max_held()
-        )];
+        let mut lines = vec![
+            format!(
+                "rewritten topic map load ({}): cpu.max={}; {RATE}/s from {CLIENTS} clients, asked {}; control rounds={} loaded rounds={}; maps (status, rewritten)={maps:?}",
+                if many == 0 { "one hot map".to_owned() } else { format!("{many} maps") },
+                std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into()).trim(),
+                asked.load(Ordering::SeqCst),
+                control[0].len(),
+                loaded[0].len(),
+            ),
+            format!("  process control: {control_cpu}"),
+            format!("  process loaded: {loaded_cpu}"),
+            format!("  route: {}", topic_map_health(&state)),
+        ];
         for (i, name) in names.iter().enumerate() {
             let statuses = |v: &[(u16, Duration)]| {
                 let mut s = std::collections::BTreeMap::<u16, usize>::new();
@@ -970,7 +1060,6 @@ fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
         std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
         assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
         assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
-        assert!(maps.get(&(503, false)).copied().unwrap_or(0) > 0, "the route was at its bound: {maps:?}");
         assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
         for (before, after) in writer_before.iter().zip(&writer_after) {
             assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
