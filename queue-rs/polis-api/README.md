@@ -1404,13 +1404,16 @@ are and on the comments' moderation at the time of the read, not of the run:
   recalled. While the conversation has any, a reader's ETag is the SHA-256 of
   the stored digest, the form's name (`held-back/2`) and HMAC-SHA256 of the
   conversation and the ids under a 32-byte key each process draws at start and
-  never writes down. Someone who knows or guesses the ids learns nothing from
-  it. The statement computes the same, so `If-None-Match` still answers 304
+  never writes down. This prevents offline enumeration of held-back ids. Tags
+  still reveal changes in the held-back set within a process, and distinguish
+  an empty set from a nonempty one when the stored digest is known. The
+  statement computes the same, so `If-None-Match` still answers 304
   with no part crossing the connection; a moderator's ETag never answers 304
-  to a reader while anything is held back, and a moderation change is a new
+  to a reader while anything is held back, and a held-back set change is a new
   ETag from the next read. The two web boxes, and a process after a deploy,
   hold different keys: a client that meets another process re-downloads the
-  map, and never receives a 304 for a form it does not have. With nothing held
+  map on an exact-tag mismatch. `If-None-Match: *` still answers 304 for an
+  existing map, without comparing representations. With nothing held
   back, the reader's ETag is the stored digest, the moderators' too, and a
   304 for it is correct (the bytes are the same). The reader's form is made
   off the runtime's threads while the request keeps its place (in a release

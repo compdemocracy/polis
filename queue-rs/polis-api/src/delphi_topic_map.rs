@@ -49,8 +49,9 @@
 //!   form, and for a reader's form while the conversation has any held-back
 //!   comment, a digest of the stored SHA-256 and of a keyed digest of the
 //!   held-back ids ([`reader_form`]), keyed by a secret this process draws
-//!   at start. It tells nothing about which comments are held back, even to
-//!   someone who guesses their ids; a moderation change is a new ETag; and a
+//!   at start. It prevents offline enumeration of held-back ids; repeated
+//!   tags still reveal set equality within a process. A held-back set change
+//!   is a new ETag; and a
 //!   stored form's ETag never answers 304 to a reader who must receive the
 //!   other.
 //!
