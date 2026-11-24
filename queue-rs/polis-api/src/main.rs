@@ -1177,8 +1177,9 @@ async fn startup() -> Result<Startup> {
         state.delphi_topic_map_scope = std::env::var("DELPHI_RESULT_SCOPE")
             .ok()
             .filter(|s| !s.is_empty());
-        // Off unless named: the shadow's runs, read by site administrators
-        // only (`source=shadow`). Never a served env.
+        // Off unless named: the shadow's runs (`source=shadow`, and a query
+        // naming no source when the served env has nothing stored). Never a
+        // served env.
         state.delphi_topic_map_shadow_env = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV")
             .ok()
             .filter(|s| !s.is_empty());
@@ -1189,8 +1190,9 @@ async fn startup() -> Result<Startup> {
                 "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
             );
         }
-        // Identity and the moderator rule read Node's tables with Node's read
-        // login unless a dedicated one is given.
+        // Who is a moderator (sent the full map; everyone else is sent
+        // moderated-out comments as bare points) reads Node's tables with
+        // Node's read login unless a dedicated one is given.
         let auth_dsn = [
             "POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL",
             "READ_ONLY_DATABASE_URL",
@@ -2144,13 +2146,17 @@ mod health_tests {
                 if reachable { 200 } else { 503 },
             );
             assert_eq!(body.as_object().unwrap().len(), 136);
-            // The report topic map: its two counters and its places, at zero.
+            // The report topic map: its two counters, its places and its
+            // readers' forms (made, at most at once, reused, kept and their
+            // bytes), at zero. The deploy's validation reads none of these;
+            // the exact set is pinned here so a change to it is seen.
             assert_eq!(body["delphiTopicMapServed"], 0);
             assert_eq!(body["delphiTopicMapFallback"], 0);
             assert_eq!(
                 body["delphiTopicMap"],
                 json!({"inFlight":0,"maxInFlight":0,"busy":0,"sent":0,"notModified":0,
-                    "heldBytes":0,"maxHeldBytes":0,"checked":0})
+                    "heldBytes":0,"maxHeldBytes":0,"checked":0,"rewrites":0,"maxRewriting":0,
+                    "formsReused":0,"formsKept":0,"formBytesKept":0})
             );
             // The featured-participants route: its two counters, and every
             // hand-back reason by name, at zero.
