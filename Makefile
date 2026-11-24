@@ -372,6 +372,10 @@ check-polis-migrate: ## Run polis-migrate checks
 check-polis-topic-map: ## Run the topic map generator's checks
 	@bash ci/local/polis-topic-map.sh
 
+.PHONY: check-polis-topic-names
+check-polis-topic-names: ## Run the topic namer's checks (offline, no model call)
+	@bash ci/local/polis-topic-names.sh
+
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks
 	@bash ci/local/job-graphs.sh

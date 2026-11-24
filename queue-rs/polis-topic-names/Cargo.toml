@@ -1,0 +1,28 @@
+[package]
+name = "polis-topic-names"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Names a Delphi run's topic hierarchy with one model call, checks the reply, and records the outcome; any failure is an outcome, never a crash."
+
+[lib]
+name = "polis_topic_names"
+path = "src/lib.rs"
+
+[[bin]]
+name = "polis-topic-names"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The one HTTPS call, made the way polis-auth makes its own: rustls, no
+# default features. The same versions and features the workspace already has.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["rt", "time"] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
