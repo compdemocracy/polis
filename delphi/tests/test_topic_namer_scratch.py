@@ -97,3 +97,11 @@ def test_a_terminated_run_removes_its_naming_scratch(delphi_app, tmp_path):
             child.wait(timeout=10)
         if scratch and scratch.exists():
             shutil.rmtree(scratch)
+
+
+def test_a_names_file_read_error_has_the_scratch_failure_reason(tmp_path):
+    path = tmp_path / "names.json"
+    path.mkdir()
+    result = topic_namer.read_names(str(path), small_hierarchy(), HAIKU)
+    assert result["outcome"] == "namer_failed"
+    assert result["reason"] == "scratch_unavailable (IsADirectoryError)"

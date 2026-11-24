@@ -196,7 +196,9 @@ def read_names(path: str, hierarchy: Dict[str, Any], namer: Dict[str, str]) -> D
     try:
         with open(path, encoding="utf-8") as f:
             doc = json.load(f)
-    except (OSError, ValueError) as e:
+    except OSError as e:
+        return _result(namer, NAMER_FAILED, f"{SCRATCH_UNAVAILABLE} ({type(e).__name__})")
+    except ValueError as e:
         return _result(namer, NAMER_FAILED, f"names.json is unreadable ({type(e).__name__})")
     if not isinstance(doc, dict) or doc.get("schema") != NAMES_SCHEMA:
         return _result(namer, NAMER_FAILED, "names.json is not polis-topic-names.names/1")
@@ -343,7 +345,7 @@ def receive_record(fd: int) -> Optional[Dict[str, Any]]:
         if not chunk:
             break
         data += chunk
-    for line in reversed(data.splitlines()):
+    for line in reversed(data.split(b"\n")[:-1]):
         try:
             doc = json.loads(line)
         except ValueError:

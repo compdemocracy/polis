@@ -71,3 +71,15 @@ def test_the_record_is_read_without_waiting_on_a_process_that_still_holds_the_pi
     finally:
         os.close(read_end)
         os.close(write_end)
+
+
+def test_a_record_without_its_final_newline_is_not_complete():
+    import json
+    read_end, write_end = os.pipe()
+    try:
+        record = topic_namer.record_of(topic_namer._result(HAIKU, "named"))
+        os.write(write_end, ("\n" + json.dumps(record)).encode())
+        assert topic_namer.receive_record(read_end) is None
+    finally:
+        os.close(read_end)
+        os.close(write_end)
