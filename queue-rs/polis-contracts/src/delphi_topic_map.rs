@@ -9,8 +9,9 @@
 //! [`PART_NO_MAP`] with the reason ([`StoredNoMap`]); every row names the
 //! job that stored it ([`JOB_ID`]). The route sends the
 //! stored bytes as they are: the gzip to a client that accepts gzip, the
-//! document otherwise, with the stored SHA-256 as the ETag. It never builds,
-//! hashes or compresses a map.
+//! document otherwise, with the stored SHA-256 as the ETag. It never builds
+//! a map; the one rewrite is the form sent to a reader who may not see the
+//! comments moderated out now (below).
 //!
 //! A Rust-only route: Node has no handler for this path, so a request
 //! polis-api hands back reaches Node's 404.
@@ -18,8 +19,16 @@
 //! Who may read what: anyone who holds the report id, as for the report's
 //! other Delphi reads (`GET /api/v3/delphi`, `/api/v3/delphi/reports`,
 //! `/api/v3/delphi/visualizations` take no sign-in: knowing the report id is
-//! what reads them). The route verifies no identity: every query below is
-//! answered the same whoever asks and whatever `Authorization` says.
+//! what reads them), for every query below. What a reader receives depends
+//! on who they are and on the comments' moderation at the time of the read:
+//!
+//! - The conversation's moderators and the site administrators, with a
+//!   bearer token: the map as the run stored it, `Cache-Control: private,
+//!   no-store`.
+//! - Everyone else: each comment moderated out now is a bare point (its
+//!   position only; see [`Points::moderated_out`]), and a topic with no
+//!   member left to show is not sent. A map holding no moderated-out comment
+//!   is the stored bytes. A token that does not verify is such a reader.
 //!
 //! Which map:
 //!
@@ -39,9 +48,10 @@
 //!
 //! Every answer is one of the types below:
 //!
-//! - 200, the document (`TopicMap`, in the stored bytes), with the run it is
-//!   from in the headers [`HEADER_JOB`], [`HEADER_SOURCE`], [`HEADER_SCOPE`]
-//!   and [`HEADER_SELECTION`]; 304 when the client's ETag is the stored one.
+//! - 200, the document (`TopicMap`: the stored bytes, or the reader's form),
+//!   with the run it is from in the headers [`HEADER_JOB`], [`HEADER_SOURCE`],
+//!   [`HEADER_SCOPE`] and [`HEADER_SELECTION`]; 304 when the client's ETag is
+//!   the one this reader would be sent.
 //! - 200, [`NoMap`]: the report exists and there is nothing to draw, with the
 //!   reason from a closed set ([`NoMapReason`]).
 //! - 400, 404, 422, 500, 503: the closed set of refusals
@@ -442,13 +452,25 @@ pub struct Topic {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 #[serde(deny_unknown_fields)]
 pub struct Points {
-    pub id: Vec<i64>,
+    /// The comment id; null for a moderated-out comment ([`Self::moderated_out`]).
+    pub id: Vec<Option<i64>>,
     pub x: Vec<f64>,
     pub y: Vec<f64>,
     /// Per level: the index in `topics` of each comment's topic, or -1.
     pub topic: Vec<Vec<i64>>,
     /// Empty: the stored document carries no comment text.
     pub text: Vec<String>,
+    /// How many of the points, the last ones, are comments moderated out:
+    /// a position and nothing else (`id` null, `topic` -1 at every level,
+    /// `text` empty if present), ordered by position. A view draws them as
+    /// moderated out (the browser component draws a point in no topic grey).
+    /// Absent, and zero, in every stored document: only a reader's form sets it.
+    #[serde(rename = "moderatedOut", default, skip_serializing_if = "is_zero")]
+    pub moderated_out: u64,
+}
+
+fn is_zero(n: &u64) -> bool {
+    *n == 0
 }
 
 #[cfg(test)]
