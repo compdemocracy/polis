@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Prepare Polis promotion PRs and review packets; publish only by explicit command."""
+# A release is the annotated vX.Y.Z tag and a GitHub release carrying the
+# reviewed notes. It attaches no files: CLI binaries are not built or published
+# by this path (see docs/release-promotion.md).
 import argparse
 from contextlib import contextmanager
-import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
@@ -18,9 +19,11 @@ BEGIN = '<!-- polis-release-plan -->'
 END = '<!-- /polis-release-plan -->'
 MIRRORS = ('VERSION', 'polis-cli/Cargo.toml', 'polis-cli/Cargo.lock')
 # REST calls publication may still make after the live notes check: the
-# environment, approvals, release list, tag object and ref, and about twelve
-# gh release calls (create, eight uploads, edit), with margin.
+# environment, approvals, release list, tag object and ref, and the gh release
+# create call, with a wide margin (kept from when eight uploads followed).
 PUBLICATION_CALLS = 50
+NO_ASSETS = ('A release attaches no CLI binaries; --assets is refused. '
+             'See docs/release-promotion.md for building the CLI by hand.')
 
 
 def run(argv, *, cwd=ROOT, data=None):
@@ -349,11 +352,16 @@ def approved_run(repo, reviewer, environment_id):
         raise ValueError('No release approval by the designated reviewer in this run')
 
 
-def load_publisher():
-    spec = importlib.util.spec_from_file_location('publish_cli', ROOT / 'scripts/publish-polis-cli-release.py')
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def create_release(repo, tag, notes):
+    """Publish the release for an existing tag, with the reviewed notes and no files.
+
+    --verify-tag refuses a missing tag. An existing release for the tag makes
+    create fail, so a rerun never overwrites or reuses a release.
+    """
+    if 'schema: ' not in notes.read_text():
+        raise ValueError('Prepared release notes with schema status are required')
+    run(['gh', 'release', 'create', tag, '--repo', repository(repo), '--verify-tag',
+         '--title', f'Polis {tag[1:]}', '--notes-file', notes, '--latest'])
 
 
 def verify_packet(packet, repo, tool, *, snapshot_notes=False):
@@ -412,21 +420,21 @@ def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_no
     repo, tag, commit = packet['repository'], packet['tag'], packet['stable']
     if execute and snapshot_notes:
         raise ValueError('Publication must recheck live release notes')
+    if assets is not None:
+        raise ValueError(NO_ASSETS)
     if execute:
         require_api_budget(packet, live_notes=True)
     verify_packet(packet, repo, tool, snapshot_notes=snapshot_notes)
-    publisher = load_publisher()
-    files = publisher.validate(assets, tag, commit)
     if not execute:
         inventory = tags()
         check_remote_tags(inventory)
         if tag in inventory:
             verify_tag_annotation(packet)
-        return {'tag': tag, 'stable': commit,
-                'assets': {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in files}}
+        # Shown in the review summary: the release attaches nothing.
+        return {'tag': tag, 'stable': commit, 'assets': {}}
     environment_id = gate(repo, reviewer)
     approved_run(repo, reviewer, environment_id)
-    # The tag endpoint omits drafts, including those left by failed uploads.
+    # The tag endpoint omits drafts, including any an earlier publication left.
     matches = [release for release in pages(repo, 'releases') if release['tag_name'] == tag]
     if len(matches) > 1:
         raise ValueError('Multiple releases for this tag; explicit review/cleanup required')
@@ -439,16 +447,13 @@ def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_no
         if inventory.get(tag) != commit:
             raise ValueError('Existing release is missing its matching immutable tag')
         verify_tag_annotation(packet)
-        with tempfile.TemporaryDirectory(prefix='polis-release-verify-') as directory:
-            run(['gh', 'release', 'download', tag, '--repo', repo, '--dir', directory])
-            remote_files = publisher.validate(Path(directory), tag, commit)
-            if {p.name: p.read_bytes() for p in remote_files} != {p.name: p.read_bytes() for p in files}:
-                raise ValueError('Published assets differ; never overwrite a release')
+        if existing['assets'] != []:
+            raise ValueError('Existing release has attached files; never overwrite a release')
         return {'already_published': True}
     # Re-read the remote immediately before the first public write.
     if remote_head('stable') != commit:
         raise ValueError('Stable moved after approval')
-    # Refuse before the tag rather than run out between the tag and the uploads.
+    # Refuse before the tag rather than run out between the tag and the release.
     require_api_budget(packet, live_notes=False)
     inventory = tags()
     check_remote_tags(inventory)
@@ -464,26 +469,25 @@ def publication(packet, assets, tool, *, execute=False, reviewer='', snapshot_no
     with tempfile.TemporaryDirectory(prefix='polis-release-notes-') as directory:
         notes = Path(directory) / 'notes.md'
         notes.write_text(packet['notes'])
-        publisher.publish(assets, tag, commit, repo, notes)
+        create_release(repo, tag, notes)
     return {'published': tag}
 
 
 def commands(packet, assets, tool, packet_path):
     # Printing is the default; values are shell-quoted, never evaluated here.
     repo, tag, commit = packet['repository'], packet['tag'], packet['stable']
-    publisher = load_publisher()
-    files = publisher.validate(assets, tag, commit)
-    rows = ['set -eu', f'# Stable {commit}; review notes.md and all eight checksums first.',
+    if assets is not None:
+        raise ValueError(NO_ASSETS)
+    rows = ['set -eu', f'# Stable {commit}; review notes.md first. The release attaches no CLI binaries.',
             '# Choose this manual path OR the approved workflow, never both.',
-            shlex.join(['python3', 'scripts/polis_release.py', 'verify', '--packet', str(packet_path),
-                        '--tool', str(tool), '--assets', str(assets)]),
+            shlex.join(['python3', 'scripts/polis_release.py', 'verify', '--publication', str(packet_path),
+                        '--tool', str(tool)]),
             '# If this exact annotated tag exists, verification above checks it; omit tag/push.',
             shlex.join(['git', 'tag', '-a', tag, commit, '--cleanup=verbatim', '-m', tag_annotation(packet)]),
             shlex.join(['git', 'push', 'origin', f'refs/tags/{tag}']),
-            shlex.join(['gh', 'release', 'create', tag, '--repo', repo, '--verify-tag', '--draft',
-                        '--title', f'Polis {tag[1:]}', '--notes-file', str(packet_path.parent / 'notes.md')]),
-            shlex.join(['gh', 'release', 'upload', tag, '--repo', repo, *map(str, files)]),
-            shlex.join(['gh', 'release', 'edit', tag, '--repo', repo, '--draft=false', '--latest'])]
+            shlex.join(['gh', 'release', 'create', tag, '--repo', repo, '--verify-tag',
+                        '--title', f'Polis {tag[1:]}', '--notes-file', str(packet_path.parent / 'notes.md'),
+                        '--latest'])]
     return '\n'.join(rows) + '\n'
 
 
@@ -495,8 +499,9 @@ def main():
     parser.add_argument('--candidate')
     parser.add_argument('--stable')
     parser.add_argument('--output', type=Path)
-    parser.add_argument('--packet', type=Path)
-    parser.add_argument('--assets', type=Path)
+    parser.add_argument('--publication', type=Path,
+                        help='The reviewed publication.json (notes.md beside it)')
+    parser.add_argument('--assets', type=Path, help='Refused: a release attaches no CLI binaries')
     parser.add_argument('--open-pr', action='store_true')
     parser.add_argument('--snapshot-notes', action='store_true',
                         help='Reuse planned notes for preapproval verification only')
@@ -505,6 +510,8 @@ def main():
     parser.add_argument('--reviewer', default=os.environ.get('POLIS_RELEASE_REVIEWER', ''))
     args = parser.parse_args()
     try:
+        if args.assets is not None:
+            raise ValueError(NO_ASSETS)
         if args.snapshot_notes and args.action != 'verify':
             raise ValueError('--snapshot-notes is only allowed for verify')
         if args.commands_output is not None and args.action != 'verify':
@@ -525,21 +532,21 @@ def main():
                 raise ValueError('--output is required')
             save_packet(result, args.output)
         else:
-            if args.packet is None or args.assets is None:
-                raise ValueError('--packet and --assets are required')
-            packet = json.loads(args.packet.read_text())
-            if args.stable is not None and sha(args.stable) != packet['stable']:
-                raise ValueError('--stable differs from the reviewed packet')
-            if (args.packet.parent / 'notes.md').read_text() != packet['notes']:
-                raise ValueError('Packet notes do not match the reviewed JSON')
+            if args.publication is None:
+                raise ValueError('--publication is required')
+            record = json.loads(args.publication.read_text())
+            if args.stable is not None and sha(args.stable) != record['stable']:
+                raise ValueError('--stable differs from the reviewed publication record')
+            if (args.publication.parent / 'notes.md').read_text() != record['notes']:
+                raise ValueError('Publication notes do not match the reviewed JSON')
             if args.action == 'commands':
-                verify_packet(packet, packet['repository'], tool)
-                print(commands(packet, args.assets, tool, args.packet), end='')
+                verify_packet(record, record['repository'], tool)
+                print(commands(record, None, tool, args.publication), end='')
                 return
-            result = publication(packet, args.assets, tool, execute=args.action == 'publish',
+            result = publication(record, None, tool, execute=args.action == 'publish',
                                  reviewer=args.reviewer, snapshot_notes=args.snapshot_notes)
             if args.commands_output is not None:
-                args.commands_output.write_text(commands(packet, args.assets, tool, args.packet))
+                args.commands_output.write_text(commands(record, None, tool, args.publication))
         print(json.dumps(result, indent=2, sort_keys=True))
     except (ValueError, OSError, KeyError, TypeError, subprocess.CalledProcessError) as error:
         parser.exit(1, f'Polis release: {error}\n')

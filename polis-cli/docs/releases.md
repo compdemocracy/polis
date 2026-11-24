@@ -29,14 +29,16 @@ toolchain, `cargo build --locked --release`, and the actual Cargo target directo
 It builds the production binary without fixture features, checks version/help,
 and refuses modified or untracked build inputs. It never publishes or installs.
 
-The **Build Polis CLI release assets** reusable workflow uses these same commands
-on native macOS and Linux runners. It is called only by the manually dispatched
-Polis publication workflow; there is no tag-push publisher. It adds
+The **Build Polis CLI release assets** workflow uses these same commands
+on native macOS and Linux runners. It runs only when dispatched by hand; the
+Polis publication workflow no longer calls it, and there is no tag-push
+publisher. It adds
 `--release-tag vX.Y.Z --release-commit FULL_SHA`, which makes the script refuse
 unless the binary prints exactly
 `polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. Artifacts expire
-after 14 days and remain review inputs until the approved publication job
-validates all eight files. All target jobs must pass. A passing
+after 14 days; nothing attaches them to a release at present (see
+[promotion and publication](../../docs/release-promotion.md#the-cli-is-not-built-by-a-release)).
+All target jobs must pass. A passing
 ARM64 Mac build alone does not qualify
 Intel or Linux. GNU/Linux binaries use the runner's glibc and are not promised
 to work on older distributions. A source build remains available there. Mac
@@ -139,6 +141,13 @@ Do not publish compatibility `cli-v` tags or a separate CLI version line.
 The newest release must contain the running platform's archive and its checksum;
 a missing platform fails, without silently selecting an older release.
 
+Polis releases currently carry no CLI binaries. While the newest release has
+none and is newer than the installed CLI, `polis update` fails this way: exit
+status 1, error `update_failed`, "The latest Polis release does not contain
+exactly one archive for this platform.", with the installed executable
+unchanged. To move to a published CLI meanwhile, select the most recent release
+that has archives attached and use the explicit installation procedure above.
+
 Downloads require HTTPS, except loopback HTTP for local testing. Credentials in
 URLs are refused; no site token is sent. Up to five redirects are allowed, with
 no HTTPS downgrade. Requests each obey `--timeout`; responses and archive members
@@ -176,20 +185,22 @@ mv -f polis.rollback polis
 
 Root `VERSION` is authoritative. Preparation computes the number and opens a
 review PR with VERSION and generated Cargo mirrors. A `vMAJOR.MINOR.PATCH` tag
-identifies the stable promotion merge. All eight files keep the
-`polis-VERSION-COMMIT12-TARGET.tar.gz[.sha256]` names and attach to one Polis
-release. No tag push or merge starts publication.
+identifies the stable promotion merge. No tag push or merge starts publication.
 
 Colin uses the prepared manual commands or approves the final **release**
-environment job after reviewing the exact stable SHA, number, migration notes,
-PR titles and eight checksums. Only that workflow job has release write
-permission; it creates the tag and a draft, uploads the complete set, then
-publishes as latest. A failed upload leaves a draft for explicit review. A
-matching completed release is a verified no-op; different content is never
+environment job after reviewing the exact stable SHA, number, migration notes
+and PR titles. Only that workflow job has release write permission; it creates
+the tag, then the release with the reviewed notes and **no attached files**.
+A release builds no CLI binaries: the four-target build above is dispatched
+separately, by hand, and how its archives are published again is to be
+designed when CLI builds resume. A matching completed release is a verified
+no-op; a release with attached files or different content is never
 overwritten. Signing/notarization and older glibc compatibility remain separate.
 
-The canonical-tag updater must land before publication is enabled; the
-publication validator checks this prerequisite on the promoted source. Already
+Releases published before this change carry all eight files with the
+`polis-VERSION-COMMIT12-TARGET.tar.gz[.sha256]` names. The canonical-tag updater
+must be on the promoted source before publication; the publication validator
+checks this prerequisite. Already
 installed legacy updaters only recognize `cli-v` and need the explicit verified
 artifact replacement procedure above once. Then the canonical updater follows
 the single Polis release series. Do not add compatibility `cli-v` tags.
