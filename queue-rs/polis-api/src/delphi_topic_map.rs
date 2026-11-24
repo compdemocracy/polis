@@ -328,7 +328,7 @@ impl State {
         self.0.max_held.load(Ordering::SeqCst)
     }
     /// Maps sent (200), since start.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn sent(&self) -> u64 {
         self.0.sent.load(Ordering::Relaxed)
     }
@@ -462,12 +462,12 @@ impl State {
     /// Keep at most `forms` readers' forms and `bytes` of them from now on,
     /// for a test that needs forms let go with fewer maps than the
     /// process's own bounds take.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn keep_at_most(&self, forms: usize, bytes: usize) {
         self.forms().bounds = Some((forms, bytes));
     }
     /// Readers' forms let go to keep within the bounds, since start.
-    #[cfg(test)]
+    #[cfg(all(test, feature = "db-tests"))]
     pub(crate) fn forms_evicted(&self) -> u64 {
         self.forms().evicted
     }

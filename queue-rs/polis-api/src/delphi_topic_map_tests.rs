@@ -1061,13 +1061,18 @@ pub(crate) fn layered_document(points: usize, job: &str, seed: usize) -> String 
     let mut topics = Vec::new();
     let mut rows = Vec::new();
     for (l, k) in per.iter().enumerate() {
+        let first = topics.len();
         for c in 0..*k {
             topics.push(serde_json::json!({"id": format!("{l}_{c}"), "level": l, "cluster": c,
                 "key": null, "name": format!("keyword{c} other{c} third{c}"), "count": points / k,
                 "x": 0.12345, "y": -1.23456, "weight": 2.5, "parent": null, "parentShare": null,
                 "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"}));
         }
-        rows.push((0..points).map(|i| (i % k) as i64).collect::<Vec<_>>());
+        rows.push(
+            (0..points)
+                .map(|i| (first + i % k) as i64)
+                .collect::<Vec<_>>(),
+        );
     }
     serde_json::json!({
         "schema": "polis-topic-map/1", "title": "", "attribution": "",
@@ -1142,4 +1147,19 @@ async fn a_burst_of_distinct_maps_stays_within_the_rewrites_budget() {
         overrun <= charged / MAPS as f64 * 2.0,
         "the rewrites took {overrun:.3} s beyond their charges of {charged:.3} s in all"
     );
+}
+
+#[test]
+fn layered_fixture_keeps_topics_at_every_level_after_redaction() {
+    let doc = layered_document(4_000, "fixture", 0);
+    let hidden = (1_000..4_000).step_by(2).collect();
+    let bytes = public_form(doc.as_bytes(), &hidden).unwrap().unwrap();
+    let shown: contract::TopicMap = serde_json::from_slice(&bytes).unwrap();
+    let counts: Vec<_> = shown.levels.iter().map(|level| level.topics).collect();
+    assert_eq!(counts, vec![300, 100, 30, 10]);
+    for (level, row) in shown.points.topic.iter().enumerate() {
+        for topic in row.iter().filter(|topic| **topic >= 0) {
+            assert_eq!(shown.topics[*topic as usize].level as usize, level);
+        }
+    }
 }
