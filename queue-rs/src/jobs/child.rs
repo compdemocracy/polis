@@ -5,8 +5,8 @@
 //! `delphi/scripts/job_poller.py` (`start_new_session`, signal the group,
 //! grace, SIGKILL), and adds "reap until the group is empty", which is the
 //! only state in which the daemon passes exit proof `true`.
-use anyhow::{anyhow, bail, ensure, Result};
-use serde_json::{json, Value};
+use anyhow::{Result, anyhow, bail, ensure};
+use serde_json::{Value, json};
 use std::{
     os::unix::process::CommandExt,
     path::{Path, PathBuf},
