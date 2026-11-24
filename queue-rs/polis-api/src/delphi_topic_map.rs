@@ -31,22 +31,32 @@
 //!   [`auth_pool_limits`]) receive the map as the run stored it, marked
 //!   `Cache-Control: private, no-store` and `Vary: Authorization,
 //!   Accept-Encoding`.
-//! - Every other reader, signed in or not, receives each comment that is
-//!   moderated out now (`comments.mod = -1`) as a bare point ([`public_form`]):
-//!   its position, no id, no topic, and the count of such points in
-//!   `points.moderatedOut`. A topic left with no member this reader may see
-//!   is not sent. A map that holds no such comment is sent as stored, byte
-//!   for byte. The moderated-out comments are read on the route's own read
-//!   pool, in the same connection as the map, one indexed statement.
+//! - Every other reader, signed in or not, receives each comment that is held
+//!   back now ([`held_back`]: moderated out, `comments.mod = -1`; inactive,
+//!   `active = false`; or muted, `velocity <= 0`) as a bare point
+//!   ([`public_form`]): its position, no id, no topic, and the count of such
+//!   points in `points.moderatedOut`. A topic left with no member this
+//!   reader may see is not sent; a topic with a held-back member is sent
+//!   with the neutral name `Topic <cluster>` and its label placed over its
+//!   visible members only; the labels' colours are chosen again from what
+//!   is sent. A map that holds no held-back comment is sent as stored, byte
+//!   for byte. A comment not yet moderated (`mod = 0`, under strict
+//!   moderation too) is not held back. The held-back comments are read on
+//!   the route's own read pool, in the same connection as the map, one
+//!   indexed statement, when the request starts: a moderation committed
+//!   while a read is under way reaches the next request.
 //! - The ETag says which form was sent: the stored SHA-256 for the stored
-//!   form, and for a reader's form while the conversation has any
-//!   moderated-out comment, a digest of the stored SHA-256 and of the
-//!   moderated-out comments' ids ([`reader_tag`]); a moderation change is a
-//!   new ETag, and a stored form's ETag never answers 304 to a reader who
-//!   must receive the other.
+//!   form, and for a reader's form while the conversation has any held-back
+//!   comment, a digest of the stored SHA-256 and of a keyed digest of the
+//!   held-back ids ([`reader_form`]), keyed by a secret this process draws
+//!   at start. It tells nothing about which comments are held back, even to
+//!   someone who guesses their ids; a moderation change is a new ETag; and a
+//!   stored form's ETag never answers 304 to a reader who must receive the
+//!   other.
 //!
-//! The participation path (votes, comments, the next comment) shares nothing
-//! with this route. Before anything is read a request takes one of
+//! The participation path (votes, comments, the next comment) shares no
+//! connection pool and no request place with this route. Before anything is
+//! read a request takes one of
 //! [`MAX_IN_FLIGHT`] places; with none free it is answered 503 at once. It
 //! reads on its own pool ([`pool_limits`]), never a participation pool, holds a connection
 //! only for its own statements, and keeps nothing between requests. The
@@ -87,7 +97,7 @@ pub fn auth_pool_limits() -> crate::db::Limits {
 
 /// The name of the reader's form in its ETag ([`reader_tag`]): a change to
 /// [`public_form`] changes it, so no client keeps an older form.
-pub const READER_FORM: &str = "moderated-out/1";
+pub const READER_FORM: &str = "held-back/2";
 
 /// Map requests reading at once in the process; any other is answered 503.
 pub const MAX_IN_FLIGHT: usize = 4;
@@ -136,6 +146,9 @@ struct Inner {
     checking: Arc<Semaphore>,
     checked: AtomicU64,
     verdicts: std::sync::Mutex<std::collections::VecDeque<(String, bool)>>,
+    /// The key of the readers' validators ([`reader_form`]), drawn when the
+    /// process starts and never written anywhere.
+    validator_key: [u8; 32],
     /// A test sets this to hold every read inside its connection.
     #[cfg(all(test, feature = "db-tests"))]
     reads_held: (std::sync::Mutex<bool>, std::sync::Condvar),
@@ -191,9 +204,14 @@ impl State {
             checking: Arc::new(Semaphore::new(1)),
             checked: AtomicU64::new(0),
             verdicts: std::sync::Mutex::new(std::collections::VecDeque::new()),
+            validator_key: rand::random(),
             #[cfg(all(test, feature = "db-tests"))]
             reads_held: (std::sync::Mutex::new(false), std::sync::Condvar::new()),
         }))
+    }
+    /// The key of this process's readers' validators.
+    pub(crate) fn validator_key(&self) -> &[u8; 32] {
+        &self.0.validator_key
     }
     /// A place, or none: never a wait.
     fn admit(&self) -> Option<Place> {
@@ -510,6 +528,23 @@ fn failure(e: &anyhow::Error) -> Refused {
     }
 }
 
+/// [`failure`], decided inside the connection's closure: the pool reports
+/// any error of its closure as the database being unavailable, as text, so
+/// a statement this login may not run (SQLSTATE class 42, such as a missing
+/// `SELECT` grant on `comments`) or a stored value the database cannot read
+/// (class 22) is told apart here, while its error is still typed. Such a
+/// failure is a 500 that names nothing; every other is `Err`, the route
+/// shedding (503).
+fn classified<T>(r: anyhow::Result<T>) -> anyhow::Result<Result<T, Refused>> {
+    match r {
+        Ok(v) => Ok(Ok(v)),
+        Err(e) => match failure(&e) {
+            Refused::Unreadable => Ok(Err(Refused::Unreadable)),
+            _ => Err(e),
+        },
+    }
+}
+
 /// `None` hands the request back to Node, whose answer for this path is 404:
 /// only when the route is switched off.
 async fn answer(
@@ -562,19 +597,22 @@ async fn answer(
         .with(move |c| {
             let _place = first;
             // As getZidFromReport: no row, a null and a zero name no conversation.
-            Ok(c.query_opt(
-                "SELECT zid FROM reports WHERE report_id=$1 LIMIT 1",
-                &[&rid],
-            )?
-            .map(|r| r.try_get::<_, Option<i32>>(0))
-            .transpose()?
-            .flatten()
-            .filter(|z| *z != 0))
+            classified((|| {
+                Ok(c.query_opt(
+                    "SELECT zid FROM reports WHERE report_id=$1 LIMIT 1",
+                    &[&rid],
+                )?
+                .map(|r| r.try_get::<_, Option<i32>>(0))
+                .transpose()?
+                .flatten()
+                .filter(|z| *z != 0))
+            })())
         })
         .await
     {
-        Ok(Some(zid)) => zid,
-        Ok(None) => return refused(Refused::UnknownReport(report)),
+        Ok(Ok(Some(zid))) => zid,
+        Ok(Ok(None)) => return refused(Refused::UnknownReport(report)),
+        Ok(Err(r)) => return refused(r),
         Err(e) => return refused(failure(&e)),
     };
     // A moderator receives the full map; anyone else, whatever their token
@@ -617,29 +655,33 @@ async fn answer(
     let read = pool
         .with(move |c| {
             let _place = reading;
-            // What is moderated out now, before the map: one indexed read.
-            let hidden = if moderator {
-                Vec::new()
-            } else {
-                moderated_out(c, zid)?
-            };
-            let form = reader_form(&hidden);
-            let mut first = None;
-            for (source, mut ask) in asks {
-                ask.form = form.clone();
-                let scope = ask.scope.clone();
-                let read = read(c, ask, &state)?;
-                if !nothing_stored(&read.found) {
-                    return Ok((read, source, scope, hidden, form));
+            classified((|| {
+                // What is held back now, before the map: one indexed read.
+                let hidden = if moderator {
+                    Vec::new()
+                } else {
+                    held_back(c, zid)?
+                };
+                let form = reader_form(state.validator_key(), zid, &hidden);
+                let mut first = None;
+                for (source, mut ask) in asks {
+                    ask.form = form.clone();
+                    let scope = ask.scope.clone();
+                    let read = read(c, ask, &state)?;
+                    if !nothing_stored(&read.found) {
+                        return Ok((read, source, scope, hidden, form));
+                    }
+                    first.get_or_insert((read, source, scope));
                 }
-                first.get_or_insert((read, source, scope));
-            }
-            let (read, source, scope) = first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
-            Ok((read, source, scope, hidden, form))
+                let (read, source, scope) =
+                    first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
+                Ok((read, source, scope, hidden, form))
+            })())
         })
         .await;
     let (Read { found, selection }, source, scope, hidden, form) = match read {
-        Ok(read) => read,
+        Ok(Ok(read)) => read,
+        Ok(Err(r)) => return refused(r),
         Err(e) => return refused(failure(&e)),
     };
     let found = match found {
@@ -733,27 +775,62 @@ async fn moderates(app: &App, authorization: &str, zid: i32) -> Option<Result<bo
     }
 }
 
-/// The ids of the conversation's comments moderated out now (`mod = -1`, the
-/// moderation list's `polisTypes.mod.ban`), in order: one statement on the
-/// comments' `(zid)` index.
-fn moderated_out(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Vec<i64>> {
+/// The ids of the conversation's comments held back from a reader who is not
+/// a moderator, in order: moderated out (`mod = -1`, the moderation list's
+/// `polisTypes.mod.ban`), inactive (`active = false`) or muted
+/// (`velocity <= 0`), the states Node's participant list leaves out
+/// (`server/src/comment.ts`, `participantVisibleClause`). A comment not yet
+/// moderated (`mod = 0`) is not held back, under strict moderation too: a
+/// job that laid it out may show it. One statement on the comments' `(zid)`
+/// index.
+fn held_back(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Vec<i64>> {
     let row = c.query_one(
         "SELECT COALESCE(array_agg(tid::bigint ORDER BY tid), '{}'::bigint[]) \
-         FROM public.comments WHERE zid=$1 AND mod=-1",
+         FROM public.comments WHERE zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0)",
         &[&zid],
     )?;
     Ok(row.try_get::<_, Vec<i64>>(0)?)
 }
 
 /// What a reader's ETag adds to the stored digest: nothing when no comment
-/// is moderated out, so such a reader's form is the stored one; otherwise the
-/// form's name and the digest of the moderated-out ids.
-fn reader_form(hidden: &[i64]) -> String {
+/// is held back, so such a reader's form is the stored one; otherwise the
+/// form's name and HMAC-SHA256, under this process's `key`, of the
+/// conversation and its held-back ids. Without the key the tag is a digest
+/// of a value nobody outside the process can compute, so knowing or
+/// guessing ids confirms nothing. Another process (the other web box, the
+/// next deploy) draws another key: its tag for the same bytes differs, which
+/// costs a client one download, and a 304 is still given only to a tag this
+/// process made for the form it would send now.
+pub(crate) fn reader_form(key: &[u8; 32], zid: i32, hidden: &[i64]) -> String {
     if hidden.is_empty() {
         return String::new();
     }
     let ids: Vec<String> = hidden.iter().map(i64::to_string).collect();
-    format!(":{READER_FORM}:{}", sha256_hex(ids.join(",").as_bytes()))
+    let mac = hmac_sha256(key, format!("{zid}:{}", ids.join(",")).as_bytes());
+    format!(":{READER_FORM}:{}", hex_of(&mac))
+}
+
+/// HMAC-SHA256 (RFC 2104) for a key of at most one block (64 bytes).
+pub(crate) fn hmac_sha256(key: &[u8], message: &[u8]) -> [u8; 32] {
+    use sha2::{Digest, Sha256};
+    let (mut ipad, mut opad) = ([0x36u8; 64], [0x5cu8; 64]);
+    for (i, k) in key.iter().take(64).enumerate() {
+        ipad[i] ^= k;
+        opad[i] ^= k;
+    }
+    let inner = Sha256::new()
+        .chain_update(ipad)
+        .chain_update(message)
+        .finalize();
+    Sha256::new()
+        .chain_update(opad)
+        .chain_update(inner)
+        .finalize()
+        .into()
+}
+
+fn hex_of(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
 /// The ETag (without `W/` and quotes) of the form `form` of the stored map
@@ -826,14 +903,29 @@ async fn reader_body(
 /// which comment one is. `points.moderatedOut` is their count: a view draws
 /// the last `moderatedOut` points as moderated out.
 ///
-/// The topics follow what this reader may see: a topic with no visible
-/// member is not sent (its name may be made of moderated-out comments'
-/// words); every other topic's `count`, `weight`, `parent` and
-/// `parentShare` are counted again over the visible members as the generator
-/// counts them (`polis-topic-map/src/lib.rs`), and each level's `topics` and
-/// `unclustered` with them. A topic's position, colours and name are the
-/// run's. `Err`: the document does not read as the contract's closed type,
-/// or its arrays disagree; such a map is not sent to this reader.
+/// The topics follow what this reader may see, level by level, because a
+/// topic's name, label position and colour were made from all its members:
+///
+/// - a topic with no visible member is not sent (its name may be made of
+///   held-back comments' words);
+/// - a topic with a held-back member is sent with the generator's neutral
+///   name, `Topic <cluster>` (`polis-topic-map/src/lib.rs`, the name a topic
+///   gets when the run stored none, which `stored::safe_name` keeps as
+///   generic), its label at the mean of its visible members, and its
+///   `count` and `weight` counted over them as the generator counts them;
+/// - a topic with no held-back member keeps its name, position, count and
+///   weight as stored;
+/// - every topic's `parent` and `parentShare` are counted again over the
+///   visible members (for a topic with no held-back member they come out as
+///   stored), and each level's `topics` and `unclustered` with them;
+/// - every label's colours, and each level's `cmapPalette`, are chosen again
+///   by the generator's palette (`polis_topic_map::map_colors`) from what is
+///   sent: the points' positions and the labels' positions. The stored
+///   colours were chosen over every label's position, a dropped or moved one
+///   included, so they are not sent.
+///
+/// `Err`: the document does not read as the contract's closed type, or its
+/// arrays disagree; such a map is not sent to this reader.
 pub(crate) fn public_form(
     document: &[u8],
     hidden: &std::collections::BTreeSet<i64>,
@@ -865,10 +957,20 @@ pub(crate) fn public_form(
     bare.sort_by(|&a, &b| p.x[a].total_cmp(&p.x[b]).then(p.y[a].total_cmp(&p.y[b])));
     let topics_in = doc.topics.len();
     let mut count = vec![0u64; topics_in];
+    let mut sums = vec![[0.0f64; 2]; topics_in];
+    let mut holds_back = vec![false; topics_in];
     for row in &p.topic {
         for &i in &visible {
             if row[i] >= 0 {
-                *count.get_mut(row[i] as usize).ok_or(())? += 1;
+                let k = row[i] as usize;
+                *count.get_mut(k).ok_or(())? += 1;
+                sums[k][0] += p.x[i];
+                sums[k][1] += p.y[i];
+            }
+        }
+        for &i in &bare {
+            if row[i] >= 0 {
+                *holds_back.get_mut(row[i] as usize).ok_or(())? = true;
             }
         }
     }
@@ -927,11 +1029,16 @@ pub(crate) fn public_form(
     };
     let mut topics: Vec<contract::Topic> = std::mem::take(&mut doc.topics)
         .into_iter()
-        .zip(&count)
-        .filter(|(_, c)| **c > 0)
-        .map(|(mut t, c)| {
-            t.count = *c;
-            t.weight = (*c as f64).powf(0.25);
+        .zip(count.iter().zip(holds_back.iter().zip(&sums)))
+        .filter(|(_, (c, _))| **c > 0)
+        .map(|(mut t, (c, (holds_back, xy)))| {
+            if *holds_back {
+                t.name = format!("Topic {}", t.cluster);
+                t.x = round5(xy[0] / *c as f64);
+                t.y = round5(xy[1] / *c as f64);
+                t.count = *c;
+                t.weight = (*c as f64).powf(0.25);
+            }
             t.parent = None;
             t.parent_share = None;
             t
@@ -970,12 +1077,51 @@ pub(crate) fn public_form(
         level.topics = topics.iter().filter(|t| t.level == level.level).count() as u64;
         level.unclustered = row.iter().filter(|k| **k < 0).count() as u64;
     }
+    recolor(&mut topics, &mut doc.levels, &points.x, &points.y);
     doc.topics = topics;
     doc.points = contract::Points {
         topic: rows,
         ..points
     };
     serde_json::to_vec(&doc).map(Some).map_err(|_| ())
+}
+
+fn round5(v: f64) -> f64 {
+    (v * 1e5).round() / 1e5
+}
+
+/// The labels' colours as the generator chooses them (`polis-topic-map`,
+/// `build`), from what a reader is sent only: each level's palette over the
+/// points' positions and that level's labels, the colour-map palette when
+/// the level has more than 50 labels with "unclustered" counted among them;
+/// and one palette over every level's labels for `colorAll`.
+fn recolor(topics: &mut [contract::Topic], levels: &mut [contract::Level], x: &[f64], y: &[f64]) {
+    use polis_topic_map::{ciecam02::Space, map_colors};
+    static SPACE: std::sync::OnceLock<Space> = std::sync::OnceLock::new();
+    let space = SPACE.get_or_init(Space::new);
+    let hex = |c: [u8; 3]| format!("#{:02x}{:02x}{:02x}", c[0], c[1], c[2]);
+    let coords: Vec<[f64; 2]> = x.iter().zip(y).map(|(x, y)| [*x, *y]).collect();
+    let mut any_unclustered = false;
+    for level in levels.iter_mut() {
+        let at: Vec<usize> = (0..topics.len())
+            .filter(|&k| topics[k].level == level.level)
+            .collect();
+        let labels: Vec<[f64; 2]> = at.iter().map(|&k| [topics[k].x, topics[k].y]).collect();
+        any_unclustered |= level.unclustered > 0;
+        level.cmap_palette = at.len() + usize::from(level.unclustered > 0) > 50;
+        let (base, text) = map_colors(space, &coords, &labels, level.cmap_palette);
+        for (j, &k) in at.iter().enumerate() {
+            topics[k].color = hex(base[j]);
+            topics[k].label_color = hex(text[j]);
+        }
+    }
+    let labels: Vec<[f64; 2]> = topics.iter().map(|t| [t.x, t.y]).collect();
+    let cmap = topics.len() + usize::from(any_unclustered) > 50;
+    let (base, text) = map_colors(space, &coords, &labels, cmap);
+    for (k, t) in topics.iter_mut().enumerate() {
+        t.color_all = hex(base[k]);
+        t.label_color_all = hex(text[k]);
+    }
 }
 
 /// Whether a side has nothing stored for the query, so that a query naming

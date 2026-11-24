@@ -1377,26 +1377,48 @@ are and on the comments' moderation at the time of the read, not of the run:
   `Cache-Control: private, no-store` and `Vary: Authorization,
   Accept-Encoding`.
 - Every other reader, a token that does not verify included, receives each
-  comment moderated out now (`comments.mod = -1`) as a bare point: the points
-  that are not moderated out come first, as stored, then the bare points, ordered
-  by position, each with its position only (`id` null, `topic` -1 at every
-  level); `points.moderatedOut` is their count. A topic with no visible member
-  is not sent; the others' counts, weights and parents are counted again over
-  the visible members. A map that holds no moderated-out comment is the stored
-  bytes. These answers are `Cache-Control: no-cache` and `Vary:
-  Accept-Encoding`.
-- The moderated-out ids are read on the route's own read pool, on the
-  connection that reads the map, before it (`SELECT array_agg(tid) FROM
-  comments WHERE zid=$1 AND mod=-1`, on the comments' `(zid)` index). While the
-  conversation has any, a reader's ETag is the SHA-256 of the stored digest,
-  the form's name (`moderated-out/1`) and the SHA-256 of the ids, computed the
-  same in the statement, so `If-None-Match` still answers 304 with no part
-  crossing the connection, a moderator's ETag never answers 304 to a reader,
-  and a moderation change is a new ETag from the next read. With none, the
-  reader's ETag is the stored digest. The reader's form is made off the
-  runtime's threads while the request keeps its place (in a release build,
-  about 10 ms for a 9,000-comment map: inflate, rewrite, deflate); nothing of
-  it is kept.
+  comment held back now as a bare point: moderated out (`mod = -1`), inactive
+  (`active = false`) or muted (`velocity <= 0`), the states Node's
+  participant list leaves out. A comment not yet moderated (`mod = 0`, under
+  strict moderation too) is not held back: a job that laid it out may show it
+  (the map carries no comment text; a page gets text from Node's list, which
+  gives none for such a comment). The report's `mod_level` is not applied: the
+  job chooses the comments. The points that are not held back come first, as
+  stored, then the bare points, ordered by position, each with its position
+  only (`id` null, `topic` -1 at every level); `points.moderatedOut` is their
+  count. A topic with no visible member is not sent. A topic with a held-back
+  member, at any level, is sent with the generator's neutral name
+  (`Topic <cluster>`), its label at the mean of its visible members and its
+  count and weight over them; a topic with none keeps its name, place, count
+  and weight. Parents are counted again over the visible members, and every
+  label's colours (and each level's `cmapPalette`) are chosen again by the
+  generator's palette from the points and labels sent, since the stored
+  colours were chosen over every label, a dropped or moved one included. A
+  map that holds no held-back comment is the stored bytes. These answers are
+  `Cache-Control: no-cache` and `Vary: Accept-Encoding`.
+- The held-back ids are read on the route's own read pool, on the connection
+  that reads the map, before it (`SELECT array_agg(tid) FROM comments WHERE
+  zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0)`, on the comments'
+  `(zid)` index), once per request: a moderation committed while a request is
+  under way reaches the next one, and a copy a client already has cannot be
+  recalled. While the conversation has any, a reader's ETag is the SHA-256 of
+  the stored digest, the form's name (`held-back/2`) and HMAC-SHA256 of the
+  conversation and the ids under a 32-byte key each process draws at start and
+  never writes down. Someone who knows or guesses the ids learns nothing from
+  it. The statement computes the same, so `If-None-Match` still answers 304
+  with no part crossing the connection; a moderator's ETag never answers 304
+  to a reader while anything is held back, and a moderation change is a new
+  ETag from the next read. The two web boxes, and a process after a deploy,
+  hold different keys: a client that meets another process re-downloads the
+  map, and never receives a 304 for a form it does not have. With nothing held
+  back, the reader's ETag is the stored digest, the moderators' too, and a
+  304 for it is correct (the bytes are the same). The reader's form is made
+  off the runtime's threads while the request keeps its place (in a release
+  build, about 15 ms for a 9,000-comment map of 440 topics: inflate, rewrite,
+  colours, deflate); nothing of it is kept.
+- The route's database login must be able to `SELECT` on `comments`
+  (`zid`, `tid`, `mod`, `active`, `velocity`). Without it the route answers
+  500 `polis_err_topic_map_unreadable`, naming nothing, and sends no map.
 
 A past run's map may later be removed to save storage, and then answers
 `not_stored`, as a run that never stored one does.

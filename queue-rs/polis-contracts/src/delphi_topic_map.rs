@@ -229,7 +229,9 @@ pub enum Refused {
     TooLarge,
     /// 500: the run's stored map cannot be served: a part missing, a row
     /// naming another job, a digest that is not the document's, a gzip that
-    /// is not the document. The map is refused, never served unchecked.
+    /// is not the document; or the route's database login may not read what
+    /// it needs (a missing grant). The map is refused, never served
+    /// unchecked, and the answer names nothing more.
     Unreadable,
     /// 503 with `Retry-After`: the route is full (as many map reads in flight
     /// as it admits, all its connections in use, or its reads slower than

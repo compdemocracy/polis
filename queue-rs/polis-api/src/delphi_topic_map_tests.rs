@@ -689,8 +689,37 @@ fn a_reader_receives_moderated_out_comments_as_bare_points() {
         .map(|l| (l.topics, l.unclustered))
         .collect();
     assert_eq!(levels, [(2, 2), (2, 2)]);
-    // A topic with a visible member keeps the run's name, position and colours.
-    assert_eq!(out.topics[3].name, "secret and schools");
+    // A topic with a held-back member (0_0 held 10; 1_0 held 10; 1_1 held
+    // 14) has the neutral name and its label over its visible members only;
+    // 0_1 held none and keeps its name and place.
+    let labels: Vec<(&str, f64, f64)> = out
+        .topics
+        .iter()
+        .map(|t| (t.name.as_str(), t.x, t.y))
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            ("Topic 0", 0.1, 0.1),
+            ("schools", 0.5, 0.25),
+            ("Topic 0", 0.15, 0.15),
+            ("Topic 1", 0.3, 0.3)
+        ]
+    );
+    assert!(!String::from_utf8_lossy(&form).contains("secret"));
+    // The colours are chosen again from what is sent: none is the stored one.
+    for t in &out.topics {
+        for c in [&t.color, &t.label_color, &t.color_all, &t.label_color_all] {
+            assert!(c.len() == 7 && c.starts_with('#'), "{c}");
+        }
+    }
+    assert_eq!(
+        out.levels
+            .iter()
+            .map(|l| l.cmap_palette)
+            .collect::<Vec<_>>(),
+        [false, false]
+    );
     assert_eq!(
         out.provenance,
         Some(serde_json::json!({"schema": "polis-topic-map.provenance/1"}))
@@ -728,21 +757,148 @@ fn a_reader_receives_moderated_out_comments_as_bare_points() {
     );
 }
 
+/// What a held-back comment leaves in the reader's form is its position and
+/// nothing else: where it sat inside its topic, and the topic it alone made,
+/// change no byte of what is sent.
+#[test]
+fn a_held_back_comment_leaves_only_its_position() {
+    let hidden: std::collections::BTreeSet<i64> = [14, 10].into_iter().collect();
+    let form = |doc: &serde_json::Value| {
+        public_form(doc.to_string().as_bytes(), &hidden)
+            .unwrap()
+            .unwrap()
+    };
+    let doc: serde_json::Value = serde_json::from_str(&small_map()).unwrap();
+    // The same map with comment 14 in no topic of its own at the finer
+    // level (no 0_2 stored, other stored colours): the run's labels and
+    // colours were different, the reader's form is not.
+    let mut without = doc.clone();
+    without["topics"].as_array_mut().unwrap().remove(2);
+    without["points"]["topic"] = serde_json::json!([[0, 0, 1, 1, -1], [2, 2, 2, 3, 3]]);
+    without["levels"][0]["topics"] = 2.into();
+    without["levels"][0]["unclustered"] = 1.into();
+    for t in without["topics"].as_array_mut().unwrap() {
+        t["color"] = "#123456".into();
+        t["colorAll"] = "#654321".into();
+    }
+    assert_eq!(form(&doc), form(&without));
+    // The held-back comment of a mixed topic (1_1 holds 13 and 14) moved
+    // within it: only its own position changes in what is sent, never a
+    // label's place.
+    let mut moved = doc.clone();
+    moved["points"]["x"][4] = 0.8.into();
+    let (a, b): (contract::TopicMap, contract::TopicMap) = (
+        serde_json::from_slice(&form(&doc)).unwrap(),
+        serde_json::from_slice(&form(&moved)).unwrap(),
+    );
+    let place = |m: &contract::TopicMap| {
+        m.topics
+            .iter()
+            .map(|t| {
+                (
+                    t.id.clone(),
+                    t.name.clone(),
+                    t.x,
+                    t.y,
+                    t.count,
+                    t.parent.clone(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(place(&a), place(&b));
+}
+
+#[test]
+fn hmac_sha256_is_rfc_4231() {
+    // RFC 4231, test case 2.
+    assert_eq!(
+        super::hex_of(&super::hmac_sha256(
+            b"Jefe",
+            b"what do ya want for nothing?"
+        )),
+        "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+    );
+}
+
 #[test]
 fn a_readers_etag_names_the_form_and_the_moderation() {
+    let key = State::default().validator_key().to_owned();
     let sha = "e".repeat(64);
     assert_eq!(
         reader_tag(&sha, ""),
         sha,
-        "no comment moderated out: the stored form"
+        "no comment held back: the stored form"
     );
-    let one = reader_tag(&sha, &reader_form(&[3]));
-    let two = reader_tag(&sha, &reader_form(&[3, 4]));
+    let one = reader_tag(&sha, &reader_form(&key, 7, &[3]));
+    let two = reader_tag(&sha, &reader_form(&key, 7, &[3, 4]));
     assert!(is_digest(&one) && is_digest(&two));
     assert_ne!(one, sha);
     assert_ne!(one, two);
-    assert_eq!(reader_form(&[]), "");
-    assert_ne!(reader_tag(&"f".repeat(64), &reader_form(&[3])), one);
+    assert_eq!(reader_form(&key, 7, &[]), "");
+    assert_ne!(
+        reader_tag(&"f".repeat(64), &reader_form(&key, 7, &[3])),
+        one
+    );
+    assert_ne!(reader_tag(&sha, &reader_form(&key, 8, &[3])), one);
+}
+
+/// Someone who knows the stored digest and every comment id cannot tell
+/// which comments are held back from a reader's ETag: every keyless recipe
+/// over every small set of ids misses, and the same set under another
+/// process's key is another tag.
+#[test]
+fn a_readers_etag_tells_nothing_to_someone_who_guesses_ids() {
+    use sha2::{Digest, Sha256};
+    let hex = |b: &[u8]| super::hex_of(b);
+    let sha = "e".repeat(64);
+    let zid = 7;
+    let key = State::default().validator_key().to_owned();
+    let tag_14 = reader_tag(&sha, &reader_form(&key, zid, &[14]));
+    let tag_15 = reader_tag(&sha, &reader_form(&key, zid, &[15]));
+    assert_ne!(tag_14, tag_15);
+    let mut guesses = std::collections::BTreeSet::new();
+    let sets: Vec<Vec<i64>> = (0..100)
+        .map(|i| vec![i])
+        .chain((0..30).flat_map(|i| (i + 1..30).map(move |j| vec![i, j])))
+        .collect();
+    for ids in &sets {
+        let csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+        for name in ["moderated-out/1", READER_FORM] {
+            for inner in [
+                hex(&Sha256::digest(csv.as_bytes())),
+                hex(&Sha256::digest(format!("{zid}:{csv}").as_bytes())),
+                // An empty or public key in place of the process's.
+                hex(&super::hmac_sha256(b"", format!("{zid}:{csv}").as_bytes())),
+                hex(&super::hmac_sha256(
+                    sha.as_bytes(),
+                    format!("{zid}:{csv}").as_bytes(),
+                )),
+            ] {
+                guesses.insert(reader_tag(&sha, &format!(":{name}:{inner}")));
+            }
+        }
+    }
+    assert!(!guesses.contains(&tag_14) && !guesses.contains(&tag_15));
+    // Another process draws another key.
+    let other = State::default().validator_key().to_owned();
+    assert_ne!(key, other);
+    assert_ne!(tag_14, reader_tag(&sha, &reader_form(&other, zid, &[14])));
+    // The tag's bits look like any digest's: about half of them set, over
+    // many held-back sets.
+    let ones: u32 = (0..200)
+        .map(|i| {
+            let t = reader_tag(&sha, &reader_form(&key, zid, &[i]));
+            t.chars()
+                .map(|c| c.to_digit(16).unwrap().count_ones())
+                .sum::<u32>()
+        })
+        .sum();
+    let bits = 200 * 256;
+    assert!(
+        (ones as f64 / bits as f64 - 0.5).abs() < 0.02,
+        "{ones} of {bits}"
+    );
 }
 
 /// The cost of the reader's form of a large map: 9,000 comments over four

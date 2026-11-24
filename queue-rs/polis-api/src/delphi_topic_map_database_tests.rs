@@ -33,7 +33,8 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
         "CREATE TABLE IF NOT EXISTS users(uid integer, site_id text);
          CREATE TABLE IF NOT EXISTS oidc_user_mappings(uid integer, oidc_sub text);
          CREATE TABLE IF NOT EXISTS conversations(zid integer, owner integer);
-         CREATE TABLE IF NOT EXISTS comments(zid integer, tid integer, mod integer);
+         CREATE TABLE IF NOT EXISTS comments(zid integer, tid integer, mod integer,
+           active boolean NOT NULL DEFAULT true, velocity real NOT NULL DEFAULT 1);
          CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
            generation bigint, artifact_id uuid, job_id text);
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
@@ -1261,8 +1262,15 @@ fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
             }
         };
         let gz = || vec![("accept-encoding", "gzip".to_string())];
-        let reader_tag_now =
-            |hidden: &[i64]| format!("W/\"{}\"", reader_tag(&every.sha256, &reader_form(hidden)));
+        let reader_tag_now = |hidden: &[i64]| {
+            format!(
+                "W/\"{}\"",
+                reader_tag(
+                    &every.sha256,
+                    &reader_form(app.delphi_topic_map.validator_key(), ZID, hidden)
+                )
+            )
+        };
 
         // Anyone: comment 14 is a bare point, and its topic, which no other
         // comment is in, is not sent.
@@ -1284,7 +1292,9 @@ fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
         assert!(doc.topics.iter().all(|t| t.id != "0_2"));
         let raw = String::from_utf8(form.clone()).unwrap();
         assert!(
-            !raw.contains("secret words") && !raw.contains("\"0_2\"") && !raw.contains("14"),
+            !raw.contains("secret")
+                && !raw.contains("\"0_2\"")
+                && !doc.points.id.contains(&Some(14)),
             "{raw}"
         );
         assert_eq!(
@@ -1453,7 +1463,10 @@ fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
         // the stored bytes, but the route cannot know that before reading them).
         let tag = format!(
             "W/\"{}\"",
-            reader_tag(&participants.sha256, &reader_form(&[14]))
+            reader_tag(
+                &participants.sha256,
+                &reader_form(app.delphi_topic_map.validator_key(), ZID, &[14]),
+            )
         );
         assert_eq!(header(&out, "ETag"), Some(tag.as_str()));
         let out = get_with(
@@ -1466,6 +1479,173 @@ fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
             app.delphi_topic_map.0.held.load(Ordering::SeqCst),
             0,
             "nothing is kept"
+        );
+    });
+}
+
+/// A map with one comment of each state: what a reader who is not a
+/// moderator receives for each, as Node's participant list decides it
+/// (`active`, `velocity`), except that a comment not yet moderated is shown.
+#[test]
+fn inactive_and_muted_comments_are_held_back_and_unmoderated_ones_are_not() {
+    let db = Db::new("held_back");
+    let every = stored(small_map());
+    {
+        let mut c = db.connect();
+        // 10 inactive, 11 muted, 12 not yet moderated, 13 accepted, 14
+        // accepted.
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('r1',{ZID});
+             INSERT INTO conversations VALUES({ZID},3);
+             INSERT INTO comments(zid,tid,mod,active,velocity) VALUES({ZID},10,1,false,1),
+               ({ZID},11,1,true,0),({ZID},12,0,true,1),({ZID},13,1,true,1),({ZID},14,1,true,1);"
+        ))
+        .unwrap();
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &every)),
+        );
+    }
+    let app = Arc::new(app_on(&db));
+    runtime().block_on(async {
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(
+                "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments",
+                &[],
+            ),
+        )
+        .await;
+        assert_eq!(out.status, 200, "{}", text(&out));
+        let doc: contract::TopicMap = serde_json::from_slice(&bytes(&out)).unwrap();
+        assert_eq!(
+            doc.points.id,
+            vec![Some(12), Some(13), Some(14), None, None]
+        );
+        assert_eq!(doc.points.moderated_out, 2);
+        let tag = header(&out, "ETag").unwrap().to_owned();
+        let expected = reader_tag(
+            &every.sha256,
+            &reader_form(app.delphi_topic_map.validator_key(), ZID, &[10, 11]),
+        );
+        assert_eq!(tag, format!("W/\"{expected}\""));
+    });
+}
+
+/// The route's login without `SELECT` on `comments`: the map is not sent,
+/// and the answer is the 500 that names nothing, not the route shedding.
+#[test]
+fn a_login_that_may_not_read_comments_is_refused_whole() {
+    let db = Db::new("no_grant");
+    let every = stored(small_map());
+    let role = format!("topic_map_no_comments_{}", std::process::id());
+    {
+        let mut c = db.connect();
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('r1',{ZID});
+             INSERT INTO comments VALUES({ZID},14,-1);
+             DROP ROLE IF EXISTS {role};
+             CREATE ROLE {role} LOGIN;
+             GRANT SELECT ON reports TO {role};"
+        ))
+        .unwrap();
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &every)),
+        );
+    }
+    let mut app = app_on(&db);
+    let mut config = db.config.clone();
+    config.user(&role);
+    app.delphi_topic_map_db = Some(crate::db::Pool::new(
+        Connector::Plain(Box::new(config)),
+        pool_limits(),
+    ));
+    let app = Arc::new(app);
+    runtime().block_on(async {
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(
+                "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments",
+                &[],
+            ),
+        )
+        .await;
+        let body = text(&out);
+        assert_eq!(out.status, 500, "{body}");
+        assert!(body.contains(contract::UNREADABLE), "{body}");
+        assert!(
+            !body.contains("comments") && !body.contains("permission"),
+            "{body}"
+        );
+        assert_eq!(app.delphi_topic_map.busy(), 0);
+    });
+    drop(app);
+    db.connect()
+        .batch_execute(&format!("DROP OWNED BY {role}; DROP ROLE {role};"))
+        .unwrap();
+}
+
+/// A bearer token while the identity database does not answer: the route
+/// sheds (503, try again), never treats the bearer as a reader who is not
+/// signed in.
+#[test]
+fn a_bearer_while_the_identity_database_is_down_is_shed() {
+    let db = Db::new("auth_down");
+    let every = stored(small_map());
+    {
+        let mut c = db.connect();
+        c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+            .unwrap();
+        served(
+            &mut c,
+            "test",
+            ZID,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(ZID, &every)),
+        );
+    }
+    let mut app = app_on(&db);
+    let signer = Signer::new(&mut app);
+    // Nothing listens on port 1.
+    let mut down = postgres::Config::new();
+    down.host("127.0.0.1")
+        .port(1)
+        .user("postgres")
+        .dbname("absent")
+        .connect_timeout(Duration::from_millis(50));
+    app.delphi_topic_map_auth_db = Some(crate::db::Pool::new(
+        Connector::Plain(Box::new(down)),
+        auth_pool_limits(),
+    ));
+    let owner = signer.bearer("owner");
+    let app = Arc::new(app);
+    runtime().block_on(async {
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(
+                "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments",
+                &[("authorization", owner.as_str())],
+            ),
+        )
+        .await;
+        assert_eq!(
+            (out.status, header(&out, "Retry-After")),
+            (503, Some("1")),
+            "{}",
+            text(&out)
         );
     });
 }
