@@ -29,7 +29,7 @@ pub const RUN_MAX_ENV: &str = "DELPHI_NAMING_RUN_MAX_USD";
 pub const DEFAULT_RUN_MAX_USD: f64 = 0.50;
 /// Version 1 names at most this many topics in its one call.
 pub const MAX_TOPICS: usize = 400;
-/// The most counted input tokens (the body's characters) of a call.
+/// The most counted input tokens (the body's UTF-8 bytes) of a call.
 pub const MAX_COUNTED_INPUT: u64 = 120_000;
 
 /// How a naming ended. [`Outcome::word`] is what `names.json` records.
@@ -165,7 +165,7 @@ pub fn name_topics(
     settings: &client::Settings,
 ) -> NamesFile {
     let body = prompt::body_v1(h, namer);
-    let counted = body.chars().count() as u64;
+    let counted = body.len() as u64;
     let worst = namer.model.worst_case_usd(counted, prompt::MAX_TOKENS);
     let run = decide_and_call(h, key, cap, settings, &body, counted, worst);
     let outcome = run.outcome.word();
@@ -271,6 +271,25 @@ fn judge_reply(h: &Hierarchy, bytes: &[u8]) -> Run {
         Ok(v) => v,
         Err(_) => return Run::failed(Outcome::BadJson, "the reply body is not JSON"),
     };
+    // Usage is provider-controlled; refuse invalid counts before pricing.
+    if let Some(usage) = v.get("usage") {
+        let mut prompt_tokens = 0u64;
+        for field in [
+            "input_tokens",
+            "cache_creation_input_tokens",
+            "cache_read_input_tokens",
+        ] {
+            if let Some(value) = usage.get(field) {
+                let Some(count) = value.as_u64() else {
+                    return Run::failed(Outcome::BadJson, "invalid usage counts");
+                };
+                let Some(total) = prompt_tokens.checked_add(count) else {
+                    return Run::failed(Outcome::BadJson, "invalid usage counts");
+                };
+                prompt_tokens = total;
+            }
+        }
+    }
     let u = |k: &str| {
         v.get("usage")
             .and_then(|x| x.get(k))
@@ -283,10 +302,14 @@ fn judge_reply(h: &Hierarchy, bytes: &[u8]) -> Run {
         cache_creation_input_tokens: u("cache_creation_input_tokens"),
         cache_read_input_tokens: u("cache_read_input_tokens"),
     });
-    let stop = v
-        .get("stop_reason")
-        .and_then(|x| x.as_str())
-        .map(String::from);
+    let stop =
+        v.get("stop_reason")
+            .and_then(|x| x.as_str())
+            .map(|s| match s {
+                "end_turn" | "refusal" | "max_tokens" | "stop_sequence" | "tool_use"
+                | "pause_turn" => s.to_string(),
+                _ => "unknown".to_string(),
+            });
     let mut run = judge_message(h, &v, stop.as_deref());
     run.usage = usage;
     run.stop_reason = stop;

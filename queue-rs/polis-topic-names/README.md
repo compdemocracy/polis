@@ -99,8 +99,7 @@ with keyword names).
 **The one retry** follows HTTP 429, 500, 502, 503, 504 or 529, or a failed
 connection, after the reply's `retry-after` (at most 60 s), else 10 s.
 
-**The cost check.** Before any call: the request body's characters (one token
-per character is an upper bound for every script measured) at the model's
+**The cost check.** Before any call: the request body's UTF-8 byte length at the model's
 input price, plus 32,000 output tokens at its output price. Prices, per
 million tokens: Haiku 5.5 $0.10 in, $0.50 out ($0.50 and $2.50 above 100,000
 prompt tokens); Sonnet 5.5 $2 in, $10 out. A model not in the table is refused.

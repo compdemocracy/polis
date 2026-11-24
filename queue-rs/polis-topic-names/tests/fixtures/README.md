@@ -15,7 +15,11 @@ settings.
 
 - `hierarchies/<conversation>.json`: the hierarchy the calls were built from,
   cut to the fields this crate reads and given the `schema` string. The sample
-  comments are as the measurement chose them from the export.
+  comments for Bowling Green are as the measurement chose them from the export.
+  The vTaiwan and Mobilität sample comments are replaced by one invented
+  Chinese or German sentence per topic. Their tests need the topic ids and
+  language context, not the source comments (some were moderated out).
+  The recorded replies are unchanged.
 - `replies/<conversation>/<model>-<setting>-r<n>.json`: the reply body of each
   whole-hierarchy call, as the provider returned it (JSON re-serialized, content
   unchanged). `off` is the measurement's lowest thinking setting (Haiku
