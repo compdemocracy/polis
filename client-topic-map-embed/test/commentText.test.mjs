@@ -51,7 +51,7 @@ test("the component reads the map, and makes its text afresh, when the token cha
   const source = readFileSync(new URL("../src/TopicMap.js", import.meta.url), "utf8");
   const effect = /createEffect\(\s*\(\) => \[([^\]]*)\],\s*\(\[[^\]]*\]\) => \{\s*textFor = freshText\(\);/.exec(source);
   assert.ok(effect, "the map's read starts with fresh text");
-  assert.deepEqual(effect[1].split(",").map((s) => s.trim()), ["props.reportId", "props.jobId", "props.selection", "props.document", "props.token"]);
+  assert.deepEqual(effect[1].split(",").map((s) => s.trim()), ["props.reportId", "props.jobId", "props.selection", "props.document", "props.token", "props.conversationId", "props.modLevel"]);
   assert.doesNotMatch(source, /untrack\(\(\) => props\.token\)\s*\}\)\.then\(\(answer\)/);
   assert.doesNotMatch(source, /^const commentText = new Map\(\)/m, "no text kept for the whole page");
 });

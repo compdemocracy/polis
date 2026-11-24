@@ -82,9 +82,9 @@ export default function TopicMap(props) {
   let textFor = freshText();
 
   // The one read: again if the report, the run, the rule, the document or
-  // the reader's token changes; the map drawn before, and its text, go.
+  // the reader's token, conversation or moderation level changes; the old map and text go.
   createEffect(
-    () => [props.reportId, props.jobId, props.selection, props.document, props.token],
+    () => [props.reportId, props.jobId, props.selection, props.document, props.token, props.conversationId, props.modLevel],
     ([reportId, jobId, selection, doc, token]) => {
       textFor = freshText();
       if (doc) {
