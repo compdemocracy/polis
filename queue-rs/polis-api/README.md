@@ -1472,6 +1472,38 @@ the stored digest and the gzip must inflate to exactly the document
 (`miniz_oxide`). The verdict, never the bytes, is kept for the family (which
 never changes), so later requests send one part with no check.
 
+`GET /api/v3/delphi/topicMap?report_id=…&list=jobs` (with `source` and
+`selection` as above, to narrow it) answers which runs of the report's
+conversation have a stored map, so a page can offer a choice and then read one
+by its `job_id`: 200 with `{"report_id":…,"jobs":[…]}`, newest first by
+`created_at` then `job_id`, at most 50 (`MAX_LISTED`), from the newest 200
+finished runs of both sides together (`MAX_EXAMINED`; an older run is not
+listed and is still read by its `job_id`). Each entry is `job_id`, `source`
+(`served` or `shadow`), `selection` (the rule its configuration names, without
+its version; null if none this route knows), `created_at` (RFC 3339, UTC),
+`points`, `levels`, `names` and `current`. They come from the run records only,
+never from a map: a run is listed when its record (`pd_run_record`) lists the
+map family the run itself produced with at least three rows (a map is
+`document`, `document.gz` and `sha256`, and `execution`; no map is `no_map` and
+`execution`); `points` is the row count of the run's cluster assignments
+(`Delphi_CommentHierarchicalClusterAssignments`, one row per comment it laid
+out, as many as the map's points); `levels` is always null, because topics per
+level are in the map only (read the map for them); `names.by` is `none` when
+the record lists no topic names (`Delphi_CommentClustersLLMTopicNames`) or none
+with rows, `model` when the record's manifest counts model output tokens
+(`manifest.cost.llm_tokens_out` above 0), with `names.model` the manifest's
+`models.topic`, and `keywords` otherwise; `current` marks the run a read with
+the same `report_id`, `source` and `selection` and no `job_id` answers (per
+side in order, the served pointer's run when its record holds that run's map at
+the pointer's artifact). The list is the same for every reader, reads no
+comment and no identity, so moderating a comment never changes it and it shows
+nothing of a held-back comment. It takes one of the route's places and its pool
+like a map read (so a flood of lists is shed with the same 503), in two
+statements: the jobs by the `(env, zid::text)` index with each one's run record
+(one `pd_run_record` call per run examined), and each side's pointer with its
+run's record. `list` with `job_id` is 400 `parameter: list`, as is a `list`
+other than `jobs` (as an unknown `source` is).
+
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses

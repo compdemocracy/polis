@@ -38,7 +38,7 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
          CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
            generation bigint, artifact_id uuid, job_id text);
          CREATE TABLE delphi_result_jobs(env text, job_id text, conversation_id text,
-           status text, job_config jsonb);
+           status text, job_config jsonb, created_at text);
          CREATE TABLE stand_in_runs(env text, job_id uuid, record jsonb);
          CREATE TABLE stand_in_wires(env text, artifact_id uuid, family text, wire text,
            delay float8 NOT NULL DEFAULT 0);
@@ -1743,5 +1743,372 @@ fn a_readers_form_is_made_once_per_held_back_set_and_bounded() {
         let moderator = get_with(vec![("authorization", owner.clone())]).await;
         assert_eq!(moderator.status, 200, "{}", text(&moderator));
         assert_eq!(bytes(&moderator), every.document.as_bytes());
+    });
+}
+
+/// A finished run for the list: its job row (created at `at`), and a record
+/// whose families are the map family the run produced with `map_rows` rows
+/// at `artifact` (none when `None`), its cluster assignments (`points` rows)
+/// and its topic names (`names` rows, none when `None`), and a manifest
+/// whose topic model is `model` with `tokens_out` model output tokens.
+#[allow(clippy::too_many_arguments)]
+fn listed_run(
+    c: &mut postgres::Client,
+    env: &str,
+    zid: i32,
+    selection: &str,
+    at: &str,
+    map: Option<(i64, &str)>,
+    points: i64,
+    names: Option<i64>,
+    tokens_out: i64,
+) -> String {
+    let job = uuid(0x7000);
+    c.execute(
+        "INSERT INTO delphi_result_jobs VALUES($1,$2,$3,'COMPLETED',$4::text::jsonb,$5)",
+        &[
+            &env,
+            &job,
+            &zid.to_string(),
+            &json!({"selection": selection}).to_string(),
+            &at,
+        ],
+    )
+    .unwrap();
+    let mut families = vec![
+        json!({"family": "Delphi_CommentHierarchicalClusterAssignments",
+        "job_id": job, "artifact_id": uuid(0xa100), "row_count": points}),
+    ];
+    if let Some((rows, artifact)) = map {
+        families.push(json!({"family": contract::FAMILY, "job_id": job,
+            "artifact_id": artifact, "row_count": rows, "scope": "delphi"}));
+    }
+    if let Some(rows) = names {
+        families.push(json!({"family": "Delphi_CommentClustersLLMTopicNames",
+            "job_id": job, "artifact_id": uuid(0xa100), "row_count": rows}));
+    }
+    let record = json!({"job_id": job, "zid": zid, "families": families,
+        "manifest": {"models": {"embed": "all-MiniLM-L6-v2", "topic": "claude-haiku-4-5-20251001",
+            "narrative": null}, "cost": {"llm_tokens_in": 0, "llm_tokens_out": tokens_out,
+            "provider_batches": 0}}});
+    c.execute(
+        "INSERT INTO stand_in_runs VALUES($1,$2::text::uuid,$3::text::jsonb)",
+        &[&env, &job, &record.to_string()],
+    )
+    .unwrap();
+    job
+}
+
+fn listed(out: &Outgoing) -> contract::JobList {
+    assert_eq!(out.status, 200, "{}", text(out));
+    serde_json::from_slice(&bytes(out)).unwrap()
+}
+
+#[test]
+fn a_report_lists_its_runs_with_maps_newest_first_on_both_sides() {
+    let db = Db::new("list");
+    let map = stored(document(500, "j"));
+    let wire = map_family(ZID, &map);
+    let (served_artifact, shadow_artifact) = (uuid(0xa200), uuid(0xa200));
+    let mut c = db.connect();
+    c.batch_execute(&format!(
+        "INSERT INTO reports VALUES('r1',{ZID}),('r2',77),('none',78);
+         INSERT INTO conversations VALUES({ZID},3);
+         INSERT INTO comments VALUES({ZID},10,1),({ZID},11,1);"
+    ))
+    .unwrap();
+    // Served: what participants see (published, its map stored), every
+    // comment (named by a model), all but moderated out (no names), a run
+    // that stored no map, and a run that failed.
+    let a = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "participant_visible/1",
+        "2026-11-01T00:00:00.000000Z",
+        Some((4, &served_artifact)),
+        500,
+        Some(12),
+        0,
+    );
+    wire_at(&mut c, "test", &served_artifact, &wire, &a);
+    publish(&mut c, "test", ZID, "delphi", &a, &served_artifact);
+    let b = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "all_comments/1",
+        "2026-11-02T00:00:00.000000Z",
+        Some((3, &uuid(0xa300))),
+        520,
+        Some(12),
+        9000,
+    );
+    let m = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "all_but_moderated_out/1",
+        "2026-11-03T00:00:00.000000Z",
+        Some((4, &uuid(0xa300))),
+        510,
+        None,
+        0,
+    );
+    listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "participant_visible/1",
+        "2026-11-04T00:00:00.000000Z",
+        Some((2, &uuid(0xa300))),
+        3,
+        Some(1),
+        0,
+    );
+    let failed = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "participant_visible/1",
+        "2026-11-06T00:00:00.000000Z",
+        Some((4, &uuid(0xa300))),
+        500,
+        Some(12),
+        0,
+    );
+    c.execute(
+        "UPDATE delphi_result_jobs SET status='FAILED' WHERE job_id=$1",
+        &[&failed],
+    )
+    .unwrap();
+    // The shadow's: what participants see, newest of all.
+    let s = listed_run(
+        &mut c,
+        "shadow-test",
+        ZID,
+        "participant_visible/1",
+        "2026-11-05T00:00:00.000000Z",
+        Some((4, &shadow_artifact)),
+        505,
+        Some(12),
+        0,
+    );
+    // Another conversation's run, with a map, newer than all of them.
+    listed_run(
+        &mut c,
+        "test",
+        77,
+        "participant_visible/1",
+        "2026-11-07T00:00:00.000000Z",
+        Some((4, &uuid(0xa300))),
+        900,
+        Some(12),
+        0,
+    );
+    runtime().block_on(async {
+        let mut app = app_on(&db);
+        app.delphi_topic_map_shadow_env = Some("shadow-test".into());
+        let app = Arc::new(app);
+        let url = "/api/v3/delphi/topicMap?report_id=r1&list=jobs";
+        let out = crate::dispatch(app.clone(), None, with(url, &[])).await;
+        let body = text(&out);
+        println!("list: {body}");
+        let list = listed(&out);
+        assert_eq!(list.report_id, "r1");
+        let ids: Vec<_> = list.jobs.iter().map(|j| j.job_id.as_str()).collect();
+        assert_eq!(ids, [s.as_str(), m.as_str(), b.as_str(), a.as_str()]);
+        let words: Vec<_> = list
+            .jobs
+            .iter()
+            .map(|j| (j.source.word(), j.selection.map(Selection::word)))
+            .collect();
+        assert_eq!(
+            words,
+            [
+                ("shadow", Some("participant_visible")),
+                ("served", Some("all_but_moderated_out")),
+                ("served", Some("all_comments")),
+                ("served", Some("participant_visible"))
+            ]
+        );
+        let points: Vec<_> = list.jobs.iter().map(|j| j.points).collect();
+        assert_eq!(points, [Some(505), Some(510), Some(520), Some(500)]);
+        assert!(list.jobs.iter().all(|j| j.levels.is_none()));
+        let names: Vec<_> = list
+            .jobs
+            .iter()
+            .map(|j| (j.names.by, j.names.model.as_deref()))
+            .collect();
+        assert_eq!(
+            names,
+            [
+                (contract::NamedBy::Keywords, None),
+                (contract::NamedBy::None, None),
+                (contract::NamedBy::Model, Some("claude-haiku-4-5-20251001")),
+                (contract::NamedBy::Keywords, None)
+            ]
+        );
+        assert_eq!(
+            list.jobs[3].created_at.as_deref(),
+            Some("2026-11-01T00:00:00.000000Z")
+        );
+        // `current` is the run the read with the report id alone answers.
+        let current: Vec<_> = list
+            .jobs
+            .iter()
+            .filter(|j| j.current)
+            .map(|j| j.job_id.clone())
+            .collect();
+        assert_eq!(current, std::slice::from_ref(&a));
+        let bare = crate::dispatch(
+            app.clone(),
+            None,
+            with("/api/v3/delphi/topicMap?report_id=r1", &[]),
+        )
+        .await;
+        assert_eq!(bare.status, 200);
+        assert_eq!(header(&bare, contract::HEADER_JOB), Some(a.as_str()));
+        // One side or one rule only; the shadow's side has no served pointer.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&source=shadow"), &[]),
+        )
+        .await;
+        let shadow = listed(&out);
+        assert_eq!(
+            shadow
+                .jobs
+                .iter()
+                .map(|j| (j.job_id.as_str(), j.current))
+                .collect::<Vec<_>>(),
+            [(s.as_str(), false)]
+        );
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&selection=all_comments"), &[]),
+        )
+        .await;
+        let rule = listed(&out);
+        assert_eq!(
+            rule.jobs
+                .iter()
+                .map(|j| (j.job_id.as_str(), j.current))
+                .collect::<Vec<_>>(),
+            [(b.as_str(), false)]
+        );
+        // Moderating a comment out changes nothing in the list, byte for byte.
+        moderate(
+            &db,
+            &format!("UPDATE comments SET mod=-1 WHERE zid={ZID} AND tid=10"),
+        );
+        let again = crate::dispatch(app.clone(), None, with(url, &[])).await;
+        assert_eq!(text(&again), body);
+        // A report whose conversation has no run: an empty list.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with("/api/v3/delphi/topicMap?report_id=none&list=jobs", &[]),
+        )
+        .await;
+        assert_eq!(text(&out), r#"{"report_id":"none","jobs":[]}"#);
+        // The other conversation's report lists its own run only.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with("/api/v3/delphi/topicMap?report_id=r2&list=jobs", &[]),
+        )
+        .await;
+        let other = listed(&out);
+        assert_eq!(other.jobs.len(), 1);
+        assert!(
+            other
+                .jobs
+                .iter()
+                .all(|j| ![&a, &b, &m, &s].contains(&&j.job_id))
+        );
+        // A list names runs: with `job_id` it is 400, and a `list` this route
+        // does not know is 400 as an unknown `source` is.
+        for (q, key) in [
+            (format!("{url}&job_id={a}"), "list"),
+            (
+                "/api/v3/delphi/topicMap?report_id=r1&list=topics".into(),
+                "list",
+            ),
+            (
+                "/api/v3/delphi/topicMap?report_id=r1&source=elsewhere".into(),
+                "source",
+            ),
+        ] {
+            let out = crate::dispatch(app.clone(), None, with(&q, &[])).await;
+            assert_eq!(out.status, 400, "{q}");
+            let refusal: contract::Refusal = serde_json::from_slice(&bytes(&out)).unwrap();
+            assert_eq!(refusal.parameter.as_deref(), Some(key));
+        }
+        // An unknown report is the map read's 404.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with("/api/v3/delphi/topicMap?report_id=nope&list=jobs", &[]),
+        )
+        .await;
+        assert_eq!(out.status, 404);
+    });
+}
+
+#[test]
+fn a_list_names_the_newest_fifty_runs_with_maps() {
+    let db = Db::new("list_cap");
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let jobs: Vec<String> = (0..60)
+        .map(|i| {
+            listed_run(
+                &mut c,
+                "test",
+                ZID,
+                "participant_visible/1",
+                &format!("2026-10-{:02}T00:00:{i:02}.000000Z", 1 + i % 28),
+                Some((4, &uuid(0xa400))),
+                100 + i as i64,
+                Some(5),
+                0,
+            )
+        })
+        .collect();
+    let mut newest: Vec<(String, String)> = jobs
+        .iter()
+        .enumerate()
+        .map(|(i, j)| {
+            (
+                format!("2026-10-{:02}T00:00:{i:02}.000000Z", 1 + i % 28),
+                j.clone(),
+            )
+        })
+        .collect();
+    newest.sort();
+    newest.reverse();
+    runtime().block_on(async {
+        let app = Arc::new(app_on(&db));
+        let out = crate::dispatch(
+            app,
+            None,
+            with("/api/v3/delphi/topicMap?report_id=r1&list=jobs", &[]),
+        )
+        .await;
+        let list = listed(&out);
+        assert_eq!(list.jobs.len(), contract::MAX_LISTED);
+        let ids: Vec<_> = list.jobs.iter().map(|j| j.job_id.clone()).collect();
+        let expected: Vec<_> = newest
+            .iter()
+            .take(contract::MAX_LISTED)
+            .map(|(_, j)| j.clone())
+            .collect();
+        assert_eq!(ids, expected);
+        // No pointer is served: no run is current.
+        assert!(list.jobs.iter().all(|j| !j.current));
     });
 }
