@@ -2,10 +2,10 @@ name: queue-rs
 
 # Build, lint and test the queue-rs workspace: the polis-queue/1 adapter and
 # the polis-jobs daemon (job `queue-rs`), the polis-api route server with
-# its nginx routing switch (job `polis-api`), and the topic map generator
-# (job `polis-topic-map`). The integration tests run against a throwaway
-# PostgreSQL 17 service container with the repository's migration chain,
-# 000023 (the Delphi job table) included.
+# its nginx routing switch (job `polis-api`), the topic map generator
+# (job `polis-topic-map`) and the topic namer (job `polis-topic-names`). The
+# integration tests run against a throwaway PostgreSQL 17 service container
+# with the repository's migration chain, 000023 (the Delphi job table) included.
 on:
   pull_request:
     paths:
@@ -241,6 +241,16 @@ jobs:
           persist-credentials: false
       - name: Run polis-topic-map checks
         run: make check-polis-topic-map
+  polis-topic-names:
+    name: topic namer build, clippy and offline tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Run polis-topic-names checks
+        run: make check-polis-topic-names
   job-graphs:
     name: Per-step job graph core
     runs-on: ubuntu-24.04

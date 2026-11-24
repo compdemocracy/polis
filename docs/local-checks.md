@@ -22,6 +22,7 @@ check. No command reduces the test selection or changes an assertion.
 | API | `make check-polis-api` | pinned Rust, Python 3, PostgreSQL 17, Docker |
 | Migration runner | `make check-polis-migrate` | Node 22.23.4, pinned Rust, Docker |
 | Topic map generator | `make check-polis-topic-map` | pinned Rust |
+| Topic namer | `make check-polis-topic-names` | pinned Rust |
 | Job graphs | `make check-job-graphs` | Node 22.23.4, pinned Rust, Python 3, Docker |
 | CLI | `make check-polis-cli` | Python 3.12, pinned Rust |
 | CLI differential | `make check-polis-cli-differential` | pinned Rust, Python 3, Docker |
