@@ -2146,13 +2146,17 @@ mod health_tests {
                 if reachable { 200 } else { 503 },
             );
             assert_eq!(body.as_object().unwrap().len(), 136);
-            // The report topic map: its two counters and its places, at zero.
+            // The report topic map: its two counters, its places and its
+            // readers' forms (made, at most at once, reused, kept and their
+            // bytes), at zero. The deploy's validation reads none of these;
+            // the exact set is pinned here so a change to it is seen.
             assert_eq!(body["delphiTopicMapServed"], 0);
             assert_eq!(body["delphiTopicMapFallback"], 0);
             assert_eq!(
                 body["delphiTopicMap"],
                 json!({"inFlight":0,"maxInFlight":0,"busy":0,"sent":0,"notModified":0,
-                    "heldBytes":0,"maxHeldBytes":0,"checked":0})
+                    "heldBytes":0,"maxHeldBytes":0,"checked":0,"rewrites":0,"maxRewriting":0,
+                    "formsReused":0,"formsKept":0,"formBytesKept":0})
             );
             // The featured-participants route: its two counters, and every
             // hand-back reason by name, at zero.

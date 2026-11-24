@@ -349,8 +349,17 @@ fn store_topic_map(
     database: &Database,
     points: usize,
 ) -> crate::delphi_topic_map::tests::database_tests::Stored {
-    use crate::delphi_topic_map::tests::{database_tests as t, document};
-    let map = t::stored(document(points, "load"));
+    use crate::delphi_topic_map::tests::document;
+    store_topic_map_document(database, document(points, "load"))
+}
+
+/// [`store_topic_map`] of a given document.
+fn store_topic_map_document(
+    database: &Database,
+    document: String,
+) -> crate::delphi_topic_map::tests::database_tests::Stored {
+    use crate::delphi_topic_map::tests::database_tests as t;
+    let map = t::stored(document);
     let mut c = database.connect();
     t::stand_ins(&mut c, false);
     c.batch_execute("INSERT INTO reports(report_id, zid) VALUES('r1', 1)")
@@ -797,8 +806,10 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
 ///   every request is for the same map with the same held-back set.
 /// - Many maps ([`connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency`]):
 ///   the requests cycle through more conversations than the route keeps
-///   readers' forms for, each with a map and comments held back, so that
-///   every request needs a rewrite of its own.
+///   readers' forms for, each with a map and comments held back. This offers
+///   distinct keys but does not by itself let forms go: only rewrites that
+///   are admitted and finish are kept, and some requests are hits (the
+///   layered case below is the one that lets forms go and makes them again).
 ///
 /// The rules are the saturation test's, applied to the two writes as well as
 /// the three reads: every read isolated (no wait for a slot of its own pool),
@@ -810,15 +821,36 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
 /// quota when there is one) in each phase, and the route's counters are
 /// printed whatever the outcome. Run it from a release build under the
 /// service's own budget (half a CPU, 512 MiB) for the figure that matters.
+///
+/// Each case samples twice under load: from the moment the flood starts (a
+/// cold process, every client asking at once: the burst), and once the flood
+/// is a second old (steady). The rules hold in both. The rewrites' time
+/// stays within their budget across the flood. The third case's maps are
+/// the costly shape (four levels, 7,500 comments held back in each) and
+/// more of them than the process keeps: it samples until forms have been let
+/// go and made again.
+///
+/// Over TCP, with the flood outside the server's CPU quota: run the same
+/// test in two processes, the server with `POLIS_API_SATURATION_SERVE=<ip:port>`
+/// (the samplers stay in the server's process, so a sample's time is the
+/// server's) and the flood with `POLIS_API_SATURATION_TARGET=<host:port>`: an
+/// independently paced stream at the proxy's rate after the proxy's burst of
+/// 200 at once ([`saturation_over_tcp::map_flood`]).
 #[test]
 fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
-    rewritten_topic_map_load("topic_map_rewrite_load", 0);
+    rewritten_topic_map_load("topic_map_rewrite_load", 0, false);
 }
 
 /// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
 #[test]
 fn connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency() {
-    rewritten_topic_map_load("topic_map_rewrite_many", 72);
+    rewritten_topic_map_load("topic_map_rewrite_many", 72, false);
+}
+
+/// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
+#[test]
+fn connection_bounds_layered_topic_maps_evicted_and_remade_keep_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_layered", 64, true);
 }
 
 /// The cgroup's CPU used and throttled, in microseconds, if there is one.
@@ -846,8 +878,18 @@ fn topic_map_health(state: &crate::delphi_topic_map::State) -> String {
 /// `many`: besides report `r1`, that many more conversations with a map and
 /// held-back comments each, the flood cycling through them; zero, every
 /// request for `r1`.
-fn rewritten_topic_map_load(name: &str, many: usize) {
+fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
     use crate::post_comments::tests::database as comments_db;
+    let all_reports: Vec<String> = if many == 0 {
+        vec!["r1".to_owned()]
+    } else {
+        (2..=many + 1).map(|z| format!("r{z}")).collect()
+    };
+    // The flood of the split run: no database.
+    if let Ok(target) = std::env::var("POLIS_API_SATURATION_TARGET") {
+        return saturation_over_tcp::map_flood(&target, all_reports);
+    }
+    let serve_at = std::env::var("POLIS_API_SATURATION_SERVE").ok();
     const ROUNDS: usize = 40;
     const EXTRA_MISSES: usize = 2;
     const WINDOW: Duration = Duration::from_secs(2);
@@ -856,20 +898,32 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
     const CLIENTS: u64 = 16;
     let database = Database::new(name);
     let (mut app, vote) = setup(&database);
-    let map = store_topic_map(&database, 30_000);
+    // The costly shape is 16,000 comments in four levels, its document near
+    // the stored row's bound (so a reader that takes no gzip has a map too);
+    // the other, 30,000 in one topic.
+    let points = if layered { 16_000 } else { 30_000 };
+    let map = if layered {
+        store_topic_map_document(
+            &database,
+            crate::delphi_topic_map::tests::layered_document(points, "load", 0),
+        )
+    } else {
+        store_topic_map(&database, points)
+    };
     // Held back: from comment 1,000 on, every other one, moderated out,
     // inactive or muted in turn.
     database
         .connect()
-        .batch_execute(
+        .batch_execute(&format!(
             "ALTER TABLE comments DISABLE TRIGGER USER;
              INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
                SELECT 1, n, 0, 1, 'held back ' || n,
                  CASE WHEN n % 6 = 0 THEN -1 ELSE 1 END, n % 6 <> 2, CASE WHEN n % 6 = 4 THEN 0 ELSE 1 END
-               FROM generate_series(1000, 29999, 2) n
+               FROM generate_series(1000, {}, 2) n
              ON CONFLICT DO NOTHING;
              ALTER TABLE comments ENABLE TRIGGER USER;",
-        )
+            points - 1
+        ))
         .unwrap();
     // The other conversations: the same stored map under each one's own
     // report, and 2,000 comments of each held back (their own set, so their
@@ -885,11 +939,12 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
              INSERT INTO reports(report_id, zid) SELECT 'r' || z, z FROM generate_series(2, {last}) z;
              INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
                SELECT z, n, 0, 1, 'held back ' || n, -1, true, 1
-               FROM generate_series(2, {last}) z, generate_series(1000, 4999, 2) n
+               FROM generate_series(2, {last}) z, generate_series(1000, {held}, 2) n
              ON CONFLICT DO NOTHING;
              ALTER TABLE comments ENABLE TRIGGER ALL;
              ALTER TABLE reports ENABLE TRIGGER ALL;",
-            last = many + 1
+            last = many + 1,
+            held = if layered { points - 1 } else { 4999 }
         ))
         .unwrap();
         use crate::delphi_topic_map::tests::database_tests as t;
@@ -904,7 +959,7 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
                 Some(&family),
             );
         }
-        (2..=many + 1).map(|z| format!("r{z}")).collect()
+        all_reports
     };
     let comments = comments_db::Database::new(&format!("{name}_comments"));
     let (writer, key) = comments_db::writer(&comments, vec![]);
@@ -947,11 +1002,11 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
         // Rounds of the vote, the comment and the three reads until at least
         // `min_rounds` rounds and `floor` have passed: samples per call, in
         // the order vote, comment, reads; and the cgroup's CPU across them.
-        let mut sample = async |min_rounds: usize, floor: Duration| -> (Vec<Vec<Sample>>, String) {
+        let mut sample = async |min_rounds: usize, floor: Duration, more: &dyn Fn() -> bool| -> (Vec<Vec<Sample>>, String) {
             let mut out = vec![Vec::new(); 2 + reads.len()];
             let (started, cpu) = (std::time::Instant::now(), cgroup_cpu());
             let mut rounds = 0;
-            while rounds < min_rounds || started.elapsed() < floor {
+            while rounds < min_rounds || started.elapsed() < floor || more() {
                 let start = std::time::Instant::now();
                 let voted = crate::dispatch(app.clone(), None, again(&vote)).await;
                 out[0].push((voted.status, start.elapsed()));
@@ -977,14 +1032,41 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
             };
             (out, cpu)
         };
-        let _ = sample(ROUNDS / 4, Duration::ZERO).await;
+        let no = || false;
+        let _ = sample(ROUNDS / 4, Duration::ZERO, &no).await;
         let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
-        let (control, control_cpu) = sample(ROUNDS, WINDOW).await;
+        let (control, control_cpu) = sample(ROUNDS, WINDOW, &no).await;
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
         let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let reports = Arc::new(reports);
         let (gzip_len, plain_len) = (map.gzip.len(), map.document.len());
-        let clients: Vec<_> = (0..CLIENTS)
+        let state = app.delphi_topic_map.clone();
+        let flood_started = std::time::Instant::now();
+        // The split run: the flood arrives over TCP from outside, and the
+        // burst sample starts as the server starts listening.
+        let (server_stop, server) = match &serve_at {
+            Some(address) => {
+                let listener = tokio::net::TcpListener::bind(address.as_str()).await.unwrap();
+                let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+                let served = app.clone();
+                let handler = Arc::new(move |req: Request| crate::dispatch(served.clone(), None, req));
+                let server = tokio::spawn(crate::http::serve_until(
+                    listener,
+                    handler,
+                    crate::http::Listener::Main,
+                    async move {
+                        let _ = stopped.await;
+                    },
+                ));
+                println!(
+                    "rewritten topic map server listening on {address} cpu.max={}",
+                    std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into()).trim()
+                );
+                (Some(stop), Some(server))
+            }
+            None => (None, None),
+        };
+        let clients: Vec<_> = (0..if serve_at.is_some() { 0 } else { CLIENTS })
             .map(|n| {
                 let (app, stop, asked, reports) = (app.clone(), stop.clone(), asked.clone(), reports.clone());
                 tokio::spawn(async move {
@@ -1009,11 +1091,30 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
                 })
             })
             .collect();
-        let state = app.delphi_topic_map.clone();
-        // The flood is under way (a second of it) before the first loaded sample.
-        wait_for("the topic map flood under way", || asked.load(Ordering::SeqCst) >= RATE as usize).await;
-        let (loaded, loaded_cpu) = sample(control[0].len(), WINDOW).await;
+        // The burst: sampled from the flood's first moment, cold.
+        let (burst, burst_cpu) = sample(control[0].len(), WINDOW, &no).await;
+        // The flood is under way (a second of it) before the steady sample.
+        let arrived = || (state.sent() + state.busy()) as usize;
+        if serve_at.is_some() {
+            wait_for("the topic map flood under way", || arrived() >= RATE as usize).await;
+        } else {
+            wait_for("the topic map flood under way", || asked.load(Ordering::SeqCst) >= RATE as usize).await;
+        }
+        // The costly maps past the cache: on until forms have been let go and
+        // made again (a map asked for after its form was let go), within two
+        // minutes.
+        let past_cache = || {
+            layered
+                && (state.forms_evicted() == 0 || state.rewrites() <= many as u64)
+                && flood_started.elapsed() < Duration::from_secs(120)
+        };
+        let (loaded, loaded_cpu) = sample(control[0].len(), WINDOW, &past_cache).await;
+        let flood_time = flood_started.elapsed();
         stop.store(true, Ordering::SeqCst);
+        if let (Some(stop), Some(server)) = (server_stop, server) {
+            let _ = stop.send(());
+            let _ = server.await;
+        }
         let mut maps = std::collections::BTreeMap::<(u16, bool), usize>::new();
         for client in clients {
             for (k, n) in client.await.unwrap() {
@@ -1040,8 +1141,18 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
                 loaded[0].len(),
             ),
             format!("  process control: {control_cpu}"),
+            format!("  process burst: {burst_cpu}"),
             format!("  process loaded: {loaded_cpu}"),
             format!("  route: {}", topic_map_health(&state)),
+            format!(
+                "  rewrites: {} made, {} forms let go; rewrite time {:.3} s ({:.3} s beyond charges) over a flood of {flood_time:?}, budget {:.3} s",
+                state.rewrites(),
+                state.forms_evicted(),
+                state.rewrite_time().0,
+                state.rewrite_time().1,
+                crate::delphi_topic_map::REWRITE_BURST.as_secs_f64()
+                    + crate::delphi_topic_map::REWRITE_SHARE.as_secs_f64() * flood_time.as_secs_f64()
+            ),
         ];
         for (i, name) in names.iter().enumerate() {
             let statuses = |v: &[(u16, Duration)]| {
@@ -1052,11 +1163,15 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
                 s
             };
             lines.push(format!(
-                "  {name}: control {:?} p50={:?} p95={:?} max={:?}; loaded {:?} p50={:?} p95={:?} max={:?}",
+                "  {name}: control {:?} p50={:?} p95={:?} max={:?}; burst {:?} p50={:?} p95={:?} max={:?}; loaded {:?} p50={:?} p95={:?} max={:?}",
                 statuses(&control[i]),
                 quantile(&control[i], 0.5),
                 quantile(&control[i], 0.95),
                 quantile(&control[i], 1.0),
+                statuses(&burst[i]),
+                quantile(&burst[i], 0.5),
+                quantile(&burst[i], 0.95),
+                quantile(&burst[i], 1.0),
                 statuses(&loaded[i]),
                 quantile(&loaded[i], 0.5),
                 quantile(&loaded[i], 0.95),
@@ -1065,9 +1180,28 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
         }
         let report = lines.join("\n") + "\n";
         std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
-        assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
-        assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
-        assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
+        if serve_at.is_none() {
+            assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
+            assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
+            assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
+        }
+        assert!(state.rewrites() > 0, "readers' forms were made");
+        // The rewrites' time within the budget across the flood, beyond it
+        // by no more than what they took past their charges.
+        // (Rewrites may still start while the clients finish: the window is
+        // the flood's start until this reading.)
+        let (charged, overrun) = state.rewrite_time();
+        let budget = crate::delphi_topic_map::REWRITE_BURST.as_secs_f64()
+            + crate::delphi_topic_map::REWRITE_SHARE.as_secs_f64() * flood_started.elapsed().as_secs_f64();
+        assert!(charged <= budget + overrun + 1e-6, "rewrite time {charged:.3} s, budget {budget:.3} s");
+        if layered {
+            assert!(
+                state.forms_evicted() > 0 && state.rewrites() > many as u64,
+                "forms were let go and made again: {} let go, {} made for {many} maps",
+                state.forms_evicted(),
+                state.rewrites()
+            );
+        }
         // Never more rewrites at once than the bound; for one hot map, the
         // form is made once (again only if the flood outran a first attempt).
         assert!(state.max_rewriting() <= crate::delphi_topic_map::MAX_REWRITES);
@@ -1077,23 +1211,27 @@ fn rewritten_topic_map_load(name: &str, many: usize) {
         for (before, after) in writer_before.iter().zip(&writer_after) {
             assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
         }
-        for (i, name) in names.iter().enumerate() {
+        for ((i, name), (phase, loaded)) in names
+            .iter()
+            .enumerate()
+            .flat_map(|n| [(n, ("burst", &burst)), (n, ("steady", &loaded))])
+        {
             let missed = |v: &[(u16, Duration)]| v.iter().filter(|(status, _)| *status != 200).count();
             let (c_missed, l_missed) = (missed(&control[i]), missed(&loaded[i]));
             let (n_c, n_l) = (control[i].len(), loaded[i].len());
             assert!(
                 l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
-                "{name} answered other than 200 more under the rewritten topic map: control {c_missed} of {n_c}, loaded {l_missed} of {n_l}"
+                "{name} answered other than 200 more under the rewritten topic map ({phase}): control {c_missed} of {n_c}, loaded {l_missed} of {n_l}"
             );
             let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
             assert!(
                 l95 <= c95 * 2 + Duration::from_millis(25),
-                "{name} lost its latency under the rewritten topic map: control p95 {c95:?}, loaded p95 {l95:?}"
+                "{name} lost its latency under the rewritten topic map ({phase}): control p95 {c95:?}, loaded p95 {l95:?}"
             );
         }
         // The writes were the participation path's own, answered.
-        assert_eq!(missed_all(&control[0]) + missed_all(&loaded[0]), 0, "every vote was written");
-        assert_eq!(missed_all(&control[1]) + missed_all(&loaded[1]), 0, "every comment was written");
+        assert_eq!(missed_all(&control[0]) + missed_all(&burst[0]) + missed_all(&loaded[0]), 0, "every vote was written");
+        assert_eq!(missed_all(&control[1]) + missed_all(&burst[1]) + missed_all(&loaded[1]), 0, "every comment was written");
         fn missed_all(v: &[(u16, Duration)]) -> usize {
             v.iter().filter(|(status, _)| *status != 200).count()
         }
@@ -1631,6 +1769,110 @@ mod saturation_over_tcp {
             errors + deadlines >= failed || path.starts_with("/api/v3/votes?"),
             "502 without own-route failure evidence: {path} {delta:?}, {failed} answered 502"
         );
+    }
+
+    /// The flood of the split rewritten topic map test, from outside the
+    /// server's quota: once the server listens, the proxy's burst (200 at
+    /// once, each on a connection of its own), then the proxy's rate (200 a
+    /// second) from 32 connections, each paced on its own schedule whatever
+    /// the answers (a request whose slot passed while the connection waited
+    /// goes at once and is counted late), cycling through `reports`, until the
+    /// server has stopped answering for two seconds. Offered, answered by
+    /// status, failed and late requests are printed.
+    pub(super) fn map_flood(target: &str, reports: Vec<String>) {
+        const BURST: usize = 200;
+        const RATE: f64 = 200.0;
+        const CONNS: usize = 32;
+        let rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            let waiting = std::time::Instant::now();
+            while TcpStream::connect(target).await.is_err() {
+                assert!(waiting.elapsed() < Duration::from_secs(900), "the server never listened at {target}");
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            let started = std::time::Instant::now();
+            let reports = Arc::new(reports);
+            let next = Arc::new(AtomicUsize::new(0));
+            let path = {
+                let (reports, next) = (reports.clone(), next.clone());
+                move || {
+                    let k = next.fetch_add(1, Ordering::Relaxed);
+                    format!("/api/v3/delphi/topicMap?report_id={}", reports[k % reports.len()])
+                }
+            };
+            let burst: Vec<_> = (0..BURST)
+                .map(|n| {
+                    let (target, path) = (target.to_string(), path());
+                    tokio::spawn(async move {
+                        let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                        let mut conn = Conn::new(&target);
+                        tokio::time::timeout(Duration::from_secs(10), conn.get(&path, Some(coding)))
+                            .await
+                            .ok()
+                            .and_then(Result::ok)
+                    })
+                })
+                .collect();
+            let paced: Vec<_> = (0..CONNS)
+                .map(|n| {
+                    let (target, path) = (target.to_string(), path.clone());
+                    tokio::spawn(async move {
+                        let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                        let every = Duration::from_secs_f64(CONNS as f64 / RATE);
+                        let mut conn = Conn::new(&target);
+                        let (mut answers, mut failed, mut late, mut offered) = (BTreeMap::<u16, usize>::new(), 0usize, 0usize, 0usize);
+                        let mut slot = tokio::time::Instant::now() + every.mul_f64(n as f64 / CONNS as f64);
+                        let mut failing_since: Option<std::time::Instant> = None;
+                        loop {
+                            tokio::time::sleep_until(slot).await;
+                            if tokio::time::Instant::now() > slot + every {
+                                late += 1;
+                            }
+                            slot += every;
+                            offered += 1;
+                            match tokio::time::timeout(Duration::from_secs(10), conn.get(&path(), Some(coding))).await {
+                                Ok(Ok(status)) => {
+                                    *answers.entry(status).or_insert(0) += 1;
+                                    failing_since = None;
+                                }
+                                _ => {
+                                    failed += 1;
+                                    conn.stream = None;
+                                    if failing_since.get_or_insert_with(std::time::Instant::now).elapsed() > Duration::from_secs(2) {
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        (answers, failed, late, offered)
+                    })
+                })
+                .collect();
+            let mut burst_answers = BTreeMap::<Option<u16>, usize>::new();
+            for b in burst {
+                *burst_answers.entry(b.await.unwrap()).or_insert(0) += 1;
+            }
+            let (mut answers, mut failed, mut late, mut offered) = (BTreeMap::<u16, usize>::new(), 0, 0, 0);
+            for p in paced {
+                let (a, f, l, o) = p.await.unwrap();
+                for (status, n) in a {
+                    *answers.entry(status).or_insert(0) += n;
+                }
+                (failed, late, offered) = (failed + f, late + l, offered + o);
+            }
+            let took = started.elapsed();
+            say(format!(
+                "rewritten topic map flood over tcp to {target}: clients cpu.max={}; {} reports; burst of {BURST}: {burst_answers:?}; paced at {RATE}/s from {CONNS} connections over {took:?}: offered {offered}, answered {answers:?}, failed {failed} (the last two seconds' are the server stopping), late {late}",
+                cgroup("cpu.max"),
+                reports.len()
+            ));
+            assert!(answers.keys().all(|s| *s == 200 || *s == 503), "{answers:?}");
+            assert!(answers.get(&200).copied().unwrap_or(0) > 0, "maps were served: {answers:?}");
+        });
     }
 
     pub(super) fn clients(target: &str) {

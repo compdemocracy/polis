@@ -1422,12 +1422,24 @@ are and on the comments' moderation at the time of the read, not of the run:
   held-back set (the key is the stored digest and the keyed digest of the
   set), at most 64 forms and 32 MiB in the process, least recently used out
   first; a moderator's map is never one of them, and a held-back set that
-  changes is another key, so nothing kept is ever stale. The held-back set
-  is still read on every request. A form not yet kept is made once however
-  many ask for it at once, at most one at a time in the process, and within
-  a budget of 100 ms of rewriting per second (200 ms banked at most); a
-  request that cannot start one within the route's deadline is answered 503
-  with `Retry-After`, as the route sheds any other. A conversation that
+  changes is another key, so a kept form is the form for the moderation the
+  request read (a moderation change committed while a request is in flight
+  may still miss that request). The held-back set is still read on every
+  request. A form not yet kept is made once however many ask for it at
+  once, at most one at a time in the process, and within a budget of 100 ms
+  of rewriting per second (200 ms banked at most). Each rewrite is charged
+  its estimated time before it starts (the slowest rate per stored byte the
+  process has seen, with half again as headroom; before the first, the whole
+  burst for a part at the stored-row bound) and settled with what it took
+  when it ends, so rewrites arriving together cannot start on the same
+  credit: from any moment, the rewrite time spent `t` seconds later is at
+  most 200 ms plus `t` tenths of a second, plus what rewrites took beyond
+  their estimates. A rewrite is not interrupted: one slower than its
+  estimate runs to its end and the next waits until the difference is
+  repaid. The budget is wall time of the rewrite, not a reservation of CPU,
+  and it covers making the form, not the rest of the request. A request
+  that cannot start one within the route's deadline is answered 503 with
+  `Retry-After`, as the route sheds any other. A conversation that
   holds back more than 25,000 comments gives a reader no map (422
   `too_large`); a moderator still receives it.
 - The route's database login must be able to `SELECT` on `comments`
@@ -1491,8 +1503,11 @@ buffers, not polis-api's. The isolation tests are
 `connection_bounds_topic_map_saturation_keeps_participation_latency`.
 `delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap` (places
 in use now and at most, requests shed, maps sent and answered 304, stored
-bytes held now and at most, families checked) are on `/health`, switched on or
-off.
+bytes held now and at most, families checked, and readers' forms: `rewrites`
+made, `maxRewriting` at most at once, `formsReused`, `formsKept` and
+`formBytesKept`) are on `/health`, switched on or off. The deploy's validation
+reads none of them; it reads named fields only (`status`, `mathEnv`,
+`routing`, `pools.common`, `postVotes`, `version`, `commit`).
 
 ### Statement importance (off by default)
 

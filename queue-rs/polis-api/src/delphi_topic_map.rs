@@ -122,11 +122,28 @@ const VERDICTS: usize = 4096;
 /// can take at most one CPU, and [`REWRITE_SHARE`] bounds that over time.
 pub const MAX_REWRITES: usize = 1;
 /// Time the rewrites may take in the process, per second of time: a tenth of
-/// a second, a fifth of the service's half CPU, so the participation path
-/// keeps the rest. It is wall time of the rewrite, at least its CPU time.
+/// a second, a fifth of the service's half CPU. It is wall time of the
+/// rewrite, at least its CPU time. A rewrite is charged before it starts
+/// (its estimated time, [`REWRITE_ESTIMATE`]) and settled when it ends (what
+/// it took), so rewrites arriving together cannot start on the same credit:
+/// from any moment, the rewrite time spent by a later moment `t` seconds on
+/// is at most [`REWRITE_BURST`] plus `t` times this share, plus whatever the
+/// rewrites took beyond their estimates. A rewrite is not interrupted: a
+/// rewrite slower than its estimate runs to its end, and the next waits until
+/// the difference is repaid.
 pub const REWRITE_SHARE: Duration = Duration::from_millis(100);
-/// Rewrite time a quiet process may bank, and so spend at once.
+/// Rewrite time a quiet process may bank, and so spend at once; also the most
+/// a single rewrite is charged before it starts (a larger one waits for a
+/// full bank).
 pub const REWRITE_BURST: Duration = Duration::from_millis(200);
+/// A rewrite's estimate before the process has timed one, in seconds per
+/// byte of the stored part: a part at the stored-row bound is charged the
+/// whole burst. Once the process has timed rewrites, the estimate is the
+/// slowest seconds per byte it has seen of that encoding, times
+/// [`REWRITE_HEADROOM`].
+pub const REWRITE_ESTIMATE: f64 = 0.2 / MAX_PART_BYTES as f64;
+/// The margin on the slowest rate seen.
+pub const REWRITE_HEADROOM: f64 = 1.5;
 /// Readers' forms a process keeps, least recently used out first: at most
 /// this many, so a lookup reads a short list...
 pub const READER_FORMS_KEPT: usize = 64;
@@ -177,7 +194,7 @@ struct Inner {
     rewriting_now: AtomicUsize,
     max_rewriting: AtomicUsize,
     rewrites: AtomicU64,
-    budget: std::sync::Mutex<(f64, std::time::Instant)>,
+    budget: std::sync::Mutex<Budget>,
     /// Readers' forms kept, and those being made.
     forms: std::sync::Mutex<Forms>,
     forms_reused: AtomicU64,
@@ -241,7 +258,7 @@ impl State {
             rewriting_now: AtomicUsize::new(0),
             max_rewriting: AtomicUsize::new(0),
             rewrites: AtomicU64::new(0),
-            budget: std::sync::Mutex::new((REWRITE_BURST.as_secs_f64(), std::time::Instant::now())),
+            budget: std::sync::Mutex::new(Budget::new()),
             forms: std::sync::Mutex::new(Forms::default()),
             forms_reused: AtomicU64::new(0),
             #[cfg(all(test, feature = "db-tests"))]
@@ -307,6 +324,11 @@ impl State {
     pub(crate) fn max_held(&self) -> usize {
         self.0.max_held.load(Ordering::SeqCst)
     }
+    /// Maps sent (200), since start.
+    #[cfg(test)]
+    pub(crate) fn sent(&self) -> u64 {
+        self.0.sent.load(Ordering::Relaxed)
+    }
     /// Requests answered 503 for want of a place, since start.
     pub(crate) fn busy(&self) -> u64 {
         self.0.busy.load(Ordering::Relaxed)
@@ -357,27 +379,69 @@ impl State {
     fn forms(&self) -> std::sync::MutexGuard<'_, Forms> {
         self.0.forms.lock().unwrap_or_else(|e| e.into_inner())
     }
-    /// How long until the rewrites' budget allows another, after counting
+    fn budget(&self) -> std::sync::MutexGuard<'_, Budget> {
+        self.0.budget.lock().unwrap_or_else(|e| e.into_inner())
+    }
+    /// How long until the rewrites' budget is out of debt, after counting
     /// the time banked since it was last counted.
+    #[cfg(test)]
     fn budget_wait(&self) -> Duration {
         self.spend(Duration::ZERO)
     }
     /// Takes `took` from the rewrites' budget; returns the wait as
     /// [`State::budget_wait`].
+    #[cfg(test)]
     fn spend(&self, took: Duration) -> Duration {
-        let mut budget = self.0.budget.lock().unwrap_or_else(|e| e.into_inner());
-        let now = std::time::Instant::now();
-        let share = REWRITE_SHARE.as_secs_f64();
-        let banked = budget.0 + now.duration_since(budget.1).as_secs_f64() * share;
-        *budget = (
-            banked.min(REWRITE_BURST.as_secs_f64()) - took.as_secs_f64(),
-            now,
-        );
-        if budget.0 >= 0.0 {
+        let mut b = self.budget();
+        b.refill();
+        b.balance -= took.as_secs_f64();
+        if b.balance >= 0.0 {
             Duration::ZERO
         } else {
-            Duration::from_secs_f64(-budget.0 / share)
+            Duration::from_secs_f64(-b.balance / REWRITE_SHARE.as_secs_f64())
         }
+    }
+    /// Charges the estimate of a rewrite of a stored part of `len` bytes
+    /// before it starts: the seconds charged, or how long until the budget
+    /// holds them (nothing is charged then).
+    fn reserve(&self, len: usize, gzip: bool) -> Result<f64, Duration> {
+        let mut b = self.budget();
+        b.refill();
+        let cost = b.estimate(len, gzip);
+        if b.balance >= cost {
+            b.balance -= cost;
+            Ok(cost)
+        } else {
+            Err(Duration::from_secs_f64(
+                (cost - b.balance) / REWRITE_SHARE.as_secs_f64(),
+            ))
+        }
+    }
+    /// Settles a rewrite charged `reserved` that took `took`: the difference
+    /// is repaid or owed, the rate it ran at is learned.
+    fn settle(&self, reserved: f64, took: Duration, len: usize, gzip: bool) {
+        let mut b = self.budget();
+        b.refill();
+        let took = took.as_secs_f64();
+        b.balance += reserved - took;
+        b.charged += took;
+        if took > reserved {
+            b.overrun += took - reserved;
+        }
+        let rate = &mut b.rate[gzip as usize];
+        *rate = Some(rate.unwrap_or(0.0).max(took / len.max(1) as f64));
+    }
+    /// Rewrite time taken since start, and of it the part beyond what was
+    /// charged before each rewrite started, in seconds.
+    #[cfg(test)]
+    pub(crate) fn rewrite_time(&self) -> (f64, f64) {
+        let b = self.budget();
+        (b.charged, b.overrun)
+    }
+    /// Readers' forms let go to keep within the bounds, since start.
+    #[cfg(test)]
+    pub(crate) fn forms_evicted(&self) -> u64 {
+        self.forms().evicted
     }
     /// A kept form for `key`, the rewrite in progress for it, or this
     /// request's own rewrite to make: decided under one lock, so a form is
@@ -1008,6 +1072,7 @@ impl Kept {
 struct Forms {
     kept: std::collections::VecDeque<(FormKey, Arc<Kept>)>,
     bytes: usize,
+    evicted: u64,
     flights: std::collections::HashMap<FormKey, Flight>,
 }
 
@@ -1022,6 +1087,7 @@ impl Forms {
                 break;
             };
             self.bytes -= old.bytes();
+            self.evicted += 1;
         }
         self.bytes += n;
         self.kept.push_back((key, kept));
@@ -1101,22 +1167,29 @@ async fn reader_body(
             let Ok(permit) = state.0.rewriting.clone().acquire_owned().await else {
                 return Err(Refused::Busy);
             };
-            loop {
-                let wait = state.budget_wait();
-                if wait.is_zero() {
-                    break;
+            // Charged before it starts; nothing is charged while it waits,
+            // so a request shed at the deadline here owes nothing.
+            let reserved = loop {
+                match state.reserve(bytes.len(), gzip) {
+                    Ok(reserved) => break reserved,
+                    Err(wait) => tokio::time::sleep(wait).await,
                 }
-                tokio::time::sleep(wait).await;
-            }
+            };
             let s = state.clone();
             let made = tokio::task::spawn_blocking(move || {
                 let (_place, _permit) = (place, permit);
                 let now = s.0.rewriting_now.fetch_add(1, Ordering::SeqCst) + 1;
                 s.0.max_rewriting.fetch_max(now, Ordering::SeqCst);
-                let started = std::time::Instant::now();
+                // Settled however the rewrite ends, a panic included.
+                let settle = Settle {
+                    state: s.clone(),
+                    reserved,
+                    started: std::time::Instant::now(),
+                    len: bytes.len(),
+                    gzip,
+                };
                 let made = make_form(&bytes, hidden, gzip).map(Arc::new);
-                s.spend(started.elapsed());
-                s.0.rewriting_now.fetch_sub(1, Ordering::SeqCst);
+                drop(settle);
                 s.0.rewrites.fetch_add(1, Ordering::Relaxed);
                 flying.land(made.clone());
                 (made, bytes, held)
@@ -1136,6 +1209,61 @@ async fn reader_body(
     drop(held);
     let held = state.hold(bytes.len());
     Ok((bytes, held))
+}
+
+/// The rewrites' time budget ([`REWRITE_SHARE`]): seconds banked (negative
+/// when owed) as of `at`, the slowest rate seen per encoding (plain, gzip),
+/// and what the rewrites took in all and beyond their charges.
+struct Budget {
+    balance: f64,
+    at: std::time::Instant,
+    rate: [Option<f64>; 2],
+    charged: f64,
+    overrun: f64,
+}
+
+impl Budget {
+    fn new() -> Self {
+        Self {
+            balance: REWRITE_BURST.as_secs_f64(),
+            at: std::time::Instant::now(),
+            rate: [None; 2],
+            charged: 0.0,
+            overrun: 0.0,
+        }
+    }
+    /// Banks the share since it was last counted, up to the burst.
+    fn refill(&mut self) {
+        let now = std::time::Instant::now();
+        let banked =
+            self.balance + now.duration_since(self.at).as_secs_f64() * REWRITE_SHARE.as_secs_f64();
+        self.balance = banked.min(REWRITE_BURST.as_secs_f64());
+        self.at = now;
+    }
+    /// What a rewrite of a part of `len` bytes is charged before it starts:
+    /// at least a millisecond, at most the burst.
+    fn estimate(&self, len: usize, gzip: bool) -> f64 {
+        let rate = self.rate[gzip as usize].map_or(REWRITE_ESTIMATE, |r| r * REWRITE_HEADROOM);
+        (rate * len as f64).clamp(0.001, REWRITE_BURST.as_secs_f64())
+    }
+}
+
+/// Settles a rewrite's charge when dropped ([`State::settle`]), and counts it
+/// as no longer running.
+struct Settle {
+    state: State,
+    reserved: f64,
+    started: std::time::Instant,
+    len: usize,
+    gzip: bool,
+}
+
+impl Drop for Settle {
+    fn drop(&mut self) {
+        let took = self.started.elapsed();
+        self.state.settle(self.reserved, took, self.len, self.gzip);
+        self.state.0.rewriting_now.fetch_sub(1, Ordering::SeqCst);
+    }
 }
 
 /// The reader's form of the stored part `bytes` (the gzip when `gzip`), and

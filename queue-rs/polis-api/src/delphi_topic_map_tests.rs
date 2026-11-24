@@ -1007,3 +1007,97 @@ fn the_rewrites_budget_repays_what_it_spends() {
     );
     assert!(state.budget_wait() > Duration::from_millis(900));
 }
+
+/// A `polis-topic-map/1` document of `points` comments in four levels of
+/// 300, 100, 30 and 10 topics (the costly shape for a reader's form: every
+/// topic of every level is recoloured from what the reader may see), without
+/// text, valid for the contract's closed types. `seed` moves the positions,
+/// so two documents of the same size are different maps.
+pub(crate) fn layered_document(points: usize, job: &str, seed: usize) -> String {
+    let per = [300usize, 100, 30, 10];
+    let mut topics = Vec::new();
+    let mut rows = Vec::new();
+    for (l, k) in per.iter().enumerate() {
+        for c in 0..*k {
+            topics.push(serde_json::json!({"id": format!("{l}_{c}"), "level": l, "cluster": c,
+                "key": null, "name": format!("keyword{c} other{c} third{c}"), "count": points / k,
+                "x": 0.12345, "y": -1.23456, "weight": 2.5, "parent": null, "parentShare": null,
+                "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"}));
+        }
+        rows.push((0..points).map(|i| (i % k) as i64).collect::<Vec<_>>());
+    }
+    serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": job, "topicModel": null, "createdAt": null},
+        "bounds": [-6.5, 6.5, -4.25, 4.25], "pointRadius": 0.11,
+        "levels": (0..per.len()).map(|l| serde_json::json!({"level": l, "topics": per[l], "unclustered": 0, "cmapPalette": per[l] > 50})).collect::<Vec<_>>(),
+        "topics": topics,
+        "points": {"id": (0..points).collect::<Vec<_>>(),
+                   "x": (0..points).map(|i| (((i + seed) * 7919) % 100_000) as f64 / 7919.0 - 6.31234).collect::<Vec<_>>(),
+                   "y": (0..points).map(|i| (((i + seed) * 104_729) % 100_000) as f64 / 11_731.0 - 4.12345).collect::<Vec<_>>(),
+                   "topic": rows, "text": []},
+    })
+    .to_string()
+}
+
+/// Distinct costly maps all asking for their reader's form at once, from a
+/// quiet process: the rewrites run one at a time, each charged before it
+/// starts, and the rewrite time spent stays within the burst plus the share
+/// of the time since the first asked, plus what the rewrites took beyond
+/// their charges, which is at most the first rewrite's own time (the one
+/// made before the process had timed any).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_burst_of_distinct_maps_stays_within_the_rewrites_budget() {
+    use super::{MAX_REWRITES, REWRITE_BURST, REWRITE_SHARE, State, reader_body};
+    const MAPS: usize = 6;
+    let state = State::new(MAPS);
+    let hidden: Vec<i64> = (0..9_000).filter(|i| i % 2 == 0).collect();
+    let parts: Vec<Vec<u8>> = (0..MAPS)
+        .map(|m| {
+            let doc = layered_document(9_000, "burst", m * 13);
+            crate::compress::node_stream(doc.as_bytes(), true)
+                .unwrap()
+                .concat()
+        })
+        .collect();
+    let started = std::time::Instant::now();
+    let asked: Vec<_> = parts
+        .into_iter()
+        .enumerate()
+        .map(|(m, part)| {
+            let (state, hidden) = (state.clone(), hidden.clone());
+            tokio::spawn(async move {
+                let place = state.admit().expect("a place each");
+                let held = state.hold(part.len());
+                let key = (format!("{m:064x}"), format!(":held-back/2:{m}"));
+                let out = reader_body(&state, key, part, held, hidden, true, place).await;
+                (out.is_ok(), std::time::Instant::now())
+            })
+        })
+        .collect();
+    let mut last = started;
+    for a in asked {
+        let (ok, at) = a.await.unwrap();
+        assert!(ok, "every form was made");
+        last = last.max(at);
+    }
+    let window = (last - started).as_secs_f64();
+    let (charged, overrun) = state.rewrite_time();
+    println!(
+        "{MAPS} layered maps at once: rewrite time {charged:.3} s ({overrun:.3} s beyond charges) over {window:.3} s; bound {:.3} s",
+        REWRITE_BURST.as_secs_f64() + REWRITE_SHARE.as_secs_f64() * window + overrun
+    );
+    assert_eq!(state.rewrites(), MAPS as u64);
+    assert!(state.max_rewriting() <= MAX_REWRITES);
+    assert!(
+        charged
+            <= REWRITE_BURST.as_secs_f64() + REWRITE_SHARE.as_secs_f64() * window + overrun + 1e-6,
+        "rewrite time {charged:.3} s over {window:.3} s"
+    );
+    // Beyond the charges by at most one rewrite's time: the estimate after
+    // the first is the slowest rate seen, with headroom.
+    assert!(
+        overrun <= charged / MAPS as f64 * 2.0,
+        "the rewrites took {overrun:.3} s beyond their charges of {charged:.3} s in all"
+    );
+}
