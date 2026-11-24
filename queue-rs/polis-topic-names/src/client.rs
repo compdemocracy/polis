@@ -78,6 +78,16 @@ enum Attempt {
 /// Makes the call: one attempt, and one more only after a status in
 /// [`RETRY_STATUSES`] or a failed connection.
 pub fn call(settings: &Settings, key: &str, body: &str) -> Call {
+    call_with_retry(settings, key, body, true)
+}
+
+/// Makes a second attempt only when the caller reserved its cost.
+pub(crate) fn call_with_retry(
+    settings: &Settings,
+    key: &str,
+    body: &str,
+    allow_retry: bool,
+) -> Call {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -88,10 +98,10 @@ pub fn call(settings: &Settings, key: &str, body: &str) -> Call {
             http_status: None,
         };
     };
-    rt.block_on(call_async(settings, key, body))
+    rt.block_on(call_async(settings, key, body, allow_retry))
 }
 
-async fn call_async(settings: &Settings, key: &str, body: &str) -> Call {
+async fn call_async(settings: &Settings, key: &str, body: &str, allow_retry: bool) -> Call {
     let Ok(mut key_value) = reqwest::header::HeaderValue::from_str(key) else {
         return Call {
             ended: Ended::BadKey,
@@ -125,7 +135,7 @@ async fn call_async(settings: &Settings, key: &str, body: &str) -> Call {
                 };
             }
             Attempt::Retry(ended, http_status, after) => {
-                if attempts >= 2 {
+                if !allow_retry || attempts >= 2 {
                     return Call {
                         ended,
                         attempts,
