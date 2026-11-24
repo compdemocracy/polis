@@ -188,3 +188,64 @@ def test_a_comment_no_longer_shown_sends_nothing(monkeypatch, tmp_path):
 def test_a_source_without_a_namer_is_never_a_fresh_layout(monkeypatch, tmp_path):
     with pytest.raises(ValueError):
         _pipeline(monkeypatch, tmp_path, set, None)
+
+
+
+def test_a_comment_no_longer_shown_sends_its_keyword_record_and_leaves_nothing(monkeypatch, tmp_path):
+    # Through the naming step itself, as run_delphi.py runs it: the record of
+    # a refused naming is sent on the pipe before any label is written, the
+    # labels are the keywords, the program never runs, no scratch is made.
+    import os
+    import stat
+    import sys
+
+    from polismath import step_log
+    from tests.test_topic_namer import CHARACTERISTICS, HAIKU, LAYERS, STUB, Names, stub_argv, topic_namer
+
+    monkeypatch.setattr(step_log, "_record", None)
+    monkeypatch.delenv(step_log.SWITCH, raising=False)
+    monkeypatch.syspath_prepend(str(ROOT / "delphi/umap_narrative"))
+    import run_pipeline
+
+    def never(*a, **k):
+        raise AssertionError("the older provider path never runs for a named run")
+
+    monkeypatch.setattr(run_pipeline, "generate_cluster_topic_labels", never)
+    monkeypatch.setattr(run_pipeline, "create_visualizations", lambda *a, **k: "index.html")
+    monkeypatch.setattr(run_pipeline, "process_layers_and_store_characteristics",
+                        lambda *a, **k: {l: {"characteristics": c, "numeric_topic_names": {}}
+                                         for l, c in CHARACTERISTICS.items()})
+    monkeypatch.setenv("DELPHI_SKIP_DATAMAPPLOT", "1")
+    program = tmp_path / "bin" / "polis-topic-names"
+    program.parent.mkdir()
+    program.write_text(STUB.replace("PYTHON", sys.executable, 1))
+    program.chmod(program.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv(topic_namer.BINARY, str(program))
+    monkeypatch.setenv("STUB_ARGV_LOG", str(tmp_path / "argv.log"))
+
+    naming = {"source_refused": "source_comment_not_shown"}
+    storage = Names()
+    out = tmp_path / "out"
+    out.mkdir()
+    read_end, write_end = os.pipe()
+    step_log.record()
+    try:
+        run_pipeline.process_layers_and_create_visualizations(
+            "7", "c", np.zeros((60, 2)), LAYERS, [f"c{i}" for i in range(60)], str(out),
+            name_topics=True, dynamo_storage=storage, job_id="job", namer=HAIKU,
+            namer_dir=str(tmp_path / "naming"), naming=naming, naming_record_fd=write_end)
+    finally:
+        step_log._record = None
+        os.close(write_end)
+    try:
+        record = topic_namer.receive_record(read_end)
+    finally:
+        os.close(read_end)
+
+    assert stub_argv(tmp_path) == []
+    assert not (tmp_path / "naming").exists()
+    assert (record["outcome"], record["reason"]) == ("namer_failed", "source_comment_not_shown")
+    assert record == naming
+    assert {row.model_name for row in storage.rows} == {"keywords"}
+    labels = json.loads((out / "7_comment_layer_0_labels.json").read_text())
+    assert labels and not any("Generated name" in label for label in labels.values())

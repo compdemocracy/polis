@@ -25,6 +25,7 @@ without it the test is skipped.
 """
 import hashlib
 import json
+import os
 import shutil
 import stat
 import sys
@@ -181,8 +182,23 @@ def pipeline(tmp_path, monkeypatch):
     for key in ("STUB_SLEEP", "STUB_EXIT", "STUB_OUTCOME", "STUB_NAMES", "STUB_DROP", "STUB_ARGV_LOG"):
         monkeypatch.delenv(key, raising=False)
 
-    def run(name, scope, namer=None, source=None, names=None, outcome=None):
+    real_send = topic_namer.send_record
+
+    def run(name, scope, namer=None, source=None, names=None, outcome=None, refused_sends=0):
         r = Run(tmp_path / name, monkeypatch, scope, source)
+        r.record = None
+        sends = []
+
+        def send(fd, result):
+            # The first refused_sends sends of the record fail, as a write to
+            # a pipe whose reader is gone does.
+            sends.append(result["outcome"])
+            if len(sends) <= refused_sends:
+                raise OSError("the record pipe is refused for this test")
+            real_send(fd, result)
+
+        monkeypatch.setattr(topic_namer, "send_record", send)
+        r.sends = sends
         if names is not None:
             (r.dir / "saved-names.json").write_text(json.dumps(names))
             monkeypatch.setenv("STUB_NAMES", str(r.dir / "saved-names.json"))
@@ -196,11 +212,26 @@ def pipeline(tmp_path, monkeypatch):
         step_log.record()
         out = r.dir / "out"
         out.mkdir()
+        extra = {}
         if namer is not None:
+            # As run_delphi.py gives them: the attempt's naming directory and
+            # the pipe the naming's record is sent on.
             (r.dir / "naming").mkdir()
-        assert run_pipeline._process_conversation(
-            ZID, str(out), True, True, False, False, {}, selection=SELECTION, namer=namer,
-            namer_dir=str(r.dir / "naming") if namer is not None else None)
+            read_end, write_end = os.pipe()
+            extra = dict(namer_dir=str(r.dir / "naming"), naming_record_fd=write_end)
+        try:
+            assert run_pipeline._process_conversation(
+                ZID, str(out), True, True, False, False, {}, selection=SELECTION, namer=namer, **extra)
+        finally:
+            if extra:
+                os.close(write_end)
+                try:
+                    r.record = topic_namer.receive_record(read_end)
+                finally:
+                    os.close(read_end)
+        if namer is not None:
+            # Nothing of the naming is left in the attempt's directory.
+            assert os.listdir(r.dir / "naming") == []
         r.steps = step_log.recorded()
         step_log._record = None
         return r
@@ -295,6 +326,18 @@ def test_a_keyword_run_and_its_haiku_and_sonnet_namings_share_one_map_and_differ
     assert [(n["layer"], n["model"], n["model_clusters"]) for n in keyword_layers] == [
         (layer, "none", []) for layer in range(4)]
 
+    # The record each named run sent to run_delphi.py (for its manifest),
+    # once, before any label was written, says what the map says. A run
+    # without a namer sends none.
+    from polismath.job_child import full_pipeline_models
+    assert keyword.record is None and keyword.sends == []
+    for k, namer in (("haiku", HAIKU), ("sonnet", SONNET)):
+        record = runs[k].record
+        assert runs[k].sends == ["named"]
+        assert (record["outcome"], record["reason"], record["namer"]) == ("named", None, namer)
+        assert "names" not in record
+        assert full_pipeline_models(record)["topic"] == docs[k]["provenance"]["models"]["topic"]
+
 
 def test_a_named_run_whose_namer_fails_stores_the_sources_keyword_names_under_keywords(pipeline):
     keyword = pipeline("keyword", "delphi")
@@ -311,3 +354,31 @@ def test_a_named_run_whose_namer_fails_stores_the_sources_keyword_names_under_ke
         (layer, "keywords", "http_429", "stand-in http_429", []) for layer in range(4)]
     assert all(n["namer"] == topic_namer.namer_argument(HAIKU) for n in layers)
     assert {r["model_name"]["S"] for r in failed.spooled()[NAMES_FAMILY][1]} == {"keywords"}
+    # The record sent for the manifest says the same, with the reason.
+    from polismath.job_child import full_pipeline_models
+    assert failed.sends == ["http_429"]
+    assert (failed.record["outcome"], failed.record["reason"]) == ("http_429", "stand-in http_429")
+    assert full_pipeline_models(failed.record)["topic"] == "keywords"
+
+
+def test_a_named_run_whose_record_cannot_be_sent_stores_the_sources_keyword_names_with_the_cost(pipeline):
+    # The model answered, but its record could not reach run_delphi.py: its
+    # names are never published; the source's keyword names are, recorded as
+    # keywords with the reason and the call's token counts.
+    keyword = pipeline("keyword", "delphi")
+    unsent = pipeline("unsent", "delphi:names:claude-haiku-5-5.p1.default", HAIKU, keyword, haiku_names(),
+                      refused_sends=1)
+    source, doc = keyword.document(), unsent.document()
+
+    assert unsent.sends == ["named", "namer_failed"]
+    assert structure(doc) == structure(source)
+    assert names(doc) == names(source)
+    assert doc["provenance"]["names"] == source["provenance"]["names"]
+    assert doc["provenance"]["models"]["topic"] == doc["run"]["topicModel"] == "keywords"
+    layers = doc["provenance"]["execution"]["algorithms"]["topic_names"]
+    assert [(n["layer"], n["model"], n["outcome"], n["reason"], n["model_clusters"]) for n in layers] == [
+        (layer, "keywords", "namer_failed", "record_unsent (OSError)", []) for layer in range(4)]
+    assert {r["model_name"]["S"] for r in unsent.spooled()[NAMES_FAMILY][1]} == {"keywords"}
+    record = unsent.record
+    assert (record["outcome"], record["reason"]) == ("namer_failed", "record_unsent (OSError)")
+    assert (record["tokens_in"], record["tokens_out"]) == (25445, 10962)
