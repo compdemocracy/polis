@@ -246,6 +246,10 @@ fn decide_and_call(
     let call = client::call(settings, key, body);
     let mut run = match call.ended {
         client::Ended::Answered(bytes) => judge_reply(h, &bytes),
+        client::Ended::Oversize => Run::failed(
+            Outcome::BadJson,
+            format!("the reply body is over {} bytes", client::MAX_REPLY_BYTES),
+        ),
         client::Ended::Status(s) => {
             Run::failed(Outcome::Http(s), format!("the provider answered HTTP {s}"))
         }
@@ -271,37 +275,12 @@ fn judge_reply(h: &Hierarchy, bytes: &[u8]) -> Run {
         Ok(v) => v,
         Err(_) => return Run::failed(Outcome::BadJson, "the reply body is not JSON"),
     };
-    // Usage is provider-controlled; refuse invalid counts before pricing.
-    if let Some(usage) = v.get("usage") {
-        let mut prompt_tokens = 0u64;
-        for field in [
-            "input_tokens",
-            "cache_creation_input_tokens",
-            "cache_read_input_tokens",
-        ] {
-            if let Some(value) = usage.get(field) {
-                let Some(count) = value.as_u64() else {
-                    return Run::failed(Outcome::BadJson, "invalid usage counts");
-                };
-                let Some(total) = prompt_tokens.checked_add(count) else {
-                    return Run::failed(Outcome::BadJson, "invalid usage counts");
-                };
-                prompt_tokens = total;
-            }
-        }
-    }
-    let u = |k: &str| {
-        v.get("usage")
-            .and_then(|x| x.get(k))
-            .and_then(|x| x.as_u64())
-            .unwrap_or(0)
+    let usage = match read_usage(&v) {
+        Ok(u) => u,
+        Err(()) => return Run::failed(Outcome::BadJson, "the reply's usage counts are not valid"),
     };
-    let usage = v.get("usage").map(|_| Usage {
-        input_tokens: u("input_tokens"),
-        output_tokens: u("output_tokens"),
-        cache_creation_input_tokens: u("cache_creation_input_tokens"),
-        cache_read_input_tokens: u("cache_read_input_tokens"),
-    });
+    // Only the provider's known stop words are kept; any other string, which
+    // could be anything, is recorded as `unknown`.
     let stop =
         v.get("stop_reason")
             .and_then(|x| x.as_str())
@@ -314,6 +293,31 @@ fn judge_reply(h: &Hierarchy, bytes: &[u8]) -> Run {
     run.usage = usage;
     run.stop_reason = stop;
     run
+}
+
+/// The reply's usage: absent is `None`; present, it must be an object whose
+/// four counts, each absent or a non-negative integer, have a prompt total
+/// that fits in a `u64`.
+fn read_usage(v: &serde_json::Value) -> Result<Option<Usage>, ()> {
+    let Some(usage) = v.get("usage") else {
+        return Ok(None);
+    };
+    let usage = usage.as_object().ok_or(())?;
+    let count = |k: &str| match usage.get(k) {
+        None => Ok(0),
+        Some(x) => x.as_u64().ok_or(()),
+    };
+    let u = Usage {
+        input_tokens: count("input_tokens")?,
+        output_tokens: count("output_tokens")?,
+        cache_creation_input_tokens: count("cache_creation_input_tokens")?,
+        cache_read_input_tokens: count("cache_read_input_tokens")?,
+    };
+    u.input_tokens
+        .checked_add(u.cache_creation_input_tokens)
+        .and_then(|x| x.checked_add(u.cache_read_input_tokens))
+        .ok_or(())?;
+    Ok(Some(u))
 }
 
 fn judge_message(h: &Hierarchy, v: &serde_json::Value, stop: Option<&str>) -> Run {
@@ -372,5 +376,229 @@ fn judge_message(h: &Hierarchy, v: &serde_json::Value, stop: Option<&str>) -> Ru
         attempts: 0,
         http_status: None,
         stop_reason: None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! The reply parser over replies no provider should send: a few thousand
+    //! random edits of a saved reply. Each must end as an outcome, and a marker
+    //! planted anywhere but a name must never reach the result.
+    #![allow(clippy::unwrap_used)]
+    use super::*;
+    use serde_json::{Value, json};
+
+    const MARKER: &str = "PLANTED-MARKER-7F3A";
+
+    struct Rng(u64);
+    impl Rng {
+        fn next(&mut self) -> u64 {
+            self.0 ^= self.0 << 13;
+            self.0 ^= self.0 >> 7;
+            self.0 ^= self.0 << 17;
+            self.0
+        }
+        fn below(&mut self, n: usize) -> usize {
+            (self.next() % n as u64) as usize
+        }
+    }
+
+    fn base() -> (Hierarchy, Value) {
+        let h = Hierarchy::from_json(include_str!("../tests/fixtures/hierarchies/vtaiwan.json"))
+            .unwrap();
+        let reply: Value = serde_json::from_str(include_str!(
+            "../tests/fixtures/replies/vtaiwan/sonnet-default-r1.json"
+        ))
+        .unwrap();
+        (h, reply)
+    }
+
+    fn deep(depth: usize) -> Value {
+        (0..depth).fold(json!(MARKER), |v, _| json!([v]))
+    }
+
+    fn evil(rng: &mut Rng) -> Value {
+        match rng.below(12) {
+            0 => json!(MARKER),
+            1 => json!(MARKER.repeat(5_000)),
+            2 => json!(format!("\u{0}{MARKER}\u{202E}\u{7}")),
+            3 => json!(u64::MAX),
+            4 => json!(-1),
+            5 => json!(1.5),
+            6 => Value::Null,
+            7 => json!(true),
+            8 => json!([MARKER]),
+            9 => json!({ "k": MARKER }),
+            10 => deep(200),
+            _ => json!(format!("{MARKER}\u{d7ff}\u{10ffff}")),
+        }
+    }
+
+    /// Every JSON pointer under `v`, skipping the paths `skip` refuses.
+    fn paths(v: &Value, at: String, skip: &dyn Fn(&str) -> bool, out: &mut Vec<String>) {
+        if skip(&at) {
+            return;
+        }
+        out.push(at.clone());
+        match v {
+            Value::Object(m) => m
+                .iter()
+                .for_each(|(k, x)| paths(x, format!("{at}/{k}"), skip, out)),
+            Value::Array(a) => a
+                .iter()
+                .enumerate()
+                .for_each(|(i, x)| paths(x, format!("{at}/{i}"), skip, out)),
+            _ => {}
+        }
+    }
+
+    fn set(v: &mut Value, pointer: &str, to: Value) {
+        if pointer.is_empty() {
+            *v = to;
+        } else if let Some(slot) = v.pointer_mut(pointer) {
+            *slot = to;
+        }
+    }
+
+    fn text_block(reply: &Value) -> usize {
+        reply["content"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .position(|b| b["type"] == "text")
+            .unwrap()
+    }
+
+    /// One random reply body, and whether the marker was put inside a name
+    /// (always with a control character or past 50 characters, though a later
+    /// byte edit can make that name a valid one).
+    fn mutate(rng: &mut Rng, reply: &Value) -> (Vec<u8>, bool) {
+        let mut in_name = false;
+        let mut r = reply.clone();
+        let t = text_block(&r);
+        let text_path = format!("/content/{t}/text");
+        let mut inner: Value =
+            serde_json::from_str(r.pointer(&text_path).unwrap().as_str().unwrap()).unwrap();
+        for _ in 0..=rng.below(3) {
+            match rng.below(3) {
+                0 => {
+                    let mut ps = Vec::new();
+                    paths(&r, String::new(), &|p: &str| p == text_path, &mut ps);
+                    let p = ps[rng.below(ps.len())].clone();
+                    set(&mut r, &p, evil(rng));
+                }
+                1 => {
+                    let mut ps = Vec::new();
+                    let skip = |p: &str| p.starts_with("/topics/") && p.ends_with("/name");
+                    paths(&inner, String::new(), &skip, &mut ps);
+                    let p = ps[rng.below(ps.len())].clone();
+                    set(&mut inner, &p, evil(rng));
+                }
+                _ => {
+                    let n = inner["topics"].as_array().map_or(0, Vec::len);
+                    if n > 0 {
+                        in_name = true;
+                        let bad = match rng.below(3) {
+                            0 => format!("{MARKER}\u{7}"),
+                            1 => format!("\u{202E}{MARKER}"),
+                            _ => MARKER.repeat(3),
+                        };
+                        set(
+                            &mut inner,
+                            &format!("/topics/{}/name", rng.below(n)),
+                            json!(bad),
+                        );
+                    }
+                }
+            }
+        }
+        if r.pointer(&text_path).is_some_and(Value::is_string) {
+            set(&mut r, &text_path, json!(inner.to_string()));
+        }
+        let mut bytes = r.to_string().into_bytes();
+        match rng.below(4) {
+            0 if !bytes.is_empty() => {
+                let i = rng.below(bytes.len());
+                bytes[i] = (rng.next() & 0xff) as u8;
+            }
+            1 if !bytes.is_empty() => {
+                let i = rng.below(bytes.len());
+                bytes.truncate(i);
+            }
+            2 => {
+                let i = rng.below(bytes.len() + 1);
+                bytes.splice(i..i, [0xE4, 0xB8]);
+            }
+            _ => {}
+        }
+        (bytes, in_name)
+    }
+
+    fn assert_bounded(run: &Run, planted_in_name: bool) {
+        let reason = run.reason.as_deref().unwrap_or("");
+        assert!(!reason.contains(MARKER), "{reason}");
+        assert!(reason.chars().count() <= 200, "{reason}");
+        assert!(!reason.chars().any(char::is_control), "{reason:?}");
+        if let Some(s) = &run.stop_reason {
+            assert!(
+                [
+                    "end_turn",
+                    "refusal",
+                    "max_tokens",
+                    "stop_sequence",
+                    "tool_use",
+                    "pause_turn",
+                    "unknown"
+                ]
+                .contains(&s.as_str()),
+                "{s}"
+            );
+        }
+        if !planted_in_name {
+            for n in run.names.values() {
+                assert!(!n.contains(MARKER), "{n}");
+            }
+        }
+        if run.outcome == Outcome::Named {
+            for n in run.names.values() {
+                let k = n.chars().count();
+                assert!((1..=check::MAX_NAME_CHARS).contains(&k), "{n}");
+                assert!(!check::has_control(n), "{n:?}");
+            }
+        }
+    }
+
+    #[test]
+    fn random_edits_of_a_saved_reply_are_outcomes_that_copy_nothing() {
+        let (h, reply) = base();
+        assert_eq!(
+            judge_reply(&h, reply.to_string().as_bytes()).outcome,
+            Outcome::Named
+        );
+        let mut rng = Rng(0x9E37_79B9_7F4A_7C15);
+        let mut seen = BTreeMap::new();
+        for _ in 0..3_000 {
+            let (bytes, in_name) = mutate(&mut rng, &reply);
+            let run = judge_reply(&h, &bytes);
+            assert_bounded(&run, in_name);
+            *seen.entry(run.outcome.word()).or_insert(0u32) += 1;
+        }
+        // The edits reach the parser's every refusal, not only its first.
+        for word in ["bad_json", "bad_cover", "wrong_language", "bad_length"] {
+            assert!(seen.contains_key(word), "{seen:?}");
+        }
+    }
+
+    #[test]
+    fn arbitrary_bytes_are_outcomes() {
+        let (h, _) = base();
+        let mut rng = Rng(0xD1B5_4A32_D192_ED03);
+        for _ in 0..2_000 {
+            let n = rng.below(64);
+            let bytes: Vec<u8> = (0..n).map(|_| (rng.next() & 0xff) as u8).collect();
+            let run = judge_reply(&h, &bytes);
+            assert_eq!(run.outcome, Outcome::BadJson);
+            assert_bounded(&run, false);
+        }
     }
 }

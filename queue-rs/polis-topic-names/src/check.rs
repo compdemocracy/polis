@@ -437,6 +437,30 @@ pub fn looks_misencoded(name: &str, comments_have_cyrillic: bool) -> bool {
     false
 }
 
+/// A control character (C0, DEL, C1) or an invisible formatting character
+/// that can reorder or hide text (bidirectional controls, zero-width
+/// space, the byte-order mark, tag characters). A name is shown to people as
+/// it is, so none of these is accepted in one. The zero-width joiner and
+/// non-joiner are letters' business in several scripts and are accepted.
+pub fn has_control(name: &str) -> bool {
+    name.chars().any(|c| {
+        c.is_control()
+            || matches!(
+                c,
+                '\u{00AD}'
+                    | '\u{061C}'
+                    | '\u{180E}'
+                    | '\u{200B}'
+                    | '\u{200E}'..='\u{200F}'
+                    | '\u{2028}'..='\u{202E}'
+                    | '\u{2060}'..='\u{206F}'
+                    | '\u{FEFF}'
+                    | '\u{FFF9}'..='\u{FFFB}'
+                    | '\u{E0000}'..='\u{E007F}'
+            )
+    })
+}
+
 /// The language check over a whole reply. `Err` carries the reason.
 pub fn check_language(h: &Hierarchy, names: &BTreeMap<String, String>) -> Result<(), String> {
     let comments_have_cyrillic = h
@@ -448,6 +472,12 @@ pub fn check_language(h: &Hierarchy, names: &BTreeMap<String, String>) -> Result
         .count();
     if misencoded > 0 {
         return Err(format!("{misencoded} names hold mis-encoded characters"));
+    }
+    let control = names.values().filter(|n| has_control(n)).count();
+    if control > 0 {
+        return Err(format!(
+            "{control} names hold control or invisible formatting characters"
+        ));
     }
     let total = names.len();
     match majority_script(h.sent_samples()) {

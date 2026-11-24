@@ -10,13 +10,7 @@
       "layer": 0,
       "cluster": 0,
       "size": 8,
-      "keywords": [
-        "計費",
-        "提高",
-        "加成",
-        "以加",
-        "在計"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -27,13 +21,7 @@
       "layer": 0,
       "cluster": 1,
       "size": 26,
-      "keywords": [
-        "職業",
-        "不用",
-        "駕駛",
-        "國際",
-        "營運"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -44,13 +32,7 @@
       "layer": 0,
       "cluster": 2,
       "size": 6,
-      "keywords": [
-        "管制",
-        "不用",
-        "資料",
-        "府管",
-        "受政"
-      ],
+      "keywords": [],
       "parent": "1_1",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -61,13 +43,7 @@
       "layer": 0,
       "cluster": 3,
       "size": 6,
-      "keywords": [
-        "投保",
-        "沒保",
-        "客責",
-        "任險",
-        "保險"
-      ],
+      "keywords": [],
       "parent": "1_1",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -78,13 +54,7 @@
       "layer": 0,
       "cluster": 4,
       "size": 15,
-      "keywords": [
-        "共乘",
-        "收費",
-        "車隊",
-        "精神",
-        "開放"
-      ],
+      "keywords": [],
       "parent": "1_3",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -95,13 +65,7 @@
       "layer": 0,
       "cluster": 5,
       "size": 12,
-      "keywords": [
-        "小黃",
-        "讓乘",
-        "機雙",
-        "便利",
-        "利及"
-      ],
+      "keywords": [],
       "parent": "1_5",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -112,13 +76,7 @@
       "layer": 0,
       "cluster": 6,
       "size": 6,
-      "keywords": [
-        "開放",
-        "該開",
-        "得應",
-        "一般",
-        "者多"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -129,13 +87,7 @@
       "layer": 0,
       "cluster": 7,
       "size": 6,
-      "keywords": [
-        "社會",
-        "台灣",
-        "正常",
-        "申報",
-        "的政"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -146,13 +98,7 @@
       "layer": 0,
       "cluster": 8,
       "size": 9,
-      "keywords": [
-        "車司",
-        "就算",
-        "素質",
-        "收入",
-        "開車"
-      ],
+      "keywords": [],
       "parent": "1_4",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -163,13 +109,7 @@
       "layer": 0,
       "cluster": 9,
       "size": 5,
-      "keywords": [
-        "參差",
-        "差不",
-        "不齊",
-        "品質",
-        "多計"
-      ],
+      "keywords": [],
       "parent": "1_4",
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -180,13 +120,7 @@
       "layer": 1,
       "cluster": 0,
       "size": 26,
-      "keywords": [
-        "職業",
-        "不用",
-        "駕駛",
-        "國際",
-        "營運"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -197,13 +131,7 @@
       "layer": 1,
       "cluster": 1,
       "size": 21,
-      "keywords": [
-        "保險",
-        "保障",
-        "用車",
-        "自用",
-        "載客"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -214,13 +142,7 @@
       "layer": 1,
       "cluster": 2,
       "size": 31,
-      "keywords": [
-        "台灣",
-        "取締",
-        "開放",
-        "通部",
-        "交通"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -231,13 +153,7 @@
       "layer": 1,
       "cluster": 3,
       "size": 15,
-      "keywords": [
-        "共乘",
-        "收費",
-        "車隊",
-        "精神",
-        "開放"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -248,13 +164,7 @@
       "layer": 1,
       "cluster": 4,
       "size": 22,
-      "keywords": [
-        "車司",
-        "是計",
-        "素質",
-        "可以",
-        "開車"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"
@@ -265,13 +175,7 @@
       "layer": 1,
       "cluster": 5,
       "size": 12,
-      "keywords": [
-        "小黃",
-        "讓乘",
-        "機雙",
-        "便利",
-        "利及"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "我認為公共交通應該更加方便。"

@@ -11,13 +11,7 @@
       "layer": 0,
       "cluster": 0,
       "size": 7,
-      "keywords": [
-        "rücksendungen",
-        "handel",
-        "online",
-        "kostenpflichtig",
-        "machen"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -28,13 +22,7 @@
       "layer": 0,
       "cluster": 1,
       "size": 33,
-      "keywords": [
-        "pendlerpauschale",
-        "abschaffen",
-        "wenn",
-        "abschaffung",
-        "öffi"
-      ],
+      "keywords": [],
       "parent": "1_1",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -45,13 +33,7 @@
       "layer": 0,
       "cluster": 2,
       "size": 12,
-      "keywords": [
-        "billiger",
-        "echte",
-        "sein",
-        "tickets",
-        "werden"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -62,13 +44,7 @@
       "layer": 0,
       "cluster": 3,
       "size": 20,
-      "keywords": [
-        "kerosin",
-        "besteuern",
-        "besteuert",
-        "werden",
-        "wie"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -79,13 +55,7 @@
       "layer": 0,
       "cluster": 4,
       "size": 7,
-      "keywords": [
-        "co2",
-        "3x",
-        "ausstoß",
-        "billigflieger",
-        "klimawirksamkeit"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -96,13 +66,7 @@
       "layer": 0,
       "cluster": 5,
       "size": 22,
-      "keywords": [
-        "kurzstreckenflüge",
-        "flüge",
-        "verbieten",
-        "verbot",
-        "km"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -113,13 +77,7 @@
       "layer": 0,
       "cluster": 6,
       "size": 7,
-      "keywords": [
-        "pro",
-        "kostenwahrheit",
-        "reduzieren",
-        "mwst",
-        "preisen"
-      ],
+      "keywords": [],
       "parent": "1_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -130,13 +88,7 @@
       "layer": 0,
       "cluster": 7,
       "size": 8,
-      "keywords": [
-        "ig",
-        "100er",
-        "abschaffen",
-        "regeln",
-        "abschaffung"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -147,13 +99,7 @@
       "layer": 0,
       "cluster": 8,
       "size": 16,
-      "keywords": [
-        "lkw",
-        "auf",
-        "autobahnen",
-        "maut",
-        "allen"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -164,13 +110,7 @@
       "layer": 0,
       "cluster": 9,
       "size": 11,
-      "keywords": [
-        "priorität",
-        "verkehrsplanung",
-        "fußgänger",
-        "nach",
-        "geschehen"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -181,13 +121,7 @@
       "layer": 0,
       "cluster": 10,
       "size": 8,
-      "keywords": [
-        "tempo",
-        "80",
-        "100",
-        "30",
-        "autobahnen"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -198,13 +132,7 @@
       "layer": 0,
       "cluster": 11,
       "size": 7,
-      "keywords": [
-        "geschwindigkeit",
-        "eine",
-        "starke",
-        "auf",
-        "bedeuten"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -215,13 +143,7 @@
       "layer": 0,
       "cluster": 12,
       "size": 7,
-      "keywords": [
-        "130",
-        "ist",
-        "staus",
-        "fahren",
-        "emissionen"
-      ],
+      "keywords": [],
       "parent": "1_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -232,13 +154,7 @@
       "layer": 0,
       "cluster": 13,
       "size": 23,
-      "keywords": [
-        "ampeln",
-        "ampelschaltungen",
-        "kreisverkehre",
-        "staus",
-        "optimieren"
-      ],
+      "keywords": [],
       "parent": "1_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -249,13 +165,7 @@
       "layer": 0,
       "cluster": 14,
       "size": 8,
-      "keywords": [
-        "zuwanderung",
-        "mehr",
-        "erhöht",
-        "energieverbrauch",
-        "verkehr"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -266,13 +176,7 @@
       "layer": 0,
       "cluster": 15,
       "size": 24,
-      "keywords": [
-        "öffis",
-        "gratis",
-        "alle",
-        "günstige",
-        "personen"
-      ],
+      "keywords": [],
       "parent": "1_4",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -283,13 +187,7 @@
       "layer": 0,
       "cluster": 16,
       "size": 29,
-      "keywords": [
-        "klimaticket",
-        "klimatickets",
-        "pendlerpauschale",
-        "gratis",
-        "statt"
-      ],
+      "keywords": [],
       "parent": "1_5",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -300,13 +198,7 @@
       "layer": 0,
       "cluster": 17,
       "size": 13,
-      "keywords": [
-        "elterntaxis",
-        "eltern",
-        "zu",
-        "schule",
-        "kinder"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -317,13 +209,7 @@
       "layer": 0,
       "cluster": 18,
       "size": 27,
-      "keywords": [
-        "mobilität",
-        "ist",
-        "klimaziele",
-        "individualverkehr",
-        "mit"
-      ],
+      "keywords": [],
       "parent": "1_7",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -334,13 +220,7 @@
       "layer": 0,
       "cluster": 19,
       "size": 9,
-      "keywords": [
-        "öffis",
-        "wieder",
-        "unattraktiv",
-        "leute",
-        "den"
-      ],
+      "keywords": [],
       "parent": "1_7",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -351,13 +231,7 @@
       "layer": 0,
       "cluster": 20,
       "size": 30,
-      "keywords": [
-        "flächen",
-        "bäume",
-        "grünflächen",
-        "von",
-        "begrünung"
-      ],
+      "keywords": [],
       "parent": "1_6",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -368,13 +242,7 @@
       "layer": 0,
       "cluster": 21,
       "size": 6,
-      "keywords": [
-        "schulen",
-        "flächen",
-        "förderung",
-        "senken",
-        "tag"
-      ],
+      "keywords": [],
       "parent": "1_6",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -385,13 +253,7 @@
       "layer": 0,
       "cluster": 22,
       "size": 8,
-      "keywords": [
-        "städten",
-        "tiere",
-        "besonders",
-        "begrünung",
-        "bau"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -402,13 +264,7 @@
       "layer": 0,
       "cluster": 23,
       "size": 8,
-      "keywords": [
-        "klimaschutz",
-        "verankert",
-        "schule",
-        "werden",
-        "muss"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -419,13 +275,7 @@
       "layer": 0,
       "cluster": 24,
       "size": 17,
-      "keywords": [
-        "euro",
-        "treibstoff",
-        "ist",
-        "mind",
-        "pro"
-      ],
+      "keywords": [],
       "parent": "1_8",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -436,13 +286,7 @@
       "layer": 0,
       "cluster": 25,
       "size": 5,
-      "keywords": [
-        "mineralölsteuer",
-        "abschaffung",
-        "abgeschafft",
-        "des",
-        "benzin"
-      ],
+      "keywords": [],
       "parent": "1_8",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -453,13 +297,7 @@
       "layer": 0,
       "cluster": 26,
       "size": 21,
-      "keywords": [
-        "ab",
-        "verbot",
-        "autos",
-        "von",
-        "verbrennungsmotoren"
-      ],
+      "keywords": [],
       "parent": "1_9",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -470,13 +308,7 @@
       "layer": 0,
       "cluster": 27,
       "size": 13,
-      "keywords": [
-        "verbieten",
-        "gesetzlich",
-        "massentierhaltung",
-        "österreich",
-        "standard"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -487,13 +319,7 @@
       "layer": 0,
       "cluster": 28,
       "size": 13,
-      "keywords": [
-        "ladestationen",
-        "elektromobilität",
-        "zu",
-        "es",
-        "mit"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -504,13 +330,7 @@
       "layer": 0,
       "cluster": 29,
       "size": 13,
-      "keywords": [
-        "energie",
-        "wasserstoff",
-        "wie",
-        "aus",
-        "politik"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -521,13 +341,7 @@
       "layer": 0,
       "cluster": 30,
       "size": 26,
-      "keywords": [
-        "carsharing",
-        "sharing",
-        "werden",
-        "car",
-        "fördern"
-      ],
+      "keywords": [],
       "parent": "1_11",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -538,13 +352,7 @@
       "layer": 0,
       "cluster": 31,
       "size": 10,
-      "keywords": [
-        "homeoffice",
-        "pflicht",
-        "möglich",
-        "den",
-        "tage"
-      ],
+      "keywords": [],
       "parent": "1_10",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -555,13 +363,7 @@
       "layer": 0,
       "cluster": 32,
       "size": 12,
-      "keywords": [
-        "menschen",
-        "ältere",
-        "angewiesen",
-        "sind",
-        "taxis"
-      ],
+      "keywords": [],
       "parent": "1_10",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -572,13 +374,7 @@
       "layer": 0,
       "cluster": 33,
       "size": 15,
-      "keywords": [
-        "ich",
-        "auto",
-        "habe",
-        "arbeit",
-        "deiner"
-      ],
+      "keywords": [],
       "parent": "1_10",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -589,13 +385,7 @@
       "layer": 0,
       "cluster": 34,
       "size": 14,
-      "keywords": [
-        "wien",
-        "bezirk",
-        "den",
-        "mehr",
-        "von"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -606,13 +396,7 @@
       "layer": 0,
       "cluster": 35,
       "size": 8,
-      "keywords": [
-        "city",
-        "maut",
-        "eine",
-        "großstädten",
-        "eingeführt"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -623,13 +407,7 @@
       "layer": 0,
       "cluster": 36,
       "size": 10,
-      "keywords": [
-        "keine",
-        "werbung",
-        "verbrenner",
-        "wie",
-        "produzieren"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -640,13 +418,7 @@
       "layer": 0,
       "cluster": 37,
       "size": 20,
-      "keywords": [
-        "autofahrer",
-        "von",
-        "abzocke",
-        "weitere",
-        "das"
-      ],
+      "keywords": [],
       "parent": "1_12",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -657,13 +429,7 @@
       "layer": 0,
       "cluster": 38,
       "size": 10,
-      "keywords": [
-        "verbieten",
-        "verbot",
-        "autos",
-        "auch",
-        "nur"
-      ],
+      "keywords": [],
       "parent": "1_12",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -674,13 +440,7 @@
       "layer": 0,
       "cluster": 39,
       "size": 24,
-      "keywords": [
-        "land",
-        "anbindung",
-        "den",
-        "wohne",
-        "gute"
-      ],
+      "keywords": [],
       "parent": "1_13",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -691,13 +451,7 @@
       "layer": 0,
       "cluster": 40,
       "size": 20,
-      "keywords": [
-        "co2",
-        "steuer",
-        "steuern",
-        "klimaschutz",
-        "werden"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -708,13 +462,7 @@
       "layer": 0,
       "cluster": 41,
       "size": 16,
-      "keywords": [
-        "lobautunnel",
-        "wien",
-        "stadtautobahn",
-        "bau",
-        "werden"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -725,13 +473,7 @@
       "layer": 0,
       "cluster": 42,
       "size": 17,
-      "keywords": [
-        "raumplanung",
-        "wege",
-        "straßen",
-        "kurze",
-        "grünflächen"
-      ],
+      "keywords": [],
       "parent": "1_17",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -742,13 +484,7 @@
       "layer": 0,
       "cluster": 43,
       "size": 16,
-      "keywords": [
-        "straßen",
-        "keine",
-        "neuen",
-        "mehr",
-        "strassen"
-      ],
+      "keywords": [],
       "parent": "1_17",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -759,13 +495,7 @@
       "layer": 0,
       "cluster": 44,
       "size": 23,
-      "keywords": [
-        "besteuert",
-        "kfz",
-        "mit",
-        "werden",
-        "höher"
-      ],
+      "keywords": [],
       "parent": "1_18",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -776,13 +506,7 @@
       "layer": 0,
       "cluster": 45,
       "size": 25,
-      "keywords": [
-        "ich",
-        "wir",
-        "auch",
-        "sollte",
-        "kein"
-      ],
+      "keywords": [],
       "parent": "1_15",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -793,13 +517,7 @@
       "layer": 0,
       "cluster": 46,
       "size": 10,
-      "keywords": [
-        "nur",
-        "politiker",
-        "unabhängige",
-        "gas",
-        "wenn"
-      ],
+      "keywords": [],
       "parent": "1_15",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -810,13 +528,7 @@
       "layer": 0,
       "cluster": 47,
       "size": 5,
-      "keywords": [
-        "tag",
-        "vor",
-        "autofreie",
-        "wollen",
-        "städte"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -827,13 +539,7 @@
       "layer": 0,
       "cluster": 48,
       "size": 8,
-      "keywords": [
-        "innenstädte",
-        "autofrei",
-        "städte",
-        "autofreie",
-        "das"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -844,13 +550,7 @@
       "layer": 0,
       "cluster": 49,
       "size": 25,
-      "keywords": [
-        "förderung",
-        "autos",
-        "gefördert",
-        "keine",
-        "elektroautos"
-      ],
+      "keywords": [],
       "parent": "1_20",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -861,13 +561,7 @@
       "layer": 0,
       "cluster": 50,
       "size": 6,
-      "keywords": [
-        "nicht",
-        "durch",
-        "klima",
-        "keine",
-        "dieser"
-      ],
+      "keywords": [],
       "parent": "1_14",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -878,13 +572,7 @@
       "layer": 0,
       "cluster": 51,
       "size": 11,
-      "keywords": [
-        "klimarat",
-        "gerecht",
-        "sozial",
-        "immer",
-        "werden"
-      ],
+      "keywords": [],
       "parent": "1_14",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -895,13 +583,7 @@
       "layer": 0,
       "cluster": 52,
       "size": 11,
-      "keywords": [
-        "parkpickerl",
-        "wien",
-        "ganz",
-        "nicht",
-        "nur"
-      ],
+      "keywords": [],
       "parent": "1_16",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -912,13 +594,7 @@
       "layer": 0,
       "cluster": 53,
       "size": 8,
-      "keywords": [
-        "parkgebühren",
-        "parkplätze",
-        "auf",
-        "haben",
-        "soll"
-      ],
+      "keywords": [],
       "parent": "1_16",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -929,13 +605,7 @@
       "layer": 0,
       "cluster": 54,
       "size": 9,
-      "keywords": [
-        "parkplätze",
-        "öffentlichen",
-        "einkaufszentren",
-        "platz",
-        "mehr"
-      ],
+      "keywords": [],
       "parent": "1_16",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -946,13 +616,7 @@
       "layer": 0,
       "cluster": 55,
       "size": 5,
-      "keywords": [
-        "nutzen",
-        "verkehrsmittel",
-        "bahnstrecken",
-        "ausbauen",
-        "nebenbahnen"
-      ],
+      "keywords": [],
       "parent": "1_21",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -963,13 +627,7 @@
       "layer": 0,
       "cluster": 56,
       "size": 13,
-      "keywords": [
-        "ländlichen",
-        "busse",
-        "öffentliche",
-        "verkehr",
-        "auch"
-      ],
+      "keywords": [],
       "parent": "1_21",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -980,13 +638,7 @@
       "layer": 0,
       "cluster": 57,
       "size": 7,
-      "keywords": [
-        "busse",
-        "großer",
-        "elektro",
-        "öffentlichen",
-        "kleine"
-      ],
+      "keywords": [],
       "parent": "1_21",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -997,13 +649,7 @@
       "layer": 0,
       "cluster": 58,
       "size": 5,
-      "keywords": [
-        "verkehrs",
-        "ausbau",
-        "bahnhöfe",
-        "gestalten",
-        "des"
-      ],
+      "keywords": [],
       "parent": "1_21",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1014,13 +660,7 @@
       "layer": 0,
       "cluster": 59,
       "size": 7,
-      "keywords": [
-        "graz",
-        "linz",
-        "ausbau",
-        "endlich",
-        "salzburg"
-      ],
+      "keywords": [],
       "parent": "1_21",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1031,13 +671,7 @@
       "layer": 0,
       "cluster": 60,
       "size": 12,
-      "keywords": [
-        "fahrräder",
-        "oft",
-        "sichere",
-        "beim",
-        "ausbau"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1048,13 +682,7 @@
       "layer": 0,
       "cluster": 61,
       "size": 5,
-      "keywords": [
-        "schiene",
-        "auf",
-        "ab",
-        "lkw",
-        "verlegen"
-      ],
+      "keywords": [],
       "parent": "1_22",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1065,13 +693,7 @@
       "layer": 0,
       "cluster": 62,
       "size": 5,
-      "keywords": [
-        "möbel",
-        "einkäufe",
-        "haus",
-        "firmen",
-        "usw"
-      ],
+      "keywords": [],
       "parent": "1_22",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1082,13 +704,7 @@
       "layer": 0,
       "cluster": 63,
       "size": 17,
-      "keywords": [
-        "ampeln",
-        "fußgänger",
-        "grün",
-        "bei",
-        "ampel"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1099,13 +715,7 @@
       "layer": 0,
       "cluster": 64,
       "size": 28,
-      "keywords": [
-        "akkus",
-        "elektromobilität",
-        "entsorgung",
-        "autos",
-        "forcieren"
-      ],
+      "keywords": [],
       "parent": "1_19",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1116,13 +726,7 @@
       "layer": 0,
       "cluster": 65,
       "size": 9,
-      "keywords": [
-        "autos",
-        "ist",
-        "möglichkeiten",
-        "lösung",
-        "noch"
-      ],
+      "keywords": [],
       "parent": "1_19",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1133,13 +737,7 @@
       "layer": 0,
       "cluster": 66,
       "size": 36,
-      "keywords": [
-        "radwege",
-        "auch",
-        "von",
-        "sind",
-        "fahrradwege"
-      ],
+      "keywords": [],
       "parent": "1_24",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1150,13 +748,7 @@
       "layer": 0,
       "cluster": 67,
       "size": 7,
-      "keywords": [
-        "aller",
-        "fahrrädern",
-        "städten",
-        "frei",
-        "bleiben"
-      ],
+      "keywords": [],
       "parent": "1_24",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1167,13 +759,7 @@
       "layer": 0,
       "cluster": 68,
       "size": 20,
-      "keywords": [
-        "radfahrer",
-        "haftpflichtversicherung",
-        "fahrräder",
-        "nummerntafeln",
-        "kennzeichenpflicht"
-      ],
+      "keywords": [],
       "parent": "1_23",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1184,13 +770,7 @@
       "layer": 0,
       "cluster": 69,
       "size": 9,
-      "keywords": [
-        "verkehrsregeln",
-        "fahrradfahrer",
-        "bei",
-        "zu",
-        "von"
-      ],
+      "keywords": [],
       "parent": "1_23",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1201,13 +781,7 @@
       "layer": 1,
       "cluster": 0,
       "size": 115,
-      "keywords": [
-        "flüge",
-        "kerosin",
-        "fliegen",
-        "werden",
-        "von"
-      ],
+      "keywords": [],
       "parent": "2_0",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1218,13 +792,7 @@
       "layer": 1,
       "cluster": 1,
       "size": 33,
-      "keywords": [
-        "pendlerpauschale",
-        "abschaffen",
-        "wenn",
-        "abschaffung",
-        "öffi"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1235,13 +803,7 @@
       "layer": 1,
       "cluster": 2,
       "size": 142,
-      "keywords": [
-        "auf",
-        "km",
-        "autobahnen",
-        "lkw",
-        "autobahn"
-      ],
+      "keywords": [],
       "parent": "2_1",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1252,13 +814,7 @@
       "layer": 1,
       "cluster": 3,
       "size": 23,
-      "keywords": [
-        "ampeln",
-        "ampelschaltungen",
-        "kreisverkehre",
-        "staus",
-        "optimieren"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1269,13 +825,7 @@
       "layer": 1,
       "cluster": 4,
       "size": 24,
-      "keywords": [
-        "öffis",
-        "gratis",
-        "alle",
-        "günstige",
-        "personen"
-      ],
+      "keywords": [],
       "parent": "2_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1286,13 +836,7 @@
       "layer": 1,
       "cluster": 5,
       "size": 29,
-      "keywords": [
-        "klimaticket",
-        "klimatickets",
-        "pendlerpauschale",
-        "gratis",
-        "statt"
-      ],
+      "keywords": [],
       "parent": "2_2",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1303,13 +847,7 @@
       "layer": 1,
       "cluster": 6,
       "size": 51,
-      "keywords": [
-        "flächen",
-        "von",
-        "bäume",
-        "werden",
-        "begrünung"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1320,13 +858,7 @@
       "layer": 1,
       "cluster": 7,
       "size": 37,
-      "keywords": [
-        "mobilität",
-        "öffis",
-        "ist",
-        "zu",
-        "wieder"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1337,13 +869,7 @@
       "layer": 1,
       "cluster": 8,
       "size": 24,
-      "keywords": [
-        "mineralölsteuer",
-        "euro",
-        "treibstoff",
-        "abschaffung",
-        "ist"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1354,13 +880,7 @@
       "layer": 1,
       "cluster": 9,
       "size": 21,
-      "keywords": [
-        "ab",
-        "verbot",
-        "autos",
-        "von",
-        "verbrennungsmotoren"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1371,13 +891,7 @@
       "layer": 1,
       "cluster": 10,
       "size": 40,
-      "keywords": [
-        "ich",
-        "auto",
-        "homeoffice",
-        "arbeit",
-        "zu"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1388,13 +902,7 @@
       "layer": 1,
       "cluster": 11,
       "size": 26,
-      "keywords": [
-        "carsharing",
-        "sharing",
-        "werden",
-        "car",
-        "fördern"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1405,13 +913,7 @@
       "layer": 1,
       "cluster": 12,
       "size": 44,
-      "keywords": [
-        "von",
-        "autofahrer",
-        "verbieten",
-        "auto",
-        "motorisierten"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1422,13 +924,7 @@
       "layer": 1,
       "cluster": 13,
       "size": 24,
-      "keywords": [
-        "land",
-        "anbindung",
-        "den",
-        "wohne",
-        "gute"
-      ],
+      "keywords": [],
       "parent": "2_5",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1439,13 +935,7 @@
       "layer": 1,
       "cluster": 14,
       "size": 48,
-      "keywords": [
-        "klimarat",
-        "österreich",
-        "werden",
-        "klimaschutz",
-        "klimawandel"
-      ],
+      "keywords": [],
       "parent": "2_4",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1456,13 +946,7 @@
       "layer": 1,
       "cluster": 15,
       "size": 57,
-      "keywords": [
-        "zu",
-        "ist",
-        "nicht",
-        "ich",
-        "wir"
-      ],
+      "keywords": [],
       "parent": "2_4",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1473,13 +957,7 @@
       "layer": 1,
       "cluster": 16,
       "size": 58,
-      "keywords": [
-        "parkplätze",
-        "wien",
-        "parkpickerl",
-        "parkgebühren",
-        "auf"
-      ],
+      "keywords": [],
       "parent": "2_6",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1490,13 +968,7 @@
       "layer": 1,
       "cluster": 17,
       "size": 38,
-      "keywords": [
-        "straßen",
-        "mehr",
-        "keine",
-        "neuen",
-        "raumplanung"
-      ],
+      "keywords": [],
       "parent": "2_7",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1507,13 +979,7 @@
       "layer": 1,
       "cluster": 18,
       "size": 23,
-      "keywords": [
-        "besteuert",
-        "kfz",
-        "mit",
-        "werden",
-        "höher"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1524,13 +990,7 @@
       "layer": 1,
       "cluster": 19,
       "size": 88,
-      "keywords": [
-        "autos",
-        "ist",
-        "nicht",
-        "sind",
-        "wasserstoff"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1541,13 +1001,7 @@
       "layer": 1,
       "cluster": 20,
       "size": 25,
-      "keywords": [
-        "förderung",
-        "autos",
-        "gefördert",
-        "keine",
-        "elektroautos"
-      ],
+      "keywords": [],
       "parent": "2_3",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1558,13 +1012,7 @@
       "layer": 1,
       "cluster": 21,
       "size": 57,
-      "keywords": [
-        "busse",
-        "ausbauen",
-        "ausbau",
-        "verkehr",
-        "ländlichen"
-      ],
+      "keywords": [],
       "parent": "2_5",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1575,13 +1023,7 @@
       "layer": 1,
       "cluster": 22,
       "size": 34,
-      "keywords": [
-        "schiene",
-        "lkw",
-        "auf",
-        "möbel",
-        "größere"
-      ],
+      "keywords": [],
       "parent": "2_5",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1592,13 +1034,7 @@
       "layer": 1,
       "cluster": 23,
       "size": 49,
-      "keywords": [
-        "radfahrer",
-        "fahrräder",
-        "stvo",
-        "haftpflichtversicherung",
-        "kennzeichenpflicht"
-      ],
+      "keywords": [],
       "parent": "2_7",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1609,13 +1045,7 @@
       "layer": 1,
       "cluster": 24,
       "size": 55,
-      "keywords": [
-        "radwege",
-        "von",
-        "radwegen",
-        "auch",
-        "zu"
-      ],
+      "keywords": [],
       "parent": "2_7",
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1626,13 +1056,7 @@
       "layer": 2,
       "cluster": 0,
       "size": 115,
-      "keywords": [
-        "flüge",
-        "kerosin",
-        "fliegen",
-        "werden",
-        "von"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1643,13 +1067,7 @@
       "layer": 2,
       "cluster": 1,
       "size": 142,
-      "keywords": [
-        "auf",
-        "km",
-        "autobahnen",
-        "lkw",
-        "autobahn"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1660,13 +1078,7 @@
       "layer": 2,
       "cluster": 2,
       "size": 83,
-      "keywords": [
-        "klimaticket",
-        "gratis",
-        "öffis",
-        "bei",
-        "verkehr"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1677,13 +1089,7 @@
       "layer": 2,
       "cluster": 3,
       "size": 352,
-      "keywords": [
-        "autos",
-        "von",
-        "werden",
-        "mit",
-        "nicht"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1694,13 +1100,7 @@
       "layer": 2,
       "cluster": 4,
       "size": 215,
-      "keywords": [
-        "verbieten",
-        "ist",
-        "das",
-        "nicht",
-        "klimaschutz"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1711,13 +1111,7 @@
       "layer": 2,
       "cluster": 5,
       "size": 206,
-      "keywords": [
-        "den",
-        "mit",
-        "wien",
-        "auf",
-        "nicht"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1728,13 +1122,7 @@
       "layer": 2,
       "cluster": 6,
       "size": 58,
-      "keywords": [
-        "parkplätze",
-        "wien",
-        "parkpickerl",
-        "parkgebühren",
-        "auf"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."
@@ -1745,13 +1133,7 @@
       "layer": 2,
       "cluster": 7,
       "size": 299,
-      "keywords": [
-        "radfahrer",
-        "radwege",
-        "von",
-        "fußgänger",
-        "zu"
-      ],
+      "keywords": [],
       "parent": null,
       "samples3": [
         "Die Bahn sollte für alle Menschen günstig sein und öfter fahren."

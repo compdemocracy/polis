@@ -13,6 +13,10 @@ pub const ANTHROPIC_VERSION: &str = "2026-10-21";
 /// The provider's API base.
 pub const DEFAULT_API_BASE: &str = "https://api.anthropic.com/v1";
 
+/// The most bytes of an HTTP 200 reply body that are read. A reply of 32,000
+/// output tokens is far smaller; a longer body is not read to its end.
+pub const MAX_REPLY_BYTES: usize = 4 * 1024 * 1024;
+
 /// Statuses after which the call is made once more.
 pub const RETRY_STATUSES: [u16; 6] = [429, 500, 502, 503, 504, 529];
 
@@ -46,6 +50,8 @@ impl Default for Settings {
 pub enum Ended {
     /// HTTP 200 and its body.
     Answered(Vec<u8>),
+    /// HTTP 200 with a body longer than [`MAX_REPLY_BYTES`].
+    Oversize,
     /// Any other HTTP status.
     Status(u16),
     /// An attempt passed its timeout.
@@ -166,10 +172,26 @@ async fn attempt(
         }
         return Attempt::Done(Ended::Status(status), Some(status));
     }
-    match resp.bytes().await {
-        Ok(b) => Attempt::Done(Ended::Answered(b.to_vec()), Some(200)),
-        Err(e) if e.is_timeout() => Attempt::Done(Ended::Timeout, Some(200)),
-        Err(_) => Attempt::Done(Ended::Connect, Some(200)),
+    if resp
+        .content_length()
+        .is_some_and(|n| n > MAX_REPLY_BYTES as u64)
+    {
+        return Attempt::Done(Ended::Oversize, Some(200));
+    }
+    let mut resp = resp;
+    let mut body = Vec::new();
+    loop {
+        match resp.chunk().await {
+            Ok(Some(chunk)) => {
+                if body.len() + chunk.len() > MAX_REPLY_BYTES {
+                    return Attempt::Done(Ended::Oversize, Some(200));
+                }
+                body.extend_from_slice(&chunk);
+            }
+            Ok(None) => return Attempt::Done(Ended::Answered(body), Some(200)),
+            Err(e) if e.is_timeout() => return Attempt::Done(Ended::Timeout, Some(200)),
+            Err(_) => return Attempt::Done(Ended::Connect, Some(200)),
+        }
     }
 }
 
