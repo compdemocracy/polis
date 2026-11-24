@@ -11,6 +11,7 @@ check. No command reduces the test selection or changes an assertion.
 | Admin | `make check-client-admin` | Node 24.22.1 |
 | Report | `make check-client-report` | Node 24.22.1 |
 | Topic map package | `make check-client-topic-map` | Node 24.22.1 |
+| Topic map page | `make check-client-topic-map-embed` | Node 24.22.1 |
 | ESLint | `make check-lint` | Node 24.22.1 |
 | Provenance | `make check-job-provenance` | Node 22.23.4 |
 | Job views | `make check-job-views` | Node 22.23.4, UTC |
