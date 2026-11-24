@@ -14,13 +14,17 @@ COPY --from=queue-rs . .
 # polis-topic-map, the topic map's generator, is built beside them: a run
 # whose daemon sets DELPHI_TOPIC_MAP_DOCUMENT=1 calls it to store its map
 # (polismath/delphi_storage/topic_map.py); `polis-topic-map from-run` makes
-# the map of a run stored before that.
+# the map of a run stored before that. polis-topic-names, the topic namer,
+# is built beside them too: a run given --namer calls it to name its topics
+# (umap_narrative/topic_namer.py).
 RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
-    cargo build --release --locked -p polis-queue-adapter -p polis-topic-map \
-      --bin polis-jobs --bin polis-delphi-shadow --bin polis-topic-map \
+    cargo build --release --locked -p polis-queue-adapter -p polis-topic-map -p polis-topic-names \
+      --bin polis-jobs --bin polis-delphi-shadow --bin polis-topic-map --bin polis-topic-names \
  && cp target/release/polis-jobs /polis-jobs \
  && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
  && cp target/release/polis-topic-map /polis-topic-map \
+ && cp target/release/polis-topic-names /polis-topic-names \
+ && test -x /polis-topic-names \
  && /polis-jobs --version && /polis-delphi-shadow --version \
  && /polis-topic-map 2>&1 | grep -q "polis-topic-map store"
 
@@ -168,6 +172,9 @@ COPY --from=polis-jobs /polis-delphi-shadow /usr/local/bin/polis-delphi-shadow
 # The topic map's generator. Nothing runs it unless a run's daemon sets
 # DELPHI_TOPIC_MAP_DOCUMENT=1.
 COPY --from=polis-jobs /polis-topic-map /usr/local/bin/polis-topic-map
+# The topic namer. Nothing runs it unless a run is given --namer, and no
+# admission gives one yet.
+COPY --from=polis-jobs /polis-topic-names /usr/local/bin/polis-topic-names
 
 # Copy source code from builder stage (already built into the package)
 COPY --from=builder /app/polismath/ ./polismath/
