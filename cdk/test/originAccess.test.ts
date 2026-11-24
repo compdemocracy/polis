@@ -9,9 +9,9 @@ import {
   REQUIRE_ORIGIN_HEADER_CONTEXT, RESTRICT_ALB_INGRESS_CONTEXT, readCidrsFile, validateIpv4Cidr,
 } from '../originAccess';
 
-// The production stack as deployed (`-c enableCiEc2=true`), bundling skipped.
+// The production context (`enableCiEc2` and `enableBuildBox` on), bundling skipped.
 const stack = (context: Record<string, unknown> = {}, props: Record<string, unknown> = {}) => {
-  const app = new cdk.App({ context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, ...context } });
+  const app = new cdk.App({ context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, enableBuildBox: true, ...context } });
   return new CdkStack(app, 'CdkStack', {
     env: { account: '123456789012', region: 'us-east-1' },
     envFile: '/dev/null',
