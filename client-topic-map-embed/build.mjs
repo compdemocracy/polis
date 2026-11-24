@@ -5,9 +5,11 @@
 //     each with the .headersJson sidecar the file-server and the static asset
 //     deploy read. nginx serves index.html at /topicsVizReport/<report id>.
 //
-//   node build.mjs --standalone <document.json> <out.html>
+//   node build.mjs --standalone <document.json | runs.json> <out.html>
 //     one HTML file with the script, the font and the document inlined: it
-//     loads nothing from anywhere, and opens from disk.
+//     loads nothing from anywhere, and opens from disk. runs.json is
+//     { reportId, list, current, documents } (src/offline.js): the page then
+//     answers its own requests for the map and the list of runs from it.
 import { build } from "esbuild";
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -60,7 +62,8 @@ async function main(args) {
     const [, docPath, outPath] = args;
     if (!docPath || !outPath) throw new Error("usage: node build.mjs --standalone <document.json> <out.html>");
     const doc = JSON.parse(readFileSync(docPath, "utf8"));
-    const docScript = `<script>window.POLIS_TOPIC_MAP_DOCUMENT = ${JSON.stringify(doc).replace(/</g, "\\u003c")};</script>\n`;
+    const global = doc.documents ? "POLIS_TOPIC_MAP_OFFLINE" : "POLIS_TOPIC_MAP_DOCUMENT";
+    const docScript = `<script>window.${global} = ${JSON.stringify(doc).replace(/</g, "\\u003c")};</script>\n`;
     const html = page(
       `data:font/woff2;base64,${font.toString("base64")}`,
       `<script>${scriptSafe(Buffer.from(js).toString("utf8"))}</script>`,
