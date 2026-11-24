@@ -2364,3 +2364,706 @@ fn a_stalled_second_look_keeps_its_bound_and_never_delays_a_members_vote() {
         ]
     );
 }
+
+/// What a first vote's request was told, when a request was left to tell.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Heard {
+    /// 502 with the pre-dispatch marker and no token: nginx gives the
+    /// request to Node, which creates the person itself.
+    Marked,
+    /// 200, unmarked, with a token that verifies for the person whose vote
+    /// was stored, and the follow-on complete.
+    Served,
+    /// 200, unmarked, with that token and the vote's receipt, its follow-on
+    /// degraded.
+    Degraded,
+    /// The request is gone: nobody is told.
+    Nothing,
+    /// Anything else: always a failure of the row.
+    Other(u16, bool),
+}
+
+/// One way a first vote ends, as the table drives it: the request's answer
+/// (none when the request is gone) and the vote's observation, which holds
+/// what its outcome was counted as.
+struct Seen {
+    answer: Option<Outgoing>,
+    observation: DispatchObservation,
+}
+
+/// The writer, its runtime and its database, shared by the rows that do not
+/// stop their runtime. Fields drop in order: the writer's pools, then the
+/// runtime, then the database.
+struct Table {
+    app: Arc<App>,
+    rt: tokio::runtime::Runtime,
+    stage: Stage,
+}
+
+/// A row of the table: how the first vote is driven, and what it must give.
+struct Case {
+    name: &'static str,
+    drive: fn(&Table) -> Seen,
+    /// The person and the vote both exist (or neither does).
+    both: bool,
+    heard: Heard,
+    /// What the vote's outcome is counted as, each time, exactly.
+    counted: &'static [&'static str],
+    /// The one accepted case: the COMMIT's acknowledgement lost and the
+    /// second look unable to tell, handed back with both written.
+    accepted: bool,
+}
+
+/// The first contact's four counters, in `/health` order of this table:
+/// handed back, confirmed, unresolved, unknown.
+const FIRST_CONTACT_COUNTERS: [&str; 4] = ["handed_back", "confirmed", "unresolved", "unknown"];
+const UNRESOLVED_ONCE: &[&str] = &["unresolved"];
+
+fn first_contact_counters() -> [u64; 4] {
+    [
+        &FIRST_CONTACT_HANDED_BACK,
+        &FIRST_CONTACT_CONFIRMED,
+        &FIRST_CONTACT_UNRESOLVED,
+        &FIRST_CONTACT_UNKNOWN,
+    ]
+    .map(|counter| counter.load(Ordering::Relaxed))
+}
+
+fn text_of(out: &Outgoing) -> String {
+    match &out.body {
+        Body::Empty => String::new(),
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        Body::Chunked(chunks) => String::from_utf8(chunks.concat()).unwrap(),
+    }
+}
+
+fn heard_of(out: &Outgoing, body: &str) -> Heard {
+    let marked = marked_for_node(out);
+    let token = body.contains(r#","auth":{"token":""#);
+    match (out.status, marked, token) {
+        (502, true, false) => Heard::Marked,
+        (200, false, true) => {
+            let value: Value = serde_json::from_str(body).unwrap();
+            if value["followOn"]["nextComment"] == "degraded" {
+                Heard::Degraded
+            } else {
+                Heard::Served
+            }
+        }
+        (status, marked, _) => Heard::Other(status, marked),
+    }
+}
+
+fn on_statement(tid: u64) -> Value {
+    json!({"conversation_id": "2plain", "tid": tid, "vote": crate::votes::WIRE_AGREE})
+}
+
+/// An observation asking for `fault` and holding the vote at `hold`.
+fn observed(fault: Option<Fault>, hold: &[Hold]) -> DispatchObservation {
+    let observation = DispatchObservation::default();
+    {
+        let mut state = observation.lock().unwrap();
+        state.fault = fault;
+        state.hold = hold.to_vec();
+    }
+    observation
+}
+
+/// A first vote on `tid` through the whole route, in a task of its own.
+fn spawned_first_vote(
+    rt: &tokio::runtime::Runtime,
+    app: &Arc<App>,
+    tid: u64,
+    observation: &DispatchObservation,
+) -> tokio::task::JoinHandle<Outgoing> {
+    let mut request = req(&on_statement(tid).to_string());
+    request.headers = first_request().headers;
+    let watched = observation.clone();
+    let app = app.clone();
+    rt.spawn(async move {
+        let mut route = Box::pin(crate::route::handle(app, request));
+        std::future::poll_fn(|cx| {
+            observing_dispatch(&watched, || std::future::Future::poll(route.as_mut(), cx))
+        })
+        .await
+    })
+}
+
+/// A first vote with `fault`, answered.
+fn answered(t: &Table, tid: u64, fault: Option<Fault>) -> Seen {
+    let (out, _, observation) = first_vote_with(&t.rt, &t.app, on_statement(tid), fault);
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// One connection of `pool` held by the test until it sends on the sender.
+fn parked(
+    rt: &tokio::runtime::Runtime,
+    pool: &Arc<db::Pool>,
+) -> (
+    std::sync::mpsc::Sender<()>,
+    tokio::task::JoinHandle<anyhow::Result<()>>,
+) {
+    let (ready, is_parked) = std::sync::mpsc::channel();
+    let (go, wait) = std::sync::mpsc::channel::<()>();
+    let pool = pool.clone();
+    let work = rt.spawn(async move {
+        pool.with(move |_| {
+            let _ = ready.send(());
+            let _ = wait.recv_timeout(Duration::from_secs(10));
+            Ok(())
+        })
+        .await
+    });
+    is_parked
+        .recv_timeout(Duration::from_secs(5))
+        .expect("a connection of the first contact's pool was held");
+    (go, work)
+}
+
+// The rows' drivers, in the table's order.
+
+/// Row 1: The worker paused before its transaction begins, past the request's
+/// whole wait: the request abandons the vote first. Let go, the worker rolls
+/// back at its claim.
+fn abandoned_before_the_transaction(t: &Table) -> Seen {
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::PauseBeforeCommit);
+    let out = t.rt.block_on(task).unwrap();
+    observation.lock().unwrap().worker_released = true;
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 2: Both of the first contact's connections held: the worker never runs
+/// (its pool's acquire bound passes), and the request is told at once.
+fn the_worker_never_runs(t: &Table) -> Seen {
+    let lane = t
+        .app
+        .post_votes
+        .as_ref()
+        .unwrap()
+        .first_contact
+        .as_ref()
+        .unwrap()
+        .pool
+        .clone();
+    let held: Vec<_> = (0..first_contact_limits().size)
+        .map(|_| parked(&t.rt, &lane))
+        .collect();
+    let started = std::time::Instant::now();
+    let seen = answered(t, 7, None);
+    let took = started.elapsed();
+    for (go, work) in held {
+        go.send(()).unwrap();
+        t.rt.block_on(work).unwrap().unwrap();
+    }
+    assert!(
+        took < Duration::from_secs(1),
+        "a worker that never runs is answered at once, not after {took:?}"
+    );
+    seen
+}
+
+/// Row 3: The worker claims its COMMIT, and its session is ended before it reads
+/// the transaction's id: the read fails, nothing is committed.
+fn the_transaction_id_read_fails_after_the_claim(t: &Table) -> Seen {
+    let observation = observed(None, &[Hold::AfterClaim]);
+    let task = spawned_first_vote(&t.rt, &t.app, 7, &observation);
+    assert!(
+        eventually(|| reached(&observation, Hold::AfterClaim)),
+        "the worker claimed its COMMIT"
+    );
+    let ended: Vec<bool> = t
+        .stage
+        .db
+        .connect()
+        .query(
+            "select pg_terminate_backend(pid, 5000) from pg_stat_activity
+             where datname = current_database() and pid <> pg_backend_pid()
+             and state like 'idle in transaction%'",
+            &[],
+        )
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    assert_eq!(ended, vec![true], "the claimed transaction's session ended");
+    observation.lock().unwrap().let_go.push(Hold::AfterClaim);
+    let out = t.rt.block_on(task).unwrap();
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 4: Nothing goes wrong.
+fn no_fault(t: &Table) -> Seen {
+    answered(t, 7, None)
+}
+
+/// Row 5: The worker claims its COMMIT late and is held after the claim until
+/// the request's wait has run out: the request waits for the commit.
+fn held_after_the_claim_past_the_wait(t: &Table) -> Seen {
+    let started = std::time::Instant::now();
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::PauseBeforeCommit);
+    observation.lock().unwrap().hold.push(Hold::AfterClaim);
+    std::thread::sleep(Duration::from_millis(2600).saturating_sub(started.elapsed()));
+    observation.lock().unwrap().worker_released = true;
+    assert!(
+        eventually(|| reached(&observation, Hold::AfterClaim)),
+        "the worker claimed its COMMIT"
+    );
+    assert!(
+        eventually(|| reached(&observation, Hold::AfterRequestWait)),
+        "the request's wait ran out"
+    );
+    std::thread::sleep(Duration::from_millis(50));
+    assert!(
+        !task.is_finished(),
+        "no answer while the claimed COMMIT is unsent"
+    );
+    observation.lock().unwrap().let_go.push(Hold::AfterClaim);
+    let out = t.rt.block_on(task).unwrap();
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 6: The COMMIT lands, its acknowledgement lost: the second look finds it
+/// committed.
+fn lost_acknowledgement_found_committed(t: &Table) -> Seen {
+    answered(t, 7, Some(Fault::AckLostAfterCommit))
+}
+
+/// Row 7: The COMMIT refused at its end (a deferred trigger): the second look
+/// finds it aborted.
+fn commit_refused_found_aborted(t: &Table) -> Seen {
+    answered(t, 9, None)
+}
+
+/// Row 7b: The session ended during COMMIT: the second look finds it aborted.
+/// On a writer of its own: the ended session's connection can stay in the
+/// first contact's pool, and the next first vote that takes it fails before
+/// its transaction, which would make the rows after this one about that.
+fn session_ended_during_commit_found_aborted(t: &Table) -> Seen {
+    let own = app(&t.stage, &t.rt, true);
+    let (out, _, observation) = first_vote_with(&t.rt, &own, on_statement(10), None);
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 8: The COMMIT lands, its acknowledgement lost, and the second look's read
+/// fails.
+fn lost_acknowledgement_read_fails(t: &Table) -> Seen {
+    answered(t, 7, Some(Fault::StatusReadFails))
+}
+
+/// Row 8b: As 8, and every read finds the transaction still in progress.
+fn lost_acknowledgement_still_in_progress(t: &Table) -> Seen {
+    answered(t, 7, Some(Fault::StatusInProgress))
+}
+
+/// Row 8c: As 8, and the second look's read stalls past the look's bound.
+fn lost_acknowledgement_look_past_its_bound(t: &Table) -> Seen {
+    answered(t, 7, Some(Fault::StatusReadStalls))
+}
+
+/// Row 9: The task aborted while the second look's read is stalled; the read let
+/// go at once, inside the look's bound: it finds the COMMIT committed.
+fn task_aborted_look_finds_committed(t: &Table) -> Seen {
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::StatusReadStalls);
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    observation.lock().unwrap().worker_released = true;
+    let out = t.rt.block_on(task).unwrap();
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 10: The task aborted, and the second look's read stalls past its bound.
+fn task_aborted_look_past_its_bound(t: &Table) -> Seen {
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::StatusReadStalls);
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    let out = t.rt.block_on(task).unwrap();
+    observation.lock().unwrap().worker_released = true;
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 11: The request cancelled and the task aborted while the second look's
+/// read stalls past its bound: nobody is told, and the look counts.
+fn request_and_task_gone_look_past_its_bound(t: &Table) -> Seen {
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::StatusReadStalls);
+    task.abort();
+    assert!(matches!(t.rt.block_on(task), Err(error) if error.is_cancelled()));
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    assert!(
+        eventually(|| !observation.lock().unwrap().counted.is_empty()),
+        "the second look counted its outcome"
+    );
+    observation.lock().unwrap().worker_released = true;
+    Seen {
+        answer: None,
+        observation,
+    }
+}
+
+/// Row 12: The request cancelled and the task aborted while the worker waits
+/// inside its transaction; let go, it commits with nobody to tell.
+fn request_and_task_gone_during_creation(t: &Table) -> Seen {
+    let (observation, task) = paused_first_vote(&t.rt, &t.app, Fault::PauseInTransaction);
+    task.abort();
+    assert!(matches!(t.rt.block_on(task), Err(error) if error.is_cancelled()));
+    observation.lock().unwrap().task.as_ref().unwrap().abort();
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    observation.lock().unwrap().worker_released = true;
+    Seen {
+        answer: None,
+        observation,
+    }
+}
+
+/// Row 13: The COMMIT lands, its acknowledgement lost, and the second look's
+/// confirmation is written only after the request's wait has run out.
+fn confirmed_after_the_request_began_waiting(t: &Table) -> Seen {
+    let observation = observed(
+        Some(Fault::AckLostAfterCommit),
+        &[Hold::BeforeLookSettles, Hold::AfterRequestWait],
+    );
+    let task = spawned_first_vote(&t.rt, &t.app, 7, &observation);
+    assert!(eventually(|| reached(
+        &observation,
+        Hold::BeforeLookSettles
+    )));
+    assert!(eventually(|| reached(&observation, Hold::AfterRequestWait)));
+    observation
+        .lock()
+        .unwrap()
+        .let_go
+        .push(Hold::BeforeLookSettles);
+    assert!(eventually(|| observation.lock().unwrap().finished));
+    assert!(
+        observation.lock().unwrap().counted.is_empty(),
+        "counted by the request that answers with it, not before"
+    );
+    observation
+        .lock()
+        .unwrap()
+        .let_go
+        .push(Hold::AfterRequestWait);
+    let out = t.rt.block_on(task).unwrap();
+    Seen {
+        answer: Some(out),
+        observation,
+    }
+}
+
+/// Row 14: The runtime stopped while the second look's read stalls: the look,
+/// the task and the request are dropped with it, and nobody is told.
+fn runtime_stopped_during_the_look(t: &Table) -> Seen {
+    let stopping = runtime();
+    let app = app(&t.stage, &stopping, true);
+    let (observation, task) = paused_first_vote(&stopping, &app, Fault::StatusReadStalls);
+    stopping.shutdown_background();
+    assert!(
+        eventually(|| !observation.lock().unwrap().counted.is_empty()),
+        "the stopped look's outcome was counted"
+    );
+    observation.lock().unwrap().worker_released = true;
+    drop(task);
+    Seen {
+        answer: None,
+        observation,
+    }
+}
+
+/// Every way a first vote can end, from which side claims its fate first and
+/// where its worker, its second look and its request are held or dropped.
+/// For each: the person and the vote both exist or neither does (users,
+/// participants, participants_extended, votes, votes_latest_unique); the
+/// request's answer, if a request is left (its status, the pre-dispatch
+/// marker, a token that verifies for the person whose vote was stored); and
+/// exactly what the vote's outcome was counted as, across the first
+/// contact's four counters (`counted`, recorded per vote; the process-wide
+/// counters, which the module's other tests also raise, rise by at least as
+/// much). And, for every row in one place: a marked hand-back never comes
+/// with the person and the vote committed, except in the one accepted case,
+/// a COMMIT whose acknowledgement was lost and whose second look cannot
+/// tell, counted unresolved exactly once.
+#[test]
+fn every_way_a_first_vote_ends_is_answered_once_and_counted_once() {
+    let stage = stage("first_contact_table");
+    // The vote on statement 9 is refused at COMMIT; on statement 10 the
+    // session ends during COMMIT.
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "CREATE FUNCTION refuse_vote() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN RAISE EXCEPTION 'fixture'; END $$;
+             CREATE CONSTRAINT TRIGGER refuse_at_commit AFTER INSERT ON votes
+             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+             WHEN (NEW.tid = 9) EXECUTE FUNCTION refuse_vote();
+             CREATE FUNCTION end_session() RETURNS trigger LANGUAGE plpgsql AS $$
+             BEGIN PERFORM pg_terminate_backend(pg_backend_pid()); RETURN NULL; END $$;
+             CREATE CONSTRAINT TRIGGER end_at_commit AFTER INSERT ON votes
+             DEFERRABLE INITIALLY DEFERRED FOR EACH ROW
+             WHEN (NEW.tid = 10) EXECUTE FUNCTION end_session();",
+        )
+        .unwrap();
+    let rt = runtime();
+    let app = app(&stage, &rt, true);
+    let t = Table { app, rt, stage };
+    let neither = false;
+    let both = true;
+    let table = [
+        Case {
+            name: "1. the request claims first: the worker paused before its transaction, past the wait",
+            drive: abandoned_before_the_transaction,
+            both: neither,
+            heard: Heard::Marked,
+            counted: &["handed_back"],
+            accepted: false,
+        },
+        Case {
+            name: "2. the request claims first: the worker never runs (its pool's connections held)",
+            drive: the_worker_never_runs,
+            both: neither,
+            heard: Heard::Marked,
+            counted: &["handed_back"],
+            accepted: false,
+        },
+        Case {
+            name: "3. the worker claims: the transaction's id read fails after the claim",
+            drive: the_transaction_id_read_fails_after_the_claim,
+            both: neither,
+            heard: Heard::Marked,
+            counted: &["handed_back"],
+            accepted: false,
+        },
+        Case {
+            name: "4. the worker claims: acknowledged",
+            drive: no_fault,
+            both,
+            heard: Heard::Served,
+            counted: &[],
+            accepted: false,
+        },
+        Case {
+            name: "5. the worker claims late and is held after the claim past the wait: acknowledged on release",
+            drive: held_after_the_claim_past_the_wait,
+            both,
+            heard: Heard::Degraded,
+            counted: &[],
+            accepted: false,
+        },
+        Case {
+            name: "6. the worker claims: acknowledgement lost, the look finds it committed",
+            drive: lost_acknowledgement_found_committed,
+            both,
+            heard: Heard::Degraded,
+            counted: &["confirmed"],
+            accepted: false,
+        },
+        Case {
+            name: "7. the worker claims: COMMIT refused, the look finds it aborted",
+            drive: commit_refused_found_aborted,
+            both: neither,
+            heard: Heard::Marked,
+            counted: &["handed_back"],
+            accepted: false,
+        },
+        Case {
+            name: "7b. the worker claims: the session ended during COMMIT, the look finds it aborted",
+            drive: session_ended_during_commit_found_aborted,
+            both: neither,
+            heard: Heard::Marked,
+            counted: &["handed_back"],
+            accepted: false,
+        },
+        Case {
+            name: "8. the worker claims: acknowledgement lost, the look's read fails",
+            drive: lost_acknowledgement_read_fails,
+            both,
+            heard: Heard::Marked,
+            counted: UNRESOLVED_ONCE,
+            accepted: true,
+        },
+        Case {
+            name: "8b. the worker claims: acknowledgement lost, the look finds it still in progress",
+            drive: lost_acknowledgement_still_in_progress,
+            both,
+            heard: Heard::Marked,
+            counted: UNRESOLVED_ONCE,
+            accepted: true,
+        },
+        Case {
+            name: "8c. the worker claims: acknowledgement lost, the look stalls past its bound",
+            drive: lost_acknowledgement_look_past_its_bound,
+            both,
+            heard: Heard::Marked,
+            counted: UNRESOLVED_ONCE,
+            accepted: true,
+        },
+        Case {
+            name: "9. the worker claims: the task aborted during the look, which finds it committed",
+            drive: task_aborted_look_finds_committed,
+            both,
+            heard: Heard::Degraded,
+            counted: &["confirmed"],
+            accepted: false,
+        },
+        Case {
+            name: "10. the worker claims: the task aborted, the look stalls past its bound",
+            drive: task_aborted_look_past_its_bound,
+            both,
+            heard: Heard::Marked,
+            counted: UNRESOLVED_ONCE,
+            accepted: true,
+        },
+        Case {
+            name: "11. the worker claims: the request and the task gone, the look stalls past its bound",
+            drive: request_and_task_gone_look_past_its_bound,
+            both,
+            heard: Heard::Nothing,
+            counted: UNRESOLVED_ONCE,
+            accepted: false,
+        },
+        Case {
+            name: "12. the worker claims: the request and the task gone during creation, acknowledged",
+            drive: request_and_task_gone_during_creation,
+            both,
+            heard: Heard::Nothing,
+            counted: &[],
+            accepted: false,
+        },
+        Case {
+            name: "13. the worker claims: acknowledgement lost, confirmed after the request began waiting",
+            drive: confirmed_after_the_request_began_waiting,
+            both,
+            heard: Heard::Degraded,
+            counted: &["confirmed"],
+            accepted: false,
+        },
+        Case {
+            name: "14. the worker claims: the runtime stopped during the look",
+            drive: runtime_stopped_during_the_look,
+            both,
+            heard: Heard::Nothing,
+            counted: &["unknown"],
+            accepted: false,
+        },
+    ];
+    let mut failures = vec![];
+    for case in &table {
+        let before = person_and_vote(&t.stage);
+        let counters = first_contact_counters();
+        let seen = (case.drive)(&t);
+        // Nothing of the vote is left waiting: every place let go, the task
+        // ended, and its blocking work and second look given time to finish.
+        {
+            let mut state = seen.observation.lock().unwrap();
+            state.worker_released = true;
+            state.let_go = vec![
+                Hold::AfterClaim,
+                Hold::BeforeLookSettles,
+                Hold::AfterRequestWait,
+            ];
+        }
+        assert!(
+            eventually(|| seen.observation.lock().unwrap().finished),
+            "{}: the first-contact task never ended",
+            case.name
+        );
+        std::thread::sleep(Duration::from_millis(500));
+        let now = person_and_vote(&t.stage);
+        let committed = if now == after(before, true) {
+            true
+        } else {
+            assert_eq!(
+                now, before,
+                "{}: the person and the vote together or neither \
+                 (users, participants, participants_extended, votes, votes_latest_unique)",
+                case.name
+            );
+            false
+        };
+        let counted = seen.observation.lock().unwrap().counted.clone();
+        let (heard, body) = match &seen.answer {
+            None => (Heard::Nothing, String::new()),
+            Some(out) => {
+                let body = text_of(out);
+                (heard_of(out, &body), body)
+            }
+        };
+        // The property the table exists for, for every row.
+        if heard == Heard::Marked && committed {
+            if !(case.accepted && counted == UNRESOLVED_ONCE) {
+                failures.push(format!(
+                    "{}: a marked hand-back with the person and the vote committed, \
+                     outside the accepted case (counted {counted:?})",
+                    case.name
+                ));
+            }
+        } else if case.accepted {
+            failures.push(format!(
+                "{}: the accepted case was {heard:?}, committed {committed}",
+                case.name
+            ));
+        }
+        if committed != case.both {
+            failures.push(format!(
+                "{}: committed {committed}, expected {}",
+                case.name, case.both
+            ));
+        }
+        if heard != case.heard {
+            failures.push(format!(
+                "{}: heard {heard:?}, expected {:?}: {body}",
+                case.name, case.heard
+            ));
+        }
+        if counted != case.counted {
+            failures.push(format!(
+                "{}: counted {counted:?}, expected {:?}",
+                case.name, case.counted
+            ));
+        }
+        let raised = first_contact_counters();
+        for (i, name) in FIRST_CONTACT_COUNTERS.iter().enumerate() {
+            let expected = case.counted.iter().filter(|c| *c == name).count() as u64;
+            if raised[i] < counters[i] + expected {
+                failures.push(format!(
+                    "{}: the process's {name} counter rose {} for {expected} counted",
+                    case.name,
+                    raised[i] - counters[i]
+                ));
+            }
+        }
+        if matches!(heard, Heard::Served | Heard::Degraded) {
+            // The token names the person whose vote was stored.
+            let pid = i32::try_from(claims(&t.stage, reply_token(&body)).2).unwrap();
+            if stored_votes(&t.stage, pid, 7) != vec![agree()] {
+                failures.push(format!(
+                    "{}: the token's participant {pid} has no stored vote",
+                    case.name
+                ));
+            }
+        }
+        eprintln!(
+            "first vote table: {}: heard {heard:?}, committed {committed}, counted {counted:?}",
+            case.name
+        );
+    }
+    assert!(failures.is_empty(), "rows failed:\n{}", failures.join("\n"));
+}
