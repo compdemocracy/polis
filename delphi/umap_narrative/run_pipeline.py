@@ -989,9 +989,18 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
     from umap_narrative import topic_namer
     from umap_narrative.topic_naming import _conventional_labels
 
+    # A run naming another run's topics whose layout holds a comment its own
+    # selection no longer keeps sends nothing (polismath/job_child/names_of.py).
+    refused = naming.pop("source_refused", None) if naming is not None else None
     with step_log.step("topic_names_call") as facts:
         try:
+            if refused is not None:
+                raise LookupError(refused)
             hierarchy = topic_namer.build_hierarchy(layer_data, cluster_layers, comment_texts, document_map)
+        except LookupError:
+            logger.error(f"The topics are not sent to a model ({refused}); keeping keyword labels")
+            hierarchy = None
+            result = topic_namer._result(namer, topic_namer.NAMER_FAILED, refused)
         except Exception as e:  # noqa: BLE001 - naming must never fail the run.
             logger.error(f"The topic hierarchy could not be built ({type(e).__name__}); keeping keyword labels")
             hierarchy = None
@@ -1454,6 +1463,38 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
     return dynamo_storage
 
 
+def _store_copy(export_dynamo, conversation_id, source, document_map, cluster_layers, comment_texts):
+    """A named run's first writes: the source run's positions and assignments,
+    row for row as the source stored them (so its batch holds the same bytes),
+    and the topics of that layout. No embedding is made or stored, and no
+    conversation metadata: the run embedded nothing. Only through the Postgres
+    writer, whose base is this run's own scope."""
+    if not export_dynamo:
+        return None
+    from polismath.delphi_storage.writer import WriterResource
+    from polismath.job_child import names_of
+
+    raw_endpoint = os.environ.get("DYNAMODB_ENDPOINT")
+    endpoint_url = raw_endpoint if raw_endpoint and raw_endpoint.strip() else None
+    dynamo_storage = DynamoDBStorage(region_name=os.environ.get("AWS_REGION", "us-east-1"),
+                                     endpoint_url=endpoint_url)
+    if not isinstance(dynamo_storage.dynamodb, WriterResource):
+        raise ValueError("a run naming another run's topics writes only through the Postgres writer")
+    for family in names_of.FAMILIES:
+        table = dynamo_storage.dynamodb.Table(family)
+        for item in source.rows[family]:
+            table.put_item(Item=item)
+    logger.info(f"Copied the source run's {', '.join(names_of.FAMILIES)} "
+                f"({sum(len(source.rows[f]) for f in names_of.FAMILIES)} rows)")
+    topic_models = DataConverter.batch_convert_topics(
+        conversation_id, cluster_layers, document_map, comment_texts,
+        topic_names={}, characteristics={},
+    )
+    result = dynamo_storage.batch_create_cluster_topics(topic_models)
+    logger.info(f"Stored {result['success']} topics with {result['failure']} failures")
+    return dynamo_storage
+
+
 def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
                           exclude_comment_selections, total, selection=None, namer=None,
                           namer_dir=None):
@@ -1471,6 +1512,13 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
     if selected is not None and not facts["comments_selected"]:
         logger.error(f"Selection {selection} keeps no comment with text: nothing to lay out.")
         return False
+    # A run that names another run's topics (the frame's names_of): never a
+    # fresh layout. Only with a namer and the participant-shown rule; the
+    # daemon refuses anything else before the child starts.
+    from polismath.job_child import names_of
+    source = names_of.load()
+    if source is not None and (namer is None or selected is None):
+        raise ValueError("a run naming another run's topics needs a namer and a selection")
     total["n_comments"] = len(comments)
 
     # Generate a job_id for this pipeline run
@@ -1482,26 +1530,45 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
     conversation_name = metadata.get("conversation_name", f"Conversation {zid}")
 
     # Process comments
-    if selected is None:
-        document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
-            process_comments(comments, conversation_id)
-        )
-        embedded = None
+    refused = None
+    if source is not None:
+        # The source's layout and clusters; no embedding, UMAP or EVoC. The
+        # texts are this run's own read of the same comments.
+        texts = {int(c["tid"]): c["txt"] for c in comments}
+        missing = names_of.not_shown(source, selected, texts)
+        with step_log.step("names_of", n_comments=len(source.comment_ids)) as copied:
+            copied["source_job"] = source.job_id
+            copied["source_batch"] = source.batch_id
+            copied["layers"] = len(source.cluster_layers)
+            copied["not_shown"] = len(missing)
+        refused = "source_comment_not_shown" if missing else None
+        comment_ids = list(source.comment_ids)
+        comment_texts = [texts.get(t) or "" for t in comment_ids]
+        document_map, cluster_layers = source.document_map, source.cluster_layers
+        with step_log.step("store_base", n_comments=len(comment_ids)):
+            dynamo_storage = _store_copy(export_dynamo, conversation_id, source, document_map,
+                                         cluster_layers, comment_texts)
     else:
-        embedded, document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
-            process_selected_comments(comments, conversation_id, selected)
-        )
+        if selected is None:
+            document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
+                process_comments(comments, conversation_id)
+            )
+            embedded = None
+        else:
+            embedded, document_map, document_vectors, cluster_layers, comment_texts, comment_ids = (
+                process_selected_comments(comments, conversation_id, selected)
+            )
 
-    with step_log.step("store_base", n_comments=len(comment_ids)):
-        dynamo_storage = _store_base(export_dynamo, conversation_id, document_vectors, document_map,
-                                     cluster_layers, comment_texts, comment_ids, metadata,
-                                     embedded=embedded)
+        with step_log.step("store_base", n_comments=len(comment_ids)):
+            dynamo_storage = _store_base(export_dynamo, conversation_id, document_vectors, document_map,
+                                         cluster_layers, comment_texts, comment_ids, metadata,
+                                         embedded=embedded)
 
     # Process layers, store characteristics, and create visualizations. A run
     # that names a namer is told so, and learns how its naming ended (for the
     # map's provenance below and for the manifest); every other run's call is
     # what it was.
-    naming = None if namer is None else {}
+    naming = None if namer is None else ({} if refused is None else {"source_refused": refused})
     extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir, "naming": naming}
     process_layers_and_create_visualizations(
         conversation_id,

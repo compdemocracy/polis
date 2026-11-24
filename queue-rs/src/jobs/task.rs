@@ -489,6 +489,38 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             }
         }
     }
+    // A run that names another run's topics (`config.names_of`): the source
+    // run's positions and assignments, read from its stored results in
+    // Postgres with the queue login, written into the attempt directory and
+    // named in the frame. Any source that cannot be named is the job's
+    // recorded outcome before a child starts. Without it the frame is
+    // unchanged.
+    if claim.stage == "delphi_full_pipeline" {
+        let named = super::names_of::source(&admission.config).and_then(|source| match source {
+            None => Ok(None),
+            Some(job) => super::names_of::read(
+                |name, args| rpc.committed(name, args),
+                &claim.env,
+                &job,
+                admission.zid,
+            )
+            .map(Some),
+        });
+        let written = named.map(|source| {
+            source.map(|s| {
+                super::names_of::write(&dir, &s).map_err(|_| super::names_of::Refusal::Unreadable)
+            })
+        });
+        match written {
+            Ok(None) => {}
+            Ok(Some(Ok(value))) => frame["names_of"] = value,
+            Ok(Some(Err(refusal))) | Err(refusal) => {
+                refuse_without_child(&ctx, &mut rpc, &claim, refusal.permanent(), refusal.word());
+                let _ = ctx.journal.remove(&claim.attempt_id);
+                return;
+            }
+        }
+    }
     let prepared =
         std::fs::create_dir_all(&dir).and_then(|_| std::fs::write(&frame_path, frame.to_string()));
     let command = child::command_args(&cfg.app_path, &claim, &admission, &phase);

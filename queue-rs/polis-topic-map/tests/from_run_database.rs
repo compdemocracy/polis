@@ -404,3 +404,95 @@ fn the_catalog_refuses_the_family_under_another_key() {
         "{err:?}"
     );
 }
+
+/// Two runs that name one keyword run's topics, admitted through the
+/// release's own admission function: one job per namer, each in its own
+/// scope, and the same request asked again (a restart, with fresh ids) is the
+/// same job. The daemon's source read takes the keyword run's two families
+/// from its stored results, byte for byte, and refuses a source that has not
+/// finished, does not exist, or is of another conversation.
+#[test]
+fn two_namers_of_one_keyword_run_are_two_jobs_reading_its_stored_families() {
+    use polis_queue_adapter::jobs::names_of::{self, Refusal};
+    use polis_queue_adapter::shadow::plan;
+    let db = Db::new();
+    let run = support::run("bg2050", 1424, None);
+    let (source, _) = db.writer_run(
+        "delphi",
+        json!({"selection": "participant_visible/1"}),
+        &run,
+        true,
+    );
+    let source_config = db.record(&source.job_id)["config_effective"].clone();
+    let read = |job: &str, zid: i64| {
+        names_of::read(
+            |name, args| {
+                let sql = match name {
+                    "pd_run_record" => "SELECT pd_run_record($1,$2::text::uuid)",
+                    "pd_result_artifact_wire" => {
+                        "SELECT pd_result_artifact_wire($1,$2::text::uuid,$3)"
+                    }
+                    _ => panic!("unexpected call {name}"),
+                };
+                let texts: Vec<String> = args
+                    .iter()
+                    .map(|v| v.as_str().unwrap().to_owned())
+                    .collect();
+                let refs: Vec<&(dyn postgres::types::ToSql + Sync)> = texts
+                    .iter()
+                    .map(|s| s as &(dyn postgres::types::ToSql + Sync))
+                    .collect();
+                let row = db.executor().query_one(sql, &refs).unwrap();
+                Ok(row.get::<_, Option<Value>>(0).unwrap_or(Value::Null))
+            },
+            ENV,
+            job,
+            zid,
+        )
+    };
+    let read_source = read(&source.job_id, 1424).unwrap();
+    assert_eq!(
+        read_source.wires,
+        vec![run.positions.clone(), run.assignments.clone()]
+    );
+    assert_eq!(read_source.plan.batch_id, source.batch_id);
+
+    let admit = |a: &polis_queue_adapter::shadow::db::Admission| {
+        db.call(
+            "SELECT pd_writer_admit($1,1424,$2,'generated-test',$3,$4,$5,$6,'delphi_full_pipeline',NULL,$7,repeat('b',40))",
+            &[&ENV, &a.scope, &a.key, &a.request_sha, &a.job_id, &a.run_id, &a.config],
+        )
+    };
+    let mut jobs = Vec::new();
+    for model in ["claude-haiku-5-5", "claude-sonnet-5-5"] {
+        let naming = json!({"by": "model", "model": model, "prompt": "polis-topic-names/1", "thinking": "default"});
+        let a = plan::names_admission(1424, &source.job_id, &source_config, &naming).unwrap();
+        let first = admit(&a);
+        assert_eq!(first["outcome"], "enqueued", "{first}");
+        let again = plan::names_admission(1424, &source.job_id, &source_config, &naming).unwrap();
+        assert_ne!(again.job_id, a.job_id);
+        let second = admit(&again);
+        assert_eq!(second["outcome"], "existing", "{second}");
+        assert_eq!(second["job_id"], first["job_id"]);
+        let record = db.record(first["job_id"].as_str().unwrap());
+        assert_eq!(
+            record["config_effective"]["names_of"],
+            source.job_id.as_str()
+        );
+        assert_eq!(record["config_effective"]["result_scope"], a.scope.as_str());
+        jobs.push(first["job_id"].as_str().unwrap().to_owned());
+    }
+    assert_ne!(jobs[0], jobs[1]);
+    assert_ne!(jobs[0], source.job_id);
+    // The keyword run is untouched: still its own record, scope and families.
+    assert_eq!(read(&source.job_id, 1424).unwrap(), read_source);
+
+    // A named job, still queued, is no source; nor is a job that does not
+    // exist, nor the keyword run asked for by another conversation.
+    assert_eq!(read(&jobs[0], 1424), Err(Refusal::Unfinished));
+    assert_eq!(
+        read(&Uuid::new_v4().to_string(), 1424),
+        Err(Refusal::Missing)
+    );
+    assert_eq!(read(&source.job_id, 1425), Err(Refusal::OtherConversation));
+}

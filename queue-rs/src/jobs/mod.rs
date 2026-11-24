@@ -15,6 +15,7 @@ pub mod journal;
 pub mod lease;
 pub mod logs;
 pub mod manifest;
+pub mod names_of;
 pub mod outcome;
 pub mod readiness;
 pub mod reaper;

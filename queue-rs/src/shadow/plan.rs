@@ -530,6 +530,109 @@ pub fn rule_admission(
     a
 }
 
+/// The word a namer is recorded under: `<model>.p<prompt version>.<thinking>`
+/// (`claude-haiku-5-5.p1.default`), the word `polis-topic-names` records.
+/// Refused unless the model, prompt and thinking are ones the child passes on
+/// (`jobs::child::namer`), so an admission never names a namer no child runs.
+pub fn namer_word(naming: &Value) -> Result<String, &'static str> {
+    use crate::jobs::child::{NAMER_MODELS, NAMER_PROMPTS, NAMER_THINKING};
+    let field = |key: &str, known: &[&'static str], refusal: &'static str| {
+        naming
+            .get(key)
+            .and_then(Value::as_str)
+            .and_then(|v| known.iter().copied().find(|k| *k == v))
+            .ok_or(refusal)
+    };
+    let fields = naming.as_object().ok_or("naming_not_an_object")?;
+    if fields.get("by").and_then(Value::as_str) != Some("model") {
+        return Err("naming_unknown_by");
+    }
+    if fields
+        .keys()
+        .any(|k| !matches!(k.as_str(), "by" | "model" | "prompt" | "thinking"))
+    {
+        return Err("naming_unknown_key");
+    }
+    let model = field("model", &NAMER_MODELS, "naming_unknown_model")?;
+    let prompt = field("prompt", &NAMER_PROMPTS, "naming_unknown_prompt")?;
+    let thinking = field("thinking", &NAMER_THINKING, "naming_unknown_thinking")?;
+    let version = prompt.rsplit('/').next().unwrap_or(prompt);
+    Ok(format!("{model}.p{version}.{thinking}"))
+}
+
+/// The publication scope of runs named by `namer` (a [`namer_word`]): its
+/// own, so a named run never moves the keyword run's current pointer and two
+/// namers never move each other's.
+pub fn names_scope(namer: &str) -> String {
+    format!("{SCOPE}:names:{namer}")
+}
+
+/// The admission of a run that names the topics of `source`, a finished
+/// keyword run of conversation `zid` under [`SELECTION`], with `naming` (the
+/// configuration's `naming` object, `by: model`). `source_config` is the
+/// source's own `config_effective`, read from its run record in Postgres.
+///
+/// Identity. The key is `shadow:names:<zid>:<source, no dashes>:<namer>`,
+/// derived from the durable history alone, so a restart that asks again gets
+/// the same job back (`existing`) and two identical requests are one job. The
+/// scope is the namer's ([`names_scope`]). So a named run is never its
+/// source's duplicate (another key shape and another scope), and two named
+/// runs of one source with different namers are two jobs (another key and
+/// another scope). The configuration carries the source's selection and
+/// census digests, `names_of` and `naming`, and is stored in the job's run
+/// record (`config_effective`).
+///
+/// Refused: a source under another comment rule (only the comments
+/// participants are shown are ever sent to a model), a source that is itself
+/// a named run (only keyword runs are named), and a namer no child runs.
+pub fn names_admission(
+    zid: i32,
+    source: &str,
+    source_config: &Value,
+    naming: &Value,
+) -> Result<Admission, &'static str> {
+    let source = uuid::Uuid::parse_str(source).map_err(|_| "names_of_not_a_job")?;
+    if source_config["selection"] != SELECTION {
+        return Err("names_of_source_other_rule");
+    }
+    if !source_config["names_of"].is_null() || source_config["naming"]["by"] == "model" {
+        return Err("names_of_source_named");
+    }
+    let namer = namer_word(naming)?;
+    let shadow = &source_config["shadow"];
+    let source = source.hyphenated().to_string();
+    let config = json!({
+        "selection": SELECTION,
+        "exclude_comment_selections": false,
+        "names_of": source,
+        "naming": naming,
+        "shadow": {
+            "schema": "delphi-shadow/2",
+            "comment_set_sha256": shadow["comment_set_sha256"],
+            "comments": shadow["comments"],
+            "selection": SELECTION,
+            "selection_sha256": shadow["selection_sha256"],
+            "selected": shadow["selected"],
+            "size_class": shadow["size_class"],
+            "names_of": source,
+            "namer": namer,
+            "scheduler": concat!("polis-delphi-shadow ", env!("CARGO_PKG_VERSION")),
+        }
+    });
+    let scope = names_scope(&namer);
+    let key = format!("shadow:names:{zid}:{}:{namer}", source.replace('-', ""));
+    let request = json!({"zid": zid, "kind": "names", "scope": scope, "config": config});
+    Ok(Admission {
+        zid,
+        scope,
+        key,
+        request_sha: sha256_hex(request.to_string().as_bytes()),
+        job_id: uuid::Uuid::new_v4(),
+        run_id: uuid::Uuid::new_v4(),
+        config,
+    })
+}
+
 /// Rest after a run: d·(1−duty)/duty.
 pub fn rest_ms(duty: f64, run_ms: i64) -> i64 {
     ((run_ms.max(0) as f64) * (1.0 - duty) / duty).round() as i64
@@ -1296,6 +1399,144 @@ mod tests {
                 .iter()
                 .all(|k| *k != not_out.key)
         );
+    }
+
+    const SOURCE: &str = "0e8a7c1e-1111-4222-8333-444455556666";
+
+    fn haiku() -> Value {
+        json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "default"})
+    }
+
+    fn source_config() -> Value {
+        admission(7, &census("d", "s", 40, 30), Some(Set::Current), None).config
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn a_named_run_is_keyed_by_its_source_and_namer_in_the_namers_scope() {
+        let a = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        assert_eq!(
+            a.key,
+            "shadow:names:7:0e8a7c1e111142228333444455556666:claude-haiku-5-5.p1.default"
+        );
+        assert!(a.key.len() <= 128);
+        assert_eq!(a.scope, "delphi:names:claude-haiku-5-5.p1.default");
+        assert_eq!(a.config["names_of"], SOURCE);
+        assert_eq!(a.config["naming"], haiku());
+        assert_eq!(a.config["selection"], SELECTION);
+        // The source's census digests travel with it.
+        let src = source_config();
+        assert_eq!(
+            a.config["shadow"]["selection_sha256"],
+            src["shadow"]["selection_sha256"]
+        );
+        assert_eq!(
+            a.config["shadow"]["comment_set_sha256"],
+            src["shadow"]["comment_set_sha256"]
+        );
+        // The child's own checks accept the configuration.
+        assert_eq!(
+            crate::jobs::names_of::source(&a.config),
+            Ok(Some(SOURCE.to_owned()))
+        );
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn two_identical_requests_are_one_job_and_every_other_is_another() {
+        let a = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        let again = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        assert_eq!(
+            (&a.key, &a.scope, &a.request_sha),
+            (&again.key, &again.scope, &again.request_sha)
+        );
+
+        // Another namer: another key and another scope.
+        let mut sonnet = haiku();
+        sonnet["model"] = json!("claude-sonnet-5-5");
+        let s = names_admission(7, SOURCE, &source_config(), &sonnet).unwrap();
+        assert_ne!(s.key, a.key);
+        assert_ne!(s.scope, a.scope);
+        let mut off = haiku();
+        off["thinking"] = json!("off");
+        let o = names_admission(7, SOURCE, &source_config(), &off).unwrap();
+        assert_ne!(o.key, a.key);
+        assert_ne!(o.scope, a.scope);
+
+        // Another source run: another key, the namer's scope.
+        let other = names_admission(
+            7,
+            "0e8a7c1e-1111-4222-8333-444455556667",
+            &source_config(),
+            &haiku(),
+        )
+        .unwrap();
+        assert_ne!(other.key, a.key);
+        assert_eq!(other.scope, a.scope);
+
+        // Never its source's duplicate, nor any keyword or rule run's.
+        let c = census("d", "s", 40, 30);
+        let first = admission(7, &c, Some(Set::Current), None);
+        let rule = rule_admission(7, &census_under(ALL_COMMENTS, "d"), None, None);
+        for keyword in [&first, &rule] {
+            assert_ne!(keyword.key, a.key);
+            assert_ne!(keyword.scope, a.scope);
+        }
+        // The keyword runs' admissions are what they were: no naming, no source.
+        assert!(first.config.get("naming").is_none() && first.config.get("names_of").is_none());
+        assert!(rule.config.get("naming").is_none() && rule.config.get("names_of").is_none());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn only_a_keyword_run_of_the_shown_rule_is_named_and_only_by_a_known_namer() {
+        let rule = rule_admission(7, &census_under(ALL_COMMENTS, "d"), None, None).config;
+        assert_eq!(
+            names_admission(7, SOURCE, &rule, &haiku()).unwrap_err(),
+            "names_of_source_other_rule"
+        );
+        let not_out =
+            rule_admission(7, &census_under(ALL_BUT_MODERATED_OUT, "d"), None, None).config;
+        assert_eq!(
+            names_admission(7, SOURCE, &not_out, &haiku()).unwrap_err(),
+            "names_of_source_other_rule"
+        );
+        let named = names_admission(7, SOURCE, &source_config(), &haiku())
+            .unwrap()
+            .config;
+        assert_eq!(
+            names_admission(7, SOURCE, &named, &haiku()).unwrap_err(),
+            "names_of_source_named"
+        );
+        assert_eq!(
+            names_admission(7, "nope", &source_config(), &haiku()).unwrap_err(),
+            "names_of_not_a_job"
+        );
+        for (change, word) in [
+            (json!({"by": "keywords"}), "naming_unknown_by"),
+            (json!("haiku"), "naming_not_an_object"),
+            (
+                json!({"by": "model", "model": "claude-opus", "prompt": "polis-topic-names/1", "thinking": "default"}),
+                "naming_unknown_model",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/2", "thinking": "default"}),
+                "naming_unknown_prompt",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "max"}),
+                "naming_unknown_thinking",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "off", "extra": 1}),
+                "naming_unknown_key",
+            ),
+        ] {
+            assert_eq!(
+                names_admission(7, SOURCE, &source_config(), &change).unwrap_err(),
+                word
+            );
+        }
     }
 
     #[test]
