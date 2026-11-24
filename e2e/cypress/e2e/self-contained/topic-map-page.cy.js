@@ -70,11 +70,25 @@ describe('Topic map page', () => {
     })
   }
 
+  // Simple Analytics (a third party listed by name in third-party-hosts.cy.js)
+  // runs on the admin, report and participation pages that specs before this
+  // one load, and the browser sends those page views' closing beacons to this
+  // address later, while this spec runs. They are set aside only while this
+  // page has no Simple Analytics of its own: its script from
+  // scripts.simpleanalyticscdn.com is blocked and counted like any other host,
+  // and a copy from anywhere else would define window.sa_event.
+  const OTHER_PAGES_BEACON = 'https://queue.simpleanalyticscdn.com/append'
+
   function expectNothingElseAsked(page) {
     // Late requests (the font) fire after the first drawing.
     cy.wait(1000)
+    cy.window().then((win) => expect(win.sa_event, `${page}: Simple Analytics on this page`).to.equal(undefined))
     cy.then(() => {
-      expect(blocked, `${page}: requests to other hosts`).to.deep.equal([])
+      const asked = blocked.filter((url) => url !== OTHER_PAGES_BEACON)
+      if (asked.length < blocked.length) {
+        cy.task('log', `${page}: ${blocked.length - asked.length} closing beacon(s) of earlier pages set aside`)
+      }
+      expect(asked, `${page}: requests to other hosts`).to.deep.equal([])
       expect(listings, `${page}: requests to the datamapplot listings`).to.deep.equal([])
     })
   }
@@ -151,7 +165,6 @@ describe('Topic map page', () => {
       expect(doc.points.text, 'the stored document carries no comment text').to.deep.equal([])
       answerWith({ statusCode: 200, body: doc })
     })
-    cy.intercept({ method: 'GET', url: MAP_FONT_FILE }).as('mapFont')
 
     cy.visit(`/topicsVizReport/${REPORT_ID}`)
     cy.wait('@topicMap')
@@ -168,7 +181,14 @@ describe('Topic map page', () => {
     cy.get('.polis-topic-map-levels button').should('have.length', 3) // two levels, then all together
     cy.get('.polis-topic-map-levels button').first().should('have.attr', 'aria-pressed', 'true')
     cy.get('.polis-topic-map-rules button').should('have.length', 2)
-    cy.wait('@mapFont', { timeout: 20000 }).its('response.statusCode').should('equal', 200)
+    // The map's font, from our build, loaded. Read from the page rather than
+    // waited for on the network: a retried attempt finds it in the cache.
+    cy.window({ timeout: 20000 }).should((win) => {
+      const fromBuild = win.performance.getEntriesByType('resource').some((e) => MAP_FONT_FILE.test(new URL(e.name).pathname))
+      expect(fromBuild, 'the font is read from /static/topic-map/').to.equal(true)
+      const roboto = [...win.document.fonts].filter((f) => f.family.replace(/"/g, '') === 'Roboto')
+      expect(roboto.map((f) => f.status), 'the font loaded').to.deep.equal(['loaded'])
+    })
 
     settled().then((first) => {
       expect(first.width, 'canvas backing width').to.be.greaterThan(100)
