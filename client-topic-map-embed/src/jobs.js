@@ -17,7 +17,6 @@ const count = (n) => n.toLocaleString("en-US");
 export function namesText(job) {
   if (job.namesBy === "keywords") return "keyword names";
   if (job.namesBy === "model") return job.model ? job.model : "names by a model";
-  if (job.namesBy === "none") return "numbered topics";
   return null;
 }
 

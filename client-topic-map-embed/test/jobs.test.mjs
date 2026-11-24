@@ -30,7 +30,8 @@ test("each run in plain words: which comments, how named, when, how many", () =>
   const [a, b, c] = list(J1, J2, J3).jobs;
   assert.equal(describeJob(a), "what participants see · keyword names · 2026-11-20 08:00 UTC · 147 comments");
   assert.equal(describeJob(b), "everything not moderated out · claude-haiku-4-5 · 2026-11-24 14:05 UTC · 9,034 comments");
-  assert.equal(describeJob(c), "every comment · numbered topics · 2026-11-24 14:05 UTC · 9,034 comments");
+  // The route records today's keyword-named runs as "none": keyword names too.
+  assert.equal(describeJob(c), "every comment · keyword names · 2026-11-24 14:05 UTC · 9,034 comments");
   assert.equal(describeJob(list({ job_id: "bare" }).jobs[0]), "bare");
   assert.equal(whenText("not a date"), null);
 });
@@ -67,4 +68,23 @@ test("when no run in the list is the map drawn, the current map is a choice of i
   assert.equal(s.value, "");
   const t = chooserState(list(J2, { ...J3, current: true }), { selection: "all_comments" });
   assert.equal(t.value, "j3");
+});
+
+test("a run without levels, model or count is described without them, never as null or an empty count", () => {
+  const bare = list(
+    { ...J2, job_id: "k1", levels: null, points: null, names: { by: "model", model: null } },
+    { ...J2, job_id: "k2", levels: null, points: 0, names: null },
+    { ...J2, job_id: "k3", levels: null, points: null, names: { by: null, model: null }, selection: null, created_at: null },
+  ).jobs;
+  assert.deepEqual(bare.map((j) => j.levels), [[], [], []]);
+  assert.equal(describeJob(bare[0]), "everything not moderated out · names by a model · 2026-11-24 14:05 UTC");
+  assert.equal(describeJob(bare[1]), "everything not moderated out · 2026-11-24 14:05 UTC");
+  assert.equal(describeJob(bare[2]), "k3");
+  for (const j of bare) {
+    const text = describeJob(j);
+    assert.doesNotMatch(text, /null|undefined|NaN/);
+    assert.doesNotMatch(text, /(^|· )0? ?comments/);
+  }
+  const shown = chooserState(list(...bare.map((j) => ({ job_id: j.jobId, levels: null, names: { by: "none", model: null } })), J1));
+  for (const c of shown.choices) assert.doesNotMatch(c.text, /null|undefined/);
 });

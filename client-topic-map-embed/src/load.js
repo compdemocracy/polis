@@ -169,9 +169,10 @@ function readJob(j) {
     source: j.source === "shadow" ? "shadow" : "served",
     selection: selectionOrNull(j.selection),
     createdAt: typeof j.created_at === "string" ? j.created_at : null,
-    points: Number.isInteger(j.points) && j.points >= 0 ? j.points : null,
+    points: Number.isInteger(j.points) && j.points > 0 ? j.points : null,
     levels: Array.isArray(j.levels) ? j.levels.filter((n) => Number.isInteger(n)) : [],
-    namesBy: ["keywords", "model", "none"].includes(names.by) ? names.by : null,
+    // The route records today's keyword-named runs as "none"; both are keyword names.
+    namesBy: names.by === "keywords" || names.by === "none" ? "keywords" : names.by === "model" ? "model" : null,
     model: typeof names.model === "string" && names.model ? names.model : null,
     current: j.current === true,
   };
