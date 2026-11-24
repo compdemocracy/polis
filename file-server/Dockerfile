@@ -147,6 +147,28 @@ RUN npm run build:prod
 
 
 
+###################### POLIS TOPIC MAP PAGE ########################
+# /topicsVizReport/<report id>: the topic map as one static page, built with
+# Solid around client-topic-map (used as it is) into /static/topic-map/.
+FROM docker.io/node:24.22.1-alpine AS client-topic-map-embed
+RUN apk add --no-cache 'ca-certificates>=20261020-r0'
+
+WORKDIR /app/client-topic-map-embed
+
+COPY client-topic-map-embed/package*.json ./
+
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000
+RUN --mount=type=cache,target=/root/.npm npm ci --ignore-scripts
+
+COPY client-topic-map/ /app/client-topic-map/
+COPY client-topic-map-embed/. .
+
+RUN npm test && npm run build
+
+
+
 ############################ FILE SERVER ############################
 FROM docker.io/node:24.22.1-alpine
 RUN apk add --no-cache 'ca-certificates>=20261020-r0'
@@ -171,6 +193,7 @@ RUN mkdir /app/build
 COPY --from=client-admin          /app/build/       /app/build
 COPY --from=client-participation  /app/dist/        /app/build
 COPY --from=client-report         /app/dist/        /app/build
+COPY --from=client-topic-map-embed /app/client-topic-map-embed/dist/ /app/build
 
 EXPOSE 8080
 

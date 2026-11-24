@@ -148,6 +148,11 @@ for path in ['/alpha/4fixture', '/alpha/embed.js?example=1', '/_astro/client.js'
     assert request(edge_port, 'GET', path)[1].get('x-upstream') == 'client-participation-alpha', path
 assert 'GET /embed.js?example=1 ' in docker('logs', prefix + '-alpha'), 'alpha prefix was not stripped'
 assert 'GET /api/v3/version ' in docker('logs', prefix + '-node'), 'Node access log must record positive controls'
+for path in ['/topicsVizReport/r4fixture?job_id=fixture', '/topicsVizReport/4fixture/suffix']:
+    assert request(edge_port, 'GET', path)[1].get('x-upstream') == 'server', path
+node_log = docker('logs', prefix + '-node')
+assert 'GET /static/topic-map/index.html?job_id=fixture ' in node_log, 'the topic map page must reach Node as its static file, query kept'
+assert 'GET /topicsVizReport/' not in node_log, 'the topic map page must not reach the report shell'
 print(f'ok {len(pages)} page samples (GET/HEAD), both embed scripts and alpha assets', flush=True)
 
 output = os.environ.get('NGINX_RENDERED_DIR')
