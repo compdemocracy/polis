@@ -170,8 +170,8 @@ export class CdkStack extends cdk.Stack {
       description: 'Security group for the load balancer',
       allowAllOutbound: true,
     });
-    // 80/443 from anywhere unless `-c restrictAlbIngress=true` names the CDN's
-    // ranges (cdk/originAccess.ts).
+    // 80/443 only from the CDN's ranges, as cdk/cdk.json sets
+    // `restrictAlbIngress`; from anywhere without it (cdk/originAccess.ts).
     const albAccess = configureAlbIngress(this, lbSecurityGroup);
 
     // Create ECR repos

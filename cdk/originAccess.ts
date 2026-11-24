@@ -6,15 +6,21 @@ import { Construct } from 'constructs';
 
 // Who may reach the load balancer, and what it requires of them.
 //
-// Both controls are OFF by default: without these context keys the load
-// balancer accepts 80/443 from anywhere and forwards every request, exactly
-// as before. They exist so that only the CDN in front of the site can reach
-// the origin. Turn them on in this order (cdk/README.md, "Closing the origin"):
-//   1. create the origin secret and the CDN rule that sends it as a header;
-//   2. deploy with `-c requireOriginHeader=true -c originHeaderSecretName=...`;
-//   3. deploy with `-c restrictAlbIngress=true` and one ingress source.
-// Turning on step 2 before the CDN sends the header answers every request
-// with 403.
+// They exist so that only the CDN in front of the site can reach the origin
+// (cdk/README.md, "Closing the origin").
+//
+// In code both controls are OFF by default: without these context keys the
+// load balancer accepts 80/443 from anywhere and forwards every request.
+// cdk/cdk.json turns the first one on for every deploy from this directory:
+//   - `restrictAlbIngress` with `albIngressCidrsFile`: the load balancer's
+//     security group admits 80/443 only from the CDN's published IPv4 ranges
+//     (cdk/config/cloudflare-ips-v4.json). `-c restrictAlbIngress=false` on
+//     the command line overrides cdk.json and reopens it to the world.
+//   - `requireOriginHeader` (off): an optional second lock. Create the origin
+//     secret and the CDN rule that sends it as a header first, then deploy
+//     with `-c requireOriginHeader=true -c originHeaderSecretName=...`.
+//     Turning it on before the CDN sends the header answers every request
+//     with 403.
 
 export const RESTRICT_ALB_INGRESS_CONTEXT = 'restrictAlbIngress';
 // One of these three names the allowed sources when the restriction is on.

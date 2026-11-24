@@ -66,6 +66,15 @@ The deployment process is orchestrated via GitHub Actions:
 *   **Environment Variables:** Environment variables and secrets for the application should be managed through AWS Secrets Manager (specifically, the `polis-web-app-env-vars` secret).
 * **Database Credentials**: RDS database credentials are created from a generated secret. The ARN of this secret, along with database host and port are stored in SSM Parameters.
 
+## Closing the origin
+
+The site is served through Cloudflare, so the load balancer should accept traffic from Cloudflare's published address ranges and nothing else. The code is in [originAccess.ts](originAccess.ts); both controls are off in code by default and are chosen by CDK context.
+
+*   **Ingress restricted to Cloudflare (on, in `cdk.json`).** `"restrictAlbIngress": true` with `"albIngressCidrsFile": "config/cloudflare-ips-v4.json"` makes the load balancer's security group admit ports 80 and 443 only from the ranges in that file (one rule per range per port; the file is checked against the security group's 60-rule quota at synth) and stops the listeners from adding rules from anywhere. A connection from any other address is refused before it reaches the load balancer. The load balancer is IPv4 only, so only Cloudflare's IPv4 list applies. Health checks are unaffected: they go from the load balancer to the web instances, through the web security group (port 80 from the load balancer's group) and the load balancer's group's open egress, neither of which this changes. `npm test` (`test/originAccess.test.ts`) synthesizes the stack with the context as committed and checks all of this.
+*   **Keeping the list current.** Before each `cdk deploy`, compare the file with https://www.cloudflare.com/ips-v4 and update `cidrs` and `retrieved` if they differ. A range Cloudflare adds and the file lacks makes requests that Cloudflare sends from it fail (Cloudflare answers 522) until the file is updated and deployed.
+*   **Turning it off.** Add `-c restrictAlbIngress=false` to the existing deployment command, preserving the stack, environment and every other context flag, including `enableCiEc2` and `enableBuildBox` when enabled. Command-line context overrides `cdk.json` and restores 80/443 from anywhere. Review the diff first: only the load balancer security group's ingress should change; stop if unrelated changes appear. The group stays attached, but rule updates can briefly drop traffic.
+*   **Origin header (off).** An optional second lock: the listeners answer 403 unless a request carries a secret header that Cloudflare adds. Create the Secrets Manager secret and the Cloudflare rule that sends the header first, then deploy with `-c requireOriginHeader=true -c originHeaderSecretName=<secret name>`. Turned on before Cloudflare sends the header, it answers every request with 403.
+
 ## CDK Specifics
 
 * **VPC Configuration:** The VPC is configured with two availability zones, no NAT gateways, and public and private isolated subnets.

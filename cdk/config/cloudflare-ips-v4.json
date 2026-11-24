@@ -1,6 +1,6 @@
 {
   "source": "https://www.cloudflare.com/ips-v4",
-  "retrieved": "2026-10-11",
+  "retrieved": "2026-11-23",
   "note": "Cloudflare's published IPv4 ranges. Refresh from the source before each deploy that uses this file; a stale list blocks new Cloudflare edges.",
   "cidrs": [
     "173.245.48.0/20",

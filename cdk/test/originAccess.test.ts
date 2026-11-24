@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import * as cdk from 'aws-cdk-lib';
 import { Template } from 'aws-cdk-lib/assertions';
 import { CdkStack } from '../lib/cdk-stack';
@@ -7,9 +9,9 @@ import {
   REQUIRE_ORIGIN_HEADER_CONTEXT, RESTRICT_ALB_INGRESS_CONTEXT, readCidrsFile, validateIpv4Cidr,
 } from '../originAccess';
 
-// The production stack as deployed (`-c enableCiEc2=true`), bundling skipped.
+// The production context (`enableCiEc2` and `enableBuildBox` on), bundling skipped.
 const stack = (context: Record<string, unknown> = {}, props: Record<string, unknown> = {}) => {
-  const app = new cdk.App({ context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, ...context } });
+  const app = new cdk.App({ context: { 'aws:cdk:bundling-stacks': [], enableCiEc2: true, enableBuildBox: true, ...context } });
   return new CdkStack(app, 'CdkStack', {
     env: { account: '123456789012', region: 'us-east-1' },
     envFile: '/dev/null',
@@ -20,7 +22,7 @@ const stack = (context: Record<string, unknown> = {}, props: Record<string, unkn
 };
 const synth = (context: Record<string, unknown> = {}) => Template.fromStack(stack(context));
 
-type Rule = { group: string; port: number; cidr?: string; sourceGroup?: string; prefixList?: string };
+type Rule = { group: string; port: number; cidr?: string; cidr6?: string; sourceGroup?: string; prefixList?: string };
 const groupId = (logicalId: string) => logicalId;
 const refOf = (v: any): string | undefined => v?.['Fn::GetAtt']?.[0] ?? v?.Ref;
 
@@ -31,12 +33,12 @@ const ingress = (t: Template): Rule[] => {
   for (const [id, r] of Object.entries(res)) {
     if (r.Type === 'AWS::EC2::SecurityGroup') {
       for (const i of r.Properties.SecurityGroupIngress ?? []) {
-        rules.push({ group: groupId(id), port: i.FromPort, cidr: i.CidrIp, sourceGroup: refOf(i.SourceSecurityGroupId), prefixList: i.SourcePrefixListId });
+        rules.push({ group: groupId(id), port: i.FromPort, cidr: i.CidrIp, cidr6: i.CidrIpv6, sourceGroup: refOf(i.SourceSecurityGroupId), prefixList: i.SourcePrefixListId });
       }
     }
     if (r.Type === 'AWS::EC2::SecurityGroupIngress') {
       const p = r.Properties;
-      rules.push({ group: refOf(p.GroupId)!, port: p.FromPort, cidr: p.CidrIp, sourceGroup: refOf(p.SourceSecurityGroupId), prefixList: p.SourcePrefixListId });
+      rules.push({ group: refOf(p.GroupId)!, port: p.FromPort, cidr: p.CidrIp, cidr6: p.CidrIpv6, sourceGroup: refOf(p.SourceSecurityGroupId), prefixList: p.SourcePrefixListId });
     }
   }
   return rules;
@@ -159,5 +161,83 @@ describe(`${REQUIRE_ORIGIN_HEADER_CONTEXT}`, () => {
     const t = synth({ ...on, [RESTRICT_ALB_INGRESS_CONTEXT]: 'true', [ALB_INGRESS_PREFIX_LIST_CONTEXT]: 'pl-0123456789abcdef0' });
     t.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 2);
     expect(ingress(t).filter((r) => r.cidr === '0.0.0.0/0')).toEqual([]);
+  });
+});
+
+// The context in cdk/cdk.json, which every `cdk synth`, `diff` and `deploy`
+// from cdk/ reads. These tests synthesize the stack with it, so they check what
+// a deploy would carry.
+const COMMITTED: Record<string, unknown> = JSON.parse(fs.readFileSync(path.resolve(__dirname, '..', 'cdk.json'), 'utf8')).context;
+const resourcesOf = (t: Template) => t.toJSON().Resources as Record<string, any>;
+const onlyOne = (t: Template, type: string) => {
+  const found = Object.entries(resourcesOf(t)).filter(([, r]) => r.Type === type);
+  expect(found).toHaveLength(1);
+  return found[0];
+};
+
+describe('as committed in cdk.json', () => {
+  const t = synth(COMMITTED);
+  // `-c restrictAlbIngress=false` on the command line: the rollback.
+  const reopened = synth({ ...COMMITTED, [RESTRICT_ALB_INGRESS_CONTEXT]: 'false' });
+
+  test('cdk.json turns the restriction on with the committed Cloudflare list', () => {
+    expect(COMMITTED[RESTRICT_ALB_INGRESS_CONTEXT]).toBe(true);
+    expect(COMMITTED[ALB_INGRESS_CIDRS_FILE_CONTEXT]).toBe('config/cloudflare-ips-v4.json');
+    expect(COMMITTED[REQUIRE_ORIGIN_HEADER_CONTEXT]).toBeUndefined();
+    expect(CLOUDFLARE).toHaveLength(15);
+  });
+
+  test('the load balancer admits 80 and 443 from the listed ranges and from nothing else', () => {
+    const lb = ingress(t).filter((r) => isLb(r.group));
+    expect(lb).toHaveLength(CLOUDFLARE.length * 2);
+    expect(new Set(lb.map((r) => r.group)).size).toBe(1);
+    for (const port of [80, 443]) {
+      expect(lb.filter((r) => r.port === port).map((r) => r.cidr).sort()).toEqual([...CLOUDFLARE].sort());
+    }
+    expect(lb.filter((r) => r.port !== 80 && r.port !== 443)).toEqual([]);
+    expect(lb.filter((r) => r.cidr6 !== undefined || r.sourceGroup !== undefined || r.prefixList !== undefined)).toEqual([]);
+    // Every rule is a single port, TCP.
+    const [, sg] = Object.entries(resourcesOf(t)).find(([id]) => isLb(id))!;
+    for (const i of sg.Properties.SecurityGroupIngress) {
+      expect([i.IpProtocol, i.FromPort]).toEqual(['tcp', i.ToPort]);
+    }
+    // Nothing anywhere in the stack is open to the world.
+    expect(ingress(t).filter((r) => r.cidr === '0.0.0.0/0' || r.cidr6 === '::/0')).toEqual([]);
+  });
+
+  test('the load balancer is IPv4 only and internet-facing, so the IPv4 list is the whole list', () => {
+    const [, lb] = onlyOne(t, 'AWS::ElasticLoadBalancingV2::LoadBalancer');
+    expect(lb.Properties.Scheme).toBe('internet-facing');
+    expect([undefined, 'ipv4']).toContain(lb.Properties.IpAddressType);
+  });
+
+  test('health checks are unaffected: same target group, web group admits the load balancer, its egress is open', () => {
+    const [tgId, tg] = onlyOne(t, 'AWS::ElasticLoadBalancingV2::TargetGroup');
+    expect(tg).toEqual(resourcesOf(reopened)[tgId]);
+    expect(tg.Properties).toMatchObject({ Port: 80, Protocol: 'HTTP', HealthCheckPath: '/api/v3/testConnection' });
+    // The checks leave the load balancer and enter the web instances on 80.
+    expect(ingress(t).filter((r) => isWeb(r.group))).toEqual([
+      { group: expect.stringMatching(/^WebSecurityGroup/), port: 80, sourceGroup: expect.stringMatching(/^LBSecurityGroup/) },
+    ]);
+    const [, sg] = Object.entries(resourcesOf(t)).find(([id]) => isLb(id))!;
+    expect(sg.Properties.SecurityGroupEgress).toEqual([{ CidrIp: '0.0.0.0/0', Description: 'Allow all outbound traffic by default', IpProtocol: '-1' }]);
+  });
+
+  test('the only resource that differs from the reopened stack is the load balancer security group', () => {
+    const a = resourcesOf(t);
+    const b = resourcesOf(reopened);
+    expect(Object.keys(a).sort()).toEqual(Object.keys(b).sort());
+    const differ = Object.keys(a).filter((id) => JSON.stringify(a[id]) !== JSON.stringify(b[id]));
+    expect(differ).toHaveLength(1);
+    expect(isLb(differ[0])).toBe(true);
+    // Reopened, the group takes 80 and 443 from anywhere, as before.
+    expect(ingress(reopened).filter((r) => isLb(r.group)).map((r) => [r.port, r.cidr])).toEqual([[80, '0.0.0.0/0'], [443, '0.0.0.0/0']]);
+  });
+
+  test('listeners still forward to the web target group (no origin header)', () => {
+    const ls = listeners(t);
+    expect(ls.map((l) => l.Properties.Port).sort((x, y) => x - y)).toEqual([80, 443]);
+    for (const l of ls) expect(l.Properties.DefaultActions[0].Type).toBe('forward');
+    t.resourceCountIs('AWS::ElasticLoadBalancingV2::ListenerRule', 0);
   });
 });
