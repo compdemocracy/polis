@@ -30,13 +30,43 @@ starts, so no comment a moderator removed is ever sent.
 
 The program, its file shapes and its exit status are described in
 ``queue-rs/polis-topic-names``. This module holds no state between runs:
-``hierarchy.json`` and ``names.json`` live in a directory of this attempt,
-removed by the step once read and again when the run ends; under the job
-daemon that directory is inside the attempt directory the daemon removes
-after it has reaped the child, however the child ended (a signal, a timeout,
-SIGKILL). Nothing a later step needs is kept there: the run's record of the
-naming (its outcome and token counts, for the manifest) reaches run_delphi.py
-over a pipe (``send_record`` / ``receive_record``), never through a file.
+``hierarchy.json`` and ``names.json`` live in a directory of this attempt
+(a new name each run), removed by the step once read and again by
+run_delphi.py when the run ends. Exactly when that directory is removed:
+
+- the run ends, a naming fails, or a scratch file cannot be made, written,
+  read or removed: yes;
+- the naming's program runs past ``WAIT_SECONDS``: it is stopped and waited
+  for, then the files are removed;
+- run_delphi.py is sent SIGTERM (by hand, or the daemon stopping its process
+  group): it stops the pipeline (SIGTERM, then SIGKILL after
+  ``step_log.STOP_SECONDS``), the pipeline stops and waits for the program
+  (``exit_on_sigterm``), then the directory is removed. Only a pipeline that
+  must be sent SIGKILL can leave a program running, and that program can only
+  write into the removed directory's path;
+- under the job daemon the directory is inside the attempt directory, which
+  the daemon removes once it has reaped the process group after a normal end,
+  a timeout, a fence or SIGKILL;
+- NOT removed: a hand-started run sent SIGKILL (no code of it runs), and,
+  under the daemon, an attempt whose exit the daemon confirms only after a
+  failed terminal call or after its own restart (that recovery path keeps
+  the attempt directory). The directory then stays where it is until the
+  box's temporary files or work directories are cleared.
+
+That is safe because nothing a later step or run needs is kept there: no
+run looks for another run's directory, and the run's record of the naming
+(its outcome and token counts, for the manifest) reaches run_delphi.py over
+a pipe (``send_record`` / ``receive_record``), never through a file. What
+can be left is the hierarchy (the participants' own comments that the
+conversation shows, and keywords) and at most the program's names.
+
+The record is the only account of the naming: the pipeline writes the
+model's names only after sending it whole, and run_delphi.py records a
+naming only from a record it received whole. A record that does not arrive
+(the pipe cannot be read, none was sent, or only part of one) fails the run,
+so nothing is published under a naming its labels may disagree with; the
+call's token counts are then in the pipeline's own log line
+(``topic_names_call``).
 """
 
 import json
@@ -116,6 +146,19 @@ def parse_namer(text: str) -> Dict[str, str]:
 def namer_argument(namer: Dict[str, str]) -> str:
     """The namer as one compact JSON argument, keys in a fixed order."""
     return json.dumps({key: namer[key] for key in NAMER_KEYS}, separators=(",", ":"))
+
+
+def exit_on_sigterm() -> None:
+    """For the pipeline of a run given a namer: SIGTERM (run_delphi.py stopping
+    it) exits through Python, so the naming's program, if running, is stopped
+    and waited for on the way out (subprocess.run does both) and nothing of
+    the run writes into the scratch directory after it is removed."""
+    import signal
+
+    def _exit(signum, frame):
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _exit)
 
 
 def check_selection(namer: Optional[Dict[str, str]], selection: Optional[str]) -> None:
@@ -330,17 +373,16 @@ def send_record(fd: int, result: Dict[str, Any]) -> None:
 
 
 def receive_record(fd: int) -> Optional[Dict[str, Any]]:
-    """The last whole record sent on the pipe, read once the pipeline has
-    exited (without waiting on any process that still holds the pipe), or
-    None when there is none."""
+    """The last whole record sent on the pipe (a line ending in its newline),
+    read once the pipeline has exited (without waiting on any process that
+    still holds the pipe), or None when there is none. Raises OSError when
+    the pipe cannot be read: that is not the same as no record."""
     os.set_blocking(fd, False)
     data = b""
     while len(data) < RECORD_MAX_BYTES:
         try:
             chunk = os.read(fd, 65536)
         except BlockingIOError:
-            break
-        except OSError:
             break
         if not chunk:
             break

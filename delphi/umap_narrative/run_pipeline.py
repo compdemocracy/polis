@@ -1021,17 +1021,26 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
         facts["topics"] = len(hierarchy["topics"]) if hierarchy is not None else None
         facts["outcome"] = result["outcome"]
 
+        # The call's cost, in this process's own log, whatever becomes of
+        # the record sent below.
+        for key in ("tokens_in", "tokens_out", "dollars"):
+            facts[key] = result[key]
+    logger.info(f"Topic naming call: outcome {result['outcome']}, tokens in {result['tokens_in']}, "
+                f"tokens out {result['tokens_out']}, dollars {result['dollars']}")
+
     if record_fd is not None:
         try:
             topic_namer.send_record(record_fd, result)
         except OSError as e:
+            # Not sent whole: the keyword labels, under a keyword record with
+            # the same counts, sent once more. If that fails too run_delphi.py
+            # receives no record and fails the run (nothing is published).
             logger.error(f"The naming's record could not be sent ({type(e).__name__}); keeping keyword labels")
-            if result["outcome"] == topic_namer.NAMED:
-                result = topic_namer.keep_keywords(result, f"record_unsent ({type(e).__name__})")
-                try:
-                    topic_namer.send_record(record_fd, result)
-                except OSError as again:
-                    logger.error(f"The keyword record could not be sent either ({type(again).__name__})")
+            result = topic_namer.keep_keywords(result, f"record_unsent ({type(e).__name__})")
+            try:
+                topic_namer.send_record(record_fd, result)
+            except OSError as again:
+                logger.error(f"The keyword record could not be sent either ({type(again).__name__})")
 
     named = result["outcome"] == topic_namer.NAMED
     written_by = namer["model"] if named else topic_namer.KEYWORD_TOPIC_MODEL
@@ -1739,6 +1748,8 @@ def main():
     if args.naming_record_fd is not None:
         # Never handed on to a program this pipeline starts.
         os.set_inheritable(args.naming_record_fd, False)
+    if namer is not None:
+        topic_namer.exit_on_sigterm()
 
     # Set up environment
     setup_environment(

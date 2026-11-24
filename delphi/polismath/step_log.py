@@ -200,19 +200,42 @@ def step(name: str, **facts: Any) -> Iterator[Dict[str, Any]]:
             _record.append(dict(data, step=name, status=status, seconds=seconds))
 
 
+# How long an interrupted run waits for its child to stop on SIGTERM.
+STOP_SECONDS = 30.0
+
+
+def _stop(proc: "subprocess.Popen") -> None:
+    try:
+        proc.terminate()
+        proc.wait(timeout=STOP_SECONDS)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        proc.wait()
+
+
 def run_child(name: str, command: List[str], pass_fds: Sequence[int] = (), **facts: Any) -> int:
     """Run a child process to completion and return its exit code. With the
     switch on, also print the step line with the child's exact peak (wait4).
     ``pass_fds``: descriptors the child keeps (a naming run's record pipe);
-    without them the child is started exactly as before."""
+    without them the child is started exactly as before. With them, a child
+    whose wait is interrupted (this process's SIGTERM) is stopped and reaped
+    before the interruption goes on: SIGTERM, then SIGKILL after
+    ``STOP_SECONDS``."""
     extra = {"pass_fds": tuple(pass_fds)} if pass_fds else {}
-    if not enabled():
-        return subprocess.run(command, **extra).returncode
+    if not pass_fds and not enabled():
+        return subprocess.run(command).returncode
     start = time.monotonic()
     proc = subprocess.Popen(command, **extra)
-    _, status, usage = os.wait4(proc.pid, 0)
+    try:
+        _, status, usage = os.wait4(proc.pid, 0)
+    except BaseException:
+        if pass_fds:
+            _stop(proc)
+        raise
     code = os.waitstatus_to_exitcode(status)
     proc.returncode = code
+    if not enabled():
+        return code
     raw = usage.ru_maxrss
     peak = raw / (1024.0 * 1024.0) if sys.platform == "darwin" else raw / 1024.0
     emit(name, status="ok" if code == 0 else "failed", seconds=round(time.monotonic() - start, 3),
