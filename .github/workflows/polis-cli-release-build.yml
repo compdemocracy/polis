@@ -1,14 +1,18 @@
 name: Build Polis CLI release assets
 
-# Called only by the explicitly dispatched publication workflow. No tag trigger.
+# Dispatched by hand only, when CLI binaries are wanted; the release workflow
+# no longer calls it. No tag or push trigger. It keeps the four archives and
+# their checksums as this run's artifacts and publishes nothing.
 # v<VERSION> is the sole release tag; the retired cli-v path never publishes.
 on:
-  workflow_call:
+  workflow_dispatch:
     inputs:
       commit:
+        description: Full current stable merge SHA to build
         required: true
         type: string
       tag:
+        description: The vX.Y.Z tag that stable's VERSION names
         required: true
         type: string
 
