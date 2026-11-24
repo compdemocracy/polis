@@ -17,8 +17,7 @@
 use crate::votes::{StorageConvention, VoteChoice, WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS};
 use crate::wire::JsNumber;
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
-use serde_json::value::RawValue;
+use serde_json::value::{RawValue, Value};
 
 pub const PATH: &str = "/api/v3/votes";
 pub const CONTRACT: &str = "post-votes/1";
