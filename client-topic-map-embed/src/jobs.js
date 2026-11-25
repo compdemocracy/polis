@@ -28,15 +28,27 @@ export function whenText(createdAt) {
   return t.toISOString().slice(0, 16).replace("T", " ") + " UTC";
 }
 
+/* A run's map made later from its stored results, in plain words, with the
+   making job's short id: null when the run has no such map. */
+export function mapText(job) {
+  const m = job.map;
+  if (!m) return null;
+  const by = m.jobId.slice(0, 8);
+  if (m.status === "pending") return `map being made from this run's stored layout (${by})`;
+  if (m.status === "failed") return `no map: it could not be made (${by})`;
+  return `map made from this run's stored layout (${by})`;
+}
+
 /* One run in plain words, the parts the list gives, in this order: which
    comments, how the topics were named, when it ran, how many comments it
-   places. */
+   places, and a map made later from its stored results. */
 export function describeJob(job) {
   const parts = [
     job.selection ? SELECTION_TEXT[job.selection] : null,
     namesText(job),
     whenText(job.createdAt),
     job.points === null ? null : `${count(job.points)} comments`,
+    mapText(job),
   ].filter(Boolean);
   return parts.length ? parts.join(" · ") : job.jobId;
 }

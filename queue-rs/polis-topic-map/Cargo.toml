@@ -37,11 +37,12 @@ base64 = "0.22"
 # daemon's own queue settings and transport rules.
 postgres = { version = "0.19", features = ["with-serde_json-1", "with-uuid-1"] }
 polis-queue-adapter = { path = ".." }
+# The derived worker's attempt and owner ids.
+uuid = { version = "1", features = ["v4"] }
 
 [dev-dependencies]
 # The backfill command's database test applies the release migration chain.
 polis-migrate = { path = "../polis-migrate" }
-uuid = { version = "1", features = ["v4"] }
 
 [lints.clippy]
 unwrap_used = "deny"

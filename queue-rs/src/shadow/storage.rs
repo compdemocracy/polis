@@ -251,16 +251,28 @@ pub struct Pending {
     pub set: Option<crate::shadow::plan::Set>,
 }
 
-/// Every job of every shadow env, oldest first: read once, by a scheduler that
-/// starts with no record of what it measured. `delphi_jobs` holds one row per
-/// job and has no index led by a prefix of `env`, so this is the one read
-/// that scans it; it never runs again for that state file.
+/// Every job of every shadow env, oldest first, but derived topic map jobs:
+/// read once, by a scheduler that starts with no record of what it measured.
+/// `delphi_jobs` holds one row per job and has no index led by a prefix of
+/// `env`, so this is the one read that scans it; it never runs again for that
+/// state file.
+///
+/// `kind <> 'derived'` is the one predicate that keeps derived jobs out of the
+/// full runs' accounting: the runs' ledger is filled only from this listing
+/// and from the scheduler's own runs (never a derived job), so a new ledger
+/// does not measure, count or log derived jobs as runs. `kind` is `NOT NULL`, and a
+/// database without derived jobs (every database before the migration that
+/// allows the kind) gives exactly the rows, in the order, it gave without the
+/// predicate. A previously saved ledger or pending list from an older release
+/// can still contain derived jobs; loading it does not relist or subtract
+/// them. Derived jobs have their own budget ([`derived_total_sql`]).
 pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
     tx.query(
         "SELECT env, job_id::text, zid, \
                 coalesce((config_effective #>> '{shadow,comments}')::bigint, 0), \
                 config_effective #>> '{shadow,set}' \
-         FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' ORDER BY created_at, job_id",
+         FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' AND kind <> 'derived' \
+         ORDER BY created_at, job_id",
         &[],
     )?
     .iter()
@@ -277,6 +289,154 @@ pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
         })
     })
     .collect()
+}
+
+/// Age after which an eligible cycle refreshes a successful derived reading
+/// (ms). This cached estimate is a growth threshold, not a reservation: it
+/// excludes nonterminal jobs and may lag completions or independent askers.
+pub const DERIVED_READ_MS: i64 = 300_000;
+/// A stored result row, apart from its item and its env, as [`measure_sql`]
+/// models it: the heap row's header, batch, family, key and ordinal, its line
+/// pointer and page share, and its three index entries at half a leaf's room,
+/// with their alignment.
+pub const DERIVED_ROW_BYTES: u64 = 640;
+/// Per byte of the env, per result row: the env is stored in the heap row
+/// and in each of its three index entries (an entry is charged twice, at
+/// half a leaf's room), 7 bytes, and one more for alignment.
+pub const DERIVED_ROW_PER_ENV_BYTE: u64 = 8;
+/// The item of a stored result row, per byte of its line in the family's
+/// wire: jsonb of these DynamoDB-shaped values is larger than their text
+/// (headers and entries per key), counted twice.
+pub const DERIVED_ITEM_PER_WIRE_BYTE: u64 = 2;
+
+/// The bytes the scheduler's env's terminal derived jobs have stored, read
+/// from the database in one statement: what [`measure`] counts for a job,
+/// summed over every such job, except that its result rows are ESTIMATED
+/// from what their family records at store time (its `row_count` and its
+/// wire's length) instead of read row by row. `$1` the env, `$2` the UTC
+/// day's start (ms), for the day's share (jobs completed since; logged only).
+///
+/// Counted exactly as [`measure`] does: [`JOB_BYTES`] per job, each family
+/// row (heap and key entry), each log line (heap and key entry). Estimated:
+/// the result rows, `row_count * (`[`DERIVED_ROW_BYTES`] `+`
+/// [`DERIVED_ROW_PER_ENV_BYTE`] `* env length) +`
+/// [`DERIVED_ITEM_PER_WIRE_BYTE`] `*` the wire's length. It is an estimate,
+/// not a bound: above [`measure`]'s result rows on every case measured (a
+/// job that stored no map, at a 16- and at the longest 64-byte env; the
+/// small and the large checked-in maps), by up to about 3.2 times on the
+/// large map's rows (about 2 times its whole job). Its purpose, to stop the
+/// derived maps' growth at their budget, does not depend on its exactness.
+/// Left out: comment embeddings (a derived job stores none) and graph
+/// records (it has none). The plan is sequential scans and hash joins over
+/// the env's terminal derived jobs, their attempts, families and log lines:
+/// proportional to those, never to the result rows.
+pub fn derived_total_sql() -> String {
+    let family = format!(
+        "{} + {}",
+        heap(&[
+            "env",
+            "batch_id",
+            "family",
+            "codec_wire",
+            "content_sha",
+            "row_count",
+        ]),
+        entry(&["env", "batch_id", "family"])
+    );
+    let rows = format!(
+        "row_count::bigint * ({DERIVED_ROW_BYTES} + {DERIVED_ROW_PER_ENV_BYTE} * octet_length(env)) \
+         + octet_length(codec_wire)::bigint * {DERIVED_ITEM_PER_WIRE_BYTE}"
+    );
+    let log = format!(
+        "{} + {}",
+        heap(&["env", "attempt_id", "seq", "ts", "stream", "line"]),
+        entry(&["env", "attempt_id", "seq"])
+    );
+    format!(
+        "WITH j AS (SELECT job_id AS job, completed_at >= to_timestamp($2::float8 / 1000) AS today \
+                    FROM public.delphi_jobs WHERE env = $1 AND kind = 'derived' \
+                     AND status IN ('succeeded','dead','cancelled')), \
+              a AS (SELECT q.attempt_id AS att, j.today FROM j \
+                    JOIN public.polis_queue_attempts q ON q.env = $1 AND q.job_id = j.job) \
+         SELECT (SELECT count(*) FROM j)::bigint, \
+                (SELECT count(*) FILTER (WHERE today) FROM j)::bigint, \
+                (SELECT count(*) FROM a)::bigint, f.n, f.rows, f.fb, f.rb, f.day, l.n, l.lb, l.day \
+         FROM (SELECT count(*)::bigint AS n, coalesce(sum(row_count), 0)::bigint AS rows, \
+                      coalesce(sum({family}), 0)::bigint AS fb, \
+                      coalesce(sum({rows}), 0)::bigint AS rb, \
+                      coalesce(sum(({family}) + ({rows})) FILTER (WHERE today), 0)::bigint AS day \
+               FROM a JOIN public.delphi_result_families ON env = $1 AND batch_id = a.att) f, \
+              (SELECT count(*)::bigint AS n, coalesce(sum({log}), 0)::bigint AS lb, \
+                      coalesce(sum({log}) FILTER (WHERE today), 0)::bigint AS day \
+               FROM a JOIN public.polis_queue_logs ON env = $1 AND attempt_id = a.att) l"
+    )
+}
+
+/// One reading of [`derived_total_sql`].
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize)]
+pub struct DerivedTotal {
+    pub jobs: u64,
+    pub day_jobs: u64,
+    pub attempts: u64,
+    pub families: u64,
+    pub rows: u64,
+    pub family_bytes: u64,
+    /// Modelled (see [`derived_total_sql`]).
+    pub row_bytes: u64,
+    pub log_lines: u64,
+    pub log_bytes: u64,
+    /// Everything, [`JOB_BYTES`] per job included.
+    pub bytes: u64,
+    /// The share of jobs completed since the day's start.
+    pub day_bytes: u64,
+}
+
+pub fn derived_total(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    day_start_ms: i64,
+) -> Result<DerivedTotal> {
+    let r = tx.query_one(&derived_total_sql(), &[&env, &(day_start_ms as f64)])?;
+    let n = |i: usize| -> Result<u64> { Ok(r.try_get::<_, i64>(i)?.max(0) as u64) };
+    let (jobs, day_jobs) = (n(0)?, n(1)?);
+    let (family_bytes, row_bytes, log_bytes) = (n(5)?, n(6)?, n(9)?);
+    Ok(DerivedTotal {
+        jobs,
+        day_jobs,
+        attempts: n(2)?,
+        families: n(3)?,
+        rows: n(4)?,
+        family_bytes,
+        row_bytes,
+        log_lines: n(8)?,
+        log_bytes,
+        bytes: jobs * JOB_BYTES + family_bytes + row_bytes + log_bytes,
+        day_bytes: day_jobs * JOB_BYTES + n(7)? + n(10)?,
+    })
+}
+
+/// The derived jobs' stored bytes, for their own budget (the topic map
+/// backfill's `DELPHI_SHADOW_DERIVED_STORAGE_BYTES`): the latest reading of
+/// [`derived_total`], kept in process memory only until the next
+/// ([`DERIVED_READ_MS`]). It is a reading of the database, never a running
+/// total, and never part of the full runs' [`Ledger`]. `None` (none yet, or
+/// the last one failed) is an unknown total: no derived job is asked for.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Derived {
+    pub read: Option<DerivedTotal>,
+    /// When `read` was read (ms).
+    pub read_ms: i64,
+}
+
+impl Derived {
+    /// Due for a reading: none yet, or [`DERIVED_READ_MS`] since the last.
+    pub fn due(&self, now_ms: i64) -> bool {
+        self.read.is_none() || now_ms - self.read_ms >= DERIVED_READ_MS
+    }
+
+    pub fn bytes(&self) -> Option<u64> {
+        self.read.map(|t| t.bytes)
+    }
 }
 
 /// What the scheduler knows of the shadow's bytes.

@@ -6,12 +6,15 @@
 //! here depends only on the run, never on the size of the window or on the
 //! theme, which is why it is computed once.
 
+pub mod backfill;
 pub mod ciecam02;
+pub mod derived;
 pub mod from_run;
 pub mod layout;
 pub mod page;
 pub mod palette;
 pub mod stored;
+pub mod worker;
 
 use layout::P;
 use serde::{Deserialize, Serialize};

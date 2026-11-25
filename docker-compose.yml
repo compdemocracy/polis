@@ -718,6 +718,69 @@ services:
     profiles:
       - delphi-shadow
 
+  # The derived topic map worker (docs/configuration.md, Derived Topic Maps):
+  # `polis-topic-map derived-worker` claims one job of worker class `derived`
+  # at a time (no other daemon claims that class) and stores the map of a
+  # run that is already stored, from that run's stored layout, clusters and
+  # names, in the job's own result batch. It runs no model and no pipeline
+  # step. OFF: profile-gated; the deploy hook starts it on the Delphi box
+  # only on the exact line POLIS_JOBS_DERIVED_WORKER=1, and the process
+  # exits 0 at once unless that switch is 1. Its settings and those the
+  # scheduler needs to ask for derived jobs (docker-compose.derived.yml) are
+  # the only ones it reads.
+  #   Database: the job daemon's own login (QUEUE_DATABASE_URL, the queue
+  #   executor) and nothing else; never DATABASE_URL or a web pool. At most
+  #   three connections: the claim/put/finalize calls, the heartbeat, and the
+  #   source read, which is opened per job and closed before the map is made.
+  #   Box: it keeps nothing on the box. No volume, a read-only root and a
+  #   small tmpfs /tmp; what is running is a query of the job tables.
+  #   Resources: one job at a time on one thread, so one CPU; the lowest CPU
+  #   weight and the highest OOM score, like the shadow. Memory: the source
+  #   read is refused above 64 MiB for all families together, and a stored
+  #   source is held as wire bytes plus its parsed copies (about four times),
+  #   so about 256 MiB at the cap; the ceiling is 1 GiB, four times that,
+  #   because the generator's own working set on a large run is not measured
+  #   and a job killed for memory spends one of its three attempts.
+  delphi-derived-worker:
+    image: 050917022930.dkr.ecr.us-east-1.amazonaws.com/polis/delphi:latest
+    build:
+      context: ./delphi
+      additional_contexts:
+        queue-rs: ./queue-rs  # the polis-jobs stage (delphi/Dockerfile)
+      target: final
+    labels:
+      polis_tag: ${TAG:-dev}
+    command: ["polis-topic-map", "derived-worker"]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    environment:
+      - POLIS_JOBS_DERIVED_WORKER=${POLIS_JOBS_DERIVED_WORKER:-0}
+      # The env its jobs are in: the shadow's, where the scheduler asks for
+      # them (the deploy hook refuses any other).
+      - POLIS_JOBS_ENV=${DELPHI_SHADOW_ENV:-shadow-delphi-1}
+      - QUEUE_DATABASE_URL=${QUEUE_DATABASE_URL:-}
+      - POLIS_JOBS_TRANSPORT=${POLIS_JOBS_TRANSPORT:-tls}
+      - POLIS_JOBS_CA_FILE=${POLIS_JOBS_CA_FILE:-}
+      - POLIS_JOBS_HOST_ALLOWLIST=${POLIS_JOBS_HOST_ALLOWLIST:-}
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    networks:
+      - "polis-net"
+    # A shutdown is seen between jobs; a job stopped mid-way is retried by
+    # any worker after its lease (120 s), under a new attempt.
+    stop_grace_period: 60s
+    cpu_shares: 2
+    oom_score_adj: 1000
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+          cpus: 1
+    restart: unless-stopped
+    profiles:
+      - delphi-derived-worker
+
   postgres:
     restart: always
     build:

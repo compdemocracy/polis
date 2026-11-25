@@ -22,7 +22,9 @@ RUN --mount=type=cache,target=/src/target,id=delphi-polis-jobs-target \
  && cp target/release/polis-delphi-shadow /polis-delphi-shadow \
  && cp target/release/polis-topic-map /polis-topic-map \
  && /polis-jobs --version && /polis-delphi-shadow --version \
- && /polis-topic-map 2>&1 | grep -q "polis-topic-map store"
+ && /polis-topic-map 2>&1 | grep -q "polis-topic-map store" \
+ && /polis-topic-map 2>&1 | grep -q "polis-topic-map derived-worker" \
+ && /polis-topic-map 2>&1 | grep -q "polis-topic-map shadow-scheduler"
 
 # Explicit reference binary; never copied into the final image.
 FROM polis-jobs AS polis-jobs-test
