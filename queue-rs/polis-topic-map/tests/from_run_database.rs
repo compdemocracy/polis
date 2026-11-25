@@ -1641,3 +1641,546 @@ mod derived_worker {
         );
     }
 }
+
+/// The shadow scheduler's backfill of derived maps (`shadow::backfill`), with
+/// the real admission, over successive cycles of the real scheduler.
+mod backfill {
+    use super::*;
+    use polis_queue_adapter::shadow::{
+        backfill::{self as shadow_backfill, Admitter, Outcome, Source},
+        config, scheduler,
+    };
+    use polis_topic_map::backfill::TopicMap;
+    use std::cell::RefCell;
+    use std::collections::HashMap;
+    use std::rc::Rc;
+
+    const RULE: &str = "participant_visible/1";
+
+    fn on(k: &str) -> Option<String> {
+        (k == polis_topic_map::derived::SWITCH).then(|| "1".to_owned())
+    }
+
+    /// The real admitter, counting its calls; refusing, once each, the jobs
+    /// named in `refuse` (as the admission would, by its word).
+    struct Counting {
+        inner: TopicMap<fn(&str) -> Option<String>>,
+        asked: Rc<RefCell<Vec<String>>>,
+        refuse: Vec<String>,
+        switched: bool,
+    }
+
+    impl Admitter for Counting {
+        fn switched_on(&self) -> bool {
+            self.switched
+        }
+        fn alias(&self, env: &str, job: &str) -> String {
+            self.inner.alias(env, job)
+        }
+        fn admit(&mut self, c: &mut Client, s: &Source, code: &str) -> Result<Outcome, String> {
+            self.asked.borrow_mut().push(s.job_id.clone());
+            if self.refuse.contains(&s.job_id) {
+                return Ok(Outcome::Refused("source_rule".into()));
+            }
+            self.inner.admit(c, s, code)
+        }
+        fn inputs(&self) -> &'static [&'static str] {
+            self.inner.inputs()
+        }
+        fn map_family(&self) -> &'static str {
+            self.inner.map_family()
+        }
+    }
+
+    fn counting(asked: &Rc<RefCell<Vec<String>>>, refuse: &[&str]) -> Box<Counting> {
+        Box::new(Counting {
+            inner: TopicMap { get: on },
+            asked: asked.clone(),
+            refuse: refuse.iter().map(|s| (*s).to_owned()).collect(),
+            switched: true,
+        })
+    }
+
+    fn cfg(db: &Db, dir: &std::path::Path, extra: &[(&str, &str)]) -> config::Config {
+        let mut m: HashMap<String, String> = [
+            ("DELPHI_SHADOW_ENABLED", "1".to_owned()),
+            ("DELPHI_SHADOW_ENV", ENV.to_owned()),
+            ("QUEUE_DATABASE_URL", url_for(&db.name, &db.login)),
+            (
+                "DELPHI_SHADOW_READ_DATABASE_URL",
+                url_for(&db.name, "postgres"),
+            ),
+            ("POLIS_JOBS_TRANSPORT", "loopback".to_owned()),
+            (
+                "DELPHI_SHADOW_CODE_VERSION",
+                "0123456789abcdef0123456789abcdef01234567".to_owned(),
+            ),
+            (
+                "DELPHI_SHADOW_STATE_PATH",
+                dir.join("state.json").display().to_string(),
+            ),
+            (
+                "DELPHI_SHADOW_PAUSE_FILE",
+                dir.join("pause").display().to_string(),
+            ),
+            ("DELPHI_SHADOW_DISK_PATH", dir.display().to_string()),
+            ("DELPHI_SHADOW_DISK_FREE_MIN_MB", "0".to_owned()),
+            ("DELPHI_SHADOW_DISK_USED_MAX_PCT", "100".to_owned()),
+            ("DELPHI_SHADOW_DUTY_CYCLE", "1".to_owned()),
+            ("DELPHI_SHADOW_PROBE_MAX_MS", "5000".to_owned()),
+            ("DELPHI_SHADOW_BENCHMARK", "c1424".to_owned()),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v))
+        .collect();
+        for (k, v) in extra {
+            m.insert((*k).to_owned(), (*v).to_owned());
+        }
+        match config::load(|k| m.get(k).cloned()).unwrap() {
+            config::Load::Ready(c) => *c,
+            config::Load::Disabled => panic!("disabled"),
+        }
+    }
+
+    fn dir() -> PathBuf {
+        let d =
+            PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("backfill-{}", Uuid::new_v4()));
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    thread_local! {
+        static ALL: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
+    }
+
+    /// Every line this thread's schedulers wrote since the test began
+    /// (`kept_lines` hands each line out once).
+    fn all() -> Vec<String> {
+        ALL.with(|a| {
+            a.borrow_mut().extend(scheduler::kept_lines());
+            a.borrow().clone()
+        })
+    }
+
+    /// Lines of one event among those kept since `from`.
+    fn events(name: &str, from: usize) -> Vec<Value> {
+        all()[from..]
+            .iter()
+            .filter_map(|l| serde_json::from_str::<Value>(l.split_once(' ')?.1).ok())
+            .filter(|v| v["event"] == name)
+            .collect()
+    }
+
+    fn derived_jobs(db: &Db) -> Vec<(String, String)> {
+        db.admin()
+            .query(
+                "SELECT (config_effective#>>'{derived,source,job_id}'), status FROM delphi_jobs \
+                 WHERE kind='derived' ORDER BY created_at",
+                &[],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| (r.get(0), r.get(1)))
+            .collect()
+    }
+
+    fn cancel(db: &Db, job: &str) {
+        let mut c = db.admin();
+        let status: Value = c
+            .query_one("SELECT pq_job_status($1,$2::text::uuid)", &[&ENV, &job])
+            .unwrap()
+            .get(0);
+        let version: i64 = status["mgmt_version"].as_str().unwrap().parse().unwrap();
+        c.query_one(
+            "SELECT pq_cancel($1,$2::text::uuid,$3)",
+            &[&ENV, &job, &version],
+        )
+        .unwrap();
+    }
+
+    fn cycles(s: &mut scheduler::Scheduler<'_>, n: usize) {
+        for _ in 0..n {
+            s.cycle().unwrap();
+        }
+    }
+
+    #[test]
+    fn every_stored_run_without_a_map_is_asked_once_bounded_and_then_the_inventory_is_empty() {
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        db.admin()
+            .execute(
+                "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+                &[],
+            )
+            .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        let rule = |r: &str| json!({ "selection": r });
+        // Replaced: a later run of the same rule takes its publication.
+        let a = db.writer_run("delphi", rule(RULE), &run, false).0.job_id;
+        let with_map = db.writer_run("delphi", rule(RULE), &run, true).0.job_id;
+        let other_rule = db
+            .writer_run("delphi:all", rule("all_comments/1"), &run, false)
+            .0
+            .job_id;
+        let current = db.writer_run("delphi", rule(RULE), &run, false).0.job_id;
+        // One whose derived job another asker made, then cancelled.
+        let asked_before = db.writer_run("delphi:x", rule(RULE), &run, false).0.job_id;
+        let mut ex = db.executor();
+        let mut operator = TopicMap { get: on };
+        let source = Source {
+            env: ENV.into(),
+            job_id: asked_before.clone(),
+            zid: 1424,
+            selection: Some(RULE.into()),
+        };
+        assert_eq!(
+            operator.admit(&mut ex, &source, &"c".repeat(40)).unwrap(),
+            Outcome::Enqueued
+        );
+        cancel(&db, &derived_jobs(&db)[0].0.clone().pipe_job(&db));
+        let d = dir();
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let extra = [
+            ("DELPHI_SHADOW_DERIVED_BACKFILL", "1"),
+            ("DELPHI_SHADOW_DERIVED_PER_CYCLE", "2"),
+            ("DELPHI_SHADOW_DERIVED_DAILY", "3"),
+        ];
+        let c = cfg(&db, &d, &extra);
+        let from = all().len();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        // Two asked in the first cycle (the per-cycle bound), oldest first;
+        // the third waits (the daily cap: three today, the operator's
+        // included); then the backlog holds.
+        cycles(&mut s, 1);
+        assert_eq!(*asked.borrow(), vec![a.clone(), other_rule.clone()]);
+        assert_eq!(
+            events("derived_held", from)[0]["reason"],
+            "derived_daily_cap"
+        );
+        cycles(&mut s, 3);
+        assert_eq!(asked.borrow().len(), 2);
+        let lines = events("derived_backfill", from);
+        assert_eq!(lines[0]["admitted"], 2, "{lines:?}");
+        assert_eq!(lines[0]["with_map"], 1);
+        assert_eq!(lines[0]["derived"], 1);
+        assert_eq!(lines[0]["without_map"], 3);
+        assert!(
+            events("derived_held", from)
+                .iter()
+                .any(|l| l["reason"] == "backlog")
+        );
+        // The operator's pause holds it.
+        std::fs::write(d.join("pause"), "").unwrap();
+        let n = asked.borrow().len();
+        for job in derived_job_ids(&db) {
+            if job_status(&db, &job) == "queued" {
+                cancel(&db, &job);
+            }
+        }
+        cycles(&mut s, 2);
+        assert_eq!(asked.borrow().len(), n);
+        assert!(
+            events("derived_held", from)
+                .iter()
+                .any(|l| l["reason"] == "operator")
+        );
+        std::fs::remove_file(d.join("pause")).unwrap();
+        // The daily cap (three today, the operator's included): nothing more.
+        cycles(&mut s, 2);
+        assert_eq!(asked.borrow().len(), n);
+        assert!(
+            events("derived_held", from)
+                .iter()
+                .any(|l| l["reason"] == "derived_daily_cap")
+        );
+        drop(s);
+        // A restart with a higher cap, refusing the last one: asked once.
+        let c = cfg(
+            &db,
+            &d,
+            &[extra[0], extra[1], ("DELPHI_SHADOW_DERIVED_DAILY", "10")],
+        );
+        let from = all().len();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[current.as_str()]));
+        cycles(&mut s, 4);
+        assert_eq!(asked.borrow().iter().filter(|j| **j == current).count(), 1);
+        assert_eq!(
+            events("derived_backfill", from)[0]["refused"]["source_rule"],
+            1
+        );
+        let empty = events("derived_inventory_empty", from);
+        assert_eq!(empty.len(), 1, "{:?}", all());
+        assert_eq!(
+            empty[0]["message"],
+            "every stored run has a map or a recorded outcome"
+        );
+        assert_eq!(empty[0]["refused_before"], 1);
+        drop(s);
+        // Another restart: the refusal was this process's only; asked again,
+        // admitted, and nothing is duplicated.
+        let from = all().len();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 4);
+        assert_eq!(asked.borrow().iter().filter(|j| **j == current).count(), 2);
+        let sources: Vec<String> = derived_jobs(&db).into_iter().map(|(s, _)| s).collect();
+        let mut want = vec![
+            asked_before.clone(),
+            a.clone(),
+            other_rule.clone(),
+            current.clone(),
+        ];
+        let mut got = sources.clone();
+        want.sort();
+        got.sort();
+        assert_eq!(got, want, "one derived job per run without a map");
+        assert!(!sources.contains(&with_map));
+        assert_eq!(events("derived_inventory_empty", from).len(), 1);
+        // No backfill line names a conversation, its code, or a job; no line
+        // at all names the code.
+        let word = |line: &str, w: &str| {
+            line.match_indices(w).any(|(i, _)| {
+                !line[..i]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|c| c.is_ascii_alphanumeric())
+                    && !line[i + w.len()..]
+                        .chars()
+                        .next()
+                        .is_some_and(|c| c.is_ascii_alphanumeric())
+            })
+        };
+        for line in all() {
+            assert!(!word(&line, "c1424"), "{line}");
+            if line.contains("\"derived_") {
+                for id in [&a, &with_map, &other_rule, &current, &asked_before] {
+                    assert!(!line.contains(id.as_str()), "{line}");
+                }
+                assert!(!word(&line, "1424"), "{line}");
+            }
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    fn derived_job_ids(db: &Db) -> Vec<String> {
+        db.admin()
+            .query(
+                "SELECT job_id::text FROM delphi_jobs WHERE kind='derived'",
+                &[],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    }
+
+    fn job_status(db: &Db, job: &str) -> String {
+        db.admin()
+            .query_one(
+                "SELECT status FROM delphi_jobs WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap()
+            .get(0)
+    }
+
+    trait PipeJob {
+        fn pipe_job(&self, db: &Db) -> String;
+    }
+    impl PipeJob for String {
+        /// The derived job made from source `self`.
+        fn pipe_job(&self, db: &Db) -> String {
+            db.admin()
+                .query_one(
+                    "SELECT job_id::text FROM delphi_jobs WHERE kind='derived' \
+                     AND config_effective#>>'{derived,source,job_id}'=$1",
+                    &[self],
+                )
+                .unwrap()
+                .get(0)
+        }
+    }
+
+    #[test]
+    fn off_means_no_query_and_no_line_and_admission_off_reads_nothing() {
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        db.admin()
+            .execute(
+                "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+                &[],
+            )
+            .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        db.writer_run("delphi", json!({ "selection": RULE }), &run, false);
+        let d = dir();
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        // Off: the admitter is there, the switch is not.
+        let c = cfg(&db, &d, &[]);
+        let from = all().len();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 6);
+        assert_eq!(s.derived.queries, 0);
+        assert!(asked.borrow().is_empty());
+        assert!(
+            all()[from..].iter().all(|l| !l.contains("derived")),
+            "{:?}",
+            &all()[from..]
+        );
+        drop(s);
+        // On, with admission off: held, still no inventory query.
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let from = all().len();
+        let mut off = counting(&asked, &[]);
+        off.switched = false;
+        let mut s = scheduler::Scheduler::new(&c).unwrap().with_admitter(off);
+        cycles(&mut s, 6);
+        assert_eq!(s.derived.queries, 0);
+        assert!(asked.borrow().is_empty());
+        assert!(
+            events("derived_held", from)
+                .iter()
+                .any(|l| l["reason"] == "admission_off")
+        );
+        assert!(derived_job_ids(&db).is_empty());
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn a_full_run_waiting_or_running_holds_the_backfill() {
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        let mut a = db.admin();
+        a.execute(
+            "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+            &[],
+        )
+        .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        db.writer_run("delphi", json!({ "selection": RULE }), &run, false);
+        // Comments enough for a full run of the benchmark conversation.
+        a.batch_execute(
+            "INSERT INTO participants(zid,uid) VALUES(1424,1);
+             INSERT INTO comments(zid,pid,uid,txt,mod,active)
+               SELECT 1424,(SELECT pid FROM participants WHERE zid=1424),1,'generated comment '||g,0,true
+               FROM generate_series(1,40) g;",
+        )
+        .unwrap();
+        let d = dir();
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let c = cfg(
+            &db,
+            &d,
+            &[
+                ("DELPHI_SHADOW_DERIVED_BACKFILL", "1"),
+                ("DELPHI_SHADOW_MIN_COMMENTS", "5"),
+            ],
+        );
+        let from = all().len();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 6);
+        assert!(s.state.in_flight.is_some(), "{:?}", &all()[from..]);
+        assert!(asked.borrow().is_empty());
+        assert_eq!(s.derived.queries, 0);
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn the_inventory_page_uses_the_history_index_and_key_lookups() {
+        let db = Db::new();
+        let mut a = db.admin();
+        a.batch_execute(
+            "INSERT INTO delphi_jobs(job_id,env,zid,kind,origin,status,config_effective)
+               SELECT gen_random_uuid(),'shadow-bulk',1424,'full_pipeline','legacy_import','succeeded','{}'
+               FROM generate_series(1,20000);
+             ANALYZE delphi_jobs; ANALYZE delphi_artifacts; ANALYZE delphi_result_batches;
+             ANALYZE delphi_result_families; ANALYZE delphi_job_aliases;",
+        )
+        .unwrap();
+        let mut tx = a.transaction().unwrap();
+        let inputs: Vec<String> = stored::INPUTS.iter().map(|s| (*s).to_owned()).collect();
+        let zids = vec![1424i32];
+        let plan: Vec<String> = tx
+            .query(
+                &format!("EXPLAIN {}", shadow_backfill::PAGE_SQL),
+                &[
+                    &"shadow-bulk",
+                    &zids,
+                    &i32::MIN,
+                    &"-infinity",
+                    &"00000000-0000-0000-0000-000000000000",
+                    &shadow_backfill::PAGE,
+                    &shadow_backfill::RUN_KIND,
+                    &inputs,
+                    &stored::FAMILY,
+                ],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
+        let text = plan.join("\n");
+        println!("{text}");
+        assert!(text.contains("delphi_jobs_history"), "{text}");
+        assert!(!text.contains("Seq Scan on delphi_jobs "), "{text}");
+        // The per-job lookups: index lookups once the tables are not tiny
+        // (forced here, where they are).
+        tx.batch_execute("SET LOCAL enable_seqscan=off; SET LOCAL enable_hashjoin=off; SET LOCAL enable_mergejoin=off")
+            .unwrap();
+        let text: String = tx
+            .query(
+                &format!("EXPLAIN {}", shadow_backfill::PAGE_SQL),
+                &[
+                    &"shadow-bulk",
+                    &zids,
+                    &i32::MIN,
+                    &"-infinity",
+                    &"00000000-0000-0000-0000-000000000000",
+                    &shadow_backfill::PAGE,
+                    &shadow_backfill::RUN_KIND,
+                    &inputs,
+                    &stored::FAMILY,
+                ],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+            .join("\n");
+        for index in [
+            "delphi_artifacts_env_job_id_output_role_key",
+            "delphi_result_batches_env_artifact_id_key",
+            "delphi_result_families_pkey",
+        ] {
+            assert!(text.contains(index), "{index} not in\n{text}");
+        }
+
+        let keys = vec!["derived/1:".to_owned() + &"0".repeat(64)];
+        let plan: Vec<String> = tx
+            .query(
+                &format!("EXPLAIN {}", shadow_backfill::ALIASES_SQL),
+                &[&keys],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
+        assert!(
+            plan.join("\n").contains("delphi_job_aliases_pkey"),
+            "{plan:?}"
+        );
+    }
+}

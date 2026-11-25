@@ -30,6 +30,7 @@
 //! `DELPHI_SHADOW_GRAPH_CONVERSATIONS` ("entry 2"), never its code, which is
 //! the conversation's address. Both output streams go to the same log.
 use super::{
+    backfill::{self, Admitter, Backfill, Held},
     config::{Config, SCOPE, Share},
     db::{Admission, Db, Live, Signals},
     plan::{self, Look, Pause, Set, rule_word},
@@ -183,6 +184,11 @@ pub struct Scheduler<'a> {
     /// (`plan::rule_look`). Memory only, never written: it saves reading a
     /// census again; the decision itself is the run history in Postgres.
     pub rules_checked: std::collections::BTreeMap<(i32, &'static str), (i64, String)>,
+    /// The derived-map backfill (`backfill`): its admitter and its memory.
+    pub derived: Backfill<'a>,
+    /// The conversations of the three sets this cycle read, when it reached
+    /// the end of its candidates (memory only; with the backfill on).
+    pub(super) sets_seen: Option<Vec<i32>>,
 }
 
 impl<'a> Scheduler<'a> {
@@ -204,9 +210,18 @@ impl<'a> Scheduler<'a> {
             rules: None,
             rules_failed_at_ms: None,
             rules_checked: Default::default(),
+            derived: Backfill::new(None),
+            sets_seen: None,
         };
         scheduler.recover_graph()?;
         Ok(scheduler)
+    }
+
+    /// The derived jobs' admission, for the backfill (`backfill`). Without
+    /// it the backfill asks nothing, whatever its switch.
+    pub fn with_admitter(mut self, admitter: Box<dyn Admitter + 'a>) -> Self {
+        self.derived = Backfill::new(Some(admitter));
+        self
     }
 
     fn save(&self) {
@@ -230,6 +245,15 @@ impl<'a> Scheduler<'a> {
         for list in self.cfg.rule_lists.iter().filter(|l| !l.codes.is_empty()) {
             started[rule_word(list.selection)] = list.codes.len().into();
         }
+        // Named only when the backfill is on, so off the line is what it was.
+        if self.cfg.derived.enabled {
+            let d = &self.cfg.derived;
+            started["derived_backfill"] = json!({"per_cycle": d.per_cycle, "daily": d.daily,
+                "every_seconds": d.every.as_secs(), "page": backfill::PAGE,
+                "pages_per_cycle": backfill::PAGES_PER_CYCLE,
+                "admitter": self.derived.admitter.is_some(),
+                "admission": self.derived.admitter.as_ref().is_some_and(|a| a.switched_on())});
+        }
         log("started", started);
         while !stopping() {
             let wait = match self.cycle() {
@@ -249,6 +273,7 @@ impl<'a> Scheduler<'a> {
     /// One step of the loop; returns how long to wait before the next.
     pub fn cycle(&mut self) -> Result<Duration> {
         let now = now_ms();
+        self.sets_seen = None;
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
@@ -281,15 +306,83 @@ impl<'a> Scheduler<'a> {
                 );
             }
             self.paused = Some(reason);
+            self.derived_step(now, Some(reason));
             return Ok(self.cfg.poll);
         }
         self.resume();
+        self.derived_step(now, None);
         Ok(
             if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
                 self.cfg.job_poll
             } else {
                 self.cfg.poll
             },
+        )
+    }
+
+    /// The backfill's turn, after the cycle's own (`backfill`): it may ask
+    /// only when no full run is running or was admitted this cycle, none is
+    /// held by a pause, and no pause but the full runs' daily cap
+    /// permits. With the switch off it returns at once and reads nothing.
+    fn derived_step(&mut self, now: i64, held_by: Option<Pause>) {
+        if !self.cfg.derived.enabled || self.derived.admitter.is_none() {
+            return;
+        }
+        let held = if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
+            Some(Held::FullRun)
+        } else {
+            match held_by {
+                None => None,
+                // Full runs are done for the day: the backfill pauses for the rest.
+                Some(Pause::DailyCap) => self.derived_pauses().map(Held::Paused),
+                // A benchmark or featured run waits on the live reserve.
+                Some(Pause::StorageReserve) => Some(Held::FullRun),
+                Some(p) => Some(Held::Paused(p)),
+            }
+        };
+        if held.is_some() {
+            return self.derived.step(self.cfg, &self.db, &[], now, held);
+        }
+        let zids = match self.sets_seen.take() {
+            Some(z) => z,
+            None => {
+                self.refresh_roster(now);
+                let since = now - self.cfg.live_days as i64 * 86_400_000;
+                let Ok(live) = self.db.live(since) else {
+                    log("derived_unread", json!({"reason": "sets"}));
+                    return;
+                };
+                let roster = self.roster.clone().unwrap_or_default();
+                roster
+                    .benchmark
+                    .iter()
+                    .chain(roster.featured.iter())
+                    .chain(live.iter())
+                    .map(|l| l.zid)
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect()
+            }
+        };
+        self.derived.step(self.cfg, &self.db, &zids, now, None);
+    }
+
+    /// Every pause of `pace` but the full runs' daily cap.
+    fn derived_pauses(&self) -> Option<Pause> {
+        let operator = self.cfg.pause_file.exists();
+        let disk = plan::disk(&self.cfg.disk_path).ok();
+        let signals = if operator {
+            None
+        } else {
+            self.db.signals().ok()
+        };
+        plan::derived_pause(
+            self.cfg,
+            &self.state,
+            operator,
+            disk,
+            signals.as_ref(),
+            self.paused,
         )
     }
 
@@ -575,6 +668,18 @@ impl<'a> Scheduler<'a> {
             // Nothing current to run: the benchmark and featured sets wait on
             // the live reserve.
             return Ok(Some(Pause::StorageReserve));
+        }
+        if self.cfg.derived.enabled {
+            self.sets_seen = Some(
+                benchmark
+                    .iter()
+                    .chain(featured.iter())
+                    .chain(live.iter())
+                    .map(|l| l.zid)
+                    .collect::<std::collections::BTreeSet<_>>()
+                    .into_iter()
+                    .collect(),
+            );
         }
         // Counts only: never a code or a conversation id.
         log(

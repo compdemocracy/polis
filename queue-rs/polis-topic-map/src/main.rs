@@ -34,6 +34,11 @@ const USAGE: &str = "polis-topic-map: the data and the standalone page of the fi
       DIR/topic-map.json. Never writes to the database. When the run's batch
       already holds a map, exits 3 unless the stored one is the same.
 
+  polis-topic-map shadow-scheduler
+      The Delphi shadow's scheduler (polis-delphi-shadow) with the backfill
+      of derived topic maps: what polis-delphi-shadow runs as when
+      DELPHI_SHADOW_DERIVED_BACKFILL=1. The same settings and exit codes.
+
   polis-topic-map derived-worker
       The worker of the derived stage: claims one derived job at a time
       (class derived) and stores its source run's map in the job's own batch.
@@ -166,6 +171,7 @@ fn run() -> Result<(), String> {
             Ok(())
         }
         "derived-worker" => polis_topic_map::worker::daemon(|k| std::env::var(k).ok()),
+        "shadow-scheduler" => std::process::exit(polis_topic_map::backfill::scheduler_main()),
         "from-run" => {
             let (env, job) = (one(&args, "env")?, one(&args, "job")?);
             let dir = std::path::PathBuf::from(one(&args, "out")?);

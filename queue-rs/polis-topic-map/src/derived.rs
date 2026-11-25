@@ -198,6 +198,15 @@ pub fn key(operation: Operation, version: u32, env: &str, source_job_id: &str) -
     ))
 }
 
+/// The alias table's primary key for a derived job of key `key`
+/// (`delphi_job_aliases.public_id`, as `pd_derived_admit` writes it).
+pub fn alias(key: &str) -> String {
+    format!("{ALIAS_PREFIX}{key}")
+}
+
+/// The prefix of a derived job's alias.
+pub const ALIAS_PREFIX: &str = "derived/1:";
+
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
