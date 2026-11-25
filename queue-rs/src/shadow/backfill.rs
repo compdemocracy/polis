@@ -9,10 +9,10 @@
 //! that holds it depends on this one), and that call has its own switch: with
 //! the backfill on and admission off, the backfill reads nothing (it is
 //! checked before any pause, roster or set read) and one `derived_held` line
-//! says `admission_off`. With the backfill on, the derived jobs' stored bytes
-//! count against the storage budget whatever the admission's switch: one
-//! reading of the database every few minutes (`storage::Derived`), the one
-//! read the backfill makes with admission off.
+//! says `admission_off`. The separate derived storage estimate is read only
+//! with both switches on and no full-run hold. That read precedes this
+//! module's rest, queue-depth and daily-cap checks. It changes no full-run
+//! ledger; an unknown or over-budget reading holds only derived requests.
 //!
 //! **Nothing on the box.** What has been asked and what is done is in
 //! Postgres. The inventory is a query, every cycle nothing pauses it: a page

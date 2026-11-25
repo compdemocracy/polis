@@ -259,11 +259,13 @@ pub struct Pending {
 ///
 /// `kind <> 'derived'` is the one predicate that keeps derived jobs out of the
 /// full runs' accounting: the runs' ledger is filled only from this listing
-/// and from the scheduler's own runs (never a derived job), so no derived job
-/// is ever measured, counted or logged as a run. `kind` is `NOT NULL`, and a
+/// and from the scheduler's own runs (never a derived job), so a new ledger
+/// does not measure, count or log derived jobs as runs. `kind` is `NOT NULL`, and a
 /// database without derived jobs (every database before the migration that
 /// allows the kind) gives exactly the rows, in the order, it gave without the
-/// predicate. Derived jobs have their own budget ([`derived_total_sql`]).
+/// predicate. A previously saved ledger or pending list from an older release
+/// can still contain derived jobs; loading it does not relist or subtract
+/// them. Derived jobs have their own budget ([`derived_total_sql`]).
 pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
     tx.query(
         "SELECT env, job_id::text, zid, \
@@ -289,9 +291,9 @@ pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
     .collect()
 }
 
-/// How often the derived jobs' total is read again (ms): the derived budget
-/// it feeds stops growth, so a reading at most this old lets through at most
-/// what the backfill can ask in one beat (its per-cycle and daily bounds).
+/// Age after which an eligible cycle refreshes a successful derived reading
+/// (ms). This cached estimate is a growth threshold, not a reservation: it
+/// excludes nonterminal jobs and may lag completions or independent askers.
 pub const DERIVED_READ_MS: i64 = 300_000;
 /// A stored result row, apart from its item and its env, as [`measure_sql`]
 /// models it: the heap row's header, batch, family, key and ordinal, its line
