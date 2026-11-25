@@ -96,7 +96,10 @@ impl Migrated {
         drop(runner);
         let mut owner = db.config(&db.name, &db.app).connect(NoTls).unwrap();
         let super_: bool = owner
-            .query_one("SELECT rolsuper FROM pg_roles WHERE rolname=current_user", &[])
+            .query_one(
+                "SELECT rolsuper FROM pg_roles WHERE rolname=current_user",
+                &[],
+            )
             .unwrap()
             .get(0);
         assert!(!super_, "the applying login is not a superuser");
@@ -147,9 +150,10 @@ impl Migrated {
         let key = format!("topic-map-{job}");
         let sha = hex(&Sha256::digest(key.as_bytes()));
         let mut ex = self.connect(&self.writer);
-        let one = |ex: &mut Client, sql: &str, args: &[&(dyn postgres::types::ToSql + Sync)]| -> Value {
-            ex.query_one(sql, args).unwrap().get(0)
-        };
+        let one = |ex: &mut Client,
+                   sql: &str,
+                   args: &[&(dyn postgres::types::ToSql + Sync)]|
+         -> Value { ex.query_one(sql, args).unwrap().get(0) };
         let reply = one(
             &mut ex,
             "SELECT pd_writer_admit($1,$2,$3,'generated-test',$4,$5,$6,$7,'delphi_full_pipeline',NULL,$8,repeat('b',40))",
@@ -169,9 +173,21 @@ impl Migrated {
         let put = one(
             &mut ex,
             "SELECT pd_result_put_family($1,$2,$3,$4,$5,$6,$7)",
-            &[&ENV, &job, &owner, &attempt, &epoch, &contract::FAMILY, &wire],
+            &[
+                &ENV,
+                &job,
+                &owner,
+                &attempt,
+                &epoch,
+                &contract::FAMILY,
+                &wire,
+            ],
         );
-        assert_eq!(put["sha256"], hex(&Sha256::digest(wire.as_bytes())), "{put}");
+        assert_eq!(
+            put["sha256"],
+            hex(&Sha256::digest(wire.as_bytes())),
+            "{put}"
+        );
         let seal = one(
             &mut ex,
             "SELECT pd_result_seal($1,$2,$3,$4,$5)",
@@ -261,8 +277,14 @@ fn the_login_that_applied_the_migrations_serves_a_stored_map() {
                 .unwrap();
             (r.get(0), r.get(1))
         };
-        eprintln!("applying login inherits polis_queue_owner={} polis_queue_executor={}", reach.0, reach.1);
-        assert!(reach.0, "the chain makes its applier a member of polis_queue_owner");
+        eprintln!(
+            "applying login inherits polis_queue_owner={} polis_queue_executor={}",
+            reach.0, reach.1
+        );
+        assert!(
+            reach.0,
+            "the chain makes its applier a member of polis_queue_owner"
+        );
     }
     let job = db.writer_run(
         "delphi",
@@ -296,12 +318,8 @@ fn the_login_that_applied_the_migrations_serves_a_stored_map() {
             assert_eq!(out.status, 200);
             assert_eq!(text(&out), map.document);
             // The report's runs, newest first: the same login, the same objects.
-            let out = crate::dispatch(
-                app.clone(),
-                None,
-                with(&format!("{url}&list=jobs"), &[]),
-            )
-            .await;
+            let out =
+                crate::dispatch(app.clone(), None, with(&format!("{url}&list=jobs"), &[])).await;
             let body = text(&out);
             assert_eq!(out.status, 200, "{body}");
             assert!(body.contains(&job), "{body}");
