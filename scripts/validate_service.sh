@@ -293,11 +293,19 @@ ready() {
 derived_worker_report() {
   [ "$role" = delphi ] || return 0
   if ! grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null; then
-    local ids
-    if ! ids=$(compose ps -a -q delphi-derived-worker); then
-      echo "Cannot verify delphi-derived-worker removal; do not deploy an older release" >&2
-      return 1
-    fi
+    local ids try
+    # Retry inventory errors only; a successful inventory is final, including
+    # a leftover container. At most two 2-second waits on the Delphi box.
+    for try in 1 2 3; do
+      if ids=$(compose ps -a -q delphi-derived-worker); then
+        break
+      fi
+      if [ "$try" = 3 ]; then
+        echo "Cannot verify delphi-derived-worker removal; do not deploy an older release" >&2
+        return 1
+      fi
+      sleep 2
+    done
     if [ -n "$ids" ]; then
       echo "delphi-derived-worker still exists with its switch off; remove it using a release that knows the service before deploying an older release" >&2
       return 1

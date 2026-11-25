@@ -191,6 +191,21 @@ class DeployHealthCheck(unittest.TestCase):
     # exactly when the route is selected, beside the other selectors.
     TOPIC_MAP = 'POLIS_API_DELPHI_TOPIC_MAP_READS'
 
+    def test_topic_map_derived_switch_is_optional_with_selected_route(self):
+        derived = 'POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS'
+        for selected in ('delphiTopicMap', ' pca2, delphiTopicMap '):
+            for switches, accepted in (([self.TOPIC_MAP], True),
+                                       ([self.TOPIC_MAP, derived], True),
+                                       ([derived], False)):
+                with self.subTest(selected=selected, switches=switches):
+                    self.check_comments_health(selected, switches, accepted)
+
+    def test_topic_map_derived_switch_is_refused_without_selected_route(self):
+        derived = 'POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS'
+        for selected in ('', 'pca2', 'delphitopicmap', 'delphiTopicMaps'):
+            with self.subTest(selected=selected):
+                self.check_comments_health(selected, [derived], False)
+
     def test_topic_map_selection_switch_matrix(self):
         from itertools import product
 
