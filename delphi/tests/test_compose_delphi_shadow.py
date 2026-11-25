@@ -42,6 +42,7 @@ PRODUCTION_LIKE = {
     "AWS_S3_BUCKET_NAME": "generated-bucket",
     "DATABASE_URL": "postgres://u:p@db.internal:5432/polis?sslmode=require",
     "QUEUE_DATABASE_URL": "postgres://q@db.internal:5432/polis",
+    "POLIS_JOBS_HOST_ALLOWLIST": "db.internal",
     "MATH_POLLER_SOURCE_COMMIT": "0123456789abcdef0123456789abcdef01234567",
     "DELPHI_SHADOW_ENABLED": "1",
 }
@@ -405,6 +406,8 @@ def _worker_composed(env, worker_changes=None):
     ({"POLIS_JOBS_CA_FILE": "/etc/polis/rds-ca.pem"}, None, ""),
     ({"POLIS_JOBS_CA_FILE": "/etc/polis/rds-ca.pem", "DELPHI_SHADOW_ENV": "shadow-twin-1"}, None, ""),
     ({"POLIS_JOBS_TRANSPORT": "local"}, None, ""),
+    ({"POLIS_JOBS_CA_FILE": "/c", "POLIS_JOBS_HOST_ALLOWLIST": " , "}, None,
+     f"{WORKER}.POLIS_JOBS_HOST_ALLOWLIST"),
     # The combinations that cannot work, each named, never its value.
     ({"POLIS_JOBS_CA_FILE": "/c", "QUEUE_DATABASE_URL": ""}, None, f"{WORKER}.QUEUE_DATABASE_URL"),
     ({}, None, f"{WORKER}.POLIS_JOBS_CA_FILE"),
