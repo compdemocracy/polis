@@ -2690,3 +2690,86 @@ fn a_derived_map_not_yet_made_or_never_made_says_so() {
         assert_eq!(status(&dead), Some(contract::MapStatus::Failed));
     });
 }
+
+#[test]
+fn review_derived_moderation_and_replacement() {
+    let db=Db::new("review_moderation"); let mut c=db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID}); INSERT INTO comments(zid,tid,mod) VALUES({ZID},14,-1);")).unwrap();
+    let map=stored(small_map()); let wire=map_family(ZID,&map);
+    let x=listed_run(&mut c,"test",ZID,"all_comments/1","2026-01-01T00:00:00.000000Z",None,None);
+    publish(&mut c,"test",ZID,"delphi:all_comments",&x,&uuid(0xa000));
+    let y=derived(&mut c,ZID,&x,&x,"COMPLETED",Some((&wire,3)));
+    let own_art=uuid(0xb000);
+    let own=listed_run(&mut c,"test",ZID,"all_comments/1","2025-01-01T00:00:00.000000Z",Some((3,&own_art)),None);
+    wire_at(&mut c,"test",&own_art,&wire,&own);
+    runtime().block_on(async {
+        let app=Arc::new(app_on(&db));
+        let url=format!("/api/v3/delphi/topicMap?report_id=r1&job_id={x}");
+        let own_url=format!("/api/v3/delphi/topicMap?report_id=r1&job_id={own}");
+        for gz in [false,true] {
+            let headers=if gz {vec![("accept-encoding","gzip")]} else {vec![]};
+            let a=crate::dispatch(app.clone(),None,with(&url,&headers)).await;
+            let b=crate::dispatch(app.clone(),None,with(&own_url,&headers)).await;
+            assert_eq!(a.status,200); assert_eq!(bytes(&a),bytes(&b));
+            assert_eq!(header(&a,"ETag"),header(&b,"ETag"));
+            assert_eq!(header(&a,contract::HEADER_MADE_BY),Some(y.as_str()));
+            assert_ne!(bytes(&a),if gz{map.gzip.clone()}else{map.document.as_bytes().to_vec()});
+            let tag=header(&a,"ETag").unwrap().to_owned();
+            let cached=crate::dispatch(app.clone(),None,with(&url,&[("if-none-match",&tag)])).await;
+            assert_eq!(cached.status,304);
+        }
+        // New moderation on the same cached artifact must change the reader form.
+        let before=crate::dispatch(app.clone(),None,with(&url,&[])).await;
+        std::thread::scope(|s|s.spawn(|| c.execute("UPDATE comments SET mod=1",&[]).unwrap()).join().unwrap());
+        let after=crate::dispatch(app.clone(),None,with(&url,&[])).await;
+        assert_ne!(bytes(&before),bytes(&after)); assert_eq!(text(&after),map.document);
+        // A later owned map must win without recycling the derived artifact cache.
+        let replacement=stored(document(10,"replacement")); let art=uuid(0xb001);
+        std::thread::scope(|s|s.spawn(|| {
+        c.execute("UPDATE stand_in_runs SET record=$1::text::jsonb WHERE job_id=$2::text::uuid",&[
+            &json!({"families":[{"family":contract::FAMILY,"artifact_id":art,"job_id":x,"row_count":3,"scope":"delphi:all_comments"}]}).to_string(),&x]).unwrap();
+        wire_at(&mut c,"test",&art,&map_family(ZID,&replacement),&x);
+        }).join().unwrap());
+        let out=crate::dispatch(app.clone(),None,with(&url,&[])).await;
+        assert_eq!(text(&out),replacement.document); assert_eq!(header(&out,contract::HEADER_MADE_BY),None);
+    });
+}
+
+#[test]
+fn review_named_derived_id_reports_the_source() {
+    let db=Db::new("review_named"); let mut c=db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});")).unwrap();
+    let x=listed_run(&mut c,"test",ZID,"all_comments/1","2026-01-01T00:00:00.000000Z",None,None);
+    let map=stored(document(20,&x)); let y=derived(&mut c,ZID,&x,&x,"COMPLETED",Some((&map_family(ZID,&map),3)));
+    runtime().block_on(async {
+        let app=Arc::new(app_on(&db));
+        let out=crate::dispatch(app,None,with(&format!("/api/v3/delphi/topicMap?report_id=r1&job_id={y}"),&[])).await;
+        eprintln!("named derived status={} job={:?} made_by={:?} selection={:?}",out.status,header(&out,contract::HEADER_JOB),header(&out,contract::HEADER_MADE_BY),header(&out,contract::HEADER_SELECTION));
+        assert_eq!(header(&out,contract::HEADER_JOB),Some(x.as_str()));
+        assert_eq!(header(&out,contract::HEADER_MADE_BY),Some(y.as_str()));
+    });
+}
+
+#[test]
+fn review_unchanged_replies() {
+    NEXT.store(100, Ordering::SeqCst);
+    let db=Db::new("review_bytes"); let mut c=db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});")).unwrap();
+    let map=stored(document(30,"fixed"));
+    let job=served(&mut c,"test",ZID,"delphi","participant_visible/1",Some(&map_family(ZID,&map)));
+    runtime().block_on(async {
+        let app=Arc::new(app_on(&db));
+        for suffix in [String::new(),format!("&job_id={job}"),"&list=jobs".into()] {
+            for gz in [false,true] {
+                let hs=if gz{vec![("accept-encoding","gzip")]}else{vec![]};
+                let out=crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),&hs)).await;
+                eprintln!("PARITY suffix={suffix} gz={gz} status={} headers={:?} bodysha={:x}",out.status,out.headers,Sha256::digest(bytes(&out)));
+            }
+        }
+        std::thread::scope(|s|s.spawn(|| c.batch_execute("DELETE FROM stand_in_wires; DELETE FROM stand_in_runs").unwrap()).join().unwrap());
+        for suffix in [String::new(),format!("&job_id={job}"),"&list=jobs".into()] {
+            let out=crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),&[])).await;
+            eprintln!("PARITY absent suffix={suffix} status={} headers={:?} bodysha={:x}",out.status,out.headers,Sha256::digest(bytes(&out)));
+        }
+    });
+}
