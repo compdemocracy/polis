@@ -46,8 +46,8 @@ pub struct Bounds {
     pub statement: Duration,
     /// Each lock wait (`lock_timeout`); the read takes ACCESS SHARE only.
     pub lock: Duration,
-    /// The whole read, from connect to the last family; checked between
-    /// statements, so the worst case is this plus one statement.
+    /// The whole source read, including connection setup and transport.
+    /// Expiry closes the source connection.
     pub deadline: Duration,
     /// The largest family accepted (the store's own cap is 64 MiB).
     pub family_bytes: usize,
@@ -184,8 +184,18 @@ pub fn read_source(
     job: &str,
     bounds: Bounds,
 ) -> Result<(Source, Read), Fail> {
-    let started = Instant::now();
-    let over = |started: Instant| started.elapsed() > bounds.deadline;
+    read_source_until(client, env, job, bounds, Instant::now() + bounds.deadline)
+}
+
+fn read_source_until(
+    client: &mut postgres::Client,
+    env: &str,
+    job: &str,
+    bounds: Bounds,
+    deadline: Instant,
+) -> Result<(Source, Read), Fail> {
+    client.set_deadline(Some(deadline));
+    client.set_io_timeout(Some(bounds.statement));
     let mut tx = client
         .build_transaction()
         .isolation_level(postgres::IsolationLevel::RepeatableRead)
@@ -243,7 +253,7 @@ pub fn read_source(
                     name: &str,
                     f: &from_run::FamilyRef|
      -> Result<String, Fail> {
-        if over(started) {
+        if Instant::now() >= deadline {
             return Err(Fail::Transient("source read deadline".into()));
         }
         let row = tx
@@ -325,7 +335,7 @@ pub struct Config {
     /// The queue login (`QUEUE_DATABASE_URL` and the daemon's transport rules).
     pub connector: Arc<Connector>,
     /// The source reader's own connection, same login, opened per job.
-    pub reader: Box<dyn Fn() -> Result<postgres::Client, String> + Send + Sync>,
+    pub reader: Box<dyn Fn(Instant) -> Result<postgres::Client, String> + Send + Sync>,
     pub journal_dir: std::path::PathBuf,
     pub boot_id: String,
     pub container_id: String,
@@ -545,8 +555,10 @@ impl Worker {
         started: Instant,
         crash: Option<CrashAt>,
     ) -> Result<Pass, Fail> {
-        let mut reader = (self.cfg.reader)().map_err(Fail::Transient)?;
-        let (source, read) = read_source(&mut reader, &self.cfg.env, job, self.cfg.bounds)?;
+        let deadline = Instant::now() + self.cfg.bounds.deadline;
+        let mut reader = (self.cfg.reader)(deadline).map_err(Fail::Transient)?;
+        let (source, read) =
+            read_source_until(&mut reader, &self.cfg.env, job, self.cfg.bounds, deadline)?;
         drop(reader);
         let made = make(&read, job)?;
         let crashed = || Ok(Pass::Crashed { job_id: job.into() });
@@ -671,27 +683,16 @@ pub fn daemon(get: impl Fn(&str) -> Option<String>) -> Result<(), String> {
     let env = get("POLIS_JOBS_ENV")
         .filter(|s| !s.is_empty())
         .ok_or("POLIS_JOBS_ENV is required")?;
-    let connector = connector(&get)?;
-    let reader_settings: Vec<(String, Option<String>)> = [
-        "QUEUE_DATABASE_URL",
-        "POLIS_JOBS_TRANSPORT",
-        "POLIS_JOBS_CA_FILE",
-        "POLIS_JOBS_HOST_ALLOWLIST",
-        "POLIS_JOBS_PASSWORD_FILE",
-    ]
-    .iter()
-    .map(|k| ((*k).to_owned(), get(k)))
-    .collect();
+    let connector = Arc::new(connector(&get)?);
+    let reader_connector = connector.clone();
+    let bounds = Bounds::default();
     let cfg = Config {
         env,
-        connector: Arc::new(connector),
-        reader: Box::new(move || {
-            from_run::connect(|k| {
-                reader_settings
-                    .iter()
-                    .find(|(n, _)| n == k)
-                    .and_then(|(_, v)| v.clone())
-            })
+        connector,
+        reader: Box::new(move |deadline| {
+            reader_connector
+                .connect_bounded(deadline, bounds.statement)
+                .map_err(|e| e.to_string())
         }),
         journal_dir: get("POLIS_JOBS_DERIVED_JOURNAL_DIR")
             .filter(|s| !s.is_empty())
@@ -707,7 +708,7 @@ pub fn daemon(get: impl Fn(&str) -> Option<String>) -> Result<(), String> {
             .unwrap_or_else(|| "unknown-boot".into()),
         container_id: get("POLIS_JOBS_CONTAINER_ID").unwrap_or_else(|| "unknown-container".into()),
         lease_seconds: 120,
-        bounds: Bounds::default(),
+        bounds,
     };
     polis_queue_adapter::jobs::shutdown::install();
     let mut worker = Worker::new(cfg)?;

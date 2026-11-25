@@ -835,7 +835,12 @@ mod derived_worker {
         Worker::new(worker::Config {
             env: ENV.into(),
             connector: std::sync::Arc::new(connector),
-            reader: Box::new(move || from_run::connect(&get)),
+            reader: Box::new(move |deadline| {
+                worker::connector(&get)
+                    .unwrap()
+                    .connect_bounded(deadline, std::time::Duration::from_secs(30))
+                    .map_err(|e| e.to_string())
+            }),
             journal_dir: journal.into(),
             boot_id: boot.into(),
             container_id: "generated-container".into(),
@@ -1141,5 +1146,77 @@ mod derived_worker {
         for word in ["pyo3", "ort", "onnx", "tch", "reqwest", "hyper"] {
             assert!(!manifest.contains(&format!("\n{word} =")), "{word}");
         }
+    }
+    #[test]
+    fn source_read_deadline_interrupts_silent_transport() {
+        use std::io::{Read, Write};
+        use std::net::{Shutdown, TcpListener, TcpStream};
+        use std::time::{Duration, Instant};
+        let db = Db::new();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let dbport = admin_url().parse::<postgres::Config>().unwrap().get_ports()[0];
+        let proxy = std::thread::spawn(move || {
+            let (mut front, _) = listener.accept().unwrap();
+            let mut back = TcpStream::connect(("127.0.0.1", dbport)).unwrap();
+            let (mut f, mut b) = (front.try_clone().unwrap(), back.try_clone().unwrap());
+            let reply = std::thread::spawn(move || {
+                let _ = std::io::copy(&mut b, &mut f);
+            });
+            let mut buf = [0u8; 65536];
+            let mut peer_closed = false;
+            loop {
+                let n = front.read(&mut buf).unwrap_or(0);
+                if n == 0 {
+                    break;
+                }
+                if buf[..n].windows(17).any(|w| w == b"START TRANSACTION")
+                    || buf[..n].windows(5).any(|w| w == b"BEGIN")
+                {
+                    // Keep the TCP session established; SQL timeouts cannot see this withheld request.
+                    front
+                        .set_read_timeout(Some(Duration::from_millis(800)))
+                        .unwrap();
+                    peer_closed = front.read(&mut [0u8; 1]).is_ok_and(|n| n == 0);
+                    break;
+                }
+                back.write_all(&buf[..n]).unwrap();
+            }
+            let _ = front.shutdown(Shutdown::Both);
+            let _ = back.shutdown(Shutdown::Both);
+            reply.join().unwrap();
+            peer_closed
+        });
+        let dsn = format!("postgresql://{}@127.0.0.1:{port}/{}", db.login, db.name);
+        let mut client = from_run::connect(|k| match k {
+            "QUEUE_DATABASE_URL" => Some(dsn.clone()),
+            "POLIS_JOBS_TRANSPORT" => Some("loopback".into()),
+            _ => None,
+        })
+        .unwrap();
+        let bounds = worker::Bounds {
+            deadline: Duration::from_millis(100),
+            statement: Duration::from_millis(50),
+            ..worker::Bounds::default()
+        };
+        let start = Instant::now();
+        let result = worker::read_source(
+            &mut client,
+            ENV,
+            "00000000-0000-4000-8000-000000000001",
+            bounds,
+        );
+        let elapsed = start.elapsed();
+        let peer_closed = proxy.join().unwrap();
+        assert!(result.is_err());
+        println!(
+            "SILENT_TRANSPORT deadline_ms=100 statement_ms=50 elapsed_ms={} peer_closed={peer_closed}",
+            elapsed.as_millis()
+        );
+        assert!(peer_closed, "deadline must close the source socket");
+        assert!(
+            elapsed < Duration::from_millis(500),
+            "source deadline did not interrupt transport: {elapsed:?}"
+        );
     }
 }
