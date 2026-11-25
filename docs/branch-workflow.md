@@ -44,7 +44,8 @@ Follow [Preparing and publishing a Polis release](release-promotion.md):
    pull request with **`edge` itself as the head** and `stable` as the base, then
    merge it with a **merge commit** through the required review.
 3. Run the gated publication workflow for that exact stable merge commit. After
-   approval, it creates the annotated `vX.Y.Z` tag and publishes the CLI release.
+   approval, it creates the annotated `vX.Y.Z` tag and publishes the release
+   (notes only; it builds and attaches no CLI binaries).
 4. Deploy that published stable commit through the existing deployment gates.
 
 The annotated version tag is the canonical release marker. Publication must

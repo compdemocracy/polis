@@ -17,7 +17,7 @@
 use crate::votes::{StorageConvention, VoteChoice, WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS};
 use crate::wire::JsNumber;
 use serde::{Deserialize, Serialize};
-use serde_json::{value::RawValue, Value};
+use serde_json::value::{RawValue, Value};
 
 pub const PATH: &str = "/api/v3/votes";
 pub const CONTRACT: &str = "post-votes/1";
@@ -134,7 +134,7 @@ impl Request {
     }
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Auth {
     pub token: String,
@@ -240,11 +240,18 @@ pub struct DurableSuccess {
     pub vote: AcceptedVote,
     #[serde(rename = "followOn")]
     pub follow_on: FollowOn,
+    /// The token of a participant this reply's request created (a first vote
+    /// with no token): the last key, as Node's token injector places it.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub auth: Option<Auth>,
 }
 impl DurableSuccess {
     pub fn decode(body: &[u8]) -> Result<Self, String> {
         let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
-        reject_null_optionals(body, &["nextComment"])?;
+        reject_null_optionals(body, &["nextComment", "auth"])?;
+        if let Some(auth) = &value.auth {
+            auth.validate()?;
+        }
         if ![WIRE_AGREE, WIRE_DISAGREE, WIRE_PASS].contains(&value.vote.vote) {
             return Err("invalid wire vote".into());
         }
@@ -254,6 +261,38 @@ impl DurableSuccess {
         }
         if let Some(next) = &value.next_comment {
             next.fields().map_err(|e| e.to_string())?;
+        }
+        Ok(value)
+    }
+}
+
+/// The 202 a vote gets when its reply deadline passes before the commit is
+/// acknowledged: whether the vote is stored is unknown, and the same vote may
+/// be sent again.
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct UnknownAcceptance {
+    /// Always "unknown".
+    pub acceptance: String,
+    /// Always "same_vote".
+    pub retry: String,
+}
+impl Default for UnknownAcceptance {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+impl UnknownAcceptance {
+    pub fn new() -> Self {
+        Self {
+            acceptance: "unknown".into(),
+            retry: "same_vote".into(),
+        }
+    }
+    pub fn decode(body: &[u8]) -> Result<Self, String> {
+        let value: Self = serde_json::from_slice(body).map_err(|e| e.to_string())?;
+        if value.acceptance != "unknown" || value.retry != "same_vote" {
+            return Err("unrecognized unknown acceptance".into());
         }
         Ok(value)
     }

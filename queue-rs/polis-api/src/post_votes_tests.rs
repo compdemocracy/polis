@@ -422,6 +422,18 @@ pub(in crate::post_votes) mod database {
 #[path = "post_votes_safety_tests.rs"]
 mod safety;
 
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_identity_serve_tests.rs"]
+mod identity_serve;
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_first_contact_tests.rs"]
+mod first_contact;
+
+#[cfg(feature = "db-tests")]
+#[path = "post_votes_first_contact_load_tests.rs"]
+mod first_contact_load;
+
 // The route observer installs a caller's state for exactly one synchronous
 // poll. Dispatch creation captures it; the detached task retains it to Drop.
 // Other callers and blocking SQL workers cannot borrow this thread-local state.
@@ -435,6 +447,242 @@ pub(super) struct DispatchState {
     pub(super) receipt: Option<Arc<Mutex<Option<AcceptedVote>>>>,
     pub(super) notification_scheduled: bool,
     pub(super) selection_started: bool,
+    /// A panic or a pause to inject into this caller's first-contact task.
+    pub(super) fault: Option<Fault>,
+    /// This caller's first-contact task, for a test that waits until it
+    /// exists.
+    pub(super) task: Option<tokio::task::AbortHandle>,
+    /// The creating operation's blocking work is waiting at a pause.
+    pub(super) worker_paused: bool,
+    /// The test lets that work go on.
+    pub(super) worker_released: bool,
+    /// The places this caller's first vote is held (`Hold`), until the test
+    /// lets each go on.
+    pub(super) hold: Vec<Hold>,
+    /// The places it has reached, held or not.
+    pub(super) reached: Vec<Hold>,
+    /// The held places the test has let go on.
+    pub(super) let_go: Vec<Hold>,
+    /// What this caller's first-vote outcome was counted as, each time it was
+    /// counted: `handed_back`, `confirmed`, `unresolved` or `unknown`.
+    pub(super) counted: Vec<&'static str>,
+}
+
+/// A place a first vote can be held, for a test that orders its worker, its
+/// second look and its request against each other. Nothing is held unless the
+/// test asks; every place is recorded when it is reached.
+#[cfg(feature = "db-tests")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Hold {
+    /// Inside the transaction, right after the worker claimed its COMMIT and
+    /// before the transaction's id is read and COMMIT is sent.
+    AfterClaim,
+    /// In the second look's task, after it read and before it writes the
+    /// outcome.
+    BeforeLookSettles,
+    /// In the request, after its wait ran out and before it abandons the
+    /// vote.
+    AfterRequestWait,
+}
+
+/// Records that `place` was reached; true when it may be passed.
+#[cfg(feature = "db-tests")]
+fn passes(observation: &DispatchObservation, place: Hold) -> bool {
+    let mut state = observation.lock().unwrap();
+    if !state.reached.contains(&place) {
+        state.reached.push(place);
+    }
+    !state.hold.contains(&place) || state.let_go.contains(&place)
+}
+
+/// Inside blocking work: waits at `place` while the test holds it.
+#[cfg(feature = "db-tests")]
+pub(super) fn hold(observation: &Option<DispatchObservation>, place: Hold) {
+    let Some(observation) = observation else {
+        return;
+    };
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !passes(observation, place) {
+        assert!(
+            std::time::Instant::now() < until,
+            "{place:?} was never let go on"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// In a task: waits at `place` while the test holds it, without blocking the
+/// runtime's threads.
+#[cfg(feature = "db-tests")]
+pub(super) async fn hold_async(observation: &Option<DispatchObservation>, place: Hold) {
+    let Some(observation) = observation else {
+        return;
+    };
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !passes(observation, place) {
+        assert!(
+            std::time::Instant::now() < until,
+            "{place:?} was never let go on"
+        );
+        tokio::time::sleep(Duration::from_millis(2)).await;
+    }
+}
+
+/// Records what a caller's first-vote outcome was counted as.
+#[cfg(feature = "db-tests")]
+pub(super) fn counted(observation: &Option<DispatchObservation>, counter: &'static str) {
+    if let Some(observation) = observation {
+        observation.lock().unwrap().counted.push(counter);
+    }
+}
+
+/// Where a first-contact task fails or waits, for a caller that asks for it.
+#[cfg(feature = "db-tests")]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(super) enum Fault {
+    /// The task panics before its transaction.
+    BeforeCreate,
+    /// Inside the blocking work, before the transaction: the worker unwinds.
+    InWorkerBeforeCommit,
+    /// Inside the blocking work, before the transaction: the worker waits
+    /// until the test lets it go on.
+    PauseBeforeCommit,
+    /// Inside the transaction, after the person's rows and before the vote's
+    /// statements, holding the participant-number lock: the worker waits
+    /// until the test lets it go on.
+    PauseInTransaction,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the worker waits until the test lets it go on.
+    PauseAfterCommit,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the worker unwinds.
+    InWorkerAfterCommit,
+    /// Inside the blocking work, after the acknowledged COMMIT is recorded:
+    /// the pool's lock on its idle connections is poisoned, so the pool fails
+    /// the operation after it succeeded.
+    PoolErrorAfterCommit,
+    /// The task panics after the commit, before the token is signed.
+    AfterCommit,
+    /// The task panics after the follow-on, before the request is told.
+    AfterFollowOn,
+    /// The COMMIT lands and its acknowledgement is reported lost, with the
+    /// transaction's id: what a connection dropped after COMMIT was sent, and
+    /// after the server committed, looks like to the writer.
+    AckLostAfterCommit,
+    /// `AckLostAfterCommit`, and the second look's read fails.
+    StatusReadFails,
+    /// `AckLostAfterCommit`, and every read of the second look finds the
+    /// transaction still in progress.
+    StatusInProgress,
+    /// `AckLostAfterCommit`, and the second look's blocking work waits, as
+    /// on a database that has stopped answering, until the test lets it go
+    /// on.
+    StatusReadStalls,
+}
+
+#[cfg(feature = "db-tests")]
+fn fault_of(observation: &Option<DispatchObservation>) -> Option<Fault> {
+    observation
+        .as_ref()
+        .and_then(|observation| observation.lock().unwrap().fault)
+}
+
+/// Waits until the test lets a paused worker go on.
+#[cfg(feature = "db-tests")]
+fn pause(observation: &DispatchObservation) {
+    observation.lock().unwrap().worker_paused = true;
+    let until = std::time::Instant::now() + Duration::from_secs(10);
+    while !observation.lock().unwrap().worker_released {
+        assert!(
+            std::time::Instant::now() < until,
+            "the paused worker was never let go on"
+        );
+        std::thread::sleep(Duration::from_millis(2));
+    }
+}
+
+/// Whether this caller's COMMIT is to land with its acknowledgement
+/// reported lost.
+#[cfg(feature = "db-tests")]
+pub(super) fn loses_acknowledgement(observation: &Option<DispatchObservation>) -> bool {
+    matches!(
+        fault_of(observation),
+        Some(
+            Fault::AckLostAfterCommit
+                | Fault::StatusReadFails
+                | Fault::StatusInProgress
+                | Fault::StatusReadStalls
+        )
+    )
+}
+
+/// A committed first contact, reported to the writer as a COMMIT whose
+/// acknowledgement was lost, for a caller that asks for it: the
+/// transaction committed, and the writer sees only its id.
+#[cfg(feature = "db-tests")]
+pub(super) fn lose_acknowledgement<T, E>(
+    observation: &Option<DispatchObservation>,
+    outcome: Result<polis_auth::admission::Then<T>, polis_auth::admission::ThenError<E>>,
+    transaction: Option<i64>,
+) -> Result<polis_auth::admission::Then<T>, polis_auth::admission::ThenError<E>> {
+    match (outcome, transaction) {
+        (Ok(polis_auth::admission::Then::Created { .. }), Some(transaction))
+            if loses_acknowledgement(observation) =>
+        {
+            Err(polis_auth::admission::ThenError::CommitUnknown { transaction })
+        }
+        (outcome, _) => outcome,
+    }
+}
+
+/// Inside the second look's blocking work: what a fault makes its read
+/// answer instead of the database, or a wait before the read.
+#[cfg(feature = "db-tests")]
+pub(super) fn second_look_fault(
+    observation: &Option<DispatchObservation>,
+) -> Option<anyhow::Result<Option<String>>> {
+    match fault_of(observation)? {
+        Fault::StatusReadFails => Some(Err(anyhow::anyhow!("injected status read failure"))),
+        Fault::StatusInProgress => Some(Ok(Some("in progress".into()))),
+        Fault::StatusReadStalls => {
+            pause(observation.as_ref().unwrap());
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Panics when this caller asked for a fault at `at`. The observation's lock
+/// is released first, so nothing that reads it later is poisoned.
+#[cfg(feature = "db-tests")]
+pub(super) fn inject(observation: &Option<DispatchObservation>, at: Fault) {
+    let fault = observation
+        .as_ref()
+        .and_then(|observation| observation.lock().unwrap().fault);
+    if fault == Some(at) {
+        panic!("injected fault in a first-contact task: {at:?}");
+    }
+}
+
+/// `inject`, inside the creating operation's blocking work, where `pool` is
+/// the first contact's pool: a fault there is a panic, the pool's idle lock
+/// poisoned, or a wait.
+#[cfg(feature = "db-tests")]
+pub(super) fn inject_in_creation(
+    observation: &Option<DispatchObservation>,
+    at: Fault,
+    pool: &crate::db::Pool,
+) {
+    if fault_of(observation) != Some(at) {
+        return;
+    }
+    match at {
+        Fault::PoolErrorAfterCommit => pool.poison_idle(),
+        Fault::PauseBeforeCommit | Fault::PauseInTransaction | Fault::PauseAfterCommit => {
+            pause(observation.as_ref().unwrap());
+        }
+        _ => panic!("injected fault in a first contact's creation: {at:?}"),
+    }
 }
 
 #[cfg(feature = "db-tests")]
@@ -475,6 +723,32 @@ fn observing_dispatch<T>(observation: &DispatchObservation, poll: impl FnOnce() 
     });
     let _clear = Clear;
     poll()
+}
+
+/// The first contact's connections fail when silent past
+/// `FIRST_CONTACT_SILENCE` (unacknowledged data, or keepalives unanswered),
+/// whatever the transport; the connector is otherwise unchanged.
+#[test]
+fn a_first_contacts_connections_fail_when_silent() {
+    let base: postgres::Config = "host=db user=polis dbname=polis".parse().unwrap();
+    let bounded = first_contact_connector(Connector::Plain(Box::new(base.clone())));
+    let Connector::Plain(config) = bounded else {
+        panic!("the transport is kept");
+    };
+    assert_eq!(config.get_tcp_user_timeout(), Some(&FIRST_CONTACT_SILENCE));
+    assert!(config.get_keepalives());
+    assert_eq!(config.get_keepalives_idle(), FIRST_CONTACT_KEEPALIVE);
+    assert_eq!(
+        config.get_keepalives_interval(),
+        Some(FIRST_CONTACT_KEEPALIVE)
+    );
+    assert_eq!(
+        config.get_keepalives_retries(),
+        Some(FIRST_CONTACT_KEEPALIVE_PROBES)
+    );
+    assert_eq!(config.get_hosts(), base.get_hosts());
+    assert_eq!(config.get_user(), base.get_user());
+    assert_eq!(config.get_dbname(), base.get_dbname());
 }
 
 #[test]
@@ -570,6 +844,89 @@ fn vote_language_startup_requires_provider_off() {
         assert!(
             result.status.success(),
             "setting={setting:?}\n{}\n{}",
+            String::from_utf8_lossy(&result.stdout),
+            String::from_utf8_lossy(&result.stderr)
+        );
+    }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn first_contact_startup_requires_the_signing_key_to_match_the_verifier() {
+    const CHILD: &str = "POLIS_FIRST_CONTACT_KEY_STARTUP_TEST";
+    match std::env::var(CHILD).ok().as_deref() {
+        Some("start") => {
+            assert!(Writer::from_env().unwrap().is_some());
+            return;
+        }
+        Some("refuse") => {
+            let error = Writer::from_env()
+                .err()
+                .expect("mismatched keys must refuse to start");
+            let message = format!("{error:#}");
+            for setting in ["JWT_PRIVATE_KEY", "POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE"] {
+                assert!(message.contains(setting), "{message}");
+            }
+            assert!(!message.contains("BEGIN"), "no key material: {message}");
+            return;
+        }
+        _ => {}
+    }
+    let pem = |rsa: &openssl::rsa::Rsa<openssl::pkey::Private>| {
+        (
+            String::from_utf8(rsa.private_key_to_pem().unwrap()).unwrap(),
+            String::from_utf8(rsa.public_key_to_pem().unwrap()).unwrap(),
+        )
+    };
+    let (signing, public) = pem(&openssl::rsa::Rsa::generate(2048).unwrap());
+    let (_, other) = pem(&openssl::rsa::Rsa::generate(2048).unwrap());
+    let dir =
+        std::env::temp_dir().join(format!("first-contact-key-startup-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let matching = dir.join("matching.pem");
+    let mismatched = dir.join("mismatched.pem");
+    std::fs::write(&matching, &public).unwrap();
+    std::fs::write(&mismatched, &other).unwrap();
+    // (first-contact switch, the legacy public key file, what startup does)
+    for (first_contact, file, expect) in [
+        (true, Some(&matching), "start"),
+        (true, None, "start"),
+        (true, Some(&mismatched), "refuse"),
+        // Off, nothing is checked and startup is as before.
+        (false, Some(&mismatched), "start"),
+    ] {
+        let mut child = std::process::Command::new(std::env::current_exe().unwrap());
+        child
+            .args([
+                "--exact",
+                "post_votes::tests::first_contact_startup_requires_the_signing_key_to_match_the_verifier",
+                "--nocapture",
+            ])
+            .env_clear()
+            .env(CHILD, expect)
+            .env("POLIS_API_POST_VOTES", "1")
+            .env("POLIS_API_POST_VOTES_IDENTITY_NO_WRITE", "1")
+            .env("TOPICAL_COMMENT_RATIO", "0")
+            .env("SHOULD_USE_TRANSLATION_API", "false")
+            .env(
+                "POLIS_API_POST_VOTES_DATABASE_URL",
+                "postgres://postgres@127.0.0.1:9/postgres",
+            )
+            .env("POLIS_API_DB_TRANSPORT", "loopback")
+            .env("JWT_PRIVATE_KEY", &signing)
+            .env("JWT_PUBLIC_KEY", &public)
+            .env("POLIS_JWT_ISSUER", "fixture")
+            .env("POLIS_JWT_AUDIENCE", "fixture");
+        if first_contact {
+            child.env(FIRST_CONTACT_SWITCH, "1");
+        }
+        if let Some(file) = file {
+            child.env("POLIS_API_PARTICIPANT_PUBLIC_KEY_FILE", file);
+        }
+        let result = child.output().unwrap();
+        assert!(
+            result.status.success(),
+            "first_contact={first_contact} file={file:?} expect={expect}\n{}\n{}",
             String::from_utf8_lossy(&result.stdout),
             String::from_utf8_lossy(&result.stderr)
         );

@@ -8,8 +8,13 @@ publication plan is accepted. An older updater needs the explicit verified
 artifact installation described in [CLI releases](../polis-cli/docs/releases.md).
 
 The order is **prepare the version, promote, publish, then deploy**. Publication
-creates the annotated `v<VERSION>` tag and the CLI release before the deploy
+creates the annotated `v<VERSION>` tag and the GitHub release before the deploy
 build reads Git identity. Deploy the same stable commit that was published.
+
+A release builds no CLI binaries and attaches no files: it is the tag and the
+release notes. CLI builds are paused; see
+[The CLI is not built by a release](#the-cli-is-not-built-by-a-release) for what
+`polis update` does meanwhile and how to build the CLI by hand.
 
 ## Repository setup
 
@@ -28,8 +33,8 @@ explicit action even when the approver dispatched the workflow himself.
 Enable Actions' permission to create pull requests. Preparation gets contents
 and pull-request write permission solely for the version branch and PRs; it has
 no release command. Protect edge/stable against unreviewed merges, and use a
-merge commit for edge-to-stable promotions. The publication workflow and its
-reusable builder have read-only permissions until the final `publish` job.
+merge commit for edge-to-stable promotions. The publication workflow has
+read-only permissions until the final `publish` job.
 That single writer uses `environment: release`. Both entry workflows share a
 non-cancelling concurrency group to avoid concurrent preparations/publications.
 Do not run a manual publication in parallel with it. Also limit the **release**
@@ -38,13 +43,13 @@ in the workflow file, and the branch rule keeps a copy of the file on any other
 branch away from the publish job.
 
 Every job that checks out the dispatched SHA first compares it with the current
-head of `stable` (publication and its native builds) or `edge` (preparation)
+head of `stable` (publication, and the hand-dispatched CLI build) or `edge` (preparation)
 with `git ls-remote`, in the workflow's own code and before the checkout, so the
 code at that SHA never vouches for itself; the scripts then repeat the check.
 `polis-version` is compiled once per run, in a job that gives no step a GitHub
 token (checkout keeps none), and handed to later jobs as the `polis-version-tool`
 artifact. The jobs that pass a token to a step (plan, review, publish,
-preparation) compile nothing, and no native builder step is given a token.
+preparation) compile nothing, and no step of the CLI build is given a token.
 
 ## Prepare the version and promotion
 
@@ -87,31 +92,14 @@ mirrors. It snapshots PR associations and titles, including explicit commit
 entries for changes without exactly one verified PR association. Preparation
 PRs changing only version metadata and the enclosing promotion are excluded
 from change bullets; the promotion remains linked in the header. The plan collects
-this notes snapshot once. Native builds validate source and tags without fetching
-PR notes; preapproval verification reuses the snapshot and emits manual commands
-from that same verification. Publication still performs a final live notes check
+this notes snapshot once. Preapproval verification reuses the snapshot and emits
+manual commands from that same verification. Publication still performs a final live notes check
 after approval, so changed titles or associations require a fresh plan. Only
 reserved preparation PRs need file-list lookups; ordinary PRs do not.
 
-The reused native matrix builds four archives and four SHA256 files:
-
-- `polis-VERSION-COMMIT12-aarch64-apple-darwin.tar.gz[.sha256]`
-- `polis-VERSION-COMMIT12-x86_64-apple-darwin.tar.gz[.sha256]`
-- `polis-VERSION-COMMIT12-x86_64-unknown-linux-gnu.tar.gz[.sha256]`
-- `polis-VERSION-COMMIT12-aarch64-unknown-linux-gnu.tar.gz[.sha256]`
-
-Each build first validates the stable source, then creates a **local-only** tag
-in its disposable checkout so the shared identity embeds the stable version and
-zero distance before any public tag exists. It never pushes that tag. The builder
-runs with `--release-tag` and `--release-commit`: it refuses before compiling
-unless that identity is stable for exactly the tag and commit, and refuses after
-compiling unless the binary prints exactly
-`polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. A runner missing
-`origin/stable` or the local tag fails instead of packaging a `+dev` build. Artifact
-names, archive layout, checksums, target set and updater validation are retained;
-the builder reads root VERSION. A missing or failed target blocks publication.
-The old `cli-v` publication path is retired: the builder is callable only from
-this workflow, and both build and publication scripts reject `cli-v` tags.
+No job builds the CLI and no runner other than `ubuntu-24.04` is used. The
+`verify`, `commands` and `publish` actions refuse `--assets`, and an
+existing release for the tag that has any attached file is refused, never changed.
 
 Before the environment prompt, the plan/review job summaries and
 `polis-release-review` artifact show:
@@ -119,14 +107,14 @@ Before the environment prompt, the plan/review job summaries and
 - previous release/tag (or bootstrap stable SHA), exact stable/source SHAs;
 - computed version, reason, migration filenames, and `schema: yes/no`;
 - promoted public PR titles/links and direct-commit exceptions to review;
-- the complete eight-asset SHA256 inventory and equivalent manual commands.
+- the equivalent manual commands; the verification record shows `"assets": {}`.
 
 Colin opens the run linked by the environment prompt, reviews these records and
 approves **release**. The final job downloads only this run's artifacts and
-revalidates source, tags, notes and asset contents after the wait. It creates
-one immutable annotated `vMAJOR.MINOR.PATCH` tag targeting the stable merge, creates a draft
-**Polis VERSION** release with the prepared notes, uploads all eight assets,
-then publishes it as latest. GitHub's generic generated notes are not used:
+revalidates source, tags and notes after the wait. It creates
+one immutable annotated `vMAJOR.MINOR.PATCH` tag targeting the stable merge, then
+creates the **Polis VERSION** release with the prepared notes and no attached
+files, published as latest, in one `gh release create --verify-tag` call. GitHub's generic generated notes are not used:
 our deterministic notes contain the verified promoted PR titles, migration
 filenames and explicit schema line. Releases are source-shipment records,
 not evidence that database migrations ran or production deployed.
@@ -137,10 +125,10 @@ with nothing written, when fewer calls remain than it still needs: one per
 promoted commit plus 52 at the first read, then 50.
 
 Use a fresh manual dispatch for retry; rerunning an old run is refused so an earlier approval cannot be reused. A matching existing public release is a no-op only after comparing its title,
-notes, tag object type, exact annotation, stable target and every downloaded asset byte. Different assets/notes or a
-conflicting tag fail; nothing is overwritten. A partial draft is deliberately
-held for explicit review/cleanup, not silently completed. A failed upload leaves
-a draft. Retain the original run artifacts for retry. Moving stable or changing
+notes, tag object type, exact annotation and stable target, and checking that it
+has no attached files. Attached files, different notes or a
+conflicting tag fail; nothing is overwritten. A draft or prerelease for the tag is deliberately
+held for explicit review/cleanup, not silently completed. Retain the original run artifacts for retry. Moving stable or changing
 PR titles after review invalidates the packet and needs a fresh plan/approval.
 Only current stable can be newly published; older stable deployment remains a
 redeploy using its existing number. This is the edge-promotion path, not a
@@ -162,16 +150,15 @@ or bypass its existing gates. No other deployment step changes.
 
 ## Prepared manual commands
 
-Build `polis-version` from `queue-rs`, use a clean checkout at the exact stable
-commit with full history/tags, and retrieve the four verified native artifacts.
+Build `polis-version` from `queue-rs` and use a clean checkout at the exact stable
+commit with full history/tags.
 Use a packet/output directory **outside** the checkout:
 
 ```sh
 python3 scripts/polis_release.py plan --repository OWNER/REPO \
   --stable FULL_STABLE_SHA --tool /path/to/polis-version --output /path/to/review
 python3 scripts/polis_release.py commands --stable FULL_STABLE_SHA \
-  --packet /path/to/review/publication.json --assets /path/to/assets \
-  --tool /path/to/polis-version
+  --publication /path/to/review/publication.json --tool /path/to/polis-version
 ```
 
 Both publication paths use the same annotation: Polis version, previous tag (or
@@ -182,7 +169,8 @@ stable merge commit. Existing lightweight tags, different annotations or targets
 are refused, even when the peeled commit matches; they are never replaced.
 
 The second command validates and **prints** exact shell-quoted `git tag`,
-`git push` and `gh release` commands; it does not execute them. Colin reviews
+`git push` and `gh release create` commands; it does not execute them. The
+printed release command attaches no files. Colin reviews
 and runs the prepared commands explicitly as the alternative to the workflow.
 Run the printed verification immediately before tag/push; if a matching tag
 already exists, verify it and omit those two commands. Do not reuse a stale
@@ -190,12 +178,65 @@ packet or overwrite a partial/published release. Anyone with direct repository
 write rights remains responsible for following the manual approval procedure;
 the environment protects the workflow job, not arbitrary local gh commands.
 
+## The CLI is not built by a release
+
+Releases carry no CLI binaries until CLI builds resume. Installed CLIs keep the
+binary they have. `polis update` reads the release list and picks the highest
+stable `vMAJOR.MINOR.PATCH` release, skipping drafts and prereleases but not
+releases without files. When that release is newer than the installed CLI and
+has no archive for its platform, `polis update` stops with exit status 1, error
+`update_failed`, "The latest Polis release does not contain exactly one archive
+for this platform.", and leaves the installed executable unchanged. It does not
+fall back to an older release that has archives. No other command checks for
+updates. To install a published CLI, select the most recent release that has
+archives attached and follow the explicit installation procedure in
+[CLI releases](../polis-cli/docs/releases.md).
+
+**Building the CLI by hand.** Dispatch **Build Polis CLI release assets**
+(`polis-cli-release-build.yml`) with `commit` equal to the full current stable
+head and `tag` equal to `v` plus that commit's `VERSION`. Like publication, each
+job first compares `commit` with the current stable head in the workflow's own
+code before checkout, and no step is given a GitHub token. It builds four archives and
+their SHA256 files on native runners (macOS on Apple silicon and Intel, Linux on
+x86_64 and ARM64):
+
+- `polis-VERSION-COMMIT12-aarch64-apple-darwin.tar.gz[.sha256]`
+- `polis-VERSION-COMMIT12-x86_64-apple-darwin.tar.gz[.sha256]`
+- `polis-VERSION-COMMIT12-x86_64-unknown-linux-gnu.tar.gz[.sha256]`
+- `polis-VERSION-COMMIT12-aarch64-unknown-linux-gnu.tar.gz[.sha256]`
+
+Each build first validates the stable source. If the public tag is already
+there it checks that the tag peels to `commit`; otherwise it creates a
+**local-only** tag in its disposable checkout so the shared identity embeds the
+stable version and zero distance. It never pushes a tag. The builder
+runs with `--release-tag` and `--release-commit`: it refuses before compiling
+unless that identity is stable for exactly the tag and commit, and refuses after
+compiling unless the binary prints exactly
+`polis X.Y.Z (commit FULL_SHA; distance 0; clean-checkout)`. A runner missing
+`origin/stable` or the local tag fails instead of packaging a `+dev` build. Artifact
+names, archive layout, checksums, target set and updater validation are retained;
+the builder reads root VERSION. A missing or failed target fails the run.
+The old `cli-v` publication path is retired: the builder has no tag or push
+trigger, and both build and publication scripts reject `cli-v` tags.
+
+The archives stay as that run's artifacts (14 days). Nothing attaches them to a
+release: publication refuses `--assets`, and `scripts/publish-polis-cli-release.py`
+creates a release, which fails when the release for that tag already exists.
+How CLI binaries are published again (attached to the existing release for
+their version, or otherwise) is to be designed when CLI builds resume.
+
 ## Verification
 
 Run the same hosted CLI entry on a work/test machine:
 
 ```sh
 bash scripts/test-polis-cli.sh
+```
+
+The release script's own tests alone (no Rust build, no network):
+
+```sh
+python3 -m unittest discover -s scripts/tests -p 'test_polis_cli_release*.py'
 ```
 
 It includes `test_polis_cli_release*.py`: archive/provenance, shared identity,

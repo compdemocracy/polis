@@ -30,6 +30,10 @@ REQUIRE_API_BUDGET = m.require_api_budget
 
 
 def packet():
+    return publication_record()
+
+
+def publication_record():
     return {'schema': 'polis.publication/1', 'repository': REPO, 'stable': C,
             'tag': 'v2.42.0', 'plan': copy.deepcopy(PLAN), 'notes_data': copy.deepcopy(NOTES),
             'notes': m.render_notes(REPO, PLAN, C, NOTES)}
@@ -315,7 +319,8 @@ class ReleaseTests(unittest.TestCase):
 
     def test_workflow_reuses_notes_until_final_live_check_with_bounded_api_calls(self):
         # Model 300 ordinary promoted commits and drive the same CLI actions as
-        # plan, four native builds, review/commands, and approved publication.
+        # plan, review/commands, and approved publication (no native builds),
+        # plus the source check the hand-dispatched CLI build runs.
         commits = [f'{i:040x}' for i in range(1, 300)] + [B]
         prs = {commit: {'number': i + 1, 'title': f'Change {i}', 'merged_at': '2026-01-01',
                         'merge_commit_sha': commit, 'head': {'ref': 'feature'},
@@ -343,27 +348,24 @@ class ReleaseTests(unittest.TestCase):
             with patch('sys.argv', ['polis_release.py', action, '--tool', __file__, *args]), \
                  patch('builtins.print'):
                 m.main()
-        assets = self.bundle()
-        publisher = m.load_publisher()
+        assets = None  # A release attaches no files.
         review = self.root / 'review'
         manual = self.root / 'commands.sh'
         with patch.object(m, 'ROOT', self.root), patch.object(m, 'git', side_effect=read), \
              patch.object(m, 'remote_head', return_value=C), patch.object(m, 'compute', return_value=PLAN), \
              patch.object(m, 'api', side_effect=request), patch.object(m, 'gate'), \
              patch.object(m, 'approved_run'), patch.object(m, 'tags', return_value={}), \
-             patch.object(m, 'check_remote_tags'), patch.object(m, 'load_publisher', return_value=publisher), \
-             patch.object(publisher, 'publish') as publish, \
+             patch.object(m, 'check_remote_tags'), patch.object(m, 'create_release') as publish, \
              patch.object(m, 'notes_data', wraps=m.notes_data) as collect:
             invoke('plan', '--stable', C, '--repository', REPO, '--output', str(review))
             self.assertEqual(len(calls), 301)
-            for _ in range(4):
-                invoke('source', '--stable', C, '--repository', REPO)
+            invoke('source', '--stable', C, '--repository', REPO)
             invoke('verify', '--snapshot-notes', '--commands-output', str(manual),
-                   '--packet', str(review / 'publication.json'), '--assets', str(assets))
+                   '--publication', str(review / 'publication.json'))
             self.assertEqual(len(calls), 301)
             self.assertEqual(collect.call_count, 1)
             self.assertIn('gh release create', manual.read_text())
-            invoke('publish', '--packet', str(review / 'publication.json'), '--assets', str(assets))
+            invoke('publish', '--publication', str(review / 'publication.json'))
             self.assertEqual(collect.call_count, 2)  # Preserve the postapproval live check.
             self.assertEqual(len(calls), 605)  # 602 notes reads, release list, tag object/ref.
             publish.assert_called_once()
@@ -415,54 +417,64 @@ class ReleaseTests(unittest.TestCase):
                     m.verify_packet(original, REPO, 'tool')
 
     def bundle(self):
+        # A complete, valid native CLI set, used only to show that it is refused.
         assets = self.root / 'assets'
-        publisher = m.load_publisher()
+        spec = importlib.util.spec_from_file_location(
+            'publish_cli', Path(__file__).parents[1] / 'publish-polis-cli-release.py')
+        publisher = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(publisher)
         for target in publisher.build.TARGETS:
             publisher.build.package(assets, b'generated binary', '2.42.0', C, target,
                                     'clean-checkout', 'rustc fixture', b'lock', b'license')
         return assets
 
     def test_verify_and_prepared_commands_never_execute_writes(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'api') as api, patch.object(m, 'run') as run, \
              patch.object(m, 'tags', return_value={}), patch.object(m, 'check_remote_tags'):
             result = m.publication(packet(), assets, 'tool')
             text = m.commands(packet(), assets, 'tool', self.root / 'publication.json')
-            self.assertEqual(len(result['assets']), 8)
+            self.assertEqual(result['assets'], {})
             self.assertIn(f'git tag -a v2.42.0 {C}', text)
             self.assertIn('gh release create v2.42.0', text)
             self.assertIn('--notes-file', text)
             self.assertNotIn('--generate-notes', text)
+            # The release attaches no files: nothing is uploaded and no draft is left.
+            self.assertNotIn('gh release upload', text)
+            self.assertNotIn('--draft', text)
+            self.assertNotIn('--assets', text)
+            with self.assertRaisesRegex(ValueError, 'attaches no CLI binaries'):
+                m.commands(publication_record(), self.bundle(), 'tool', self.root / 'publication.json')
             api.assert_not_called()
             run.assert_not_called()
 
-    def test_no_public_write_before_gate_and_complete_assets(self):
-        assets = self.bundle()
+    def test_no_public_write_before_gate_or_with_cli_assets(self):
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate', side_effect=ValueError('gate')) as gate, \
              patch.object(m, 'api') as api:
             with self.assertRaisesRegex(ValueError, 'gate'):
                 m.publication(packet(), assets, 'tool', execute=True, reviewer='release-owner')
             api.assert_not_called()
-            next(assets.glob('*.tar.gz')).unlink()
+            assets = self.bundle()  # A complete, valid CLI set is refused before the approval check.
             gate.reset_mock()
-            with self.assertRaises(ValueError):
+            with self.assertRaisesRegex(ValueError, 'attaches no CLI binaries'):
                 m.publication(packet(), assets, 'tool', execute=True, reviewer='release-owner')
             gate.assert_not_called()
             api.assert_not_called()
 
-    def test_publish_tag_then_draft_upload_publish_once(self):
-        assets = self.bundle()
-        publisher = m.load_publisher()
+    def test_publish_tag_then_release_once(self):
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
              patch.object(m, 'api', side_effect=[[], {'sha': TREE}, {}]) as api, patch.object(m, 'remote_head', return_value=C), \
              patch.object(m, 'tags', return_value={'v2.41.0': A}), patch.object(m, 'check_remote_tags'), \
-             patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
+             patch.object(m, 'create_release') as publish:
             self.assertEqual(m.publication(packet(), assets, 'tool', execute=True), {'published': 'v2.42.0'})
             self.assertEqual(api.call_args.kwargs['data'], {'ref': 'refs/tags/v2.42.0', 'sha': TREE})
             self.assertEqual(api.call_args_list[1].kwargs['data'],
                              {'tag': 'v2.42.0', 'message': m.tag_annotation(packet()),
                               'object': C, 'type': 'commit'})
             self.assertEqual(publish.call_count, 1)
+            self.assertEqual(publish.call_args.args[:2], (REPO, 'v2.42.0'))
 
     def expected_annotation(self, value):
         plan = value['plan']
@@ -500,13 +512,12 @@ class ReleaseTests(unittest.TestCase):
                 m.verify_tag_annotation(value)
 
     def test_existing_matching_tag_is_reused_without_ref_write(self):
-        assets = self.bundle()
-        publisher = m.load_publisher()
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
              patch.object(m, 'api', return_value=[]) as api, patch.object(m, 'remote_head', return_value=C), \
              patch.object(m, 'tags', return_value={'v2.42.0': C}), patch.object(m, 'check_remote_tags'), \
              patch.object(m, 'verify_tag_annotation') as annotation, \
-             patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
+             patch.object(m, 'create_release') as publish:
             self.assertEqual(m.publication(packet(), assets, 'tool', execute=True), {'published': 'v2.42.0'})
             annotation.assert_called_once_with(packet())
             self.assertEqual(api.call_count, 1)
@@ -518,11 +529,12 @@ class ReleaseTests(unittest.TestCase):
             publish.assert_not_called()
 
     def test_verify_checks_existing_annotation_without_writes(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'tags', return_value={'v2.42.0': C}), \
              patch.object(m, 'check_remote_tags'), patch.object(m, 'verify_tag_annotation') as annotation, \
              patch.object(m, 'api') as api:
-            self.assertEqual(len(m.publication(packet(), assets, 'tool')['assets']), 8)
+            result = m.publication(publication_record(), assets, 'tool')
+            self.assertEqual(result['assets'], {})
             annotation.assert_called_once_with(packet())
             api.assert_not_called()
             annotation.side_effect = ValueError('annotation mismatch')
@@ -530,13 +542,11 @@ class ReleaseTests(unittest.TestCase):
                 m.publication(packet(), assets, 'tool')
 
     def test_ref_collision_never_publishes_or_updates_ref(self):
-        assets = self.bundle()
-        publisher = m.load_publisher()
+        assets = None  # A release attaches no files.
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
              patch.object(m, 'api', side_effect=[[], {'sha': TREE}, ValueError('ref exists')]) as api, \
              patch.object(m, 'remote_head', return_value=C), patch.object(m, 'tags', return_value={}), \
-             patch.object(m, 'check_remote_tags'), patch.object(m, 'load_publisher', return_value=publisher), \
-             patch.object(publisher, 'publish') as publish:
+             patch.object(m, 'check_remote_tags'), patch.object(m, 'create_release') as publish:
             with self.assertRaisesRegex(ValueError, 'ref exists'):
                 m.publication(packet(), assets, 'tool', execute=True)
             self.assertEqual(api.call_count, 3)
@@ -573,11 +583,7 @@ class ReleaseTests(unittest.TestCase):
                     value['tag'] = 'v2.42.1'
                 tag = value['tag']
                 expected = self.expected_annotation(value)
-                assets = self.root / ('tag-assets-' + tag)
-                publisher = m.load_publisher()
-                for target in publisher.build.TARGETS:
-                    publisher.build.package(assets, b'generated binary', value['plan']['version'], stable,
-                                            target, 'clean-checkout', 'rustc fixture', b'lock', b'license')
+                assets = None  # A release attaches no files.
                 writes = []
                 def api(repo, path, *, data=None, **kwargs):
                     if path == 'releases?per_page=100&page=1':
@@ -595,7 +601,7 @@ class ReleaseTests(unittest.TestCase):
                 with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
                      patch.object(m, 'api', side_effect=api), patch.object(m, 'remote_head', return_value=stable), \
                      patch.object(m, 'tags', return_value={}), patch.object(m, 'check_remote_tags'), \
-                     patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish'):
+                     patch.object(m, 'create_release'):
                     m.publication(value, assets, 'tool', execute=True)
                 api_object = git('cat-file', '-p', tag)
                 self.assertEqual(git('cat-file', '-t', tag), 'tag')
@@ -621,7 +627,7 @@ class ReleaseTests(unittest.TestCase):
                 self.assertEqual(manual_object.split('\n\n', 1)[1], api_object.split('\n\n', 1)[1])
 
     def test_partial_draft_on_later_page_refuses_retry_before_any_write(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         calls = []
         def request(repo, path, **kwargs):
             calls.append(path)
@@ -641,7 +647,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(calls, ['releases?per_page=100&page=1', 'releases?per_page=100&page=2'])
 
     def test_duplicate_drafts_or_published_plus_draft_refuse(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         for drafts in [(True, True), (False, True)]:
             releases = [{'tag_name': 'v2.42.0', 'draft': draft} for draft in drafts]
             with self.subTest(drafts=drafts), patch.object(m, 'verify_packet'), \
@@ -651,25 +657,35 @@ class ReleaseTests(unittest.TestCase):
                     m.publication(packet(), assets, 'tool', execute=True)
                 run.assert_not_called()
 
-    def test_successful_retry_compares_every_remote_asset_and_is_noop(self):
-        import shutil
-        assets = self.bundle()
+    def test_successful_retry_of_a_release_without_files_is_noop(self):
+        assets = None  # A release attaches no files.
         existing = {'tag_name': 'v2.42.0', 'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
-        def download(args, **kwargs):
-            self.assertEqual(args[:3], ['gh', 'release', 'download'])
-            for path in assets.iterdir(): shutil.copy2(path, Path(args[-1]) / path.name)
-            return ''
+        existing['assets'] = []
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
-             patch.object(m, 'api', return_value=[existing]) as api, patch.object(m, 'run', side_effect=download), \
+             patch.object(m, 'api', return_value=[existing]) as api, patch.object(m, 'run') as run, \
              patch.object(m, 'tags', return_value={'v2.42.0': C}), patch.object(m, 'check_remote_tags'), \
-             patch.object(m, 'verify_tag_annotation') as annotation:
+             patch.object(m, 'verify_tag_annotation') as annotation, patch.object(m, 'create_release') as publish:
 
             self.assertEqual(m.publication(packet(), assets, 'tool', execute=True), {'already_published': True})
             self.assertEqual(api.call_count, 1)
             annotation.assert_called_once_with(packet())
+            run.assert_not_called()
+            publish.assert_not_called()
+            # A release with any attached file (or no file list) is refused, never changed.
+            archive = {'name': 'polis-2.42.0-' + C[:12] + '-x86_64-unknown-linux-gnu.tar.gz',
+                       'browser_download_url': 'https://example.invalid/archive'}
+            for listed in [[archive], None]:
+                if listed is None:
+                    del existing['assets']
+                else:
+                    existing['assets'] = listed
+                with self.subTest(assets=listed), self.assertRaises((ValueError, KeyError)):
+                    m.publication(publication_record(), assets, 'tool', execute=True)
+            run.assert_not_called()
+            publish.assert_not_called()
 
     def test_existing_release_without_matching_tag_is_not_a_successful_retry(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         existing = {'tag_name': 'v2.42.0', 'draft': False, 'prerelease': False, 'body': packet()['notes'], 'name': 'Polis 2.42.0'}
         with patch.object(m, 'verify_packet'), patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
              patch.object(m, 'api', return_value=[existing]), patch.object(m, 'tags', return_value={}), \
@@ -700,14 +716,12 @@ class ReleaseTests(unittest.TestCase):
                     self.assertEqual(git.call_count, 1 if live_notes else 0)
 
     def test_low_budget_refuses_before_live_notes_and_before_the_tag(self):
-        assets = self.bundle()
-        publisher = m.load_publisher()
+        assets = None  # A release attaches no files.
         # First read: one call short of three promoted commits plus publication.
         with patch.object(m, 'require_api_budget', REQUIRE_API_BUDGET), patch.object(m, 'git', return_value='3'), \
              patch.object(m, 'run', return_value=self.rate_limit(3 + 2 + m.PUBLICATION_CALLS - 1)), \
              patch.object(m, 'verify_packet') as verify, patch.object(m, 'gate') as gate, \
-             patch.object(m, 'api') as api, patch.object(m, 'load_publisher', return_value=publisher), \
-             patch.object(publisher, 'publish') as publish:
+             patch.object(m, 'api') as api, patch.object(m, 'create_release') as publish:
             with self.assertRaisesRegex(ValueError, 'budget too low'):
                 m.publication(packet(), assets, 'tool', execute=True)
             verify.assert_not_called()
@@ -726,7 +740,7 @@ class ReleaseTests(unittest.TestCase):
              patch.object(m, 'verify_packet') as verify, patch.object(m, 'gate'), patch.object(m, 'approved_run'), \
              patch.object(m, 'api', side_effect=request), patch.object(m, 'remote_head', return_value=C), \
              patch.object(m, 'tags') as tags, patch.object(m, 'check_remote_tags'), \
-             patch.object(m, 'load_publisher', return_value=publisher), patch.object(publisher, 'publish') as publish:
+             patch.object(m, 'create_release') as publish:
             with self.assertRaisesRegex(ValueError, 'budget too low'):
                 m.publication(packet(), assets, 'tool', execute=True)
             verify.assert_called_once()
@@ -735,11 +749,12 @@ class ReleaseTests(unittest.TestCase):
             publish.assert_not_called()
 
     def test_review_verification_reads_no_rate_limit(self):
-        assets = self.bundle()
+        assets = None  # A release attaches no files.
         with patch.object(m, 'require_api_budget', REQUIRE_API_BUDGET), patch.object(m, 'verify_packet'), \
              patch.object(m, 'run') as run, patch.object(m, 'tags', return_value={}), \
              patch.object(m, 'check_remote_tags'):
-            self.assertEqual(len(m.publication(packet(), assets, 'tool')['assets']), 8)
+            result = m.publication(publication_record(), assets, 'tool')
+            self.assertEqual(result['assets'], {})
             run.assert_not_called()
 
     def test_cli_entry_plan_writes_review_artifact_only(self):
@@ -751,6 +766,38 @@ class ReleaseTests(unittest.TestCase):
             self.assertEqual(json.loads((self.root / 'review/publication.json').read_text()), packet())
             self.assertEqual((self.root / 'review/notes.md').read_text(), packet()['notes'])
             run.assert_not_called()
+
+    def test_cli_assets_are_refused_before_anything_is_read(self):
+        # A complete, valid native CLI set does not make a release carry binaries:
+        # verify, commands and publish refuse --assets before reading the review
+        # record (absent here) or making any request.
+        assets = self.bundle()
+        for action, extra in [('verify', ['--snapshot-notes']), ('commands', []), ('publish', [])]:
+            argv = ['polis_release.py', action, '--tool', __file__, *extra,
+                    '--publication', str(self.root / 'absent/publication.json'), '--assets', str(assets)]
+            with self.subTest(action=action), patch('sys.argv', argv), \
+                 patch.object(m, 'verify_packet') as verify, patch.object(m, 'api') as api, \
+                 patch.object(m, 'run') as run, patch.object(m, 'create_release') as publish, \
+                 patch('builtins.print') as out, patch('sys.stderr') as err:
+                with self.assertRaises(SystemExit) as stop:
+                    m.main()
+                self.assertEqual(stop.exception.code, 1)
+                self.assertIn('attaches no CLI binaries', ''.join(c.args[0] for c in err.write.call_args_list))
+                for call in (verify, api, run, publish, out):
+                    call.assert_not_called()
+        self.assertEqual(len(list(assets.iterdir())), 8)
+
+    def test_create_release_publishes_notes_without_files_or_draft(self):
+        notes = self.root / 'notes.md'
+        notes.write_text(m.render_notes(REPO, PLAN, C, NOTES))
+        with patch.object(m, 'run') as run:
+            m.create_release(REPO, 'v2.42.0', notes)
+        run.assert_called_once_with(['gh', 'release', 'create', 'v2.42.0', '--repo', REPO, '--verify-tag',
+                                     '--title', 'Polis 2.42.0', '--notes-file', notes, '--latest'])
+        notes.write_text('no schema line')
+        with patch.object(m, 'run') as run, self.assertRaisesRegex(ValueError, 'schema status'):
+            m.create_release(REPO, 'v2.42.0', notes)
+        run.assert_not_called()
 
     def test_workflow_graph_has_manual_entry_and_single_gated_writer(self):
         root = Path(__file__).resolve().parents[2]
@@ -764,10 +811,16 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(publication.count('contents: write'), 1)
         final = publication.split('\n  publish:\n')[1]
         self.assertIn('name: release', final)
-        self.assertIn('needs: [plan, build, review]', final)
+        self.assertIn('needs: [plan, review]', final)
         self.assertIn('polis_release.py publish', final)
         self.assertNotIn('polis_release.py publish', publication.split('\n  publish:\n')[0])
-        self.assertIn('workflow_call:', build)
+        # The release builds no CLI and waits on no macOS runner; nothing passes assets.
+        jobs = publication.split('\njobs:\n')[1]
+        for absent in ['uses: ./', 'macos', 'polis-cli-', '--assets', '\n  build:\n']:
+            self.assertNotIn(absent, jobs)
+        # The CLI build stays available by hand only, and no release calls it.
+        self.assertIn('  workflow_dispatch:', build)
+        self.assertNotIn('workflow_call:', build)
         self.assertNotIn('contents: write', build)
         self.assertNotIn('push:', build)
         self.assertEqual(build.count('target: '), 4)

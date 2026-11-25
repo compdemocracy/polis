@@ -693,10 +693,10 @@ pub(crate) fn xid_lookup_rule(settings: &[(String, String)]) -> XidLookup {
     XidLookup::Enabled
 }
 
-/// One reading of the settings, inside a transaction, for the statement that
-/// follows it there. None: they could not be read.
-fn read_rule(tx: &mut postgres::Transaction<'_>) -> Option<XidLookup> {
-    let rows = tx.query(LOGGING_SETTINGS, &[]).ok()?;
+/// One reading of the settings, on the session (or in the transaction) of the
+/// statement that follows it there. None: they could not be read.
+pub(crate) fn read_rule(c: &mut impl postgres::GenericClient) -> Option<XidLookup> {
+    let rows = c.query(LOGGING_SETTINGS, &[]).ok()?;
     let settings = rows
         .iter()
         .map(|row| Some((row.try_get(0).ok()?, row.try_get(1).ok()?)))

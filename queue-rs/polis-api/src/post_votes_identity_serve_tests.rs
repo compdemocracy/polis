@@ -1,0 +1,652 @@
+//! The live vote writer's identity switch: the identity cases that write
+//! nothing. Each case is asked through the whole route, with the switch off
+//! (handed back exactly as before) and on (served, or refused with Node's
+//! bytes), against a database built from the published migrations.
+use super::{database::Database, *};
+use crate::http::{Body, Headers};
+use crate::votes::{StorageConvention, VoteChoice};
+use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+use polis_queue_adapter::jobs::transport::Connector;
+use serde_json::{Value, json};
+
+struct Stage {
+    db: Database,
+    key: EncodingKey,
+    public: Vec<u8>,
+}
+
+/// Owner 9 owns every conversation. Users 2 to 5 are members: 2 by an
+/// anonymous token, 3 by an external-id token for `x3`, 4 by a signed-in
+/// account's participant token, 5 in a Treevite conversation. User 6 is an
+/// owner account bound to the external id `x6`.
+fn stage(label: &str) -> Stage {
+    let db = Database::new(label);
+    db.connect()
+        .batch_execute(
+            "CREATE TABLE IF NOT EXISTS oidc_user_mappings(uid integer);
+             INSERT INTO users(uid) VALUES (9),(2),(3),(4),(5);
+             INSERT INTO users(uid,is_owner) VALUES (6,true);
+             INSERT INTO conversations(zid,owner,is_active,modified) VALUES (1,9,true,0);
+             INSERT INTO conversations(zid,owner,is_active,modified,use_xid_whitelist,xid_required)
+               VALUES (2,9,true,0,true,true);
+             INSERT INTO conversations(zid,owner,is_active,modified,treevite_enabled)
+               VALUES (3,9,true,0,true);
+             INSERT INTO conversations(zid,owner,is_active,modified,xid_required)
+               VALUES (4,9,true,0,true);
+             INSERT INTO zinvites(zid,zinvite) VALUES
+               (1,'2plain'),(2,'2listed'),(3,'2tree'),(4,'2required');
+             ALTER TABLE participants DISABLE TRIGGER USER;
+             INSERT INTO participants(zid,pid,uid,nsli) VALUES
+               (1,0,2,0),(1,1,3,0),(1,2,4,0),(2,0,2,0),(2,1,3,0),(3,0,5,0);
+             ALTER TABLE participants ENABLE TRIGGER USER;
+             INSERT INTO xids(uid,owner,xid) VALUES (3,9,'x3'),(6,9,'x6');",
+        )
+        .unwrap();
+    let rsa = openssl::rsa::Rsa::generate(2048).unwrap();
+    Stage {
+        db,
+        key: EncodingKey::from_rsa_pem(&rsa.private_key_to_pem().unwrap()).unwrap(),
+        public: rsa.public_key_to_pem().unwrap(),
+    }
+}
+
+/// The live writer, with or without the identity switch, and its pools warm.
+fn app(stage: &Stage, identity_no_write: bool) -> Arc<App> {
+    app_with_admins(stage, identity_no_write, vec![])
+}
+
+/// `app`, with these users as the site's administrators.
+fn app_with_admins(stage: &Stage, identity_no_write: bool, admins: Vec<i32>) -> Arc<App> {
+    app_built(stage, identity_no_write, admins, identity_read_limits())
+}
+
+/// `app_with_admins`, with these limits for the identity reads' pool.
+fn app_built(
+    stage: &Stage,
+    identity_no_write: bool,
+    admins: Vec<i32>,
+    identity_limits: db::Limits,
+) -> Arc<App> {
+    let connector = || Connector::Plain(Box::new(stage.db.config.clone()));
+    let limits = db::Limits {
+        size: 4,
+        acquire_timeout: Duration::from_millis(100),
+        statement_timeout: Duration::from_secs(1),
+        max_lifetime: Duration::from_secs(300),
+    };
+    let cfg = config::Config {
+        listen: String::new(),
+        math_env: "test".into(),
+        cache_size: 10,
+        pca_cache_size: 10,
+        pca_cache_bytes: crate::pca::DEFAULT_CACHE_BYTES,
+        dev_mode: false,
+        use_network_host: false,
+        production: true,
+        pool: limits.clone(),
+    };
+    let mut app = App::new(&cfg, db::Pool::new(connector(), read_limits()));
+    app.post_votes = Some(Writer {
+        pool: db::Pool::writer(connector(), limits.clone()),
+        reads: db::Pool::new(connector(), read_limits()),
+        background: NotificationPool::new(db::Pool::writer(
+            connector(),
+            db::Limits { size: 2, ..limits },
+        )),
+        verifier: participant::Verifier::new(&stage.public, "fixture", "fixture").unwrap(),
+        admins,
+        priorities: Arc::default(),
+        follow_on: Arc::new(FollowOnLane::default()),
+        identity_no_write,
+        identity_reads: identity_no_write.then(|| db::Pool::new(connector(), identity_limits)),
+        first_contact: None,
+    });
+    runtime().block_on(async {
+        let writer = app.post_votes.as_ref().unwrap();
+        let mut pools = vec![&writer.reads, &writer.pool, &writer.background.pool];
+        pools.extend(writer.identity_reads.as_ref());
+        for pool in pools {
+            pool.with(|c| Ok(c.simple_query("select 1").map(drop)?))
+                .await
+                .unwrap();
+        }
+    });
+    Arc::new(app)
+}
+
+fn runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+}
+
+/// A participant token of one of the three kinds Node issues.
+fn token(stage: &Stage, uid: i32, pid: i32, cid: &str, kind: &str) -> String {
+    let now = (crate::clock::now_ms() / 1000.0) as u64;
+    let mut claims = json!({
+        "uid": uid, "pid": pid, "conversation_id": cid,
+        "iss": "fixture", "aud": "fixture", "exp": now + 3600, "iat": now,
+    });
+    let extra = match kind {
+        "anonymous" => json!({"sub": format!("anon:{uid}"), "anonymous_participant": true}),
+        "xid" => json!({"sub": "xid:x3", "xid_participant": true, "xid": "x3"}),
+        "standard" => {
+            json!({"sub": "user:s4", "standard_user_participant": true, "oidc_sub": "s4"})
+        }
+        _ => unreachable!(),
+    };
+    for (k, v) in extra.as_object().unwrap() {
+        claims[k] = v.clone();
+    }
+    encode(&Header::new(Algorithm::RS256), &claims, &stage.key).unwrap()
+}
+
+fn vote(app: &Arc<App>, body: Value, token: Option<&str>) -> (u16, String) {
+    let mut request = req(&body.to_string());
+    let bearer = token.map(|t| format!("Bearer {t}"));
+    let mut headers = vec![
+        ("host", "localhost"),
+        ("content-type", "application/json"),
+        ("x-forwarded-proto", "https"),
+    ];
+    if let Some(bearer) = &bearer {
+        headers.push(("authorization", bearer));
+    }
+    request.headers = Headers::from_raw(headers);
+    let out = runtime().block_on(crate::route::handle(app.clone(), request));
+    let body = match &out.body {
+        Body::Empty => String::new(),
+        Body::Fixed(bytes) => String::from_utf8(bytes.clone()).unwrap(),
+        Body::Chunked(chunks) => String::from_utf8(chunks.concat()).unwrap(),
+    };
+    (out.status, body)
+}
+
+fn ballot(cid: &str) -> Value {
+    json!({"conversation_id": cid, "tid": 7, "vote": crate::votes::WIRE_AGREE})
+}
+
+/// Node's `failJson` body for a refusal its participant middleware answers.
+fn node_refusal(status: u16, code: &str) -> String {
+    format!(r#"{{"error":"{code}","message":"{code}","status":{status}}}"#)
+}
+
+/// The stored agree, read through the convention, never a literal sign.
+fn stored(stage: &Stage, zid: i32, pid: i32) -> Option<i16> {
+    stage
+        .db
+        .connect()
+        .query_opt(
+            "select vote from votes_latest_unique where zid=$1 and pid=$2 and tid=7",
+            &[&zid, &pid],
+        )
+        .unwrap()
+        .map(|row| row.get(0))
+}
+
+fn agree() -> Option<i16> {
+    Some(i16::try_from(StorageConvention::CURRENT.encode(VoteChoice::Agree)).unwrap())
+}
+
+/// Users, participants, external-id bindings and votes, counted.
+fn rows(stage: &Stage) -> Vec<i64> {
+    let mut c = stage.db.connect();
+    ["users", "participants", "xids", "votes"]
+        .iter()
+        .map(|table| {
+            c.query_one(&format!("select count(*) from {table}"), &[])
+                .unwrap()
+                .get(0)
+        })
+        .collect()
+}
+
+#[test]
+fn with_the_identity_switch_off_every_new_case_is_handed_back() {
+    let stage = stage("identity_off");
+    let app = app(&stage, false);
+    let before = rows(&stage);
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    let listed = token(&stage, 2, 0, "2listed", "anonymous");
+    let tree = token(&stage, 5, 0, "2tree", "anonymous");
+    let mut named = ballot("2plain");
+    named["xid"] = json!("someone");
+    for (body, token) in [
+        (ballot("2plain"), Some(xid.as_str())),
+        (named, Some(anonymous.as_str())),
+        (ballot("2listed"), Some(listed.as_str())),
+        (ballot("2tree"), Some(tree.as_str())),
+        (ballot("2required"), None),
+        (ballot("2tree"), None),
+    ] {
+        assert_eq!(vote(&app, body, token).0, 502);
+    }
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+#[test]
+fn an_external_id_tokens_member_votes_and_is_checked_on_every_vote() {
+    let stage = stage("identity_xid_member");
+    let app = app(&stage, true);
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 200);
+    assert_eq!(stored(&stage, 1, 1), agree());
+    // The same token, naming another external id: Node resolves that one.
+    let mut other = ballot("2plain");
+    other["xid"] = json!("x9");
+    assert_eq!(vote(&app, other, Some(&xid)).0, 502);
+    // The owner's allow-list is read on every vote.
+    let listed = token(&stage, 3, 1, "2listed", "xid");
+    assert_eq!(
+        vote(&app, ballot("2listed"), Some(&listed)),
+        (403, node_refusal(403, "polis_err_xid_not_allowed"))
+    );
+    stage
+        .db
+        .connect()
+        .batch_execute("INSERT INTO xid_whitelist(owner,xid) VALUES (9,'x3')")
+        .unwrap();
+    assert_eq!(vote(&app, ballot("2listed"), Some(&listed)).0, 200);
+    // The signed user's account is checked first, as Node's hybrid auth does.
+    stage
+        .db
+        .connect()
+        .batch_execute("DELETE FROM xid_whitelist; UPDATE users SET is_owner=true WHERE uid=3")
+        .unwrap();
+    assert_eq!(
+        vote(&app, ballot("2listed"), Some(&listed)),
+        (403, node_refusal(403, "polis_err_xid_owner_account"))
+    );
+}
+
+#[test]
+fn external_id_keys_beside_a_member_token_are_dropped() {
+    let stage = stage("identity_keys");
+    let app = app(&stage, true);
+    let before = rows(&stage);
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    let standard = token(&stage, 4, 2, "2plain", "standard");
+    let mut named = ballot("2plain");
+    for (key, value) in [
+        ("xid", "someone"),
+        ("x_name", "n"),
+        ("x_email", "e"),
+        ("x_profile_image_url", "u"),
+    ] {
+        named[key] = json!(value);
+    }
+    assert_eq!(vote(&app, named.clone(), Some(&anonymous)).0, 200);
+    assert_eq!(vote(&app, named.clone(), Some(&standard)).0, 200);
+    assert_eq!(stored(&stage, 1, 0), agree());
+    assert_eq!(stored(&stage, 1, 2), agree());
+    let after = rows(&stage);
+    assert_eq!(after[..3], before[..3], "no user, participant or binding");
+    // An external id Node's parser refuses, or one of whitespace, is Node's.
+    for xid in [json!(""), json!("   "), json!("x".repeat(1000))] {
+        named["xid"] = xid;
+        assert_eq!(vote(&app, named.clone(), Some(&anonymous)).0, 502);
+    }
+}
+
+#[test]
+fn members_of_conversations_that_require_or_list_external_ids_vote() {
+    let stage = stage("identity_required_member");
+    let app = app(&stage, true);
+    let member = token(&stage, 2, 0, "2listed", "anonymous");
+    assert_eq!(vote(&app, ballot("2listed"), Some(&member)).0, 200);
+    assert_eq!(stored(&stage, 2, 0), agree());
+}
+
+#[test]
+fn a_treevite_member_votes_only_under_its_own_row() {
+    let stage = stage("identity_treevite");
+    let app = app(&stage, true);
+    let member = token(&stage, 5, 0, "2tree", "anonymous");
+    assert_eq!(vote(&app, ballot("2tree"), Some(&member)).0, 200);
+    assert_eq!(stored(&stage, 3, 0), agree());
+    // A token whose number is not its row's stays Node's.
+    let other = token(&stage, 5, 4, "2tree", "anonymous");
+    assert_eq!(vote(&app, ballot("2tree"), Some(&other)).0, 502);
+}
+
+#[test]
+fn refusals_before_any_write_carry_nodes_bytes_and_write_nothing() {
+    let stage = stage("identity_refusals");
+    let app = app(&stage, true);
+    let before = rows(&stage);
+    let named = |cid: &str, xid: &str| {
+        let mut body = ballot(cid);
+        body["xid"] = json!(xid);
+        body
+    };
+    // A malformed field does not matter: Node refuses before it parses one.
+    let mut malformed = ballot("2required");
+    malformed["vote"] = json!(5);
+    for (body, status, code) in [
+        (ballot("2required"), 403, "polis_err_xid_required"),
+        (malformed, 403, "polis_err_xid_required"),
+        (
+            named("2listed", "unlisted"),
+            403,
+            "polis_err_xid_not_allowed",
+        ),
+        (named("2plain", "x6"), 403, "polis_err_xid_owner_account"),
+    ] {
+        assert_eq!(vote(&app, body, None), (status, node_refusal(status, code)));
+    }
+    // A first contact writes, and stays Node's. So does the Treevite refusal
+    // of a request with no external id: Node creates a user before it.
+    assert_eq!(vote(&app, ballot("2plain"), None).0, 502);
+    assert_eq!(vote(&app, named("2plain", "new"), None).0, 502);
+    assert_eq!(vote(&app, ballot("2tree"), None).0, 502);
+    assert_eq!(rows(&stage), before, "a refusal writes nothing");
+}
+
+#[test]
+fn identity_reads_never_take_the_vote_append_pools() {
+    let stage = stage("identity_pools");
+    let app = app(&stage, true);
+    let writer = app.post_votes.as_ref().unwrap();
+    let append = writer.pool.evidence.snapshot();
+    let background = writer.background.pool.evidence.snapshot();
+    let reads = writer.reads.evidence.snapshot();
+    let identity = writer.identity_reads.as_ref().unwrap();
+    let identity_before = identity.evidence.snapshot();
+    let listed = token(&stage, 3, 1, "2listed", "xid");
+    assert_eq!(vote(&app, ballot("2required"), None).0, 403);
+    assert_eq!(vote(&app, ballot("2listed"), Some(&listed)).0, 403);
+    assert_eq!(writer.pool.evidence.snapshot(), append);
+    assert_eq!(writer.background.pool.evidence.snapshot(), background);
+    assert_eq!(
+        writer.reads.evidence.snapshot(),
+        reads,
+        "no identity read takes a members' admission slot"
+    );
+    assert_eq!(
+        identity.evidence.snapshot()[0],
+        identity_before[0] + 2,
+        "each refusal is one admission read, on the identity pool"
+    );
+    // A member's vote still takes the append pool, once.
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 200);
+    assert_eq!(writer.pool.evidence.snapshot()[0], append[0] + 1);
+}
+
+/// The Treevite refusal of a request with no token, asked with no external
+/// id, with one bound to nobody, and with one already bound to an ordinary
+/// user. Node creates a user before refusing the first two, so they are
+/// handed back; for the bound one Node creates nobody, and its 401 is
+/// answered. Nothing is written in any case.
+#[test]
+fn a_tokenless_treevite_refusal_is_answered_only_for_a_bound_external_id() {
+    let stage = stage("identity_treevite_tokenless");
+    let app = app(&stage, true);
+    let before = rows(&stage);
+    let named = |xid: &str| {
+        let mut body = ballot("2tree");
+        body["xid"] = json!(xid);
+        body
+    };
+    assert_eq!(vote(&app, ballot("2tree"), None).0, 502, "no external id");
+    assert_eq!(vote(&app, named("unbound"), None).0, 502, "an unbound one");
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+    assert_eq!(
+        vote(&app, named("x3"), None),
+        (401, node_refusal(401, "polis_err_treevite_auth_required")),
+        "an external id bound to an ordinary user"
+    );
+    assert_eq!(rows(&stage), before, "the refusal writes nothing");
+}
+
+/// Removes the participant row of user `uid` in conversation `zid`.
+fn remove_row(stage: &Stage, zid: i32, uid: i32) {
+    stage
+        .db
+        .connect()
+        .execute(
+            "DELETE FROM participants WHERE zid=$1 AND uid=$2",
+            &[&zid, &uid],
+        )
+        .unwrap();
+}
+
+/// An external-id token whose participant row is gone is handed back, even
+/// where its external id is not on the owner's allow-list: the allow-list
+/// refusal is given only to a member.
+#[test]
+fn a_token_whose_row_is_gone_is_handed_back_before_the_allow_list() {
+    let stage = stage("identity_gone_unlisted");
+    let app = app(&stage, true);
+    let listed = token(&stage, 3, 1, "2listed", "xid");
+    assert_eq!(
+        vote(&app, ballot("2listed"), Some(&listed)),
+        (403, node_refusal(403, "polis_err_xid_not_allowed")),
+        "a member not on the allow-list"
+    );
+    remove_row(&stage, 2, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2listed"), Some(&listed)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// An external-id token whose participant row is gone is handed back, even
+/// where its user's account is privileged: the account refusal is given
+/// only to a member.
+#[test]
+fn a_token_whose_row_is_gone_is_handed_back_before_the_account_check() {
+    let stage = stage("identity_gone_privileged");
+    let app = app(&stage, true);
+    stage
+        .db
+        .connect()
+        .batch_execute("UPDATE users SET is_owner=true WHERE uid=3")
+        .unwrap();
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)),
+        (403, node_refusal(403, "polis_err_xid_owner_account")),
+        "a member whose account is privileged"
+    );
+    remove_row(&stage, 1, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// An administrator's external-id token: refused 403 as Node refuses it
+/// while its participant row is the token's; handed back once the row is
+/// gone, and for a conversation that does not exist.
+#[test]
+fn an_administrators_external_id_token_is_refused_only_as_a_member() {
+    let stage = stage("identity_admin_xid");
+    let app = app_with_admins(&stage, true, vec![3]);
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)),
+        (403, node_refusal(403, "polis_err_xid_owner_account"))
+    );
+    let nowhere = token(&stage, 3, 1, "2nowhere", "xid");
+    assert_eq!(vote(&app, ballot("2nowhere"), Some(&nowhere)).0, 502);
+    remove_row(&stage, 1, 3);
+    let before = rows(&stage);
+    assert_eq!(vote(&app, ballot("2plain"), Some(&xid)).0, 502);
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+}
+
+/// Both of the identity pool's connections held by work that does not
+/// finish, and an ordinary member votes meanwhile: the members' admission pool
+/// shows no wait and no acquire timeout, the vote is answered, and its latency
+/// is reported beside an idle control. An identity request in the meantime is
+/// shed on its own pool before dispatch.
+#[test]
+fn an_ordinary_member_votes_while_both_identity_slots_are_held() {
+    let stage = stage("identity_slots_held");
+    let app = app(&stage, true);
+    let writer = app.post_votes.as_ref().unwrap();
+    let identity = writer.identity_reads.as_ref().unwrap();
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    let standard = token(&stage, 4, 2, "2plain", "standard");
+    let started = std::time::Instant::now();
+    assert_eq!(vote(&app, ballot("2plain"), Some(&anonymous)).0, 200);
+    let idle = started.elapsed();
+    let parking = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    let mut held = vec![];
+    for _ in 0..identity_read_limits().size {
+        let (ready, wait) = std::sync::mpsc::channel();
+        let (release, hold) = std::sync::mpsc::channel::<()>();
+        let pool = identity.clone();
+        let work = parking.spawn(async move {
+            pool.with(move |_| {
+                ready.send(()).ok();
+                hold.recv_timeout(Duration::from_secs(10)).ok();
+                Ok(())
+            })
+            .await
+        });
+        wait.recv_timeout(Duration::from_secs(5)).unwrap();
+        held.push((release, work));
+    }
+    assert_eq!(
+        identity.health(true).as_obj().unwrap().get("available"),
+        Some(&Js::Num(0.0)),
+        "both identity slots are held"
+    );
+    let members = writer.reads.evidence.snapshot();
+    let started = std::time::Instant::now();
+    let loaded = vote(&app, ballot("2plain"), Some(&standard));
+    let loaded_latency = started.elapsed();
+    assert_eq!(loaded.0, 200, "{loaded:?}");
+    assert_eq!(stored(&stage, 1, 2), agree());
+    let after = writer.reads.evidence.snapshot();
+    assert_eq!(
+        after[1], members[1],
+        "a member waited for an admission slot"
+    );
+    assert_eq!(after[2], members[2], "a member's admission timed out");
+    let identity_before = identity.evidence.snapshot();
+    let append = writer.pool.evidence.snapshot();
+    assert_eq!(vote(&app, ballot("2required"), None).0, 502);
+    assert_eq!(
+        identity.evidence.snapshot()[2],
+        identity_before[2] + 1,
+        "an identity request is shed on its own pool's acquisition"
+    );
+    assert_eq!(
+        writer.pool.evidence.snapshot(),
+        append,
+        "nothing dispatched"
+    );
+    assert!(held.iter().all(|(_, work)| !work.is_finished()));
+    for (release, work) in held {
+        release.send(()).ok();
+        parking.block_on(work).unwrap().unwrap();
+    }
+    let delta: [usize; 6] = std::array::from_fn(|i| after[i] - members[i]);
+    let message = format!(
+        "member vote with both identity slots held: idle_ms={:.1}; held_ms={:.1}; members_pool_delta={delta:?}\n",
+        idle.as_secs_f64() * 1000.0,
+        loaded_latency.as_secs_f64() * 1000.0,
+    );
+    std::io::Write::write_all(&mut std::io::stdout(), message.as_bytes()).unwrap();
+}
+
+/// The server's log so far, when it writes one this session can read.
+fn server_log(stage: &Stage) -> Option<String> {
+    stage
+        .db
+        .connect()
+        .query_one("select pg_read_file(pg_current_logfile())", &[])
+        .ok()?
+        .try_get::<_, Option<String>>(0)
+        .ok()?
+}
+
+/// An external id is bound only on a connection whose logging settings
+/// cannot write it to the server's log: with the server's defaults both
+/// external-id paths are served; once every statement is logged with its
+/// parameters (set after the pool was built and used), both are handed back
+/// before dispatch and the id is not sent. Where the server writes a log this
+/// session can read, the log shows it: a made-up id bound on a connection with
+/// those settings is there, the external id is not.
+#[test]
+fn an_external_id_is_bound_only_where_logging_cannot_write_it() {
+    let stage = stage("identity_logging");
+    // Every identity read opens its own connection, so a setting changed
+    // after the pool was built reaches it.
+    let app = app_built(
+        &stage,
+        true,
+        vec![],
+        db::Limits {
+            max_lifetime: Duration::from_millis(1),
+            ..identity_read_limits()
+        },
+    );
+    let writer = app.post_votes.as_ref().unwrap();
+    let xid = token(&stage, 3, 1, "2plain", "xid");
+    let named = || {
+        let mut body = ballot("2tree");
+        body["xid"] = json!("x3");
+        body
+    };
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)).0,
+        200,
+        "safe: served"
+    );
+    assert_eq!(
+        vote(&app, named(), None),
+        (401, node_refusal(401, TREEVITE_REFUSAL)),
+        "safe: the tokenless decision is answered"
+    );
+    stage
+        .db
+        .connect()
+        .batch_execute(
+            "DO $$ BEGIN EXECUTE format('ALTER DATABASE %I SET log_statement = ''all''',
+             current_database()); END $$",
+        )
+        .unwrap();
+    let before = rows(&stage);
+    let append = writer.pool.evidence.snapshot();
+    assert_eq!(
+        vote(&app, ballot("2plain"), Some(&xid)).0,
+        502,
+        "unsafe: member"
+    );
+    assert_eq!(vote(&app, named(), None).0, 502, "unsafe: tokenless");
+    assert_eq!(rows(&stage), before, "a hand-back writes nothing");
+    assert_eq!(
+        writer.pool.evidence.snapshot(),
+        append,
+        "nothing dispatched"
+    );
+    // An ordinary member sends no external id and is served as before.
+    let anonymous = token(&stage, 2, 0, "2plain", "anonymous");
+    assert_eq!(vote(&app, ballot("2plain"), Some(&anonymous)).0, 200);
+    let control = format!("made-up-control-{}", std::process::id());
+    stage
+        .db
+        .connect()
+        .query_one("select $1::text", &[&control])
+        .unwrap();
+    let mut log = None;
+    for _ in 0..30 {
+        log = server_log(&stage).filter(|log| log.contains(&control));
+        if log.is_some() || server_log(&stage).is_none() {
+            break;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    match log {
+        Some(log) => assert!(!log.contains("= 'x3'"), "the external id reached the log"),
+        None => eprintln!("no readable server log with the control id: the log is not checked"),
+    }
+}

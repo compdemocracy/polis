@@ -40,12 +40,13 @@ still exist in this source tree.
 | `/conversation/create*`, `/user/{create,login,logout}`, `/settings` (and existing suffix forms) | Node, or the corresponding existing Rust page switch |
 | `/bot*`, `/gov*`, `/createuser*`, `/contrib*`, `/inbox`, `/hk*`, `/s`, `/s/*`, `/inboxApiTest*`, `/pwreset*`, `/demo`, `/company` | Node; page retirement is separate |
 | `/football`, `/pdf`, `/nabi`, `/about` and their slash forms | Node's redirects, or existing `about` switch |
-| `/report/<id>`, `/narrativeReport/<id>`, `/stats/<id>`, `/commentsReport/<id>`, `/topicReport/<id>`, `/topicsVizReport/<id>`, `/topicHierarchy/<id>`, `/collectiveStatements/<id>`, `/exportReport/<id>`, `/topicMapNarrativeReport/<id>`, `/topicStats/<id>` | Node's report shell/preload handler; preserve optional `r` and suffix matching |
+| `/topicsVizReport/<id>` | The topic map page, `/static/topic-map/index.html` from the build (`client-topic-map-embed`), through Node to `STATIC_FILES_HOST`; the query is kept and the page reads the report id from its address |
+| `/report/<id>`, `/narrativeReport/<id>`, `/stats/<id>`, `/commentsReport/<id>`, `/topicReport/<id>`, `/topicHierarchy/<id>`, `/collectiveStatements/<id>`, `/exportReport/<id>`, `/topicMapNarrativeReport/<id>`, `/topicStats/<id>` | Node's report shell/preload handler; preserve optional `r` and suffix matching |
 | `/embed`, `/embedPreprod`, `/embedReport`, `/embedReportPreprod`, `/styleguide`, `/dist/admin_bundle.js`, `/__webpack_hmr` | Node's existing registrations; page retirement is separate |
 | `/embed.js`, `/embedPreprod.js` | File-server; the live legacy embed script bypasses Node |
 | `/report_bundle*.js`, `/report_style*.css`, `/report_vendor_*.js`, including `.map`, `.gz`, `.LICENSE.txt`, `.headersJson` companions | File-server; includes report libraries loaded as browser globals |
 | `/static/*` | Node, which serves them from `STATIC_FILES_HOST`; admin bundles, maps and versioned font CSS/font files |
-| `/js/*`, `/css/*`, `/assets/*`, `/images/*`, `/fonts/*` | Node, which serves them from `STATIC_FILES_HOST`; participation bundles/styles, JWT library, images and Font Awesome |
+| `/js/*`, `/css/*`, `/assets/*`, `/images/*`, `/fonts/*` | Node, which serves them from `STATIC_FILES_HOST`; participation bundles/styles, JWT library and images; no current build writes `/fonts/*`, and the route is kept so older files already uploaded still answer |
 | `/twemoji/*` | Node, which serves them from `STATIC_FILES_HOST`; versioned emoji images and their licence |
 | `/{admin,participation,report}/build-info.json` and header sidecars | File-server |
 | `/index.html`, `/index_admin.html`, `/index_report.html`, `/404.html`, `/embed.html`, `/embedPreprod.html`, `/embedReport.html`, `/embedReportPreprod.html` and header sidecars | File-server; exact `/404.html` takes precedence over numeric conversation regexes |

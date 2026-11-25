@@ -1839,12 +1839,23 @@ def topic_map_rate(prefix):
     status, _, _ = raw(port, 'GET', '/api/v3/delphi/topicMap?report_id=r1', [f'X-Test-Case: {case}'])
     assert status == 200, status
     wait_for(lambda: find(records(prefix + '-api'), case), 'a map request after the burst')
+    # The list of a report's runs is the same location: it reaches polis-api
+    # with its query as sent, and never Node.
+    case = uuid.uuid4().hex
+    listing = '/api/v3/delphi/topicMap?report_id=r1&list=jobs'
+    status, _, _ = raw(port, 'GET', listing, [f'X-Test-Case: {case}'])
+    assert status == 200, status
+    wait_for(lambda: find(records(prefix + '-api'), case), 'the list of runs')
+    paths = [e['path'] for e in find(records(prefix + '-api'), case)]
+    assert paths == [listing], paths
+    assert not find(records(prefix + '-node'), case), 'the list of runs reached Node'
     other = total - maps
     print(f'ok topic map rate: {maps} map requests and {other} to other locations in {elapsed:.2f} s; '
           f'{passed} map requests reached polis-api (at least {TOPIC_MAP_BURST + 1}, at most {most}) and '
           f'{refused} were answered by nginx with 503, Retry-After: 1 and the route\'s busy body, with no '
           f'upstream and no error-log line; Node received none of them; all {other} other requests were '
-          f'answered and received once; after the bucket drained a map request reached polis-api again',
+          f'answered and received once; after the bucket drained a map request reached polis-api again, '
+          f'and a list of runs (list=jobs) reached polis-api with its query and not Node',
           flush=True)
 
 

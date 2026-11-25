@@ -113,7 +113,8 @@ polis_api_ready() {
             ...(selected.includes("testConnection") ? ["POLIS_API_CONNECTION_READS"] : []),
             ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : []),
             ...(selected.includes("comments") ? ["POLIS_API_COMMENT_READS"] : []),
-            ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : [])
+            ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : []),
+            ...(selected.includes("delphiTopicMap") ? ["POLIS_API_DELPHI_TOPIC_MAP_READS"] : [])
           ].sort().join(",");
           // The vote writer reports itself enabled, with its counters, exactly
           // when its route is selected.
