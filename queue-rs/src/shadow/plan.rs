@@ -224,8 +224,7 @@ fn held(
 /// only the totals hold.
 pub fn storage_room(cfg: &Config, ledger: &Ledger, comments: i64, share: Share) -> Option<Pause> {
     let next = ledger.estimate(comments);
-    let (bytes, day_bytes) = (ledger.accounted(), ledger.accounted_day());
-    let over = |limit: u64| bytes >= limit || bytes.saturating_add(next) > limit;
+    let over = |limit: u64| ledger.bytes >= limit || ledger.bytes.saturating_add(next) > limit;
     if over(cfg.storage_limit_bytes(Share::Whole)) {
         return Some(Pause::StorageBudget);
     }
@@ -233,7 +232,7 @@ pub fn storage_room(cfg: &Config, ledger: &Ledger, comments: i64, share: Share) 
         return Some(Pause::StorageReserve);
     }
     if let Some(daily) = cfg.storage_daily_bytes
-        && (day_bytes >= daily || day_bytes.saturating_add(next) > daily)
+        && (ledger.day_bytes >= daily || ledger.day_bytes.saturating_add(next) > daily)
     {
         return Some(Pause::StorageDaily);
     }

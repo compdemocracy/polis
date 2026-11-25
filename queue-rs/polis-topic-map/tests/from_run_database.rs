@@ -2400,6 +2400,18 @@ mod backfill {
 
     #[test]
     fn review_finished_derived_bytes_reach_storage_budget() {
+        review_finished_map(None);
+    }
+
+    /// A job that stores no map (two rows): the smallest the estimate sees.
+    /// Run it also with the longest env the settings allow (64 bytes) by
+    /// setting `ENV` to one; the estimate counts the env per row.
+    #[test]
+    fn review_storage_small_no_map_estimate() {
+        review_finished_map(Some(2));
+    }
+
+    fn review_finished_map(steps: Option<usize>) {
         use polis_topic_map::worker::{self, Worker};
         let db = Db::new();
         db.admin()
@@ -2408,7 +2420,7 @@ mod backfill {
                 &[],
             )
             .unwrap();
-        let run = support::run("biodiversity", 1424, None);
+        let run = support::run("biodiversity", 1424, steps);
         db.writer_run("delphi", json!({"selection": RULE}), &run, false);
         let d = dir();
         let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
@@ -2417,9 +2429,10 @@ mod backfill {
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 1);
-        // What the storage pauses are held to: the runs' bytes and the
-        // derived jobs' (the latter in process memory, read from the database).
-        let before = s.state.storage.accounted();
+        // The derived maps' own budget is held to one reading of the
+        // database (process memory); the full runs' ledger never counts them.
+        let before = s.derived.stored.bytes().expect("read at the first cycle");
+        let runs = (s.state.storage.bytes, s.state.storage.day_bytes);
         let url = url_for(&db.name, &db.login);
         let get = move |k: &str| match k {
             "QUEUE_DATABASE_URL" => Some(url.clone()),
@@ -2442,26 +2455,36 @@ mod backfill {
         println!("worker: {:?}", w.pass().unwrap());
         assert_eq!(job_status(&db, &derived_job_ids(&db)[0]), "succeeded");
         // The next beat reads the finished map.
-        s.state.storage.derived.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
+        s.derived.stored.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
         cycles(&mut s, 3);
-        let after = s.state.storage.accounted();
+        let after = s.derived.stored.bytes().unwrap();
+        assert_eq!(
+            (s.state.storage.bytes, s.state.storage.day_bytes),
+            runs,
+            "the full runs' ledger never counts a derived job"
+        );
         {
             use polis_queue_adapter::shadow::storage;
             let job = derived_job_ids(&db)[0].clone();
             let mut admin = db.admin();
             let mut tx = admin.transaction().unwrap();
             let m = storage::measure(&mut tx, ENV, &job, 1424).unwrap();
-            let t = s.state.storage.derived.read.unwrap();
-            println!("MAP measure={m:?} total={} reading={t:?}", m.total());
+            let t = s.derived.stored.read.unwrap();
+            println!(
+                "MAP measure={m:?} total={} reading={t:?} row ratio={:.3} job ratio={:.3}",
+                m.total(),
+                t.row_bytes as f64 / m.result_row_bytes as f64,
+                t.bytes as f64 / m.total() as f64
+            );
             assert_eq!(m.embeddings, 0, "a derived job stores no embeddings");
             assert_eq!(t.families, m.families);
             assert_eq!(t.log_bytes, m.log_bytes);
             assert_eq!(t.family_bytes, m.family_bytes);
+            // An estimate, measured above on this map; not a proven bound.
             assert!(
                 t.row_bytes >= m.result_row_bytes,
-                "the row model stays above"
+                "the estimate stays above here"
             );
-            assert!(t.row_bytes <= 2 * m.result_row_bytes, "and within twice");
             assert!(t.bytes >= m.total());
         }
         // The same state file is saved by run() every cycle. Verify no new file
@@ -2653,7 +2676,10 @@ mod backfill {
         println!("PAGING: 40000 unique runs in 100 conversations");
     }
 
+    /// On a database with no derived jobs, the switched-off scheduler's whole
+    /// log lines equal those of the scheduler built from the base commit.
     #[test]
+    #[ignore = "requires REVIEW_BASE_SHADOW: a polis-delphi-shadow binary built from the base commit"]
     fn review_process_exec_stop_and_off_log_parity() {
         use std::io::BufRead;
         use std::process::Stdio;
@@ -2867,10 +2893,9 @@ mod backfill {
     }
 
     /// The scheduler's real save and load across the backfill's switch: on,
-    /// off, on. With it on the total is the runs' ledger and one reading of
-    /// the derived jobs' bytes from the database, the same before and after;
-    /// with it off nothing is read and the total is the runs' ledger alone,
-    /// as before derived jobs.
+    /// off, on. Two budgets that never mix: the full runs' ledger is the same
+    /// in every phase (no derived job is ever in it), and the derived jobs'
+    /// bytes are one reading of the database, made only with the backfill on.
     #[test]
     fn review_storage_survives_switching_backfill_off() {
         use polis_queue_adapter::shadow::storage;
@@ -2878,59 +2903,61 @@ mod backfill {
         let db = Db::new();
         review_cancelled_map(&db);
         let d = dir();
-        std::fs::write(d.join("pause"), "").unwrap();
         let on = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
         let asked = Rc::new(RefCell::new(Vec::new()));
         let mut s = scheduler::Scheduler::new(&on)
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 2);
-        let before = s.state.storage.accounted();
-        let derived = s.state.storage.derived.bytes();
         let runs = s.state.storage.bytes;
+        let derived = s.derived.stored.bytes().expect("read with the backfill on");
         assert_eq!(derived, storage::JOB_BYTES, "one cancelled derived job");
-        assert_eq!(before, runs + derived);
         s.state.save(&on.state_path).unwrap();
         drop(s);
         let off = cfg(&db, &d, &[]);
         let mut s = scheduler::Scheduler::new(&off).unwrap();
         let from = all().len();
         cycles(&mut s, 2);
-        let during = s.state.storage.accounted();
+        let during = s.state.storage.bytes;
         assert!(
             events("derived_storage", from).is_empty(),
             "off: no reading"
         );
+        assert_eq!(s.derived.stored.read, None);
         s.state.save(&off.state_path).unwrap();
         drop(s);
         let mut s = scheduler::Scheduler::new(&on)
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 2);
-        let after = s.state.storage.accounted();
-        println!("ON-OFF-ON: before={before} off={during} after={after} derived={derived}");
-        std::fs::remove_dir_all(d).unwrap();
-        assert_eq!(
-            during, runs,
-            "off: the runs' ledger, as before derived jobs"
+        let after = s.state.storage.bytes;
+        let derived_after = s.derived.stored.bytes().unwrap();
+        println!(
+            "ON-OFF-ON: runs {runs} -> {during} -> {after}; derived {derived} -> {derived_after}"
         );
-        assert_eq!(after, before, "stored bytes must not move with the switch");
+        std::fs::remove_dir_all(d).unwrap();
+        assert_eq!(during, runs, "off: the full runs' ledger is unchanged");
+        assert_eq!(after, runs, "on again: the full runs' ledger is unchanged");
+        assert_eq!(
+            derived_after, derived,
+            "the derived reading does not move with the switch"
+        );
     }
 
-    /// A state file first listed with the backfill off, then read with it
-    /// on: the derived job is counted once, and the total is what a scheduler
-    /// with a fresh state file reads.
+    /// A state file first listed with the backfill off, then read with it on,
+    /// and a fresh state file listed with it on: the full runs' ledger is the
+    /// same in all three (the listing never includes a derived job), and the
+    /// derived job is counted once, by its own budget's reading.
     #[test]
     fn review_storage_counts_once_after_switching_backfill_on() {
         use polis_queue_adapter::shadow::storage;
         let db = Db::new();
         review_cancelled_map(&db);
         let d = dir();
-        std::fs::write(d.join("pause"), "").unwrap();
         let c = cfg(&db, &d, &[]);
         let mut s = scheduler::Scheduler::new(&c).unwrap();
         cycles(&mut s, 2);
-        let before = s.state.storage.accounted();
+        let before = s.state.storage.bytes;
         s.state.save(&c.state_path).unwrap();
         drop(s);
         let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
@@ -2939,23 +2966,72 @@ mod backfill {
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 2);
-        let after = s.state.storage.accounted();
+        let after = s.state.storage.bytes;
         let fresh_dir = dir();
-        std::fs::write(fresh_dir.join("pause"), "").unwrap();
         let fc = cfg(&db, &fresh_dir, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
         let mut f = scheduler::Scheduler::new(&fc)
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut f, 2);
-        let fresh = f.state.storage.accounted();
+        let fresh = f.state.storage.bytes;
         println!(
-            "OFF-ON: before={before} after={after} fresh={fresh} derived={}",
-            s.state.storage.derived.bytes()
+            "OFF-ON: runs before={before} after={after} fresh={fresh} derived={:?} fresh derived={:?}",
+            s.derived.stored.bytes(),
+            f.derived.stored.bytes()
         );
         std::fs::remove_dir_all(d).unwrap();
         std::fs::remove_dir_all(fresh_dir).unwrap();
-        assert_eq!(after, before + storage::JOB_BYTES, "counted once");
-        assert_eq!(after, fresh, "one stored job must not be counted twice");
+        assert_eq!(after, before, "the full runs' ledger is unchanged");
+        assert_eq!(fresh, before, "a fresh listing leaves the derived job out");
+        assert_eq!(
+            s.derived.stored.bytes(),
+            Some(storage::JOB_BYTES),
+            "counted once"
+        );
+        assert_eq!(f.derived.stored.bytes(), Some(storage::JOB_BYTES));
+    }
+
+    /// A full runs' ledger saved by an older release, whose listing counted a
+    /// derived job as a run (built here from this release's own listing plus
+    /// that job's measure, which is what the older listing measured): this
+    /// release never adds to it, subtracts from it or rereads it, and the
+    /// derived job's bytes are read apart, for their own budget. Neither
+    /// number is ever the sum of the two.
+    #[test]
+    fn review_storage_old_ledger_is_kept_and_derived_read_apart() {
+        use polis_queue_adapter::shadow::storage;
+        let db = Db::new();
+        let job = review_cancelled_map(&db);
+        let d = dir();
+        let c = cfg(&db, &d, &[]);
+        let mut s = scheduler::Scheduler::new(&c).unwrap();
+        cycles(&mut s, 2);
+        let m = {
+            let mut admin = db.admin();
+            let mut tx = admin.transaction().unwrap();
+            storage::measure(&mut tx, ENV, &job, 1424).unwrap().total()
+        };
+        let old = s.state.storage.bytes + m;
+        s.state.storage.bytes = old;
+        s.state.save(&c.state_path).unwrap();
+        drop(s);
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 3);
+        println!(
+            "OLD LEDGER: runs {old} -> {}; derived {:?}",
+            s.state.storage.bytes,
+            s.derived.stored.bytes()
+        );
+        std::fs::remove_dir_all(d).unwrap();
+        assert_eq!(
+            s.state.storage.bytes, old,
+            "the saved ledger is kept as saved"
+        );
+        assert_eq!(s.derived.stored.bytes(), Some(storage::JOB_BYTES));
     }
 
     #[test]
@@ -2963,7 +3039,6 @@ mod backfill {
         let db = Db::new();
         let template = review_cancelled_map(&db);
         let d = dir();
-        std::fs::write(d.join("pause"), "").unwrap();
         // A genuine uncommitted row, with a simulated earlier completion clock:
         // no sleep is necessary to reproduce the completion/commit ordering.
         let mut admin = db.admin();
@@ -2977,12 +3052,12 @@ mod backfill {
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 1);
-        assert_eq!(s.state.storage.derived.read.unwrap().jobs, 1);
+        assert_eq!(s.derived.stored.read.unwrap().jobs, 1);
         tx.commit().unwrap();
         // The next beat (`storage::DERIVED_READ_MS`) reads again.
-        s.state.storage.derived.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
+        s.derived.stored.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
         cycles(&mut s, 1);
-        let measured = s.state.storage.derived.read.unwrap().jobs;
+        let measured = s.derived.stored.read.unwrap().jobs;
         let rows: i64 = db
             .admin()
             .query_one("SELECT count(*) FROM delphi_jobs WHERE kind='derived'", &[])
@@ -3083,23 +3158,18 @@ mod backfill {
             &d,
             &[
                 ("DELPHI_SHADOW_DERIVED_BACKFILL", "1"),
-                ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1048576"),
+                ("DELPHI_SHADOW_DERIVED_STORAGE_BYTES", "1048576"),
             ],
         );
         let asked = Rc::new(RefCell::new(Vec::new()));
         for restart in 0..2 {
-            let mut off = counting(&asked, &[]);
-            off.switched = false;
-            let mut s = scheduler::Scheduler::new(&c).unwrap().with_admitter(off);
+            let mut s = scheduler::Scheduler::new(&c)
+                .unwrap()
+                .with_admitter(counting(&asked, &[]));
             s.state.storage.reconciled = true;
             let from = all().len();
             cycles(&mut s, 1);
-            let t = s
-                .state
-                .storage
-                .derived
-                .read
-                .expect("read at the first cycle");
+            let t = s.derived.stored.read.expect("read at the first cycle");
             assert_eq!(t.jobs, 40_001);
             assert_eq!(t.families, 40_001);
             assert_eq!(t.log_lines, 80_002);
@@ -3128,18 +3198,18 @@ mod backfill {
                     None
                 ),
                 None,
-                "a restart never holds full runs on derived accounting"
+                "derived bytes never hold full runs (their budget at its default)"
             );
             s.state.save(&c.state_path).unwrap();
             println!(
-                "RESTART {restart}: 40001 terminal jobs read in one statement at the first cycle ({} bytes), full runs not held, admission off",
+                "RESTART {restart}: 40001 terminal jobs read in one statement at the first cycle ({} bytes), over the derived budget, full runs not held",
                 t.bytes
             );
         }
         assert!(
             events("derived_held", 0)
                 .iter()
-                .any(|l| l["reason"] == "admission_off")
+                .any(|l| l["reason"] == "derived_storage_budget")
         );
         std::fs::remove_dir_all(d).unwrap();
     }

@@ -1957,7 +1957,7 @@ fn the_storage_budget_and_a_set_daily_limit_hold_admission_from_the_databases_ow
     // read from its run record; the run admitted before runs named one has
     // none.
     let listed = db::read_only(&mut f.superuser(), 30_000, |tx| {
-        polis_queue_adapter::shadow::storage::shadow_jobs(tx, None)
+        polis_queue_adapter::shadow::storage::shadow_jobs(tx)
     })
     .unwrap();
     assert_eq!(

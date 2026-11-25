@@ -82,7 +82,24 @@ pub struct Settings {
     /// After a pass that found nothing to ask, how long before the next
     /// (`DELPHI_SHADOW_DERIVED_EVERY_SECONDS`, default 3600, 60..=86400).
     pub every: Duration,
+    /// The derived maps' own storage budget, in bytes
+    /// (`DELPHI_SHADOW_DERIVED_STORAGE_BYTES`, default [`STORAGE_BYTES`],
+    /// [`STORAGE_BYTES_MIN`]..=[`STORAGE_BYTES_MAX`]): no derived job is
+    /// asked for while the derived jobs' stored bytes (one reading of the
+    /// database, `storage::derived_total`) are at or over it, or unknown. It
+    /// holds back only derived work; the full runs' budget never counts them.
+    pub storage_bytes: u64,
 }
+
+/// The derived maps' budget by default, 1 GiB: at the largest measured
+/// estimate (a large checked-in map, about 0.8 MB a job) about 1,300 maps, at
+/// a job that stores no map (about 21 KB) about 50,000; the daily cap of 100
+/// jobs at the large size is about 80 MB a day.
+pub const STORAGE_BYTES: u64 = 1 << 30;
+/// At least 1 MiB: more than the largest measured job's estimate.
+pub const STORAGE_BYTES_MIN: u64 = 1 << 20;
+/// At most 1 TiB.
+pub const STORAGE_BYTES_MAX: u64 = 1 << 40;
 
 impl Default for Settings {
     fn default() -> Self {
@@ -91,6 +108,7 @@ impl Default for Settings {
             per_cycle: 2,
             daily: 100,
             every: Duration::from_secs(3600),
+            storage_bytes: STORAGE_BYTES,
         }
     }
 }
@@ -278,6 +296,12 @@ pub enum Held {
     DailyCap,
     /// Resting after a pass that found nothing to ask (`every`).
     Rest,
+    /// The derived jobs' stored bytes are at or over their own budget
+    /// (`storage_bytes`).
+    StorageBudget,
+    /// No reading of the derived jobs' stored bytes is known (none yet, or
+    /// the last failed or timed out).
+    StorageUnread,
 }
 
 impl Held {
@@ -289,6 +313,8 @@ impl Held {
             Self::Backlog => "backlog",
             Self::DailyCap => "derived_daily_cap",
             Self::Rest => "rest",
+            Self::StorageBudget => "derived_storage_budget",
+            Self::StorageUnread => "derived_storage_unread",
         }
     }
 }
@@ -305,6 +331,8 @@ pub struct Backfill<'a> {
     held: Option<&'static str>,
     /// Inventory queries made (for the switch-off test).
     pub queries: u64,
+    /// The derived jobs' stored bytes, read for their own budget.
+    pub stored: super::storage::Derived,
 }
 
 impl<'a> Backfill<'a> {

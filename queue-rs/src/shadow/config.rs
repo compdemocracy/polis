@@ -243,6 +243,13 @@ fn derived_settings<F: Fn(&str) -> Option<String>>(
             60,
             86400,
         )?),
+        storage_bytes: number(
+            get,
+            "DELPHI_SHADOW_DERIVED_STORAGE_BYTES",
+            super::backfill::STORAGE_BYTES,
+            super::backfill::STORAGE_BYTES_MIN,
+            super::backfill::STORAGE_BYTES_MAX,
+        )?,
     })
 }
 

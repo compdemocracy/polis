@@ -303,7 +303,8 @@ def test_an_operator_may_resize_or_remove_the_cpu_limit_and_size_the_ceiling():
 
 DERIVED_KEYS = ("POLIS_JOBS_DERIVED_ADMISSION", "POLIS_JOBS_DERIVED_WORKER", "DELPHI_SHADOW_DERIVED_BACKFILL",
                 "DELPHI_SHADOW_DERIVED_PER_CYCLE", "DELPHI_SHADOW_DERIVED_DAILY",
-                "DELPHI_SHADOW_DERIVED_EVERY_SECONDS", "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
+                "DELPHI_SHADOW_DERIVED_EVERY_SECONDS", "DELPHI_SHADOW_DERIVED_STORAGE_BYTES",
+                "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
 WORKER = "delphi-derived-worker"
 
 
@@ -334,12 +335,15 @@ def test_the_schedulers_derived_settings_default_to_the_codes_own_and_reach_only
     assert set(overlay["services"]) == {"delphi-shadow-scheduler"}
     assert set(overlay["services"]["delphi-shadow-scheduler"]) == {"environment"}
     composed = _environment(overlay["services"]["delphi-shadow-scheduler"], {})
-    # queue-rs/src/shadow/config.rs: off, 2, 100, 3600; admission off.
+    # queue-rs/src/shadow/config.rs and backfill.rs: off, 2, 100, 3600,
+    # 1 GiB; admission off.
     assert composed == {"DELPHI_SHADOW_DERIVED_BACKFILL": "0", "DELPHI_SHADOW_DERIVED_PER_CYCLE": "2",
                         "DELPHI_SHADOW_DERIVED_DAILY": "100", "DELPHI_SHADOW_DERIVED_EVERY_SECONDS": "3600",
+                        "DELPHI_SHADOW_DERIVED_STORAGE_BYTES": "1073741824",
                         "POLIS_JOBS_DERIVED_ADMISSION": "0"}
     document = {"DELPHI_SHADOW_DERIVED_BACKFILL": "1", "DELPHI_SHADOW_DERIVED_PER_CYCLE": "5",
                 "DELPHI_SHADOW_DERIVED_DAILY": "50", "DELPHI_SHADOW_DERIVED_EVERY_SECONDS": "600",
+                "DELPHI_SHADOW_DERIVED_STORAGE_BYTES": "2097152",
                 "POLIS_JOBS_DERIVED_ADMISSION": "1"}
     assert _environment(overlay["services"]["delphi-shadow-scheduler"], document) == document
 

@@ -249,7 +249,8 @@ impl<'a> Scheduler<'a> {
         if self.cfg.derived.enabled {
             let d = &self.cfg.derived;
             started["derived_backfill"] = json!({"per_cycle": d.per_cycle, "daily": d.daily,
-                "every_seconds": d.every.as_secs(), "page": backfill::PAGE,
+                "every_seconds": d.every.as_secs(), "storage_bytes": d.storage_bytes,
+                "page": backfill::PAGE,
                 "pages_per_cycle": backfill::PAGES_PER_CYCLE,
                 "admitter": self.derived.admitter.is_some(),
                 "admission": self.derived.admitter.as_ref().is_some_and(|a| a.switched_on())});
@@ -277,7 +278,6 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
-        self.measure_derived(now);
         self.poll_deferred_graph(now)?;
         self.recover_graph()?;
         if let Some(flight) = self.state.graph_flight.clone() {
@@ -298,8 +298,8 @@ impl<'a> Scheduler<'a> {
                 let l = &self.state.storage;
                 log(
                     "paused",
-                    json!({"reason": reason.word(), "storage_bytes": l.accounted(),
-                           "storage_day_bytes": l.accounted_day(),
+                    json!({"reason": reason.word(), "storage_bytes": l.bytes,
+                           "storage_day_bytes": l.day_bytes,
                            "storage_budget_bytes": self.cfg.storage_budget_bytes,
                            "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
                            "storage_daily_bytes": self.cfg.storage_daily_log(),
@@ -323,9 +323,11 @@ impl<'a> Scheduler<'a> {
 
     /// The backfill's turn, after the cycle's own (`backfill`): it may ask
     /// only when no full run is running or was admitted this cycle, none is
-    /// held by a pause, and no pause but the full runs' daily cap
-    /// permits. With the switch off it returns at once and reads nothing;
-    /// with the admission's switch off it says so and reads nothing either.
+    /// held by a pause, no pause but the full runs' daily cap permits, and
+    /// the derived jobs' stored bytes are known and under their own budget.
+    /// With the switch off it returns at once and reads nothing; with the
+    /// admission's switch off it says so and reads nothing either. Nothing
+    /// here changes the full runs' ledger or decisions: their cycle is done.
     fn derived_step(&mut self, now: i64, held_by: Option<Pause>) {
         let Some(admission) = self.derived.admitter.as_ref().map(|a| a.switched_on()) else {
             return;
@@ -336,11 +338,6 @@ impl<'a> Scheduler<'a> {
         if !admission {
             let off = Some(Held::AdmissionOff);
             return self.derived.step(self.cfg, &self.db, &[], now, off);
-        }
-        // An unknown total of the derived jobs' bytes asks for none.
-        if !self.state.storage.derived.known() {
-            let unknown = Some(Held::Paused(Pause::StorageUnmeasured));
-            return self.derived.step(self.cfg, &self.db, &[], now, unknown);
         }
         let held = if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
             Some(Held::FullRun)
@@ -353,6 +350,17 @@ impl<'a> Scheduler<'a> {
                 Some(Pause::StorageReserve) => Some(Held::FullRun),
                 Some(p) => Some(Held::Paused(p)),
             }
+        };
+        if held.is_some() {
+            return self.derived.step(self.cfg, &self.db, &[], now, held);
+        }
+        // Their own budget: one reading of the database, only now that an
+        // ask could follow. An unknown total asks for none.
+        self.read_derived(now);
+        let held = match self.derived.stored.bytes() {
+            None => Some(Held::StorageUnread),
+            Some(b) if b >= self.cfg.derived.storage_bytes => Some(Held::StorageBudget),
+            Some(_) => None,
         };
         if held.is_some() {
             return self.derived.step(self.cfg, &self.db, &[], now, held);
@@ -381,39 +389,32 @@ impl<'a> Scheduler<'a> {
         self.derived.step(self.cfg, &self.db, &zids, now, None);
     }
 
-    /// The derived jobs' bytes, with the backfill on (`storage::Derived`):
-    /// one reading of the database, at the first cycle and then every
-    /// `storage::DERIVED_READ_MS`, whatever the admission's switch. A reading
-    /// that fails leaves the total unknown: no derived job is asked for, and
-    /// the full runs are held to their own bytes, as before derived jobs.
-    fn measure_derived(&mut self, now: i64) {
-        if !self.cfg.derived.enabled || self.derived.admitter.is_none() {
-            return;
-        }
-        if !self.state.storage.derived.due(now) {
+    /// The derived jobs' stored bytes, for their own budget
+    /// (`storage::Derived`): one reading of the database when due (none yet,
+    /// or `storage::DERIVED_READ_MS` since the last), called only with the
+    /// backfill and the admission on and no full run holding it. A reading
+    /// that fails or times out leaves the total unknown.
+    fn read_derived(&mut self, now: i64) {
+        if !self.derived.stored.due(now) {
             return;
         }
         let day_start = now.div_euclid(86_400_000) * 86_400_000;
-        let d = &mut self.state.storage.derived;
         match self.db.derived_total(day_start) {
             Ok(t) => {
-                d.read = Some(t);
-                d.read_ms = now;
-                d.day = now.div_euclid(86_400_000);
+                self.derived.stored.read = Some(t);
+                self.derived.stored.read_ms = now;
             }
             // Errors can carry SQL input: a closed word only.
             Err(_) => {
-                d.read = None;
+                self.derived.stored.read = None;
                 return log("derived_storage_unread", json!({"reason": "read"}));
             }
         }
-        let l = &self.state.storage;
         log(
             "derived_storage",
-            json!({"derived": l.derived.read, "derived_bytes": l.derived.bytes(),
-                   "derived_day_bytes": l.derived.day_bytes(),
-                   "storage_bytes": l.accounted(), "storage_day_bytes": l.accounted_day(),
-                   "storage_budget_bytes": self.cfg.storage_budget_bytes}),
+            json!({"derived": self.derived.stored.read,
+                   "derived_bytes": self.derived.stored.bytes(),
+                   "derived_storage_bytes": self.cfg.derived.storage_bytes}),
         );
     }
 
@@ -477,8 +478,8 @@ impl<'a> Scheduler<'a> {
                         "storage",
                         json!({"job_id": p.job_id, "comments": p.comments, "set": p.set,
                                "bytes": m.total(),
-                               "measured": m, "storage_bytes": l.accounted(),
-                               "storage_day_bytes": l.accounted_day(),
+                               "measured": m, "storage_bytes": l.bytes,
+                               "storage_day_bytes": l.day_bytes,
                                "storage_budget_bytes": self.cfg.storage_budget_bytes,
                                "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
                                "storage_daily_bytes": self.cfg.storage_daily_log(),
