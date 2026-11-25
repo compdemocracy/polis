@@ -64,7 +64,7 @@
 -- sha256 18e807a6e2fcbd7eaf25101bd55de945b99899c3c5041c521dc92aed0cf5e22a 000047_extend_graph_embedding_and_labels.sql
 -- sha256 2242c3a850477354f818a60325d161b266a4dea850565f3434ecd05c4c848e67 000048_create_delphi_entitlements.sql
 -- sha256 20c67720c765ba93b24d6b0e980e75db3d8d34b280b3c670d5386a3a9e6d7dc4 000049_add_topic_map_document_family.sql
--- sha256 16369211df15adfec8422843f952911181864eb2128868e832e5d1d28cb520db 000050_add_derived_jobs.sql
+-- sha256 928d74e15c3f6ff48296b5bc0afd2d6581eab381691d8a71447dd74b2ec5f9e5 000050_add_derived_jobs.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';
