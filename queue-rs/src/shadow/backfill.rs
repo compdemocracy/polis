@@ -64,12 +64,14 @@ pub struct Settings {
     /// `DELPHI_SHADOW_DERIVED_BACKFILL=1`; anything but `0`, `1` or empty is
     /// refused at startup.
     pub enabled: bool,
-    /// Asks per cycle at most, and the most derived jobs queued or running at
-    /// once before another is asked (`DELPHI_SHADOW_DERIVED_PER_CYCLE`,
-    /// default 2, 1..=20).
+    /// Admission calls per cycle at most, whatever each answers (queued, a
+    /// job already there, refused or failed), and the most derived jobs
+    /// queued or running at once before another is asked
+    /// (`DELPHI_SHADOW_DERIVED_PER_CYCLE`, default 2, 1..=20).
     pub per_cycle: u32,
-    /// Derived jobs of the sets' conversations created this UTC day at most
-    /// (`DELPHI_SHADOW_DERIVED_DAILY`, default 100, 1..=2000).
+    /// Derived jobs of the env created this UTC day at most, by any asker and
+    /// for any conversation (`DELPHI_SHADOW_DERIVED_DAILY`, default 100,
+    /// 1..=2000). A refused ask makes no job and is bounded by `per_cycle`.
     pub daily: u32,
     /// After a pass that found nothing to ask, how long before the next
     /// (`DELPHI_SHADOW_DERIVED_EVERY_SECONDS`, default 3600, 60..=86400).
@@ -168,10 +170,11 @@ ORDER BY j.zid, j.created_at, j.job_id";
 pub const ALIASES_SQL: &str =
     "SELECT public_id::text FROM public.delphi_job_aliases WHERE public_id = ANY($1::text[])";
 
-/// Derived jobs of the sets' conversations created since `$3`: the same
-/// history index, one range per conversation.
+/// Derived jobs of the env created since `$2`, whatever their conversation
+/// (so a conversation leaving the sets does not return its jobs to the day's
+/// room): the env's range of the history index, filtered.
 pub const TODAY_SQL: &str = "SELECT count(*) FROM public.delphi_jobs \
- WHERE env = $1 AND zid = ANY($2::int[]) AND created_at >= to_timestamp($3::float8) AND kind = $4";
+ WHERE env = $1 AND created_at >= to_timestamp($2::float8) AND kind = $3";
 
 pub fn page(
     tx: &mut Transaction<'_>,
@@ -370,7 +373,7 @@ impl<'a> Backfill<'a> {
         let (today, rows, next) = db
             .read(|tx| {
                 let today: i64 = tx
-                    .query_one(TODAY_SQL, &[&env, &zids, &since, &DERIVED_KIND])?
+                    .query_one(TODAY_SQL, &[&env, &since, &DERIVED_KIND])?
                     .get(0);
                 let mut cursor = start;
                 let mut rows = Vec::new();
@@ -416,6 +419,9 @@ impl<'a> Backfill<'a> {
             })
             .map_err(|_| "aliases")?
         };
+        // Every admission call spends an ask, whatever it answers; only a job
+        // queued spends room and the day's room.
+        let mut asks = i64::from(s.per_cycle);
         let mut room = i64::from(s.per_cycle) - outstanding;
         let mut daily_room = i64::from(s.daily) - today;
         let mut capped = false;
@@ -429,7 +435,7 @@ impl<'a> Backfill<'a> {
                 continue;
             }
             c.without_map += 1;
-            if room <= 0 || daily_room <= 0 || c.errors > 0 {
+            if asks <= 0 || room <= 0 || daily_room <= 0 || c.errors > 0 {
                 capped |= daily_room <= 0;
                 continue;
             }
@@ -442,6 +448,7 @@ impl<'a> Backfill<'a> {
             let Some(admitter) = self.admitter.as_mut() else {
                 break;
             };
+            asks -= 1;
             match admitter.admit(&mut queue, &source, &cfg.code_version) {
                 Ok(Outcome::Enqueued) => {
                     c.admitted += 1;
@@ -460,6 +467,7 @@ impl<'a> Backfill<'a> {
         drop(queue);
         self.pass.add(&c);
         let mut line = c.json();
+        line["asked"] = (i64::from(s.per_cycle) - asks).into();
         line["admitted_today"] = (today + c.admitted as i64).into();
         line["daily"] = s.daily.into();
         line["pass"] = if next.is_none() {

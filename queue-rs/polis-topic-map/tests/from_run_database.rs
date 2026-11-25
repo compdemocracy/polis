@@ -2538,7 +2538,7 @@ mod backfill {
         let plan = a
             .query(
                 &format!("EXPLAIN (ANALYZE, BUFFERS) {}", shadow_backfill::TODAY_SQL),
-                &[&"shadow-bulk", &zids, &0f64, &shadow_backfill::DERIVED_KIND],
+                &[&"shadow-bulk", &0f64, &shadow_backfill::DERIVED_KIND],
             )
             .unwrap()
             .iter()
@@ -2550,12 +2550,7 @@ mod backfill {
         let plan = a
             .query(
                 &format!("EXPLAIN (ANALYZE, BUFFERS) {}", shadow_backfill::TODAY_SQL),
-                &[
-                    &"shadow-bulk",
-                    &zids,
-                    &today,
-                    &shadow_backfill::DERIVED_KIND,
-                ],
+                &[&"shadow-bulk", &today, &shadow_backfill::DERIVED_KIND],
             )
             .unwrap()
             .iter()
