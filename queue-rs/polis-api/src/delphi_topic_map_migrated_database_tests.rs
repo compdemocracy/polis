@@ -32,7 +32,12 @@ fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{b:02x}")).collect()
 }
 
+// These tests share process-named database/logins and cluster-wide migration
+// roles. Hold the lock through teardown, not just through migration setup.
+static MIGRATED: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 struct Migrated {
+    _exclusive: std::sync::MutexGuard<'static, ()>,
     admin: postgres::Config,
     name: String,
     app: String,
@@ -41,6 +46,7 @@ struct Migrated {
 
 impl Migrated {
     fn new() -> Self {
+        let exclusive = MIGRATED.lock().unwrap_or_else(|e| e.into_inner());
         let admin: postgres::Config = std::env::var("POLIS_API_TEST_DATABASE_URL")
             .unwrap()
             .parse()
@@ -83,6 +89,7 @@ impl Migrated {
             .unwrap();
         }
         let db = Self {
+            _exclusive: exclusive,
             admin,
             name,
             app,

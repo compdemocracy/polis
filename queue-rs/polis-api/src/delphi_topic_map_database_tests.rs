@@ -2829,20 +2829,30 @@ fn review_unchanged_replies_off() {
 }
 
 fn unchanged_replies(derived: bool) {
-    NEXT.store(100, Ordering::SeqCst);
-    let db = Db::new("review_bytes");
+    let db = Db::new(if derived {
+        "review_bytes_on"
+    } else {
+        "review_bytes_off"
+    });
     let mut c = db.connect();
     c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
         .unwrap();
     let map = stored(document(30, "fixed"));
-    let job = served(
+    // Fixed wire identities for comparison with the baseline, without
+    // resetting the counter used concurrently by other test fixtures.
+    let job = "00000000-0000-4000-8000-000000000100";
+    let artifact = "00000000-0000-4000-a000-000000000101";
+    run(
         &mut c,
         "test",
+        job,
         ZID,
-        "delphi",
+        "COMPLETED",
         "participant_visible/1",
-        Some(&map_family(ZID, &map)),
+        Some((artifact, job)),
     );
+    wire_at(&mut c, "test", artifact, &map_family(ZID, &map), job);
+    publish(&mut c, "test", ZID, "delphi", job, artifact);
     runtime().block_on(async {
         let mut app = app_on(&db);
         app.delphi_topic_map_derived = derived;
