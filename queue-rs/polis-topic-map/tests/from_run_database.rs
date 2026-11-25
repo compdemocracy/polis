@@ -2707,15 +2707,15 @@ mod backfill {
             let end = Instant::now() + Duration::from_secs(20);
             let mut reached = false;
             while Instant::now() < end {
-                if let Ok(line) = recv.recv_timeout(Duration::from_millis(100)) {
-                    if line.contains(if on {
+                if let Ok(line) = recv.recv_timeout(Duration::from_millis(100))
+                    && line.contains(if on {
                         "\"event\":\"derived_inventory_empty\""
                     } else {
                         "\"event\":\"idle\""
-                    }) {
-                        reached = true;
-                        break;
-                    }
+                    })
+                {
+                    reached = true;
+                    break;
                 }
                 if child.try_wait().unwrap().is_some() {
                     break;

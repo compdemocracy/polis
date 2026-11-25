@@ -7,8 +7,11 @@
 //! did not write before. It asks only through the derived jobs' one admission
 //! call, which an [`Admitter`] supplies (this crate cannot name it: the crate
 //! that holds it depends on this one), and that call has its own switch: with
-//! the backfill on and admission off, nothing is read and one `derived_held`
-//! line says `admission_off`.
+//! the backfill on and admission off, the backfill reads nothing (it is
+//! checked before any pause, roster or set read) and one `derived_held` line
+//! says `admission_off`. With the backfill on, the derived jobs' stored bytes
+//! count against the storage budget whatever the admission's switch
+//! (`storage::Derived`).
 //!
 //! **Nothing on the box.** What has been asked and what is done is in
 //! Postgres. The inventory is a query, every cycle nothing pauses it: a page
@@ -30,8 +33,10 @@
 //! behind; it is counted by its word and its key is kept in memory for the
 //! life of the process, so it is asked at most once per process start.
 //!
-//! **Lines.** Counts and closed words only: never a conversation code, a
-//! conversation id, a job id or a report id.
+//! **Lines.** The scheduler's backfill lines carry counts and closed words
+//! only: never a conversation code, a conversation id, a job id or a report
+//! id. The admission's own line, for each job it records, names the source
+//! and derived job ids, the env and the derived key's SHA-256.
 use super::{config::Config, db::Db, plan::Pause, scheduler::log};
 use anyhow::Result;
 use postgres::{Client, Transaction};
