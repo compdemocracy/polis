@@ -2224,4 +2224,599 @@ mod backfill {
             "{plan:?}"
         );
     }
+    #[test]
+    fn review_refusals_respect_the_per_cycle_call_limit() {
+        let db = Db::new();
+        db.admin()
+            .execute(
+                "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+                &[],
+            )
+            .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        let sources: Vec<String> = (0..7)
+            .map(|_| {
+                db.writer_run("delphi", json!({"selection": RULE}), &run, false)
+                    .0
+                    .job_id
+            })
+            .collect();
+        let d = dir();
+        let c = cfg(
+            &db,
+            &d,
+            &[
+                ("DELPHI_SHADOW_DERIVED_BACKFILL", "1"),
+                ("DELPHI_SHADOW_DERIVED_PER_CYCLE", "2"),
+            ],
+        );
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let refs: Vec<&str> = sources.iter().map(String::as_str).collect();
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &refs));
+        cycles(&mut s, 1);
+        let n = asked.borrow().len();
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(
+            n <= 2,
+            "configured call limit 2; observed {n} admission calls"
+        );
+    }
+
+    #[test]
+    fn review_each_pause_gate_reaches_backfill() {
+        use polis_queue_adapter::shadow::{
+            plan::{self, Pause},
+            storage,
+        };
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        db.admin()
+            .execute(
+                "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+                &[],
+            )
+            .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        db.writer_run("delphi", json!({"selection": RULE}), &run, false);
+        let d = dir();
+        for pause_case in [
+            "operator",
+            "disk",
+            "db_latency",
+            "math_lag",
+            "storage_budget",
+            "storage_daily",
+            "storage_unmeasured",
+        ] {
+            let mut c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+            let asked = Rc::new(RefCell::new(Vec::new()));
+            if pause_case == "operator" {
+                std::fs::write(&c.pause_file, "").unwrap();
+            }
+            if pause_case == "disk" {
+                c.disk_free_min_mb = u64::MAX;
+            }
+            if pause_case == "db_latency" {
+                c.probe_max = std::time::Duration::ZERO;
+            }
+            // Only timestamps are needed by math_lag: a temporary view substitutes
+            // the timestamp source in this disposable database; no vote is seeded.
+            if pause_case == "math_lag" {
+                db.admin().batch_execute("ALTER TABLE votes RENAME TO saved_votes; CREATE VIEW votes AS SELECT now_as_millis() AS created").unwrap();
+            }
+            let mut s = scheduler::Scheduler::new(&c)
+                .unwrap()
+                .with_admitter(counting(&asked, &[]));
+            s.state.storage.reconciled = true;
+            if pause_case == "storage_budget" {
+                s.state.storage.bytes = c.storage_budget_bytes;
+            }
+            if pause_case == "storage_daily" {
+                // Use an already counted day with a positive limit in a fresh config.
+                drop(s);
+                c.storage_daily_bytes = Some(1);
+                s = scheduler::Scheduler::new(&c)
+                    .unwrap()
+                    .with_admitter(counting(&asked, &[]));
+                s.state.storage.reconciled = true;
+                s.state.storage.roll_day(scheduler::now_ms());
+                s.state.storage.day_bytes = 1;
+            }
+            if pause_case == "storage_unmeasured" {
+                s.state.storage.pending.push(storage::Pending {
+                    env: ENV.into(),
+                    job_id: Uuid::new_v4().to_string(),
+                    zid: 1424,
+                    comments: 0,
+                    set: None,
+                });
+                // A failing indexed measure leaves its pending record intact.
+                db.admin()
+                    .batch_execute("ALTER TABLE delphi_result_families RENAME TO saved_families")
+                    .unwrap();
+            }
+            let from = all().len();
+            cycles(&mut s, 1);
+            assert_eq!(s.derived.queries, 0, "{pause_case}");
+            assert!(asked.borrow().is_empty(), "{pause_case}");
+            assert!(
+                events("derived_held", from)
+                    .iter()
+                    .any(|x| x["reason"] == pause_case),
+                "{pause_case}: {:?}",
+                all()
+            );
+            println!("PAUSE {pause_case}: no inventory, no admission");
+            if pause_case == "operator" {
+                std::fs::remove_file(&c.pause_file).unwrap();
+            }
+            if pause_case == "math_lag" {
+                db.admin()
+                    .batch_execute("DROP VIEW votes; ALTER TABLE saved_votes RENAME TO votes")
+                    .unwrap();
+            }
+            if pause_case == "storage_unmeasured" {
+                db.admin()
+                    .batch_execute("ALTER TABLE saved_families RENAME TO delphi_result_families")
+                    .unwrap();
+            }
+        }
+        // Every pure pause, including hysteresis, remains in the derived path;
+        // only the full-run daily count is intentionally ignored.
+        let c = cfg(&db, &d, &[]);
+        let mut st =
+            polis_queue_adapter::shadow::state::State::load(&c.state_path, &c.env).unwrap();
+        st.day_runs = c.daily_runs;
+        st.storage.reconciled = true;
+        let disk = Some(plan::Disk {
+            free_mb: u64::MAX,
+            used_pct: 0.0,
+        });
+        let signal = polis_queue_adapter::shadow::db::Signals {
+            probe_ms: 0.0,
+            math_lag_ms: 0,
+        };
+        assert_eq!(
+            plan::pause(&c, &st, false, disk, Some(&signal), None),
+            Some(Pause::DailyCap)
+        );
+        assert_eq!(
+            plan::derived_pause(&c, &st, false, disk, Some(&signal), None),
+            None
+        );
+        let signal = polis_queue_adapter::shadow::db::Signals {
+            probe_ms: c.probe_max.as_secs_f64() * 750.0,
+            math_lag_ms: 0,
+        };
+        assert_eq!(
+            plan::derived_pause(&c, &st, false, disk, Some(&signal), Some(Pause::DbLatency)),
+            Some(Pause::DbLatency)
+        );
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn review_finished_derived_bytes_reach_storage_budget() {
+        use polis_topic_map::worker::{self, Worker};
+        let db = Db::new();
+        db.admin()
+            .execute(
+                "INSERT INTO zinvites(zid,zinvite) VALUES(1424,'c1424')",
+                &[],
+            )
+            .unwrap();
+        let run = support::run("biodiversity", 1424, None);
+        db.writer_run("delphi", json!({"selection": RULE}), &run, false);
+        let d = dir();
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 1);
+        let before = s.state.storage.bytes;
+        let url = url_for(&db.name, &db.login);
+        let get = move |k: &str| match k {
+            "QUEUE_DATABASE_URL" => Some(url.clone()),
+            "POLIS_JOBS_TRANSPORT" => Some("loopback".into()),
+            _ => None,
+        };
+        let mut w = Worker::new(worker::Config {
+            env: ENV.into(),
+            connector: std::sync::Arc::new(worker::connector(&get).unwrap()),
+            reader: Box::new(move |deadline| {
+                worker::connector(&get)
+                    .unwrap()
+                    .connect_bounded(deadline, std::time::Duration::from_secs(30))
+                    .map_err(|e| e.to_string())
+            }),
+            lease_seconds: 60,
+            bounds: worker::Bounds::default(),
+        })
+        .unwrap();
+        println!("worker: {:?}", w.pass().unwrap());
+        assert_eq!(job_status(&db, &derived_job_ids(&db)[0]), "succeeded");
+        cycles(&mut s, 3);
+        let after = s.state.storage.bytes;
+        // The same state file is saved by run() every cycle. Verify no new file
+        // is necessary to observe the stored result's contribution.
+        let _ = std::fs::remove_dir_all(&d);
+        assert!(
+            after > before,
+            "derived map succeeded; accounted bytes stayed {before} -> {after}"
+        );
+    }
+
+    #[test]
+    fn review_inventory_large_tables_and_multi_conversation_paging() {
+        let db = Db::new();
+        let run = support::run("biodiversity", 1424, None);
+        let src = db
+            .writer_run("delphi", json!({"selection":RULE}), &run, false)
+            .0;
+        let mut admitter = TopicMap { get: on };
+        assert_eq!(
+            admitter
+                .admit(
+                    &mut db.executor(),
+                    &Source {
+                        env: ENV.into(),
+                        job_id: src.job_id,
+                        zid: 1424,
+                        selection: Some(RULE.into())
+                    },
+                    &"c".repeat(40)
+                )
+                .unwrap(),
+            Outcome::Enqueued
+        );
+        let mut a = db.admin();
+        // Planner-only rows in a disposable database; no worker lifecycle claim.
+        // Referential triggers are disabled only while filling these tables.
+        a.batch_execute(r#"
+          SET session_replication_role=replica;
+          CREATE TEMP TABLE bulk AS SELECT g, (2000+g%100)::int zid, gen_random_uuid() job, gen_random_uuid() artifact, gen_random_uuid() batch, gen_random_uuid() run FROM generate_series(1,40000) g;
+          INSERT INTO delphi_jobs(job_id,env,zid,kind,origin,status,config_effective,output_manifest_digest,created_at)
+            SELECT job, 'shadow-bulk', zid, 'full_pipeline','legacy_import','succeeded', '{"result_scope":"delphi","selection":"participant_visible/1"}', decode(repeat('a',64),'hex'), '2026-01-01'::timestamptz + (g/100)*interval '1 second' FROM bulk;
+          INSERT INTO delphi_artifacts(env,artifact_id,job_id,run_id,attempt_id,output_role,schema_version,payload,content_sha,byte_count)
+            SELECT 'shadow-bulk',artifact,job,run,batch,'result','generated-plan','{}',encode(sha256('{}'::bytea),'hex'),2 FROM bulk;
+          INSERT INTO delphi_result_batches(env,batch_id,job_id,run_id,sealed_sha,artifact_id)
+            SELECT 'shadow-bulk',batch,job,run,repeat('a',64),artifact FROM bulk;
+          INSERT INTO delphi_result_families(env,batch_id,family,codec_wire,content_sha,row_count)
+            SELECT 'shadow-bulk',batch,f,'',encode(sha256(''::bytea),'hex'),0 FROM bulk CROSS JOIN unnest(ARRAY['Delphi_UMAPGraph','Delphi_CommentHierarchicalClusterAssignments','Delphi_CommentClustersLLMTopicNames']) f;
+          INSERT INTO delphi_job_aliases(public_id,job_id,source) SELECT 'derived/1:'||lpad(g::text,64,'0'),job,'derived' FROM bulk;
+          INSERT INTO polis_queue_jobs SELECT (jsonb_populate_record(NULL::polis_queue_jobs,to_jsonb(q)||jsonb_build_object('env','shadow-bulk','job_id',b.job,'run_id',b.run,'state','succeeded'))).* FROM polis_queue_jobs q CROSS JOIN bulk b WHERE q.env='shadow-topic-map' AND q.worker_class='derived';
+          SET session_replication_role=origin;
+          ANALYZE polis_queue_jobs;
+          ANALYZE delphi_jobs; ANALYZE delphi_artifacts; ANALYZE delphi_result_batches; ANALYZE delphi_result_families; ANALYZE delphi_job_aliases;
+        "#).unwrap();
+        let zids: Vec<i32> = (2000..2100).collect();
+        let inputs: Vec<String> = stored::INPUTS.iter().map(|s| (*s).to_owned()).collect();
+        for (label, cursor) in [
+            (
+                "first",
+                (
+                    i32::MIN,
+                    "-infinity",
+                    "00000000-0000-0000-0000-000000000000",
+                ),
+            ),
+            (
+                "middle",
+                (
+                    2050,
+                    "2026-01-01 00:03:20+00",
+                    "00000000-0000-0000-0000-000000000000",
+                ),
+            ),
+        ] {
+            let plan = a
+                .query(
+                    &format!("EXPLAIN (ANALYZE, BUFFERS) {}", shadow_backfill::PAGE_SQL),
+                    &[
+                        &"shadow-bulk",
+                        &zids,
+                        &cursor.0,
+                        &cursor.1,
+                        &cursor.2,
+                        &shadow_backfill::PAGE,
+                        &shadow_backfill::RUN_KIND,
+                        &inputs,
+                        &stored::FAMILY,
+                    ],
+                )
+                .unwrap()
+                .iter()
+                .map(|r| r.get::<_, String>(0))
+                .collect::<Vec<_>>()
+                .join("\n");
+            println!("PLAN {label}\n{plan}");
+        }
+        let plan = a
+            .query(
+                &format!("EXPLAIN (ANALYZE, BUFFERS) {}", shadow_backfill::TODAY_SQL),
+                &[&"shadow-bulk", &zids, &0f64, &shadow_backfill::DERIVED_KIND],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+            .join("\n");
+        println!("PLAN daily-broad-epoch-control\n{plan}");
+        let today = (scheduler::now_ms().div_euclid(86_400_000) * 86_400) as f64;
+        let plan = a
+            .query(
+                &format!("EXPLAIN (ANALYZE, BUFFERS) {}", shadow_backfill::TODAY_SQL),
+                &[
+                    &"shadow-bulk",
+                    &zids,
+                    &today,
+                    &shadow_backfill::DERIVED_KIND,
+                ],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+            .join("\n");
+        println!("PLAN daily-current-day\n{plan}");
+        let keys: Vec<String> = (1..=200).map(|n| format!("derived/1:{n:064}")).collect();
+        let plan = a
+            .query(
+                &format!(
+                    "EXPLAIN (ANALYZE, BUFFERS) {}",
+                    shadow_backfill::ALIASES_SQL
+                ),
+                &[&keys],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+            .join("\n");
+        println!("PLAN aliases\n{plan}");
+        let def: String = a
+            .query_one(
+                "SELECT pg_get_functiondef('pq_class_depth(text,text)'::regprocedure)",
+                &[],
+            )
+            .unwrap()
+            .get(0);
+        let sql = def
+            .split_once(" SELECT count(*)")
+            .unwrap()
+            .1
+            .split_once(";\n RETURN")
+            .unwrap()
+            .0;
+        let sql = format!("SELECT count(*){sql}")
+            .replace("INTO c FROM", "FROM")
+            .replace("p_env", "'shadow-bulk'")
+            .replace("p_worker_class", "'derived'");
+        let plan = a
+            .query(&format!("EXPLAIN (ANALYZE, BUFFERS) {sql}"), &[])
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+            .join("\n");
+        println!("PLAN class-depth-exact-body\n{plan}");
+        let mut cursor = (
+            i32::MIN,
+            "-infinity".into(),
+            "00000000-0000-0000-0000-000000000000".into(),
+        );
+        let mut seen = std::collections::BTreeSet::new();
+        let mut tx = a.transaction().unwrap();
+        loop {
+            let rows = shadow_backfill::page(
+                &mut tx,
+                "shadow-bulk",
+                &zids,
+                &cursor,
+                &stored::INPUTS,
+                stored::FAMILY,
+            )
+            .unwrap();
+            if rows.is_empty() {
+                break;
+            }
+            for r in &rows {
+                assert!(r.finished && r.complete && !r.own_map);
+                assert!(seen.insert(r.job_id.clone()), "duplicate");
+            }
+            let last = rows.last().unwrap();
+            cursor = (last.zid, last.created_at.clone(), last.job_id.clone());
+        }
+        assert_eq!(seen.len(), 40000);
+        println!("PAGING: 40000 unique runs in 100 conversations");
+    }
+
+    #[test]
+    fn review_process_exec_stop_and_off_log_parity() {
+        use std::io::BufRead;
+        use std::process::Stdio;
+        use std::time::{Duration, Instant};
+        let db = Db::new();
+        let d = dir();
+        let topic = PathBuf::from(env!("CARGO_BIN_EXE_polis-topic-map"));
+        let shadow = topic.parent().unwrap().join("polis-delphi-shadow");
+        let base = std::env::var("REVIEW_BASE_SHADOW")
+            .map(PathBuf::from)
+            .unwrap();
+        let environment = |on: bool| {
+            let mut m: HashMap<String, String> = [
+                ("DELPHI_SHADOW_ENABLED", "1".to_string()),
+                ("DELPHI_SHADOW_ENV", ENV.to_string()),
+                ("QUEUE_DATABASE_URL", url_for(&db.name, &db.login)),
+                (
+                    "DELPHI_SHADOW_READ_DATABASE_URL",
+                    url_for(&db.name, "postgres"),
+                ),
+                ("POLIS_JOBS_TRANSPORT", "loopback".into()),
+                ("DELPHI_SHADOW_CODE_VERSION", "c".repeat(40)),
+                (
+                    "DELPHI_SHADOW_STATE_PATH",
+                    d.join("state.json").display().to_string(),
+                ),
+                ("DELPHI_SHADOW_DISK_PATH", d.display().to_string()),
+                (
+                    "DELPHI_SHADOW_PAUSE_FILE",
+                    d.join("pause").display().to_string(),
+                ),
+                ("DELPHI_SHADOW_DISK_FREE_MIN_MB", "0".into()),
+                ("DELPHI_SHADOW_DISK_USED_MAX_PCT", "100".into()),
+                ("DELPHI_SHADOW_PROBE_MAX_MS", "5000".into()),
+                ("PATH", topic.parent().unwrap().display().to_string()),
+                ("POLIS_JOBS_DERIVED_ADMISSION", "1".into()),
+            ]
+            .into_iter()
+            .map(|(k, v)| (k.into(), v))
+            .collect();
+            if on {
+                m.insert("DELPHI_SHADOW_DERIVED_BACKFILL".into(), "1".into());
+            }
+            m
+        };
+        let run = |binary: &std::path::Path, on: bool, signal: &str| {
+            let _ = std::fs::remove_file(d.join("state.json"));
+            let mut child = Command::new(binary)
+                .env_clear()
+                .envs(environment(on))
+                .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
+                .spawn()
+                .unwrap();
+            let out = child.stdout.take().unwrap();
+            let err = child.stderr.take().unwrap();
+            let errors = std::thread::spawn(move || {
+                std::io::BufReader::new(err)
+                    .lines()
+                    .map_while(Result::ok)
+                    .collect::<Vec<_>>()
+            });
+            let (send, recv) = std::sync::mpsc::channel();
+            let read = std::thread::spawn(move || {
+                let mut lines = vec![];
+                for line in std::io::BufReader::new(out).lines().map_while(Result::ok) {
+                    lines.push(line.clone());
+                    let _ = send.send(line);
+                }
+                lines
+            });
+            let end = Instant::now() + Duration::from_secs(20);
+            let mut reached = false;
+            while Instant::now() < end {
+                if let Ok(line) = recv.recv_timeout(Duration::from_millis(100)) {
+                    if line.contains(if on {
+                        "\"event\":\"derived_inventory_empty\""
+                    } else {
+                        "\"event\":\"idle\""
+                    }) {
+                        reached = true;
+                        break;
+                    }
+                }
+                if child.try_wait().unwrap().is_some() {
+                    break;
+                }
+            }
+            let process = Command::new("/bin/ps")
+                .args(["-p", &child.id().to_string(), "-o", "command="])
+                .output()
+                .unwrap();
+            println!(
+                "PROCESS on={on}: {}",
+                String::from_utf8_lossy(&process.stdout)
+            );
+            if on && reached {
+                assert!(
+                    String::from_utf8_lossy(&process.stdout)
+                        .contains("polis-topic-map shadow-scheduler")
+                );
+            }
+            let _ = Command::new("/bin/kill")
+                .args([signal, &child.id().to_string()])
+                .status();
+            let status = child.wait().unwrap();
+            let lines = read.join().unwrap();
+            let errors = errors.join().unwrap();
+            assert!(reached, "{status}: {lines:?} {errors:?}");
+            assert_eq!(status.code(), Some(0));
+            assert!(errors.is_empty(), "{errors:?}");
+            assert!(lines.iter().any(|l| l.contains("\"event\":\"stopped\"")));
+            let files = std::fs::read_dir(&d)
+                .unwrap()
+                .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+                .collect::<Vec<_>>();
+            assert_eq!(files, vec!["state.json"]);
+            lines
+        };
+        let before = run(&base, false, "-TERM");
+        let off = run(&shadow, false, "-TERM");
+        assert_eq!(before, off, "off-path log bytes changed");
+        println!("OFF PARITY: {} identical whole lines", off.len());
+        for signal in ["-TERM", "-INT"] {
+            let lines = run(&shadow, true, signal);
+            println!(
+                "ON {signal}: {} lines, exited 0, only state.json",
+                lines.len()
+            );
+        }
+        std::fs::write(d.join("state.json"), "invalid").unwrap();
+        for on in [false, true] {
+            let out = Command::new(&shadow)
+                .env_clear()
+                .envs(environment(on))
+                .output()
+                .unwrap();
+            assert_eq!(out.status.code(), Some(2));
+            assert!(
+                String::from_utf8_lossy(&out.stderr)
+                    .starts_with("polis-delphi-shadow: state file:")
+            );
+        }
+        std::fs::remove_dir_all(&d).unwrap();
+    }
+
+    #[test]
+    fn review_admission_off_returns_before_additional_set_reads_at_daily_cap() {
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        let d = dir();
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut off = counting(&asked, &[]);
+        off.switched = false;
+        let mut s = scheduler::Scheduler::new(&c).unwrap().with_admitter(off);
+        s.state.roll_day(scheduler::now_ms());
+        s.state.day_runs = c.daily_runs;
+        s.state.storage.reconciled = true;
+        // At the full-run daily cap the old scheduler never reads a roster or
+        // current set. A disabled admission must not introduce those reads.
+        db.admin()
+            .batch_execute("ALTER TABLE comments RENAME TO held_comments")
+            .unwrap();
+        cycles(&mut s, 1);
+        let lines = all();
+        assert!(asked.borrow().is_empty());
+        assert_eq!(s.derived.queries, 0);
+        let _ = std::fs::remove_dir_all(d);
+        assert!(
+            events("derived_held", 0)
+                .iter()
+                .any(|l| l["reason"] == "admission_off"),
+            "admission-off should return before set reads: {lines:?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|l| l.contains("derived_unread") || l.contains("roster_unread")),
+            "unexpected set read: {lines:?}"
+        );
+    }
 }
