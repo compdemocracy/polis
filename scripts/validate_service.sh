@@ -287,13 +287,23 @@ ready() {
     *) echo "Unknown service type: $role" >&2; return 1 ;;
   esac
 }
-# The derived topic map worker is optional work, as the Delphi shadow is, and
-# never named in DELPHI_SERVICES, so its not running never fails the deploy.
-# On the Delphi box with its switch line on, one line says whether it runs;
-# with the line off, this says nothing.
+# A selected derived worker is optional. When switched off, even a stopped
+# container must be absent: an older release cannot remove this service.
+# Silence on a successful off check; fail if absence cannot be established.
 derived_worker_report() {
   [ "$role" = delphi ] || return 0
-  grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null || return 0
+  if ! grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null; then
+    local ids
+    if ! ids=$(compose ps -a -q delphi-derived-worker); then
+      echo "Cannot verify delphi-derived-worker removal; do not deploy an older release" >&2
+      return 1
+    fi
+    if [ -n "$ids" ]; then
+      echo "delphi-derived-worker still exists with its switch off; remove it using a release that knows the service before deploying an older release" >&2
+      return 1
+    fi
+    return 0
+  fi
   if containers_ready delphi-derived-worker; then
     echo "delphi-derived-worker running (POLIS_JOBS_DERIVED_WORKER=1)"
   else
