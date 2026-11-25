@@ -323,10 +323,18 @@ impl<'a> Scheduler<'a> {
     /// The backfill's turn, after the cycle's own (`backfill`): it may ask
     /// only when no full run is running or was admitted this cycle, none is
     /// held by a pause, and no pause but the full runs' daily cap
-    /// permits. With the switch off it returns at once and reads nothing.
+    /// permits. With the switch off it returns at once and reads nothing;
+    /// with the admission's switch off it says so and reads nothing either.
     fn derived_step(&mut self, now: i64, held_by: Option<Pause>) {
-        if !self.cfg.derived.enabled || self.derived.admitter.is_none() {
+        let Some(admission) = self.derived.admitter.as_ref().map(|a| a.switched_on()) else {
             return;
+        };
+        if !self.cfg.derived.enabled {
+            return;
+        }
+        if !admission {
+            let off = Some(Held::AdmissionOff);
+            return self.derived.step(self.cfg, &self.db, &[], now, off);
         }
         let held = if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
             Some(Held::FullRun)
