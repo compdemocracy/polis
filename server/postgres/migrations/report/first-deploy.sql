@@ -2,7 +2,7 @@
 -- First deployment only: no existing ledger or queue. Other states refuse.
 -- This is a catalog forecast, not DDL success or deployment-health proof.
 -- sha256 8fa1066d9fc29c1df528b300199c619a2f9edecf1432926ad6a8146ebc650593 adoption/helpers.sql
--- sha256 172fb9973aa8c7a8f7f6d062a219f986c011d091a2b500ed98b06e7282c85543 release.txt
+-- sha256 5f1fa8d5f9e3afd939b9a80737bb2b6dd4b919b137d1957513d0b05060aa5c39 release.txt
 -- sha256 8a8b24fa47a25c613a8329aa79f413ac7461a93b12134045ae1cf2457e2ee3b7 held.txt
 -- sha256 c6b5c71247d129964dd89ba560a4522caef1abbb9379ad1b3445d6ed96be805b adoption/000000_initial.sql
 -- sha256 28ef33976beb9c7c9248ac800f29aab048f4410c2170ad12e3ade71d72e5ecb5 adoption/000001_update_pwreset_table.sql
@@ -64,6 +64,7 @@
 -- sha256 18e807a6e2fcbd7eaf25101bd55de945b99899c3c5041c521dc92aed0cf5e22a 000047_extend_graph_embedding_and_labels.sql
 -- sha256 2242c3a850477354f818a60325d161b266a4dea850565f3434ecd05c4c848e67 000048_create_delphi_entitlements.sql
 -- sha256 20c67720c765ba93b24d6b0e980e75db3d8d34b280b3c670d5386a3a9e6d7dc4 000049_add_topic_map_document_family.sql
+-- sha256 16369211df15adfec8422843f952911181864eb2128868e832e5d1d28cb520db 000050_add_derived_jobs.sql
 BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY;
 SET LOCAL search_path=pg_catalog,public;
 SET LOCAL statement_timeout='30s';
@@ -1405,7 +1406,7 @@ SELECT (SELECT EXISTS(SELECT 1 FROM pg_index WHERE indexrelid=to_regclass('publi
    CASE WHEN NOT can_reconcile THEN 'BLOCKED_RECONCILIATION'
         WHEN NOT reconcile_authority OR NOT can_provision THEN 'REVIEW_MIGRATION_SESSION_AUTHORITY'
         ELSE 'WOULD_APPLY' END
- FROM (VALUES ('000019_create_polis_queue.sql'),('000023_create_delphi_foundation.sql'),('000024_create_polis_queue_large_class.sql'),('000027_create_sealed_job_graphs.sql'),('000028_create_delphi_results.sql'),('000029_extend_delphi_graph_stages.sql'),('000030_create_delphi_writers.sql'),('000031_scope_delphi_result_reads.sql'),('000038_create_delphi_comment_embeddings.sql'),('000039_clear_zinvites_uuid.sql'),('000041_create_delphi_run_record.sql'),('000042_tid_auto_transaction_lock.sql'),('000043_add_conversation_activity_indexes.sql'),('000044_pid_auto_transaction_lock.sql'),('000045_page_ids_width.sql'),('000046_add_granite_embedding_model.sql'),('000047_extend_graph_embedding_and_labels.sql'),('000048_create_delphi_entitlements.sql'),('000049_add_topic_map_document_family.sql')) p(migration) CROSS JOIN readiness
+ FROM (VALUES ('000019_create_polis_queue.sql'),('000023_create_delphi_foundation.sql'),('000024_create_polis_queue_large_class.sql'),('000027_create_sealed_job_graphs.sql'),('000028_create_delphi_results.sql'),('000029_extend_delphi_graph_stages.sql'),('000030_create_delphi_writers.sql'),('000031_scope_delphi_result_reads.sql'),('000038_create_delphi_comment_embeddings.sql'),('000039_clear_zinvites_uuid.sql'),('000041_create_delphi_run_record.sql'),('000042_tid_auto_transaction_lock.sql'),('000043_add_conversation_activity_indexes.sql'),('000044_pid_auto_transaction_lock.sql'),('000045_page_ids_width.sql'),('000046_add_granite_embedding_model.sql'),('000047_extend_graph_embedding_and_labels.sql'),('000048_create_delphi_entitlements.sql'),('000049_add_topic_map_document_family.sql'),('000050_add_derived_jobs.sql')) p(migration) CROSS JOIN readiness
  UNION ALL
  SELECT migration, NULL::boolean, 'OUTSIDE_RELEASE'
  FROM (VALUES ('000020'),('000021'),('000025'),('000026')) p(migration)

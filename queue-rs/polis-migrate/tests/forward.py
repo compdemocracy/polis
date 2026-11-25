@@ -47,7 +47,8 @@ class ForwardProof(unittest.TestCase):
             '000046_add_granite_embedding_model.sql',
             '000047_extend_graph_embedding_and_labels.sql',
             '000048_create_delphi_entitlements.sql',
-            '000049_add_topic_map_document_family.sql'})
+            '000049_add_topic_map_document_family.sql',
+            '000050_add_derived_jobs.sql'})
 
     def test_02_deploy_records_declarations(self):
         db = self.new('records'); p.runner(db, 'deploy')

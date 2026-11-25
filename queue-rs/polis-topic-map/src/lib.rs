@@ -7,6 +7,7 @@
 //! theme, which is why it is computed once.
 
 pub mod ciecam02;
+pub mod derived;
 pub mod from_run;
 pub mod layout;
 pub mod page;

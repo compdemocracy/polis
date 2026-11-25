@@ -404,3 +404,364 @@ fn the_catalog_refuses_the_family_under_another_key() {
         "{err:?}"
     );
 }
+
+// Derived jobs (migration 000050): one lasting job per key, whoever asks and
+// whenever, and a checked source.
+
+mod derived_jobs {
+    use super::*;
+    use polis_topic_map::derived::{self, Admission, Operation, Refusal, Request};
+
+    const CODE: &str = "cccccccccccccccccccccccccccccccccccccccc";
+    const RULE: &str = "participant_visible/1";
+
+    fn on(key: &str) -> Option<String> {
+        (key == derived::SWITCH).then(|| "1".into())
+    }
+
+    fn request(source: &str, asker: &str) -> Request {
+        Request {
+            operation: Operation::TopicMap,
+            version: 1,
+            env: ENV.into(),
+            source_job_id: source.into(),
+            conversation_id: 1424,
+            selection: Some(RULE.into()),
+            inputs_sha256: None,
+            asker: asker.into(),
+        }
+    }
+
+    fn source(db: &Db) -> RunIdentity {
+        let run = support::run("biodiversity", 1424, None);
+        db.writer_run("delphi", json!({ "selection": RULE }), &run, false)
+            .0
+    }
+
+    fn count(db: &Db) -> i64 {
+        db.admin()
+            .query_one("SELECT count(*) FROM delphi_jobs WHERE kind='derived'", &[])
+            .unwrap()
+            .get(0)
+    }
+
+    fn job_of(a: &Admission) -> String {
+        match a {
+            Admission::Enqueued(x) | Admission::Existing(x) => x.job_id.clone(),
+            Admission::Refused(r) => panic!("refused: {}", r.word()),
+        }
+    }
+
+    #[test]
+    fn one_job_per_key_for_any_asker_after_a_day_a_restart_or_its_end() {
+        let db = Db::new();
+        let src = source(&db);
+        let mut ex = db.executor();
+        let first = derived::admit(&mut ex, on, &request(&src.job_id, "scheduler"), CODE).unwrap();
+        let Admission::Enqueued(made) = &first else {
+            panic!("{first:?}")
+        };
+        let job = made.job_id.clone();
+
+        // What the job was made from, in its record and as its declared input.
+        let row = db
+            .admin()
+            .query_one(
+                "SELECT d.config_effective, q.stage, q.worker_class, i.producer_job_id::text, i.input_role
+                 FROM delphi_jobs d JOIN polis_queue_jobs q USING(env,job_id)
+                 JOIN delphi_job_inputs i ON i.consumer_job_id=d.job_id
+                 WHERE d.job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        let config: Value = row.get(0);
+        assert_eq!(config["derived"]["source"]["job_id"], src.job_id.as_str());
+        assert_eq!(config["derived"]["source"]["run_id"], src.run_id.as_str());
+        assert_eq!(
+            config["derived"]["source"]["batch_id"],
+            src.batch_id.as_str()
+        );
+        assert_eq!(config["derived"]["source"]["selection"], RULE);
+        assert_eq!(config["derived"]["key"], made.key.as_str());
+        assert_eq!(
+            config["result_scope"],
+            format!("derived:{}", made.key).as_str()
+        );
+        assert_eq!(row.get::<_, String>(1), "delphi_derived");
+        assert_eq!(row.get::<_, String>(2), "derived");
+        assert_eq!(row.get::<_, String>(3), src.job_id);
+        assert_eq!(row.get::<_, String>(4), "source");
+
+        // Another asker; then a new connection, as after a restart.
+        let again = derived::admit(&mut ex, on, &request(&src.job_id, "operator"), CODE).unwrap();
+        assert!(
+            matches!(&again, Admission::Existing(a) if a.job_id == job),
+            "{again:?}"
+        );
+        let mut fresh = db.executor();
+        let restart =
+            derived::admit(&mut fresh, on, &request(&src.job_id, "scheduler"), CODE).unwrap();
+        assert!(
+            matches!(&restart, Admission::Existing(a) if a.job_id == job),
+            "{restart:?}"
+        );
+
+        // A day later: every 24-hour request alias has expired.
+        db.admin()
+            .execute(
+                "UPDATE polis_queue_requests SET binding_expires_at=clock_timestamp()-interval '1 hour'",
+                &[],
+            )
+            .unwrap();
+        let later = derived::admit(&mut fresh, on, &request(&src.job_id, "later"), CODE).unwrap();
+        assert!(
+            matches!(&later, Admission::Existing(a) if a.job_id == job),
+            "{later:?}"
+        );
+
+        // Running, then ended dead: still the same job, never a second.
+        let (owner, attempt) = (Uuid::new_v4(), Uuid::new_v4());
+        let old_class = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'delphi')",
+            &[&ENV, &owner, &attempt],
+        );
+        assert_eq!(
+            old_class["outcome"], "none",
+            "a delphi daemon never claims it: {old_class}"
+        );
+        let claim = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'derived')",
+            &[&ENV, &owner, &attempt],
+        );
+        assert_eq!(claim["job_id"], job.as_str(), "{claim}");
+        let running = derived::admit(&mut fresh, on, &request(&src.job_id, "x"), CODE).unwrap();
+        assert!(
+            matches!(&running, Admission::Existing(a) if a.state == "running"),
+            "{running:?}"
+        );
+        let epoch: i64 = claim["lease_epoch"].as_str().unwrap().parse().unwrap();
+        let job_uuid: Uuid = job.parse().unwrap();
+        let dead = db.call(
+            "SELECT pq_fail($1,$2,$3,$4,$5,true,'generated_failure',true)",
+            &[&ENV, &job_uuid, &owner, &attempt, &epoch],
+        );
+        assert_eq!(dead["state"], "dead", "{dead}");
+        let after = derived::admit(&mut fresh, on, &request(&src.job_id, "y"), CODE).unwrap();
+        assert!(
+            matches!(&after, Admission::Existing(a) if a.job_id == job && a.state == "dead"),
+            "{after:?}"
+        );
+
+        // Another operation version is another key, and has no executor yet.
+        let v2 = Request {
+            version: 2,
+            ..request(&src.job_id, "y")
+        };
+        assert_eq!(
+            derived::admit(&mut fresh, on, &v2, CODE).unwrap(),
+            Admission::Refused(Refusal::OperationVersion)
+        );
+        assert_ne!(
+            derived::key(Operation::TopicMap, 2, ENV, &src.job_id),
+            made.key
+        );
+        assert_eq!(count(&db), 1);
+    }
+
+    #[test]
+    fn simultaneous_requests_make_one_job() {
+        let db = Db::new();
+        let src = source(&db);
+        let barrier = std::sync::Arc::new(std::sync::Barrier::new(8));
+        let jobs: Vec<String> = std::thread::scope(|s| {
+            let handles: Vec<_> = (0..8)
+                .map(|i| {
+                    let (barrier, db, src) = (barrier.clone(), &db, &src);
+                    s.spawn(move || {
+                        let mut ex = db.executor();
+                        barrier.wait();
+                        let a = derived::admit(
+                            &mut ex,
+                            on,
+                            &request(&src.job_id, &format!("asker-{i}")),
+                            CODE,
+                        )
+                        .unwrap();
+                        job_of(&a)
+                    })
+                })
+                .collect();
+            handles.into_iter().map(|h| h.join().unwrap()).collect()
+        });
+        assert!(jobs.iter().all(|j| j == &jobs[0]), "{jobs:?}");
+        assert_eq!(count(&db), 1);
+    }
+
+    #[test]
+    fn refusals_name_what_is_wrong_and_write_nothing() {
+        let db = Db::new();
+        let src = source(&db);
+        let mut ex = db.executor();
+        let refused =
+            |ex: &mut Client, req: Request, get: fn(&str) -> Option<String>| match derived::admit(
+                ex, get, &req, CODE,
+            )
+            .unwrap()
+            {
+                Admission::Refused(r) => r,
+                other => panic!("{other:?}"),
+            };
+        let base = || request(&src.job_id, "t");
+        assert_eq!(refused(&mut ex, base(), |_| None), Refusal::SwitchedOff);
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    env: "another-env".into(),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceEnv
+        );
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    conversation_id: 9999,
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceConversation
+        );
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    selection: Some("all/1".into()),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceRule
+        );
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    inputs_sha256: Some(vec!["0".repeat(64); 3]),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceHash
+        );
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    source_job_id: Uuid::new_v4().to_string(),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceMissing
+        );
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    source_job_id: "not-a-job".into(),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceId
+        );
+        // A source still waiting to run.
+        let (queued, run_id) = (Uuid::new_v4(), Uuid::new_v4());
+        let reply = db.call(
+            "SELECT pd_writer_admit($1,1424,'delphi-queued','generated-test','queued-source',repeat('a',64),$2,$3,'delphi_full_pipeline',NULL,$4,repeat('b',40))",
+            &[&ENV, &queued, &run_id, &json!({ "selection": RULE })],
+        );
+        assert_eq!(reply["outcome"], "enqueued", "{reply}");
+        assert_eq!(
+            refused(
+                &mut ex,
+                Request {
+                    source_job_id: queued.to_string(),
+                    ..base()
+                },
+                on
+            ),
+            Refusal::SourceNotSucceeded
+        );
+        assert_eq!(count(&db), 0);
+        // The declared hashes, when right, admit.
+        let record = db.record(&src.job_id);
+        let plan = polis_topic_map::from_run::plan(ENV, &src.job_id, &record).unwrap();
+        let shas = plan.inputs.iter().map(|f| f.sha256.clone()).collect();
+        let ok = derived::admit(
+            &mut ex,
+            on,
+            &Request {
+                inputs_sha256: Some(shas),
+                ..base()
+            },
+            CODE,
+        )
+        .unwrap();
+        assert!(matches!(ok, Admission::Enqueued(_)), "{ok:?}");
+        assert_eq!(count(&db), 1);
+    }
+
+    fn file(name: &str) -> String {
+        std::fs::read_to_string(
+            PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../server/postgres/migrations")
+                .join(name),
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn the_down_file_reverses_000050_only_while_no_derived_job_exists() {
+        let down = file("down/000050_remove_derived_jobs.sql");
+        let with_job = Db::new();
+        let src = source(&with_job);
+        let mut ex = with_job.executor();
+        job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "t"), CODE).unwrap());
+        let err = with_job.admin().batch_execute(&down).unwrap_err();
+        assert!(format!("{err:?}").contains("derived jobs exist"), "{err:?}");
+        assert_eq!(count(&with_job), 1);
+
+        let db = Db::new();
+        db.admin().batch_execute(&down).unwrap();
+        let gone: Option<String> = db
+            .admin()
+            .query_one("SELECT to_regprocedure('public.pd_derived_admit(text,text,uuid,integer,jsonb,text)')::text", &[])
+            .unwrap()
+            .get(0);
+        assert_eq!(gone, None);
+        let checks: String = db
+            .admin()
+            .query_one(
+                "SELECT string_agg(pg_get_constraintdef(oid),' ' ORDER BY conname) FROM pg_constraint
+                 WHERE conrelid IN ('polis_queue_jobs'::regclass,'delphi_jobs'::regclass) AND contype='c'",
+                &[],
+            )
+            .unwrap()
+            .get(0);
+        assert!(!checks.contains("derived"), "{checks}");
+        // The ordinary writer path still works after the reversal, and the
+        // forward file applies again.
+        source(&db);
+        db.admin()
+            .batch_execute(&file("000050_add_derived_jobs.sql"))
+            .unwrap();
+        let src = source(&db);
+        let mut ex = db.executor();
+        job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "t"), CODE).unwrap());
+    }
+}

@@ -90,7 +90,8 @@ def build():
                '000046_add_granite_embedding_model.sql',
                '000047_extend_graph_embedding_and_labels.sql',
                '000048_create_delphi_entitlements.sql',
-               '000049_add_topic_map_document_family.sql'}
+               '000049_add_topic_map_document_family.sql',
+               '000050_add_derived_jobs.sql'}
     assert selected == {p.name for p in files} | pending, 'report scope differs from release selection'
     assert held == {'000021_create_polis_coordinator.sql'}, 'review changed hold policy'
     numbered = sorted(MIG.glob('*.sql'))
