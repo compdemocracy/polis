@@ -41,6 +41,8 @@ export const TEXT = {
   noMapReport: "No topic map is stored for this report yet.",
   noMapRun: "No topic map is stored for this run yet.",
   notReady: "This run has not finished yet.",
+  mapPending: "The topic map of this run is being made from its stored results.",
+  mapFailed: "The topic map of this run could not be made.",
   noReport: "There is no report at this address.",
   noRun: "This report has no run with that id.",
   busy: "Too many requests for the topic map just now. Reload the page in a moment.",
@@ -111,6 +113,8 @@ export function answerToState(status, body, jobId) {
     if (body && typeof body.reason === "string") {
       if (body.reason === "no_run" || body.reason === "not_stored") return noMap;
       if (body.reason === "run_not_ready") return { kind: "none", text: TEXT.notReady };
+      if (body.reason === "map_pending") return { kind: "none", text: TEXT.mapPending };
+      if (body.reason === "map_failed") return { kind: "none", text: TEXT.mapFailed };
       if (typeof body.message === "string" && body.message) return { kind: "none", text: body.message + "." };
       return noMap;
     }
@@ -175,7 +179,17 @@ function readJob(j) {
     namesBy: names.by === "keywords" || names.by === "none" ? "keywords" : names.by === "model" ? "model" : null,
     model: typeof names.model === "string" && names.model ? names.model : null,
     current: j.current === true,
+    map: readMap(j.map),
   };
+}
+
+/* A listed run's derived map: { jobId, status } with status "stored",
+   "pending" or "failed", or null when the run has none (or it is not one
+   this page can read). */
+function readMap(m) {
+  if (!m || typeof m.job_id !== "string" || !m.job_id) return null;
+  if (m.status !== "stored" && m.status !== "pending" && m.status !== "failed") return null;
+  return { jobId: m.job_id, status: m.status };
 }
 
 /* The list's answer: { kind: "jobs", jobs } (newest first, as sent), or

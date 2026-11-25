@@ -198,7 +198,29 @@ test("the list of runs is one request by report id, and its answer is read field
     namesBy: "model",
     model: "claude-haiku-4-5",
     current: false,
+    map: null,
   });
+});
+
+test("a listed run's derived map is read when it is one this page knows", () => {
+  const read = (map) => answerToJobs(200, { jobs: [{ job_id: "x", map }] }).jobs[0].map;
+  assert.deepEqual(read({ job_id: "y1", status: "stored" }), { jobId: "y1", status: "stored" });
+  assert.deepEqual(read({ job_id: "y1", status: "pending" }), { jobId: "y1", status: "pending" });
+  assert.deepEqual(read({ job_id: "y1", status: "failed" }), { jobId: "y1", status: "failed" });
+  for (const odd of [undefined, null, {}, { job_id: "" }, { job_id: "y1", status: "made" }, { status: "stored" }]) {
+    assert.equal(read(odd), null, JSON.stringify(odd));
+  }
+});
+
+test("a map being made, or one that could not be made, is said as text, never as an error", () => {
+  const pending = { status: "success", reason: "map_pending", message: "The topic map of this Delphi run is being made", map_job_id: "y" };
+  assert.deepEqual(answerToState(200, pending, null), { kind: "none", text: TEXT.mapPending });
+  assert.deepEqual(answerToState(200, pending, "x"), { kind: "none", text: TEXT.mapPending });
+  const failed = { status: "success", reason: "map_failed", message: "x", map_job_id: "y" };
+  assert.deepEqual(answerToState(200, failed, "x"), { kind: "none", text: TEXT.mapFailed });
+  // A derived job that stored a reason instead of a map: that reason, as for a run.
+  const few = { status: "success", reason: "too_few_comments", message: "Too few comments to draw a topic map", map_job_id: "y" };
+  assert.deepEqual(answerToState(200, few, "x"), { kind: "none", text: "Too few comments to draw a topic map." });
 });
 
 test("every answer of the list but a 200 with jobs is no list, and never throws", async () => {

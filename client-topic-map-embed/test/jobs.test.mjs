@@ -88,3 +88,21 @@ test("a run without levels, model or count is described without them, never as n
   const shown = chooserState(list(...bare.map((j) => ({ job_id: j.jobId, levels: null, names: { by: "none", model: null } })), J1));
   for (const c of shown.choices) assert.doesNotMatch(c.text, /null|undefined/);
 });
+
+test("a run's map made later from its stored layout is named in the chooser, with the making job's short id", () => {
+  const y = "5e0d1c2b-0000-4000-8000-000000000001";
+  const made = list({ ...J1, map: { job_id: y, status: "stored" } }, { ...J2, map: { job_id: y, status: "pending" } }, {
+    ...J3,
+    map: { job_id: y, status: "failed" },
+  }).jobs;
+  assert.equal(
+    describeJob(made[0]),
+    "what participants see · keyword names · 2026-11-20 08:00 UTC · 147 comments · map made from this run's stored layout (5e0d1c2b)",
+  );
+  assert.ok(describeJob(made[1]).endsWith(" · map being made from this run's stored layout (5e0d1c2b)"));
+  assert.ok(describeJob(made[2]).endsWith(" · no map: it could not be made (5e0d1c2b)"));
+  // A run without one reads as before.
+  assert.equal(describeJob(list(J1).jobs[0]), "what participants see · keyword names · 2026-11-20 08:00 UTC · 147 comments");
+  const state = chooserState(list({ ...J1, map: { job_id: y, status: "stored" } }, J2));
+  assert.equal(state.choices[0].text, describeJob(made[0]) + " · current");
+});

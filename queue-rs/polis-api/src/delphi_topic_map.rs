@@ -648,6 +648,8 @@ pub fn parse(app: &App, req: &Request) -> Option<Parsed> {
 /// A stored map, ready to send.
 struct Map {
     job: String,
+    /// The derived job that made the map, when the run stored none.
+    made_by: Option<String>,
     source: Source,
     /// The publication scope the run was read from: the one asked for, or
     /// for a named run the one its map was published in, if any.
@@ -700,6 +702,9 @@ pub async fn handle(app: &App, req: &Request, res: Res) -> Outgoing {
 fn send(state: &State, req: &Request, mut res: Res, map: Map, place: Place) -> Outgoing {
     res.set(contract::HEADER_JOB, map.job);
     res.set(contract::HEADER_SOURCE, map.source.word());
+    if let Some(by) = map.made_by {
+        res.set(contract::HEADER_MADE_BY, by);
+    }
     if map.privileged {
         res.set("Cache-Control", "private, no-store");
     }
@@ -961,7 +966,17 @@ async fn answer(
             })())
         })
         .await;
-    let (Read { found, selection }, source, scope, hidden, form) = match read {
+    let (
+        Read {
+            found,
+            selection,
+            made_by,
+        },
+        source,
+        scope,
+        hidden,
+        form,
+    ) = match read {
         Ok(Ok(Some(read))) => read,
         Ok(Ok(None)) => return refused(Refused::TooLarge),
         Ok(Err(r)) => return refused(r),
@@ -979,13 +994,10 @@ async fn answer(
         Found::NoSuchRun => Answer::Refused(Refused::JobNotFound),
         Found::TooLarge => Answer::Refused(Refused::TooLarge),
         // A served run came from the scope read; a named run from none.
-        Found::NoMap { job, reason } => Answer::NoMap(NoMap::new(
-            report,
-            job,
-            source,
-            (!named_run).then_some(scope),
-            reason,
-        )),
+        Found::NoMap { job, reason } => Answer::NoMap(NoMap {
+            map_job_id: made_by,
+            ..NoMap::new(report, job, source, (!named_run).then_some(scope), reason)
+        }),
         Found::Unverified(_) => Answer::Refused(Refused::Unreadable),
         Found::Map {
             job,
@@ -1008,6 +1020,7 @@ async fn answer(
             };
             Answer::Map(Box::new(Map {
                 job,
+                made_by,
                 source,
                 scope,
                 selection,
@@ -1697,6 +1710,28 @@ fn list_jobs(
             &contract::FAMILY,
         ],
     )?;
+    // The derived map job of every listed run and of each side's served run,
+    // one statement per side, by the runs' derived keys ([`producers`]).
+    let mut made: Vec<(String, String, Producer)> = Vec::new();
+    for (_, env, _) in sides {
+        let mut ids: Vec<String> = Vec::new();
+        for row in rows.iter().chain(pointers.iter()) {
+            if row.try_get::<_, String>(0).is_ok_and(|e| e == *env) {
+                let id: String = row.try_get(1)?;
+                if !ids.contains(&id) {
+                    ids.push(id);
+                }
+            }
+        }
+        for (id, producer) in producers(c, env, zid, &ids)? {
+            made.push((env.clone(), id, producer));
+        }
+    }
+    let made_by = |env: &str, job: &str| {
+        made.iter()
+            .find(|(e, j, _)| e == env && j == job)
+            .map(|(_, _, p)| p)
+    };
     let mut current = None;
     for (source, env, _) in sides {
         let Some(row) = pointers
@@ -1707,7 +1742,30 @@ fn list_jobs(
         };
         let job: String = row.try_get(1)?;
         let Some(family) = row.try_get::<_, Option<serde_json::Value>>(2)? else {
-            continue;
+            // No map of its own: as the read, its derived job's. A map it
+            // stored is current; a stored reason, a job not finished or rows
+            // that disagree are the read's answer, so no run; no job, or one
+            // that failed, is nothing stored.
+            match made_by(env, &job) {
+                None | Some(Producer::None) | Some(Producer::Failed(_)) => continue,
+                Some(Producer::Stored { job: by, .. }) => {
+                    let rows = c.query_opt(
+                        "SELECT (f->>'row_count')::bigint \
+                         FROM jsonb_array_elements(public.pd_run_record($1::text,($2::text)::uuid)->'families') f \
+                         WHERE f->>'family'=$3 AND f->>'job_id'=$2 LIMIT 1",
+                        &[env, by, &contract::FAMILY],
+                    )?;
+                    let stored = match rows {
+                        Some(r) => r.try_get::<_, Option<i64>>(0)?,
+                        None => None,
+                    };
+                    if stored.is_some_and(|n| n >= 3) {
+                        current = Some((*source, job));
+                    }
+                }
+                Some(_) => {}
+            }
+            break;
         };
         let stored = family.get("rows").and_then(serde_json::Value::as_i64);
         if family.get("job").and_then(serde_json::Value::as_str) == Some(job.as_str())
@@ -1728,6 +1786,21 @@ fn list_jobs(
         let rule = row
             .try_get::<_, Option<String>>(2)?
             .and_then(|s| Selection::parse(s.split('/').next().unwrap_or("")));
+        let map = match made_by(&env, &job_id) {
+            Some(Producer::Stored { job, .. }) => Some(contract::ListedMap {
+                job_id: job.clone(),
+                status: contract::MapStatus::Stored,
+            }),
+            Some(Producer::Pending(job)) => Some(contract::ListedMap {
+                job_id: job.clone(),
+                status: contract::MapStatus::Pending,
+            }),
+            Some(Producer::Failed(job)) => Some(contract::ListedMap {
+                job_id: job.clone(),
+                status: contract::MapStatus::Failed,
+            }),
+            _ => None,
+        };
         jobs.push(contract::ListedJob {
             current: current.as_ref() == Some(&(*source, job_id.clone())),
             job_id,
@@ -1737,6 +1810,7 @@ fn list_jobs(
             points: None,
             levels: None,
             names: LISTED_NAMES,
+            map,
         });
     }
     Ok(jobs)
@@ -1763,7 +1837,7 @@ fn nothing_stored(found: &Found) -> bool {
         found,
         Found::NoSuchRun
             | Found::NoMap {
-                reason: NoMapReason::NoRun | NoMapReason::NotStored,
+                reason: NoMapReason::NoRun | NoMapReason::NotStored | NoMapReason::MapFailed,
                 ..
             }
     )
@@ -1814,6 +1888,7 @@ fn unread(named_run: bool) -> Read {
             }
         },
         selection: None,
+        made_by: None,
     }
 }
 
@@ -1834,6 +1909,9 @@ struct Read {
     found: Found,
     /// The run's comment rule as its configuration names it.
     selection: Option<String>,
+    /// The derived job whose map (or outcome) this is, when the run stored
+    /// no map of its own ([`producer`]).
+    made_by: Option<String>,
 }
 
 enum Found {
@@ -1890,6 +1968,7 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                             reason: NoMapReason::NoRun,
                         },
                         selection: None,
+                        made_by: None,
                     });
                 }
                 // One served pointer per env, conversation and scope.
@@ -1902,6 +1981,7 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                     return Ok(Read {
                         found: Found::Unreadable,
                         selection: None,
+                        made_by: None,
                     });
                 }
             }
@@ -1916,6 +1996,7 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                 return Ok(Read {
                     found: Found::NoSuchRun,
                     selection: None,
+                    made_by: None,
                 });
             };
             // Another conversation's run is no run of this report's.
@@ -1923,6 +2004,7 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                 return Ok(Read {
                     found: Found::NoSuchRun,
                     selection: None,
+                    made_by: None,
                 });
             }
             let selection = row.try_get::<_, Option<String>>(2)?;
@@ -1933,6 +2015,7 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                         reason: NoMapReason::RunNotReady,
                     },
                     selection,
+                    made_by: None,
                 });
             }
             (job.clone(), selection, None)
@@ -1960,6 +2043,43 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
     let part = match artifact.as_deref() {
         Some(a) => read_part(c, &ask, a, &job, state)?,
         None => None,
+    };
+    // A run whose own batch holds no map: the map a derived job made from
+    // its stored results, found by the run's derived key, is its map. Every
+    // row of that map must name the derived job; the document names the run.
+    let mut made_by = None;
+    let part = match part {
+        Some(part) => Some(part),
+        None => match producer(c, &ask.env, ask.zid, &job)? {
+            Producer::None => None,
+            Producer::Unreadable => Some(Part::Unreadable),
+            Producer::Pending(by) => {
+                return Ok(Read {
+                    found: Found::NoMap {
+                        job: Some(job),
+                        reason: NoMapReason::MapPending,
+                    },
+                    selection,
+                    made_by: Some(by),
+                });
+            }
+            Producer::Failed(by) => {
+                return Ok(Read {
+                    found: Found::NoMap {
+                        job: Some(job),
+                        reason: NoMapReason::MapFailed,
+                    },
+                    selection,
+                    made_by: Some(by),
+                });
+            }
+            Producer::Stored { job: by, artifact } => {
+                let part = read_part(c, &ask, &artifact, &by, state)?;
+                made_by = Some(by);
+                // A finished derived job that holds no map family is not a map.
+                Some(part.unwrap_or(Part::Unreadable))
+            }
+        },
     };
     #[cfg(all(test, feature = "db-tests"))]
     state.wait_while_reads_held();
@@ -2009,7 +2129,111 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
             }),
         },
     };
-    Ok(Read { found, selection })
+    Ok(Read {
+        found,
+        selection,
+        made_by,
+    })
+}
+
+/// What made the map of a run that stored none of its own.
+#[derive(Debug, PartialEq, Eq)]
+enum Producer {
+    /// No derived job for the run.
+    None,
+    /// Its derived job is waiting or running.
+    Pending(String),
+    /// Its derived job ended without storing anything.
+    Failed(String),
+    /// Its derived job finished and published its map family (a map, or the
+    /// reason there is none) at `artifact`.
+    Stored { job: String, artifact: String },
+    /// Rows that disagree: a finished job with no published map, a job made
+    /// from another run, two jobs for one key.
+    Unreadable,
+}
+
+/// The derived topic map job of each run in `sources` (of `env` and the
+/// conversation `zid`), found by the run's derived key: the job whose
+/// specification holds that key, and, when it has finished, the map its own
+/// publication scope (`derived:<key>`) points at. One statement however many
+/// runs; never the newest derived job of the conversation, never a run
+/// record.
+fn producers(
+    c: &mut postgres::Client,
+    env: &str,
+    zid: i32,
+    sources: &[String],
+) -> anyhow::Result<Vec<(String, Producer)>> {
+    if sources.is_empty() {
+        return Ok(Vec::new());
+    }
+    let keys: Vec<String> = sources.iter().map(|s| derived_key(env, s)).collect();
+    let rows = c.query(
+        "WITH s AS (SELECT * FROM unnest($3::text[],$4::text[]) AS s(source,key)), \
+         j AS (SELECT s.source, s.key, j.job_id, j.status, \
+                j.job_config->'derived'->'source'->>'job_id' AS made_from \
+               FROM public.delphi_result_jobs j JOIN s ON j.job_config->'derived'->>'key'=s.key \
+               WHERE j.env=$1 AND j.conversation_id=$5 AND j.job_type='derived') \
+         SELECT j.source, j.job_id, j.status, j.made_from, \
+          (SELECT p.artifact_id::text FROM public.delphi_result_publications p \
+           WHERE p.env=$1 AND p.zid=$2 AND p.scope_key='derived:'||j.key AND p.job_id=j.job_id LIMIT 1) \
+         FROM j",
+        &[&env, &zid, &sources, &keys, &zid.to_string()],
+    )?;
+    let mut out: Vec<(String, Producer)> = Vec::with_capacity(sources.len());
+    for source in sources {
+        let mine: Vec<_> = rows
+            .iter()
+            .filter(|r| r.try_get::<_, String>(0).is_ok_and(|s| s == *source))
+            .collect();
+        let producer = match mine.as_slice() {
+            [] => Producer::None,
+            [row] => {
+                let job: String = row.try_get(1)?;
+                let status: Option<String> = row.try_get(2)?;
+                let from: Option<String> = row.try_get(3)?;
+                let artifact: Option<String> = row.try_get(4)?;
+                match (
+                    from.as_deref() == Some(source.as_str()),
+                    status.as_deref(),
+                    artifact,
+                ) {
+                    (false, _, _) => Producer::Unreadable,
+                    (true, Some("COMPLETED"), Some(artifact)) => Producer::Stored { job, artifact },
+                    (true, Some("COMPLETED"), None) => Producer::Unreadable,
+                    (true, Some("FAILED" | "CANCELLED"), _) => Producer::Failed(job),
+                    (true, _, _) => Producer::Pending(job),
+                }
+            }
+            _ => Producer::Unreadable,
+        };
+        out.push((source.clone(), producer));
+    }
+    Ok(out)
+}
+
+/// [`producers`] for one run.
+fn producer(
+    c: &mut postgres::Client,
+    env: &str,
+    zid: i32,
+    source: &str,
+) -> anyhow::Result<Producer> {
+    Ok(producers(c, env, zid, &[source.to_owned()])?
+        .pop()
+        .map_or(Producer::None, |(_, p)| p))
+}
+
+/// The key of the derived topic map job made from `source` in `env`: the
+/// generator's own (`polis_topic_map::derived::key`), version 1.
+pub(crate) fn derived_key(env: &str, source: &str) -> String {
+    polis_topic_map::derived::key(
+        polis_topic_map::derived::Operation::TopicMap,
+        1,
+        env,
+        source,
+    )
 }
 
 enum Part {

@@ -2296,3 +2296,397 @@ fn a_shadow_only_route_answers_as_a_served_env_with_nothing_stored() {
         assert!(listed(&ask(&only, "report_id=shadow&list=jobs&source=served").await).jobs.is_empty());
     });
 }
+
+/// A derived topic map job made from `source`, as its job row, its record
+/// and, once it has finished, its own publication (`derived:<key>`) at a map
+/// family whose rows name it (`wire`); `from` is the run its specification
+/// names, `zid` the conversation its row is in.
+fn derived(
+    c: &mut postgres::Client,
+    zid: i32,
+    source: &str,
+    from: &str,
+    status: &str,
+    wire: Option<(&str, i64)>,
+) -> String {
+    let (job, artifact) = (uuid(0x5000), uuid(0x5a00));
+    let key = derived_key("test", source);
+    let config = json!({"derived": {"schema": "polis-derived/1", "key": key,
+        "operation": "topic_map", "version": 1, "source": {"job_id": from}},
+        "result_backend": "postgres", "result_scope": format!("derived:{key}")});
+    c.execute(
+        "INSERT INTO delphi_result_jobs(env, job_id, conversation_id, status, job_config, job_type) \
+         VALUES('test',$1,$2,$3,$4::text::jsonb,'derived')",
+        &[&job, &zid.to_string(), &status, &config.to_string()],
+    )
+    .unwrap();
+    let families: Vec<_> = wire
+        .map(|(_, rows)| {
+            json!({"family": contract::FAMILY, "artifact_id": artifact, "job_id": job,
+                "row_count": rows, "scope": format!("derived:{key}")})
+        })
+        .into_iter()
+        .collect();
+    c.execute(
+        "INSERT INTO stand_in_runs VALUES('test',$1::text::uuid,$2::text::jsonb)",
+        &[
+            &job,
+            &json!({"job_id": job, "zid": zid, "families": families}).to_string(),
+        ],
+    )
+    .unwrap();
+    if let Some((wire, _)) = wire {
+        wire_at(c, "test", &artifact, wire, &job);
+        publish(c, "test", zid, &format!("derived:{key}"), &job, &artifact);
+    }
+    job
+}
+
+fn no_map_body(out: &Outgoing) -> contract::NoMap {
+    assert_eq!(out.status, 200, "{}", text(out));
+    serde_json::from_slice(&bytes(out)).unwrap()
+}
+
+#[test]
+fn a_run_without_its_own_map_is_served_the_map_its_derived_job_made() {
+    let db = Db::new("derived");
+    let map = stored(document(40, "j"));
+    let own = stored(document(30, "k"));
+    let p = "participant_visible/1";
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    // A replaced run (no longer served), then the current one; neither stored
+    // a map; a derived job made each one's.
+    let old = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let current = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-02-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    publish(&mut c, "test", ZID, "delphi", &current, &uuid(0xa000));
+    let wire = map_family(ZID, &map);
+    let by_current = derived(
+        &mut c,
+        ZID,
+        &current,
+        &current,
+        "COMPLETED",
+        Some((&wire, 3)),
+    );
+    let by_old = derived(&mut c, ZID, &old, &old, "COMPLETED", Some((&wire, 3)));
+    // A run that stored its own map: sent as before, no derived header.
+    let with_own = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2025-12-01T00:00:00.000000Z",
+        Some((3, "00000000-0000-4000-a777-000000000001")),
+        None,
+    );
+    wire_at(
+        &mut c,
+        "test",
+        "00000000-0000-4000-a777-000000000001",
+        &map_family(ZID, &own),
+        &with_own,
+    );
+    // A derived family whose rows name the run, not the job that stored it.
+    let lying = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2025-11-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let by_lying = derived(&mut c, ZID, &lying, &lying, "COMPLETED", None);
+    let artifact = uuid(0x5b00);
+    wire_at(&mut c, "test", &artifact, &wire, &lying);
+    let key = derived_key("test", &lying);
+    publish(
+        &mut c,
+        "test",
+        ZID,
+        &format!("derived:{key}"),
+        &by_lying,
+        &artifact,
+    );
+    // The key's job, but its specification names another run.
+    let crossed = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2025-10-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    derived(&mut c, ZID, &crossed, &old, "COMPLETED", Some((&wire, 3)));
+    // Another conversation's row for this run's key is no job of this report's.
+    let foreign = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2025-09-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    derived(
+        &mut c,
+        ZID + 1,
+        &foreign,
+        &foreign,
+        "COMPLETED",
+        Some((&wire, 3)),
+    );
+    runtime().block_on(async {
+        let app = Arc::new(app_on(&db));
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        // The current map: the derived job's stored bytes, as the run's.
+        let out =
+            crate::dispatch(app.clone(), None, with(url, &[("accept-encoding", "gzip")])).await;
+        assert_eq!(out.status, 200, "{}", text(&out));
+        assert_eq!(bytes(&out), map.gzip);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(current.as_str()));
+        assert_eq!(
+            header(&out, contract::HEADER_MADE_BY),
+            Some(by_current.as_str())
+        );
+        assert_eq!(header(&out, contract::HEADER_SCOPE), Some("delphi"));
+        assert_eq!(header(&out, contract::HEADER_SELECTION), Some(p));
+        let etag = format!("W/\"{}\"", map.sha256);
+        assert_eq!(header(&out, "ETag"), Some(etag.as_str()));
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(
+                url,
+                &[("accept-encoding", "gzip"), ("if-none-match", &etag)],
+            ),
+        )
+        .await;
+        assert_eq!(out.status, 304);
+        assert_eq!(
+            header(&out, contract::HEADER_MADE_BY),
+            Some(by_current.as_str())
+        );
+        // The replaced run, by its own id.
+        let out =
+            crate::dispatch(app.clone(), None, with(&format!("{url}&job_id={old}"), &[])).await;
+        assert_eq!(text(&out), map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(old.as_str()));
+        assert_eq!(
+            header(&out, contract::HEADER_MADE_BY),
+            Some(by_old.as_str())
+        );
+        // A run with its own map: its bytes, and no derived header.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&job_id={with_own}"), &[]),
+        )
+        .await;
+        assert_eq!(text(&out), own.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(with_own.as_str()));
+        assert_eq!(header(&out, contract::HEADER_MADE_BY), None);
+        // Rows that name another job, or a job made from another run: 500.
+        for job in [&lying, &crossed] {
+            let out =
+                crate::dispatch(app.clone(), None, with(&format!("{url}&job_id={job}"), &[])).await;
+            assert_eq!(out.status, 500, "{job}: {}", text(&out));
+        }
+        // Another conversation's job is not found for this run.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&job_id={foreign}"), &[]),
+        )
+        .await;
+        let body = no_map_body(&out);
+        assert_eq!(body.reason, NoMapReason::NotStored);
+        assert_eq!(body.map_job_id, None);
+        assert!(!text(&out).contains("map_job_id"));
+        // An unknown rule is refused as before.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&selection=bogus"), &[]),
+        )
+        .await;
+        assert_eq!(out.status, 400);
+        // The list: runs only, the current one marked, each derived map named.
+        let list = listed(
+            &crate::dispatch(app.clone(), None, with(&format!("{url}&list=jobs"), &[])).await,
+        );
+        let ids: Vec<&str> = list.jobs.iter().map(|j| j.job_id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                current.as_str(),
+                old.as_str(),
+                with_own.as_str(),
+                lying.as_str(),
+                crossed.as_str(),
+                foreign.as_str()
+            ]
+        );
+        assert!(
+            !ids.contains(&by_current.as_str()),
+            "a derived job is not a run"
+        );
+        let marked: Vec<_> = list
+            .jobs
+            .iter()
+            .map(|j| (j.current, j.map.clone()))
+            .collect();
+        let made = |job: &str| {
+            Some(contract::ListedMap {
+                job_id: job.into(),
+                status: contract::MapStatus::Stored,
+            })
+        };
+        assert_eq!(marked[0], (true, made(&by_current)));
+        assert_eq!(marked[1], (false, made(&by_old)));
+        assert_eq!(marked[2], (false, None));
+        assert_eq!(marked[3], (false, made(&by_lying)));
+        assert_eq!(marked[5], (false, None));
+    });
+}
+
+#[test]
+fn a_derived_map_not_yet_made_or_never_made_says_so() {
+    let db = Db::new("derived_states");
+    let map = stored(document(20, "j"));
+    let p = "participant_visible/1";
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let current = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-02-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    publish(&mut c, "test", ZID, "delphi", &current, &uuid(0xa000));
+    let waiting = derived(&mut c, ZID, &current, &current, "QUEUED", None);
+    let few = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-03T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let no_map = no_map_family(ZID, "too_few_comments");
+    let by_few = derived(&mut c, ZID, &few, &few, "COMPLETED", Some((&no_map, 1)));
+    let dead = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-02T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let by_dead = derived(&mut c, ZID, &dead, &dead, "FAILED", None);
+    let corrupt = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let bad = Stored {
+        sha256: "0".repeat(64),
+        ..stored(document(20, "j"))
+    };
+    derived(
+        &mut c,
+        ZID,
+        &corrupt,
+        &corrupt,
+        "COMPLETED",
+        Some((&map_family(ZID, &bad), 3)),
+    );
+    // The shadow has a map: a served run whose map is being made is not
+    // nothing stored, so the shadow's is not read.
+    served(
+        &mut c,
+        "shadow",
+        ZID,
+        "delphi",
+        p,
+        Some(&map_family(ZID, &map)),
+    );
+    runtime().block_on(async {
+        let mut app = app_on(&db);
+        app.delphi_topic_map_shadow_env = Some("shadow".into());
+        let app = Arc::new(app);
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        let out = crate::dispatch(app.clone(), None, with(url, &[])).await;
+        let body = no_map_body(&out);
+        assert_eq!(body.reason, NoMapReason::MapPending);
+        assert_eq!(body.job_id.as_deref(), Some(current.as_str()));
+        assert_eq!(body.map_job_id.as_deref(), Some(waiting.as_str()));
+        assert_eq!(body.source, Source::Served);
+        let out =
+            crate::dispatch(app.clone(), None, with(&format!("{url}&job_id={few}"), &[])).await;
+        let body = no_map_body(&out);
+        assert_eq!(body.reason, NoMapReason::TooFewComments);
+        assert_eq!(body.map_job_id.as_deref(), Some(by_few.as_str()));
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&job_id={dead}&source=served"), &[]),
+        )
+        .await;
+        let body = no_map_body(&out);
+        assert_eq!(body.reason, NoMapReason::MapFailed);
+        assert_eq!(body.map_job_id.as_deref(), Some(by_dead.as_str()));
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(&format!("{url}&job_id={corrupt}&source=served"), &[]),
+        )
+        .await;
+        assert_eq!(out.status, 500, "{}", text(&out));
+        // The list agrees: nothing is current on the served side, and the
+        // shadow's run is not current either, since the served side answers.
+        let list = listed(
+            &crate::dispatch(app.clone(), None, with(&format!("{url}&list=jobs"), &[])).await,
+        );
+        assert!(list.jobs.iter().all(|j| !j.current), "{list:?}");
+        let status = |job: &str| {
+            list.jobs
+                .iter()
+                .find(|j| j.job_id == job)
+                .and_then(|j| j.map.as_ref())
+                .map(|m| m.status)
+        };
+        assert_eq!(status(&current), Some(contract::MapStatus::Pending));
+        assert_eq!(status(&few), Some(contract::MapStatus::Stored));
+        assert_eq!(status(&dead), Some(contract::MapStatus::Failed));
+    });
+}

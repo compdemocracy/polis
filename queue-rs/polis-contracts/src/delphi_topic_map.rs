@@ -56,6 +56,20 @@
 //!   400. It is read from the runs' rows only, never from a map, so it is
 //!   the same for every reader and moderating a comment never changes it.
 //!
+//! A run that stored no map of its own may have one made later from its
+//! stored layout, clusters and names by a derived job, with nothing
+//! recomputed: that job's map is this run's map. Every query above names the
+//! run (`job_id`, `selection`, `source` keep their meaning), never the job
+//! that made the map. A map so made says which job made it
+//! ([`HEADER_MADE_BY`]); its document, and [`HEADER_JOB`], name the run its
+//! layout, clusters and names are from. A map the run stored itself is sent
+//! exactly as before, with no such header. While the derived job has not
+//! finished the answer is [`NoMapReason::MapPending`]; when it ended without
+//! a map, the reason it stored ([`NoMap::map_job_id`] names the job); when it
+//! failed, [`NoMapReason::MapFailed`]. A listed run with such a job says so
+//! ([`ListedJob::map`]). The route only reads: it never asks for a map to be
+//! made.
+//!
 //! Every answer is one of the types below:
 //!
 //! - 200, the document (`TopicMap`: the stored bytes, or the reader's form),
@@ -111,6 +125,9 @@ pub const HEADER_JOB: &str = "X-Polis-Topic-Map-Job";
 pub const HEADER_SOURCE: &str = "X-Polis-Topic-Map-Source";
 pub const HEADER_SCOPE: &str = "X-Polis-Topic-Map-Scope";
 pub const HEADER_SELECTION: &str = "X-Polis-Topic-Map-Selection";
+/// The derived job that made the map from the run's stored layout, clusters
+/// and names; sent only with such a map, never with a map the run stored.
+pub const HEADER_MADE_BY: &str = "X-Polis-Topic-Map-Made-By";
 
 /// Which runs are read: the ones the deployment serves, or the shadow's.
 #[derive(Debug, Clone, Copy, Default, Serialize, Deserialize, PartialEq, Eq)]
@@ -247,6 +264,31 @@ pub struct ListedJob {
     /// The run a read with this `report_id` (and this `source` and
     /// `selection`, if given) and no `job_id` answers.
     pub current: bool,
+    /// The derived job that makes this run's map from its stored layout,
+    /// when there is one; absent otherwise (a map the run stored itself is in
+    /// its run record only, which the list does not read).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub map: Option<ListedMap>,
+}
+
+/// A listed run's derived map: which job makes it and how far it is.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct ListedMap {
+    pub job_id: String,
+    pub status: MapStatus,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum MapStatus {
+    /// Finished: it stored the run's map, or the reason there is none
+    /// (reading the run says which).
+    Stored,
+    /// Waiting or running.
+    Pending,
+    /// Ended without storing anything.
+    Failed,
 }
 
 /// How the run's topics were named: what the run stored, never what its
@@ -417,6 +459,12 @@ pub enum NoMapReason {
     /// The first view has no area: always so for one or two comments, and
     /// when the comments it keeps sit on one point or one line.
     TooFewComments,
+    /// The run stored no map, and the derived job making one from its stored
+    /// results has not finished ([`NoMap::map_job_id`]).
+    MapPending,
+    /// The run stored no map, and the derived job that was to make one ended
+    /// without storing anything ([`NoMap::map_job_id`]).
+    MapFailed,
 }
 
 impl NoMapReason {
@@ -428,6 +476,8 @@ impl NoMapReason {
             Self::NoPositions => "The Delphi run stored no comment positions",
             Self::NoTopics => "The Delphi run stored no topics",
             Self::TooFewComments => "Too few comments to draw a topic map",
+            Self::MapPending => "The topic map of this Delphi run is being made",
+            Self::MapFailed => "The topic map of this Delphi run could not be made",
         }
     }
 }
@@ -446,6 +496,10 @@ pub struct NoMap {
     /// The publication scope read; null for a named run.
     pub scope: Option<String>,
     pub reason: NoMapReason,
+    /// The derived job whose outcome this is, when the run stored no map of
+    /// its own; absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub map_job_id: Option<String>,
 }
 
 impl NoMap {
@@ -464,6 +518,7 @@ impl NoMap {
             source,
             scope,
             reason,
+            map_job_id: None,
         }
     }
 }
@@ -651,6 +706,55 @@ mod tests {
             assert!(StoredNoMap::parse(word).is_some(), "{word}");
         }
         assert!(StoredNoMap::parse("no_run").is_none());
+    }
+
+    #[test]
+    fn a_derived_maps_outcome_names_its_job_and_adds_nothing_otherwise() {
+        let mut body = NoMap::new(
+            "r1".into(),
+            Some("x".into()),
+            Source::Served,
+            None,
+            NoMapReason::MapPending,
+        );
+        assert!(!serde_json::to_string(&body).unwrap().contains("map_job_id"));
+        body.map_job_id = Some("y".into());
+        assert_eq!(
+            serde_json::to_string(&body).unwrap(),
+            r#"{"status":"success","message":"The topic map of this Delphi run is being made","report_id":"r1","job_id":"x","source":"served","scope":null,"reason":"map_pending","map_job_id":"y"}"#
+        );
+        let failed = serde_json::to_string(&NoMapReason::MapFailed).unwrap();
+        assert_eq!(failed, r#""map_failed""#);
+        let job = ListedJob {
+            job_id: "x".into(),
+            source: Source::Served,
+            selection: None,
+            created_at: None,
+            points: None,
+            levels: None,
+            names: Names {
+                by: NamedBy::Keywords,
+                model: None,
+            },
+            current: true,
+            map: None,
+        };
+        let plain = serde_json::to_string(&job).unwrap();
+        assert!(!plain.contains("\"map\""), "{plain}");
+        let job = ListedJob {
+            map: Some(ListedMap {
+                job_id: "y".into(),
+                status: MapStatus::Pending,
+            }),
+            ..job
+        };
+        let text = serde_json::to_string(&job).unwrap();
+        assert!(
+            text.ends_with(r#""current":true,"map":{"job_id":"y","status":"pending"}}"#),
+            "{text}"
+        );
+        assert_eq!(serde_json::from_str::<ListedJob>(&text).unwrap(), job);
+        assert_eq!(HEADER_MADE_BY, "X-Polis-Topic-Map-Made-By");
     }
 
     #[test]
