@@ -2192,3 +2192,107 @@ fn a_list_reads_no_run_record_per_run_however_many_runs_there_are() {
         assert!(took < Duration::from_secs(1), "{took:?}");
     });
 }
+
+/// A deployment whose served Delphi is not on Postgres reads the shadow's
+/// runs alone: every request answers as it would where the served env has
+/// nothing stored, and a request naming the served side alone answers what
+/// "no map stored" answers.
+#[test]
+fn a_shadow_only_route_answers_as_a_served_env_with_nothing_stored() {
+    let db = Db::new("shadowonly");
+    let shadow_map = stored(document(8, "shadow"));
+    let shadow_all_map = stored(document(9, "shadow-all"));
+    let (zs, zn) = (ZID + 1, ZID + 2);
+    let shadow = "shadow-delphi-1";
+    let (shadow_job, shadow_all) = {
+        let mut c = db.connect();
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('shadow',{zs}),('none',{zn})"
+        ))
+        .unwrap();
+        let shadow_job = served(
+            &mut c,
+            shadow,
+            zs,
+            "delphi",
+            "participant_visible/1",
+            Some(&map_family(zs, &shadow_map)),
+        );
+        let shadow_all = served(
+            &mut c,
+            shadow,
+            zs,
+            "delphi:all_comments",
+            "all_comments/1",
+            Some(&map_family(zs, &shadow_all_map)),
+        );
+        (shadow_job, shadow_all)
+    };
+    runtime().block_on(async {
+        // The shadow-only route, and a served route whose env has nothing
+        // stored: the same answers to every request.
+        let mut only = app_on(&db);
+        only.delphi_topic_map_env = String::new();
+        only.delphi_topic_map_shadow_env = Some(shadow.into());
+        let only = Arc::new(only);
+        let mut empty = app_on(&db);
+        empty.delphi_topic_map_env = "empty".into();
+        empty.delphi_topic_map_shadow_env = Some(shadow.into());
+        let empty = Arc::new(empty);
+        let ask = |app: &Arc<App>, q: &str| {
+            crate::dispatch(app.clone(), None, with(&format!("/api/v3/delphi/topicMap?{q}"), &[]))
+        };
+        let queries = [
+            "report_id=shadow".to_owned(),
+            "report_id=shadow&selection=all_comments".to_owned(),
+            "report_id=shadow&selection=all_but_moderated_out".to_owned(),
+            "report_id=shadow&source=shadow".to_owned(),
+            "report_id=shadow&source=served".to_owned(),
+            format!("report_id=shadow&job_id={shadow_job}"),
+            format!("report_id=shadow&job_id={shadow_all}&source=shadow"),
+            format!("report_id=shadow&job_id={shadow_job}&source=served"),
+            "report_id=shadow&list=jobs".to_owned(),
+            "report_id=shadow&list=jobs&source=served".to_owned(),
+            "report_id=shadow&list=jobs&source=shadow".to_owned(),
+            "report_id=none".to_owned(),
+            "report_id=none&list=jobs".to_owned(),
+            "report_id=nope".to_owned(),
+        ];
+        for q in &queries {
+            let (a, b) = (ask(&only, q).await, ask(&empty, q).await);
+            assert_eq!((a.status, text(&a)), (b.status, text(&b)), "{q}");
+            for h in [contract::HEADER_JOB, contract::HEADER_SOURCE, contract::HEADER_SCOPE] {
+                assert_eq!(header(&a, h), header(&b, h), "{q} {h}");
+            }
+        }
+        // What those answers are.
+        let out = ask(&only, "report_id=shadow").await;
+        assert_eq!(text(&out), shadow_map.document);
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(shadow_job.as_str()));
+        assert_eq!(header(&out, contract::HEADER_SOURCE), Some("shadow"));
+        let out = ask(&only, "report_id=shadow&selection=all_comments").await;
+        assert_eq!(text(&out), shadow_all_map.document);
+        let out = ask(&only, &format!("report_id=shadow&job_id={shadow_job}")).await;
+        assert_eq!(text(&out), shadow_map.document);
+        let out = ask(&only, "report_id=shadow&source=shadow").await;
+        assert_eq!(text(&out), shadow_map.document);
+        let no_run = |report: &str| {
+            format!(
+                r#"{{"status":"success","message":"No Delphi run found for this report","report_id":"{report}","job_id":null,"source":"served","scope":"delphi","reason":"no_run"}}"#
+            )
+        };
+        assert_eq!(text(&ask(&only, "report_id=shadow&source=served").await), no_run("shadow"));
+        assert_eq!(text(&ask(&only, "report_id=none").await), no_run("none"));
+        let out = ask(&only, &format!("report_id=shadow&job_id={shadow_job}&source=served")).await;
+        assert_eq!(out.status, 404, "{}", text(&out));
+        let jobs = listed(&ask(&only, "report_id=shadow&list=jobs").await).jobs;
+        assert!(jobs.iter().all(|j| j.source == Source::Shadow));
+        let mut ids: Vec<_> = jobs.iter().map(|j| j.job_id.clone()).collect();
+        ids.sort();
+        let mut want = vec![shadow_job.clone(), shadow_all.clone()];
+        want.sort();
+        assert_eq!(ids, want);
+        assert!(jobs.iter().any(|j| j.current && j.job_id == shadow_job));
+        assert!(listed(&ask(&only, "report_id=shadow&list=jobs&source=served").await).jobs.is_empty());
+    });
+}

@@ -992,6 +992,7 @@ dependencies = [
  "miniz_oxide",
  "openssl",
  "polis-auth",
+ "polis-migrate",
  "polis-queue-adapter",
  "polis-topic-map",
  "postgres",

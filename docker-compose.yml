@@ -796,6 +796,12 @@ services:
       - POLIS_API_START=${POLIS_API_START:-0}
       - POLIS_API_VERSION_READS=${POLIS_API_VERSION_READS:-0}
       - RUST_API_ROUTES=${RUST_API_ROUTES:-}
+      # The report topic map's own read-only pool (two connections; it reads
+      # nothing unless POLIS_API_DELPHI_TOPIC_MAP_READS=1): a dedicated login
+      # when the key is set, otherwise the box's own DATABASE_URL (the deploy
+      # appends it to the project .env), the login that applied the
+      # migrations and so can read the result store.
+      - POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL=${POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL:-${DATABASE_URL:-}}
       - POLIS_API_DB_POOL=8
       - POLIS_API_DB_ACQUIRE_TIMEOUT_MS=2000
       - POLIS_API_DB_STATEMENT_TIMEOUT_MS=3000
