@@ -15,11 +15,14 @@
 //! whose own attempt closed its set (`delphi_embedding_sets` for the row's
 //! `batch_id` and model exists) and that lies under that set's `seq_mark`.
 //! The table's primary key holds one row per comment id, so that row is the
-//! newest stored vector for it. Rows an attempt wrote and never closed (it
-//! failed or is still running) are never handed over. Model identity is the
-//! exact `delphi_embedding_models.name` (repository, revision and width, as
-//! `repo@revision:dims`), so a changed model resolves to another row, or to
-//! none, and reuses nothing.
+//! only stored vector for it (its first writer's). Rows an attempt wrote and
+//! never closed (it failed or is still running) are never handed over. Model
+//! identity is the exact `delphi_embedding_models.name`.
+//!
+//! Only a name that pins the computation is offered ([`pinned`], the one place
+//! the rule is stated): `repo@revision:dims`, the revision a full 40-hex commit
+//! id. Any other name (all-MiniLM-L6-v2's row carries no revision) is never
+//! offered, with the word `unpinned`, and the child refuses such a file too.
 //!
 //! A reuse file never fails, retries or holds up a run past its bound: any
 //! absence, bound or error leaves the run without the file and the frame says
@@ -75,6 +78,8 @@ pub enum Skip {
     Failed,
     /// The file could not be written.
     Unwritable,
+    /// The run's model name does not pin its revision ([`pinned`]).
+    Unpinned,
 }
 
 impl Skip {
@@ -89,6 +94,7 @@ impl Skip {
             Skip::Unreadable => "unreadable",
             Skip::Failed => "failed",
             Skip::Unwritable => "unwritable",
+            Skip::Unpinned => "unpinned",
         }
     }
 }
@@ -100,6 +106,32 @@ pub struct Request {
     pub env: String,
     pub model: Option<String>,
     pub max_bytes: usize,
+}
+
+/// THE RULE: a stored model name may be reused only when it pins the
+/// computation that produced its vectors, by its form alone:
+/// `<repo>@<revision>:<dims>`, where `<repo>` is non-empty and holds no `@`,
+/// `<revision>` is a full commit id (exactly 40 lowercase hex digits) and
+/// `<dims>` is a positive decimal width with no leading zero. A bare
+/// repository name (all-MiniLM-L6-v2's stored name today) names whatever bytes
+/// a directory or hub happened to hold, so it is never reused. Delphi states
+/// the same rule in `polismath/job_child/embedding_reuse.py` (`pinned`).
+pub fn pinned(name: &str) -> bool {
+    let Some((repo, rest)) = name.split_once('@') else {
+        return false;
+    };
+    let Some((revision, dims)) = rest.split_once(':') else {
+        return false;
+    };
+    !repo.is_empty()
+        && revision.len() == 40
+        && revision
+            .bytes()
+            .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        && !dims.is_empty()
+        && !dims.starts_with('0')
+        && dims.len() <= 5
+        && dims.bytes().all(|b| b.is_ascii_digit())
 }
 
 fn classify(error: &postgres::Error) -> Skip {
@@ -221,6 +253,9 @@ pub fn prepare(client: &mut Client, attempt_dir: &Path, zid: i64, request: &Requ
     let Some(model) = request.model.as_deref() else {
         return frame(request, zid, Err(Skip::Model));
     };
+    if !pinned(model) {
+        return frame(request, zid, Err(Skip::Unpinned));
+    }
     let done = read(client, &request.env, zid, model, request.max_bytes).and_then(|stored| {
         write(attempt_dir, model, &stored, request.max_bytes)
             .map(|(sha, rows)| (sha, rows, stored.model_id, stored.dims))
@@ -395,6 +430,45 @@ mod tests {
         assert_eq!(resolve(&path), None);
         assert_eq!(resolve(&path[..1]), None, "a directory with no lock");
         std::fs::remove_dir_all(&dir).unwrap_or_default();
+    }
+
+    #[test]
+    fn only_a_name_that_pins_its_revision_is_reusable() {
+        assert!(
+            pinned(&default()),
+            "the shipped granite name pins its revision"
+        );
+        assert!(pinned(
+            "org/model@0123456789abcdef0123456789abcdef01234567:768"
+        ));
+        for name in [
+            MODEL_MINILM,
+            "all-MiniLM-L6-v2",
+            "org/model",
+            "org/model:384",
+            "org/model@main:384",
+            "org/model@0123456789abcdef:384",
+            "org/model@0123456789ABCDEF0123456789ABCDEF01234567:384",
+            "org/model@0123456789abcdef0123456789abcdef01234567",
+            "org/model@0123456789abcdef0123456789abcdef01234567:",
+            "org/model@0123456789abcdef0123456789abcdef01234567:0384",
+            "org/model@0123456789abcdef0123456789abcdef01234567:384:1",
+            "@0123456789abcdef0123456789abcdef01234567:384",
+            "a@b@0123456789abcdef0123456789abcdef01234567:384",
+            "",
+        ] {
+            assert!(!pinned(name), "{name}");
+        }
+        // The frame for a refused name keeps its one shape (the database test
+        // proves `prepare` reads nothing and writes no file for one).
+        let request = Request {
+            env: "shadow-a".into(),
+            model: Some(MODEL_MINILM.into()),
+            max_bytes: MAX_SPOOL_BYTES,
+        };
+        let value = frame(&request, 7, Err(Skip::Unpinned));
+        assert_eq!(value["reason"], "unpinned");
+        assert!(value["file"].is_null());
     }
 
     #[test]

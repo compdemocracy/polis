@@ -171,6 +171,29 @@ def test_another_model_encodes_everything(stages, model, recorded, tmp_path, mon
     assert (facts["embeddings_reused"], facts["embeddings_encoded"], facts["embeddings_reuse"]) == (0, 4, "model")
 
 
+MINILM = "sentence-transformers/all-MiniLM-L6-v2"
+
+
+def test_the_shipped_model_name_pins_its_computation_and_a_bare_name_does_not(model_name):
+    assert embedding_reuse.pinned(model_name)
+    for name in (MINILM, "all-MiniLM-L6-v2", "org/model", "org/model:384", "org/model@main:384",
+                 "org/model@" + "0" * 39 + ":384", "org/model@" + "A" * 40 + ":384", "org/model@" + "0" * 40,
+                 "org/model@" + "0" * 40 + ":0384", "@" + "0" * 40 + ":384", "a@b@" + "0" * 40 + ":384",
+                 "", None, 384):
+        assert not embedding_reuse.pinned(name), name
+
+
+def test_an_unpinned_model_is_never_reused_even_when_offered(stages, monkeypatch, recorded, tmp_path):
+    """The run stores under all-MiniLM-L6-v2 and the file is for exactly that name,
+    well formed: the vectors are still encoded, not reused."""
+    model = Model(monkeypatch, MINILM)
+    write_frame(tmp_path, monkeypatch, stored(dict(zip(IDS, TEXTS))), MINILM)
+    stages.pipeline._embed(TEXTS, IDS)
+    assert model.loads == 1 and model.encoded == [TEXTS]
+    facts = recorded()["embed_encode"]
+    assert (facts["embeddings_reused"], facts["embeddings_encoded"], facts["embeddings_reuse"]) == (0, 4, "unpinned")
+
+
 def _bad(case, rows, model_name):
     """(ref overrides, spool bytes or None, reason) for one bad offer."""
     good = write_spool(model_name, DIMS, rows)

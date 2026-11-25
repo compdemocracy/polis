@@ -10,10 +10,11 @@ row a comment id, the SHA-256 of the text that was embedded, and the vector.
 The frame names it under ``inputs.embeddings`` with ten keys; with no file, the
 file keys are null and ``reason`` is one word.
 
-A comment's vector is a function of its text and the model. So a stored vector
-is used for a comment only when the file's model is, as an exact string, the
-model this run stores under, and the comment's id is in the file with the
-SHA-256 of this run's text. Every other comment is encoded as before.
+A comment's vector is a function of its text and the computation. So a stored
+vector is used for a comment only when the file's model is, as an exact string,
+the model this run stores under, that name pins the computation (``pinned``:
+``repo@revision:dims``, a full commit id), and the comment's id is in the file
+with the SHA-256 of this run's text. Every other comment is encoded as before.
 
 Any doubt means encode: this module never raises. ``offer`` returns None when
 the frame names no reuse (the run is what it was), else an ``Offer`` that holds
@@ -27,6 +28,7 @@ import hashlib
 import json
 import math
 import os
+import re
 import stat
 from typing import Any, Dict, Mapping, NamedTuple, Optional, Tuple
 
@@ -34,6 +36,20 @@ SCHEMA = "delphi-embedding-reuse/1"
 FILE = "inputs/embeddings.spool"
 FRAME_ENV = "DELPHI_FRAME"
 KEYS = frozenset(("schema", "file", "sha256", "rows", "model", "model_id", "dims", "env", "zid", "reason"))
+
+# THE RULE: a stored model name may be reused only when it pins the computation
+# that produced its vectors, by its form alone: ``<repo>@<revision>:<dims>``, with
+# ``<repo>`` non-empty and holding no ``@``, ``<revision>`` a full commit id
+# (exactly 40 lowercase hex digits), ``<dims>`` a positive width with no leading
+# zero. A bare repository name (all-MiniLM-L6-v2's stored name today) names
+# whatever bytes a directory or hub held, so it is never reused. The daemon
+# states the same rule (``queue-rs/src/jobs/reuse.rs``, ``pinned``).
+_PINNED = re.compile(r"[^@]+@[0-9a-f]{40}:[1-9][0-9]{0,4}")
+
+
+def pinned(name: Any) -> bool:
+    """True when a stored model name pins the computation (the rule above)."""
+    return isinstance(name, str) and _PINNED.fullmatch(name) is not None
 
 
 class Offer(NamedTuple):
@@ -86,6 +102,8 @@ def from_frame(frame: Any, frame_path: str, model: Optional[str], dims: int) -> 
         return _nothing("frame")
     if model is None or ref["model"] != model:
         return _nothing("model")
+    if not pinned(model):
+        return _nothing("unpinned")
     if ref["dims"] != dims:
         return _nothing("dims")
     if ref["file"] != FILE or not isinstance(ref["sha256"], str) or not _is_count(ref["rows"]):

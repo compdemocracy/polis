@@ -2709,11 +2709,11 @@ mod embedding_reuse {
         .unwrap();
         // (env, batch, model, zid, seq_mark): closed sets.
         let sets = [
-            (ENV, 'a', 1i16, 101i32, 3i64),
-            (ENV, 'c', 1, 101, 5),
-            ("shadow-b", 'd', 1, 101, 7),
-            (ENV, 'e', 1, 102, 8),
-            (ENV, 'f', 2, 101, 9),
+            (ENV, 'a', 2i16, 101i32, 3i64),
+            (ENV, 'c', 2, 101, 5),
+            ("shadow-b", 'd', 2, 101, 7),
+            (ENV, 'e', 2, 102, 8),
+            (ENV, 'f', 1, 101, 9),
         ];
         for (env, batch, model, zid, mark) in sets {
             c.execute(
@@ -2726,15 +2726,15 @@ mod embedding_reuse {
         // (env, zid, model, tid, seq, batch, tag). Batch b never closed; tid 4
         // lies above its set's mark.
         let rows = [
-            (ENV, 101i32, 1i16, 0i32, 1i64, 'a', "kept"),
-            (ENV, 101, 1, 1, 2, 'a', "kept"),
-            (ENV, 101, 1, 2, 3, 'a', "kept"),
-            (ENV, 101, 1, 3, 4, 'b', "unclosed"),
-            (ENV, 101, 1, 5, 5, 'c', "kept"),
-            (ENV, 101, 1, 4, 6, 'c', "above"),
-            ("shadow-b", 101, 1, 0, 7, 'd', "env"),
-            (ENV, 102, 1, 0, 8, 'e', "conversation"),
-            (ENV, 101, 2, 6, 9, 'f', "model"),
+            (ENV, 101i32, 2i16, 0i32, 1i64, 'a', "kept"),
+            (ENV, 101, 2, 1, 2, 'a', "kept"),
+            (ENV, 101, 2, 2, 3, 'a', "kept"),
+            (ENV, 101, 2, 3, 4, 'b', "unclosed"),
+            (ENV, 101, 2, 5, 5, 'c', "kept"),
+            (ENV, 101, 2, 4, 6, 'c', "above"),
+            ("shadow-b", 101, 2, 0, 7, 'd', "env"),
+            (ENV, 102, 2, 0, 8, 'e', "conversation"),
+            (ENV, 101, 1, 6, 9, 'f', "model"),
         ];
         for (env, zid, model, tid, seq, batch, tag) in rows {
             c.execute(
@@ -2762,6 +2762,11 @@ mod embedding_reuse {
         }
     }
 
+    /// The shipped model's stored name, which pins its revision.
+    fn granite() -> &'static str {
+        polis_queue_adapter::shadow::graph::default_model().unwrap()
+    }
+
     fn request(model: Option<&str>, max_bytes: usize) -> reuse::Request {
         reuse::Request {
             env: ENV.into(),
@@ -2783,7 +2788,7 @@ mod embedding_reuse {
             &mut c,
             &dir,
             ZID,
-            &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
+            &request(Some(granite()), MAX_SPOOL_BYTES),
         );
         assert_eq!(value["reason"], serde_json::Value::Null, "{value}");
         assert_eq!(value["file"], reuse::FILE);
@@ -2793,7 +2798,7 @@ mod embedding_reuse {
         );
         assert_eq!(
             (value["model"].as_str(), value["model_id"].as_i64()),
-            (Some(MODEL_MINILM), Some(1))
+            (Some(granite()), Some(2))
         );
         assert_eq!(
             (value["env"].as_str(), value["zid"].as_i64()),
@@ -2802,7 +2807,7 @@ mod embedding_reuse {
         let bytes = std::fs::read(dir.join(reuse::FILE)).unwrap();
         assert_eq!(value["sha256"], super::sha_hex(&bytes));
         let (model, dims, rows) = embedding::read_spool(&bytes).unwrap();
-        assert_eq!((model.as_str(), dims), (MODEL_MINILM, 384));
+        assert_eq!((model.as_str(), dims), (granite(), 384));
         let tids: Vec<i32> = rows.iter().map(|r| r.tid).collect();
         assert_eq!(
             tids,
@@ -2813,31 +2818,26 @@ mod embedding_reuse {
             assert_eq!(r.text_sha.to_vec(), text_sha(r.tid, "kept"));
             assert_eq!(r.vector, vector(r.tid, 0.0), "exact f32 bytes");
         }
-        // The other model's closed set is its own and nothing else.
-        let granite = polis_queue_adapter::shadow::graph::default_model().unwrap();
+        // The other model (all-MiniLM-L6-v2) has a closed set of its own, but its
+        // stored name pins no revision: it is never offered, and no file is written.
         let other = scratch();
         let value = reuse::prepare(
             &mut c,
             &other,
             ZID,
-            &request(Some(granite), MAX_SPOOL_BYTES),
+            &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
         );
-        assert_eq!(
-            (value["rows"].as_u64(), value["model_id"].as_i64()),
-            (Some(1), Some(2))
-        );
-        let (_, _, rows) =
-            embedding::read_spool(&std::fs::read(other.join(reuse::FILE)).unwrap()).unwrap();
-        assert_eq!((rows[0].tid, rows[0].vector[0]), (6, 6.0 + 50.0));
+        assert_eq!(value["reason"], "unpinned", "{value}");
+        assert!(!other.join(reuse::FILE).exists());
         std::fs::remove_dir_all(&dir).unwrap();
-        std::fs::remove_dir_all(&other).unwrap();
+        let _ = std::fs::remove_dir_all(&other);
         // The primary keys serve the read: no sequential scan in its plan.
         c.batch_execute("ANALYZE; SET enable_seqscan = off")
             .unwrap();
         let plan: Vec<String> = c
             .query(
                 &format!("EXPLAIN {}", reuse::ROWS),
-                &[&ENV, &(ZID as i32), &1i16, &10i64],
+                &[&ENV, &(ZID as i32), &2i16, &10i64],
             )
             .unwrap()
             .iter()
@@ -2872,7 +2872,7 @@ mod embedding_reuse {
         .unwrap();
         assert!(embeddings_off.is_none());
         assert!(!off.join(reuse::FILE).exists());
-        let req = request(Some(MODEL_MINILM), MAX_SPOOL_BYTES);
+        let req = request(Some(granite()), MAX_SPOOL_BYTES);
         let (bundle_on, embeddings_on) = inputs::prepare(
             &dsn,
             &TransportKind::Loopback,
@@ -2925,29 +2925,41 @@ mod embedding_reuse {
         assert_eq!(
             reason(
                 &mut c,
-                &request(Some("unknown/model@0:384"), MAX_SPOOL_BYTES),
+                &request(
+                    Some("unknown/model@0123456789abcdef0123456789abcdef01234567:384"),
+                    MAX_SPOOL_BYTES
+                ),
                 ZID
             ),
             "model"
         );
+        // A name that does not pin a revision is refused before any read.
+        assert_eq!(
+            reason(
+                &mut c,
+                &request(Some("unknown/model@0:384"), MAX_SPOOL_BYTES),
+                ZID
+            ),
+            "unpinned"
+        );
         // A conversation, or an env, with no closed set.
         assert_eq!(
-            reason(&mut c, &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES), 999),
+            reason(&mut c, &request(Some(granite()), MAX_SPOOL_BYTES), 999),
             "empty"
         );
-        let mut elsewhere = request(Some(MODEL_MINILM), MAX_SPOOL_BYTES);
+        let mut elsewhere = request(Some(granite()), MAX_SPOOL_BYTES);
         elsewhere.env = "shadow-z".into();
         assert_eq!(reason(&mut c, &elsewhere, ZID), "empty");
         // The bound: room for three of the four rows.
-        let three = 16 + MODEL_MINILM.len() + 3 * (36 + 4 * 384);
+        let three = 16 + granite().len() + 3 * (36 + 4 * 384);
         assert_eq!(
-            reason(&mut c, &request(Some(MODEL_MINILM), three), ZID),
+            reason(&mut c, &request(Some(granite()), three), ZID),
             "bound"
         );
         assert_eq!(
             reason(
                 &mut c,
-                &request(Some(MODEL_MINILM), three + 36 + 4 * 384 - 1),
+                &request(Some(granite()), three + 36 + 4 * 384 - 1),
                 ZID
             ),
             "bound"
@@ -2958,7 +2970,7 @@ mod embedding_reuse {
             &mut c,
             &dir,
             ZID,
-            &request(Some(MODEL_MINILM), three + 36 + 4 * 384),
+            &request(Some(granite()), three + 36 + 4 * 384),
         );
         assert_eq!(value["rows"], 4, "{value}");
         std::fs::remove_dir_all(&dir).unwrap();
@@ -2969,7 +2981,7 @@ mod embedding_reuse {
             &mut c,
             &blocked,
             ZID,
-            &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
+            &request(Some(granite()), MAX_SPOOL_BYTES),
         );
         assert_eq!(value["reason"], "unwritable");
         std::fs::remove_file(&blocked).unwrap();
@@ -2980,7 +2992,7 @@ mod embedding_reuse {
             .unwrap();
         let started = std::time::Instant::now();
         assert_eq!(
-            reason(&mut c, &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES), ZID),
+            reason(&mut c, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
             "timeout"
         );
         assert!(started.elapsed() < std::time::Duration::from_secs(15));
@@ -2992,7 +3004,7 @@ mod embedding_reuse {
                 &mut c,
                 &dir,
                 ZID,
-                &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES)
+                &request(Some(granite()), MAX_SPOOL_BYTES)
             )["rows"],
             4
         );
@@ -3003,11 +3015,7 @@ mod embedding_reuse {
             .unwrap();
         let mut nobody = Client::connect(&url_for(&db.name, &role), NoTls).unwrap();
         assert_eq!(
-            reason(
-                &mut nobody,
-                &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
-                ZID
-            ),
+            reason(&mut nobody, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
             "denied"
         );
         drop(nobody);
@@ -3019,11 +3027,7 @@ mod embedding_reuse {
             .unwrap();
         let mut empty = Client::connect(&url_for(&bare, "postgres"), NoTls).unwrap();
         assert_eq!(
-            reason(
-                &mut empty,
-                &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
-                ZID
-            ),
+            reason(&mut empty, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
             "absent"
         );
         drop(empty);
