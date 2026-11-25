@@ -597,9 +597,149 @@ pub(crate) async fn lateness<F: std::future::Future>(work: F) -> (F::Output, Dur
     (out, worst)
 }
 
+#[test]
+fn the_served_postgres_env_starts_the_route_as_before() {
+    let envs = Envs::from_settings(Some("postgres"), Some("prod"), None).unwrap();
+    assert_eq!((envs.served.as_deref(), envs.shadow), (Some("prod"), None));
+    let envs =
+        Envs::from_settings(Some("postgres"), Some("prod"), Some("shadow-delphi-1")).unwrap();
+    assert_eq!(
+        (envs.served.as_deref(), envs.shadow.as_deref()),
+        (Some("prod"), Some("shadow-delphi-1"))
+    );
+    // As before: the served Postgres backend needs its env, and the shadow
+    // must be a shadow- env other than it.
+    for served in [None, Some("")] {
+        let e = Envs::from_settings(Some("postgres"), served, Some("shadow-delphi-1")).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "DELPHI_RESULT_ENV is required for report topic map reads"
+        );
+    }
+    for shadow in ["prod", "shadow-delphi-1"] {
+        let served = if shadow == "prod" {
+            "prod"
+        } else {
+            "shadow-delphi-1"
+        };
+        let e = Envs::from_settings(Some("postgres"), Some(served), Some(shadow)).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+        );
+    }
+}
+
+#[test]
+fn a_served_delphi_not_on_postgres_starts_the_route_on_the_shadow_alone() {
+    // Unset, empty and dynamodb are the served Delphi on DynamoDB, as Node
+    // and the Delphi service read them; its env is never a Postgres env.
+    for backend in [None, Some(""), Some("dynamodb")] {
+        for served in [None, Some(""), Some("prod")] {
+            let envs = Envs::from_settings(backend, served, Some("shadow-delphi-1")).unwrap();
+            assert_eq!(
+                (envs.served, envs.shadow.as_deref()),
+                (None, Some("shadow-delphi-1"))
+            );
+        }
+        let e = Envs::from_settings(backend, Some("prod"), Some("prod")).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+        );
+    }
+}
+
+#[test]
+fn neither_a_served_postgres_env_nor_a_shadow_refuses_to_start() {
+    for backend in [None, Some(""), Some("dynamodb")] {
+        for shadow in [None, Some("")] {
+            let e = Envs::from_settings(backend, Some("prod"), shadow).unwrap_err();
+            let said = e.to_string();
+            assert!(said.contains("DELPHI_RESULT_BACKEND=postgres"), "{said}");
+            assert!(said.contains("DELPHI_RESULT_ENV"), "{said}");
+            assert!(
+                said.contains("POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV"),
+                "{said}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_result_backend_the_route_does_not_know_refuses_to_start() {
+    for backend in ["Postgres", "postgresql", "dynamo", " postgres"] {
+        let e =
+            Envs::from_settings(Some(backend), Some("prod"), Some("shadow-delphi-1")).unwrap_err();
+        assert!(e.to_string().contains("DELPHI_RESULT_BACKEND"), "{e}");
+    }
+}
+
+#[test]
+fn a_shadow_only_route_never_reads_a_served_env() {
+    let mut app = app();
+    app.delphi_topic_map_env = String::new();
+    app.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
+    let plan = |source| {
+        sides(&app, source)
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.source, s.env, s.base))
+            .collect::<Vec<_>>()
+    };
+    let served = (Source::Served, None, "delphi".to_owned());
+    let shadow = (
+        Source::Shadow,
+        Some("shadow-delphi-1".to_owned()),
+        "delphi".to_owned(),
+    );
+    assert_eq!(plan(None), vec![served.clone(), shadow.clone()]);
+    assert_eq!(plan(Some(Source::Served)), vec![served]);
+    assert_eq!(plan(Some(Source::Shadow)), vec![shadow]);
+    // What a side with no env answers, unread: what a served env with
+    // nothing stored answers.
+    assert!(matches!(
+        unread(false).found,
+        Found::NoMap {
+            job: None,
+            reason: NoMapReason::NoRun
+        }
+    ));
+    assert!(matches!(unread(true).found, Found::NoSuchRun));
+    assert!(nothing_stored(&unread(false).found) && nothing_stored(&unread(true).found));
+}
+
+#[test]
+fn a_served_route_reads_its_env_as_before() {
+    let mut app = app();
+    app.delphi_topic_map_scope = Some("delphi:x".into());
+    let plan = |source| {
+        sides(&app, source)
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.source, s.env, s.base))
+            .collect::<Vec<_>>()
+    };
+    let served = (
+        Source::Served,
+        Some("test".to_owned()),
+        "delphi:x".to_owned(),
+    );
+    assert_eq!(plan(None), vec![served.clone()]);
+    assert_eq!(plan(Some(Source::Served)), vec![served]);
+    assert!(matches!(
+        sides(&app, Some(Source::Shadow)),
+        Err(Refused::SourceUnavailable)
+    ));
+}
+
 #[cfg(feature = "db-tests")]
 #[path = "delphi_topic_map_database_tests.rs"]
 pub(crate) mod database_tests;
+
+#[cfg(feature = "db-tests")]
+#[path = "delphi_topic_map_migrated_database_tests.rs"]
+mod migrated_database_tests;
 
 /// A map of two levels and five comments (ids 10 to 14): at the finer level
 /// topics 0_0 {10, 11}, 0_1 {12, 13} and 0_2 {14}; at the coarser 1_0 {10, 11,

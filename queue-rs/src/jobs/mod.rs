@@ -18,6 +18,7 @@ pub mod manifest;
 pub mod outcome;
 pub mod readiness;
 pub mod reaper;
+pub mod reuse;
 pub mod rpc;
 pub mod scope;
 pub mod shutdown;

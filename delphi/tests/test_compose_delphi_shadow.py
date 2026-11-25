@@ -97,6 +97,12 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     assert env["POLIS_JOBS_CONCURRENCY"] == "1"
     assert env["POLIS_JOBS_INPUT_BUNDLE"] == "1"
     assert env["DELPHI_EMBEDDINGS_TABLE"] == "1"
+    # Stored comment vectors are handed to the run; only the others are encoded.
+    # Hard-set: no deployment variable turns it off here, and no other service has it.
+    assert env["POLIS_JOBS_EMBEDDINGS_REUSE"] == "1"
+    assert _environment(service, dict(PRODUCTION_LIKE, POLIS_JOBS_EMBEDDINGS_REUSE="0"))["POLIS_JOBS_EMBEDDINGS_REUSE"] == "1"
+    assert [name for name, other in services.items()
+            if "POLIS_JOBS_EMBEDDINGS_REUSE" in _environment(other, PRODUCTION_LIKE)] == ["delphi-shadow"]
     assert (env["LLM_PROVIDER"], env["ANTHROPIC_TOPIC_MODEL"]) == ("anthropic", "none")
     assert env["DELPHI_SKIP_DATAMAPPLOT"] == "1"
     assert env["DELPHI_LOCAL_OUTPUT_CLEANUP"] == "1"
