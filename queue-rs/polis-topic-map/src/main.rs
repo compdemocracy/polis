@@ -37,8 +37,8 @@ const USAGE: &str = "polis-topic-map: the data and the standalone page of the fi
   polis-topic-map derived-worker
       The worker of the derived stage: claims one derived job at a time
       (class derived) and stores its source run's map in the job's own batch.
-      Off unless POLIS_JOBS_DERIVED_WORKER=1. Needs POLIS_JOBS_ENV,
-      POLIS_JOBS_DERIVED_JOURNAL_DIR and the queue settings of from-run.
+      Off unless POLIS_JOBS_DERIVED_WORKER=1. Needs POLIS_JOBS_ENV and the
+      queue settings of from-run. Keeps nothing on disk.
 ";
 
 fn args_map(args: &[String]) -> Result<Vec<(String, String)>, String> {

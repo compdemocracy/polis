@@ -54,6 +54,14 @@ struct Db {
 
 impl Db {
     fn new() -> Self {
+        Self::build(None)
+    }
+    /// A database migrated by the release less every migration whose name
+    /// starts with `prefix` (the state just before it).
+    fn new_without(prefix: &str) -> Self {
+        Self::build(Some(prefix))
+    }
+    fn build(without: Option<&str>) -> Self {
         let id = Uuid::new_v4().simple().to_string();
         let name = format!("topic_map_{}", &id[..16]);
         let login = format!("topic_map_exec_{}", &id[..12]);
@@ -65,7 +73,10 @@ impl Db {
         let dsn = url_for(&name, "postgres");
         let root =
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../server/postgres/migrations");
-        let release = polis_migrate::load(&root).unwrap();
+        let mut release = polis_migrate::load(&root).unwrap();
+        if let Some(prefix) = without {
+            release.migrations.retain(|m| !m.name.starts_with(prefix));
+        }
         let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
         polis_migrate::apply(&mut runner, &release).unwrap();
         drop(runner);
@@ -823,7 +834,9 @@ mod derived_worker {
         }
     }
 
-    fn worker(db: &Db, journal: &std::path::Path, boot: &str) -> Worker {
+    /// A worker as a fresh process on any box would start it: it has no
+    /// directory, journal or box identity, only the queue login.
+    fn worker(db: &Db) -> Worker {
         let (url, login) = (url_for(&db.name, &db.login), db.login.clone());
         let get = move |k: &str| match k {
             "QUEUE_DATABASE_URL" => Some(url.clone()),
@@ -841,17 +854,10 @@ mod derived_worker {
                     .connect_bounded(deadline, std::time::Duration::from_secs(30))
                     .map_err(|e| e.to_string())
             }),
-            journal_dir: journal.into(),
-            boot_id: boot.into(),
-            container_id: "generated-container".into(),
             lease_seconds: 60,
             bounds: worker::Bounds::default(),
         })
         .unwrap()
-    }
-
-    fn journal_dir() -> PathBuf {
-        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("derived-{}", Uuid::new_v4()))
     }
 
     /// Every family of a job's batches: (batch, family, codec bytes).
@@ -926,8 +932,7 @@ mod derived_worker {
         let (code, from_run_wire, err) = db.backfill(&src.job_id);
         assert_eq!(code, 0, "{err}");
 
-        let dir = journal_dir();
-        let mut w = worker(&db, &dir, "generated-boot");
+        let mut w = worker(&db);
         let pass = w.pass().unwrap();
         assert!(
             matches!(&pass, Pass::Stored { outcome, finalize, .. } if outcome == "map" && finalize == "succeeded"),
@@ -967,15 +972,13 @@ mod derived_worker {
         );
         // Published once, under the derived job's own scope.
         assert_eq!(served(&db, &key), vec![mine[0].0.clone()]);
-        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn a_source_with_nothing_to_draw_ends_in_one_stored_no_map() {
         let db = Db::new();
         let (_, job, key) = admitted(&db, Some(2));
-        let dir = journal_dir();
-        let mut w = worker(&db, &dir, "generated-boot");
+        let mut w = worker(&db);
         let pass = w.pass().unwrap();
         assert!(
             matches!(&pass, Pass::Stored { outcome, .. } if outcome == "too_few_comments"),
@@ -991,7 +994,6 @@ mod derived_worker {
                 .contains("\"reason\":{\"S\":\"too_few_comments\"}")
         );
         assert_eq!(served(&db, &key).len(), 1);
-        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
@@ -1010,8 +1012,7 @@ mod derived_worker {
                 &[&job],
             )
             .unwrap();
-        let dir = journal_dir();
-        let mut w = worker(&db, &dir, "generated-boot");
+        let mut w = worker(&db);
         let pass = w.pass().unwrap();
         assert!(
             matches!(&pass, Pass::Failed { code, state, .. } if code == "source_changed" && state == "dead"),
@@ -1019,15 +1020,13 @@ mod derived_worker {
         );
         assert_eq!(w.pass().unwrap(), Pass::Idle);
         assert!(families_of(&db, &job).is_empty());
-        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]
     fn a_lost_finalize_reply_is_the_same_success() {
         let db = Db::new();
         let (_, job, key) = admitted(&db, None);
-        let dir = journal_dir();
-        let mut w = worker(&db, &dir, "generated-boot");
+        let mut w = worker(&db);
         let pass = w.pass_until(Some(CrashAt::LoseFinalizeReply)).unwrap();
         assert!(
             matches!(&pass, Pass::Stored { finalize, .. } if finalize == "already_succeeded"),
@@ -1035,65 +1034,10 @@ mod derived_worker {
         );
         assert_eq!(families_of(&db, &job).len(), 1);
         assert_eq!(served(&db, &key).len(), 1);
-        let _ = std::fs::remove_dir_all(dir);
     }
 
-    /// A crash after the put, after the seal, or after the exit proof and
-    /// before finalize; the daemon restarts (another boot): the journal proves
-    /// the old process gone, the attempt ends as a retry, and the next attempt
-    /// stores the same family in its own batch. One map is served.
-    #[test]
-    fn a_crash_before_finalize_and_a_restart_end_in_one_served_map() {
-        let db = Db::new();
-        for crash in [
-            CrashAt::AfterPut,
-            CrashAt::AfterSeal,
-            CrashAt::BeforeFinalize,
-        ] {
-            let (_, job, key) = admitted(&db, None);
-            let dir = journal_dir();
-            let mut first = worker(&db, &dir, "generated-boot-1");
-            assert!(matches!(
-                first.pass_until(Some(crash)).unwrap(),
-                Pass::Crashed { .. }
-            ));
-            drop(first);
-            let mut again = worker(&db, &dir, "generated-boot-2");
-            let ended = again.recover();
-            assert_eq!(ended.len(), 1, "{crash:?}");
-            assert_eq!(state(&db, &job).1.as_deref(), Some("daemon_restarted"));
-            make_eligible(&db, &job);
-            let pass = again.pass().unwrap();
-            assert!(matches!(&pass, Pass::Stored { .. }), "{crash:?} {pass:?}");
-            let batches = families_of(&db, &job);
-            assert_eq!(batches.len(), 2, "{crash:?}");
-            assert_eq!(batches[0].2, batches[1].2, "the same bytes in each batch");
-            let served = served(&db, &key);
-            assert_eq!(served.len(), 1, "{crash:?}");
-            assert!(batches.iter().any(|b| b.0 == served[0]));
-            assert_eq!(again.pass().unwrap(), Pass::Idle);
-            let _ = std::fs::remove_dir_all(dir);
-        }
-    }
-
-    /// The box is wiped (its journal is gone): nothing proves the old process
-    /// stopped, so the reaper parks the job `exit_unconfirmed` and nothing
-    /// claims it; after an operator confirms the old attempt's exit, a reap
-    /// queues it and one map is stored. No automatic recovery is claimed.
-    #[test]
-    fn a_wiped_box_parks_until_an_operator_confirms_the_old_exit() {
-        let db = Db::new();
-        let (_, job, key) = admitted(&db, None);
-        let dir = journal_dir();
-        let mut first = worker(&db, &dir, "generated-boot-1");
-        assert!(matches!(
-            first.pass_until(Some(CrashAt::AfterSeal)).unwrap(),
-            Pass::Crashed { .. }
-        ));
-        drop(first);
-        std::fs::remove_dir_all(&dir).unwrap();
-        let mut fresh = worker(&db, &dir, "generated-boot-2");
-        assert!(fresh.recover().is_empty());
+    /// Expire a job's lease now, by moving the lease's end into the past.
+    fn expire(db: &Db, job: &str) {
         db.admin()
             .execute(
                 "UPDATE polis_queue_jobs SET locked_until=clock_timestamp()-interval '1 second'
@@ -1101,35 +1045,512 @@ mod derived_worker {
                 &[&job],
             )
             .unwrap();
-        fresh.reap().unwrap();
-        assert_eq!(
-            state(&db, &job),
-            ("parked".into(), Some("exit_unconfirmed".into()))
-        );
-        assert_eq!(fresh.pass().unwrap(), Pass::Idle);
-        // The operator's step: confirm the old attempt's exit.
-        let old = db
+    }
+
+    /// The job's current token: (owner, attempt, epoch).
+    fn token(db: &Db, job: &str) -> (Uuid, Uuid, i64) {
+        let r = db
             .admin()
             .query_one(
-                "SELECT owner_id, attempt_id, lease_epoch FROM polis_queue_attempts
+                "SELECT owner_id,attempt_id,lease_epoch FROM polis_queue_jobs WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        (r.get(0), r.get(1), r.get(2))
+    }
+
+    /// `pq_finalize` under a token, with the manifest that attempt logged.
+    fn finalize(db: &Db, job: &str, t: (Uuid, Uuid, i64)) -> Value {
+        let sha: Option<String> = db
+            .admin()
+            .query_opt(
+                "SELECT encode(sha256(convert_to(line,'UTF8')),'hex') FROM polis_queue_logs
+                 WHERE attempt_id=$1 AND stream='manifest' LIMIT 1",
+                &[&t.1],
+            )
+            .unwrap()
+            .map(|r| r.get(0));
+        let job: Uuid = job.parse().unwrap();
+        db.call(
+            "SELECT pq_finalize($1,$2,$3,$4,$5,$6,$7)",
+            &[
+                &ENV,
+                &job,
+                &t.0,
+                &t.1,
+                &t.2,
+                &format!("file://derived/{}/output-manifest.json", t.1),
+                &sha.unwrap_or_else(|| "0".repeat(64)),
+            ],
+        )
+    }
+
+    /// A put and a seal under an old token are refused by fencing.
+    fn assert_stale_writes_fenced(db: &Db, job: &str, old: (Uuid, Uuid, i64), wire: &str) {
+        let job: Uuid = job.parse().unwrap();
+        let put = db.executor().query_one(
+            "SELECT pd_result_put_family($1,$2,$3,$4,$5,'Delphi_TopicMapDocument',$6)",
+            &[&ENV, &job, &old.0, &old.1, &old.2, &wire],
+        );
+        let seal = db.executor().query_one(
+            "SELECT pd_result_seal($1,$2,$3,$4,$5)",
+            &[&ENV, &job, &old.0, &old.1, &old.2],
+        );
+        for err in [put.unwrap_err(), seal.unwrap_err()] {
+            assert!(
+                format!("{err:?}").contains("result writer fenced"),
+                "{err:?}"
+            );
+        }
+    }
+
+    fn unconfirmed(db: &Db, job: &str) -> i64 {
+        db.admin()
+            .query_one(
+                "SELECT count(*) FROM polis_queue_attempts
+                 WHERE job_id=$1::text::uuid AND process_exit_confirmed_at IS NULL",
+                &[&job],
+            )
+            .unwrap()
+            .get(0)
+    }
+
+    /// A worker vanishes after the put, after the seal, or just before
+    /// finalize, and nothing of it survives (no file was ever written). Its
+    /// lease expires; the reaper ends the attempt as an ordinary retry; a
+    /// second worker runs the job again and stores the same bytes in a batch
+    /// of its own. The first returns late: its put and seal are refused by
+    /// fencing, and when both finalize at once the late one is `fenced` and
+    /// the current one `succeeded`; asked again, `already_succeeded`. One
+    /// served pointer, naming the winner; no exit proof was given by anyone.
+    #[test]
+    fn a_vanished_worker_at_each_seam_is_retried_from_the_database_alone() {
+        let db = Db::new();
+        for crash in [
+            CrashAt::AfterPut,
+            CrashAt::AfterSeal,
+            CrashAt::BeforeFinalize,
+        ] {
+            let (_, job, key) = admitted(&db, None);
+            let mut first = worker(&db);
+            assert!(matches!(
+                first.pass_until(Some(crash)).unwrap(),
+                Pass::Crashed { .. }
+            ));
+            let old = token(&db, &job);
+            expire(&db, &job);
+            let mut second = worker(&db);
+            second.reap().unwrap();
+            assert_eq!(
+                state(&db, &job),
+                ("retry_wait".into(), Some("lease_expired".into())),
+                "{crash:?}"
+            );
+            make_eligible(&db, &job);
+            assert!(matches!(
+                second.pass_until(Some(CrashAt::BeforeFinalize)).unwrap(),
+                Pass::Crashed { .. }
+            ));
+            let new = token(&db, &job);
+            assert_ne!(old.1, new.1);
+            let batches = families_of(&db, &job);
+            assert_eq!(batches.len(), 2, "{crash:?}");
+            assert_eq!(batches[0].2, batches[1].2, "the same bytes in each batch");
+            assert_stale_writes_fenced(&db, &job, old, &batches[0].2);
+            let barrier = std::sync::Barrier::new(2);
+            let (late, current) = std::thread::scope(|s| {
+                let late = s.spawn(|| {
+                    barrier.wait();
+                    finalize(&db, &job, old)
+                });
+                barrier.wait();
+                let current = finalize(&db, &job, new);
+                (late.join().unwrap(), current)
+            });
+            assert_eq!(late["outcome"], "fenced", "{crash:?} {late}");
+            assert_eq!(current["outcome"], "succeeded", "{crash:?} {current}");
+            assert_eq!(finalize(&db, &job, new)["outcome"], "already_succeeded");
+            assert_eq!(finalize(&db, &job, old)["outcome"], "fenced");
+            assert_eq!(served(&db, &key), vec![new.1.to_string()], "{crash:?}");
+            let terminal: String = db
+                .admin()
+                .query_one(
+                    "SELECT terminal_attempt_id::text FROM polis_queue_jobs WHERE job_id=$1::text::uuid",
+                    &[&job],
+                )
+                .unwrap()
+                .get(0);
+            assert_eq!(terminal, new.1.to_string());
+            assert_eq!(unconfirmed(&db, &job), 2, "no exit proof was given");
+            assert_eq!(second.pass().unwrap(), Pass::Idle);
+            assert_eq!(first.pass().unwrap(), Pass::Idle);
+        }
+    }
+
+    /// The box is gone and a worker starts elsewhere with an empty disk: the
+    /// job is picked up without anyone confirming anything. And a worker
+    /// restarted on the same box (here the same process, which has no more
+    /// to go on than a new one) picks up its own lost attempt the same way.
+    #[test]
+    fn a_lost_box_or_a_restart_on_the_same_box_needs_no_operator() {
+        let db = Db::new();
+        // Another box.
+        let (_, job, key) = admitted(&db, None);
+        let mut a = worker(&db);
+        a.pass_until(Some(CrashAt::AfterSeal)).unwrap();
+        drop(a);
+        expire(&db, &job);
+        let mut b = worker(&db);
+        b.reap().unwrap();
+        make_eligible(&db, &job);
+        let pass = b.pass().unwrap();
+        assert!(
+            matches!(&pass, Pass::Stored { finalize, .. } if finalize == "succeeded"),
+            "{pass:?}"
+        );
+        assert_eq!(served(&db, &key).len(), 1);
+        // The same box: the same worker, after its own attempt was lost.
+        let (_, job, key) = admitted(&db, None);
+        let mut same = worker(&db);
+        same.pass_until(Some(CrashAt::AfterPut)).unwrap();
+        expire(&db, &job);
+        same.reap().unwrap();
+        make_eligible(&db, &job);
+        let pass = same.pass().unwrap();
+        assert!(matches!(&pass, Pass::Stored { .. }), "{pass:?}");
+        assert_eq!(served(&db, &key).len(), 1);
+        assert_eq!(families_of(&db, &job).len(), 2);
+    }
+
+    /// Two workers ask for one job at the same moment: one runs it, the
+    /// other finds nothing; one family, one served pointer.
+    #[test]
+    fn two_workers_racing_for_one_job_store_one_map() {
+        let db = Db::new();
+        let (_, job, key) = admitted(&db, None);
+        let (mut a, mut b) = (worker(&db), worker(&db));
+        let barrier = std::sync::Barrier::new(2);
+        let (pa, pb) = std::thread::scope(|s| {
+            let ta = s.spawn(|| {
+                barrier.wait();
+                a.pass().unwrap()
+            });
+            let tb = s.spawn(|| {
+                barrier.wait();
+                b.pass().unwrap()
+            });
+            (ta.join().unwrap(), tb.join().unwrap())
+        });
+        let stored = [&pa, &pb]
+            .iter()
+            .filter(|p| matches!(p, Pass::Stored { .. }))
+            .count();
+        assert_eq!(stored, 1, "{pa:?} {pb:?}");
+        assert!(pa == Pass::Idle || pb == Pass::Idle, "{pa:?} {pb:?}");
+        assert_eq!(families_of(&db, &job).len(), 1);
+        assert_eq!(served(&db, &key).len(), 1);
+    }
+
+    /// A claim that committed while its reply was lost (the worker went away
+    /// without writing anything anywhere): when the lease expires the job is
+    /// an ordinary retry and the next worker stores it. Today's code parked
+    /// this `exit_unconfirmed` for an operator.
+    #[test]
+    fn an_abandoned_committed_claim_is_picked_up_after_its_lease() {
+        let db = Db::new();
+        let (_, job, key) = admitted(&db, None);
+        let (owner, attempt) = (Uuid::new_v4(), Uuid::new_v4());
+        let committed = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'derived')",
+            &[&ENV, &owner, &attempt],
+        );
+        assert_eq!(committed["job_id"], job.as_str());
+        expire(&db, &job);
+        let mut w = worker(&db);
+        w.reap().unwrap();
+        assert_eq!(
+            state(&db, &job),
+            ("retry_wait".into(), Some("lease_expired".into()))
+        );
+        make_eligible(&db, &job);
+        assert!(matches!(w.pass().unwrap(), Pass::Stored { .. }));
+        assert_eq!(served(&db, &key).len(), 1);
+    }
+
+    /// An uncertain reply to the claim's COMMIT is settled by the database:
+    /// renewing the exact token succeeds when the claim committed (the job
+    /// is then run under it), and is fenced when it did not (the job is left
+    /// queued and the next claim takes it). No new token is used for a claim
+    /// that may have committed, and nothing is read from a file.
+    #[test]
+    fn an_uncertain_claim_is_settled_by_renewing_its_exact_token() {
+        let db = Db::new();
+        // Committed: the worker's own owner and attempt, reply kept.
+        let (_, job, key) = admitted(&db, None);
+        let mut w = worker(&db);
+        let owner: Uuid = w.owner.parse().unwrap();
+        let attempt = Uuid::new_v4();
+        let reply = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'derived')",
+            &[&ENV, &owner, &attempt],
+        );
+        assert_eq!(reply["job_id"], job.as_str());
+        let pass = w
+            .pass_after_uncertain_claim(&attempt.to_string(), &reply)
+            .unwrap();
+        assert!(
+            matches!(&pass, Pass::Stored { finalize, .. } if finalize == "succeeded"),
+            "{pass:?}"
+        );
+        assert_eq!(served(&db, &key).len(), 1);
+        let attempts: i64 = count(
+            &db,
+            &format!("SELECT count(*) FROM polis_queue_attempts WHERE job_id='{job}'"),
+        );
+        assert_eq!(attempts, 1, "run under the uncertain claim's own token");
+
+        // Not committed: the same reply, but its transaction rolled back.
+        let (_, job, key) = admitted(&db, None);
+        let attempt = Uuid::new_v4();
+        let mut ex = db.executor();
+        let mut tx = ex.transaction().unwrap();
+        let reply: Value = tx
+            .query_one(
+                "SELECT pq_claim($1,1::smallint,$2,$3,60,'derived')",
+                &[&ENV, &owner, &attempt],
+            )
+            .unwrap()
+            .get(0);
+        tx.rollback().unwrap();
+        assert_eq!(reply["job_id"], job.as_str());
+        assert_eq!(
+            w.pass_after_uncertain_claim(&attempt.to_string(), &reply)
+                .unwrap(),
+            Pass::Idle
+        );
+        assert_eq!(state(&db, &job).0, "queued");
+        assert!(matches!(w.pass().unwrap(), Pass::Stored { .. }));
+        assert_eq!(served(&db, &key).len(), 1);
+    }
+
+    /// A derived attempt that fails ends without any exit proof, and a job
+    /// whose attempts all expire ends dead once its budget is spent; nothing
+    /// parks for an operator.
+    #[test]
+    fn failures_and_a_spent_budget_end_without_exit_proof() {
+        let db = Db::new();
+        let (_, job, _) = admitted(&db, None);
+        let max: i32 = db
+            .admin()
+            .query_one(
+                "SELECT max_attempts FROM polis_queue_jobs WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap()
+            .get(0);
+        for _ in 0..max {
+            let mut w = worker(&db);
+            make_eligible(&db, &job);
+            assert!(matches!(
+                w.pass_until(Some(CrashAt::AfterPut)).unwrap(),
+                Pass::Crashed { .. }
+            ));
+            expire(&db, &job);
+            w.reap().unwrap();
+        }
+        let (s, code) = state(&db, &job);
+        assert_eq!(s, "dead", "{code:?}");
+        assert_eq!(unconfirmed(&db, &job), i64::from(max));
+        // An ordinary failure, permanent: pq_fail with no proof.
+        let (_, job, _) = admitted(&db, None);
+        db.admin()
+            .execute(
+                "UPDATE delphi_jobs SET config_effective=jsonb_set(config_effective,
+                 '{derived,source,families,0,sha256}',to_jsonb(repeat('0',64)))
                  WHERE job_id=$1::text::uuid",
                 &[&job],
             )
             .unwrap();
-        let (owner, attempt, epoch): (Uuid, Uuid, i64) = (old.get(0), old.get(1), old.get(2));
-        let job_uuid: Uuid = job.parse().unwrap();
-        let confirmed = db.call(
-            "SELECT pq_end_attempt($1,$2,$3,$4,$5,'confirm_exit',NULL::text,true)",
-            &[&ENV, &job_uuid, &owner, &attempt, &epoch],
+        let pass = worker(&db).pass().unwrap();
+        assert!(
+            matches!(&pass, Pass::Failed { state, .. } if state == "dead"),
+            "{pass:?}"
         );
-        assert_eq!(confirmed["outcome"], "exit_confirmed", "{confirmed}");
+        assert_eq!(unconfirmed(&db, &job), 1, "no proof was recorded");
+        // Its scope is released: the unconfirmed attempt does not hold it.
+        let held: String = db
+            .admin()
+            .query_one(
+                "SELECT scope_key FROM delphi_job_guards WHERE env=$1 AND root_job_id=$2::text::uuid",
+                &[&ENV, &job],
+            )
+            .unwrap()
+            .get(0);
+        let released: bool = db
+            .admin()
+            .query_one("SELECT pd_release_scope($1,$2)", &[&ENV, &held])
+            .unwrap()
+            .get(0);
+        assert!(released);
+    }
+
+    /// The same functions still protect every other stage exactly as before:
+    /// a full-pipeline writer job claimed and abandoned without exit proof
+    /// cannot be finalized or ended without proof, parks `exit_unconfirmed`
+    /// at the reaper, stays parked after its delay, is not claimed, and
+    /// keeps its scope held.
+    #[test]
+    fn a_job_of_any_other_stage_still_requires_exit_proof() {
+        let db = Db::new();
+        let (job, run, owner, attempt) = (
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+            Uuid::new_v4(),
+        );
+        let scope = "generated-other-stage";
+        let key = format!("other-{job}");
+        let sha = hex(&Sha256::digest(key.as_bytes()));
+        let reply = db.call(
+            "SELECT pd_writer_admit($1,1424,$2,'generated-test',$3,$4,$5,$6,'delphi_full_pipeline',NULL,'{}'::jsonb,repeat('b',40))",
+            &[&ENV, &scope, &key, &sha, &job, &run],
+        );
+        assert_eq!(reply["outcome"], "enqueued", "{reply}");
+        let claim = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'delphi')",
+            &[&ENV, &owner, &attempt],
+        );
+        assert_eq!(claim["job_id"], job.to_string().as_str());
+        let t = token(&db, &job.to_string());
+        let fin = db.executor().query_one(
+            "SELECT pq_finalize($1,$2,$3,$4,$5,'file:///generated/output-manifest.json',repeat('0',64))",
+            &[&ENV, &job, &t.0, &t.1, &t.2],
+        );
+        assert!(format!("{:?}", fin.unwrap_err()).contains("process exit proof required"));
+        let end = db.executor().query_one(
+            "SELECT pq_end_attempt($1,$2,$3,$4,$5,'retry','generated',false)",
+            &[&ENV, &job, &t.0, &t.1, &t.2],
+        );
+        assert!(format!("{:?}", end.unwrap_err()).contains("process exit proof required"));
+        let end = db.executor().query_one(
+            "SELECT pq_fail($1,$2,$3,$4,$5,false,'generated',NULL)",
+            &[&ENV, &job, &t.0, &t.1, &t.2],
+        );
+        assert!(format!("{:?}", end.unwrap_err()).contains("process exit proof required"));
+        let job = job.to_string();
+        expire(&db, &job);
+        db.call("SELECT pq_reap($1,NULL,100,'delphi')", &[&ENV]);
+        assert_eq!(
+            state(&db, &job),
+            ("parked".into(), Some("exit_unconfirmed".into()))
+        );
         make_eligible(&db, &job);
-        fresh.reap().unwrap();
-        make_eligible(&db, &job);
-        let pass = fresh.pass().unwrap();
-        assert!(matches!(&pass, Pass::Stored { .. }), "{pass:?}");
-        assert_eq!(served(&db, &key).len(), 1);
-        let _ = std::fs::remove_dir_all(dir);
+        db.call("SELECT pq_reap($1,NULL,100,'delphi')", &[&ENV]);
+        assert_eq!(state(&db, &job).0, "parked");
+        db.admin()
+            .execute(
+                "UPDATE polis_queue_jobs SET state='queued' WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        let none = db.call(
+            "SELECT pq_claim($1,1::smallint,$2,$3,60,'delphi')",
+            &[&ENV, &Uuid::new_v4(), &Uuid::new_v4()],
+        );
+        assert_eq!(none["outcome"], "none", "{none}");
+        db.admin()
+            .execute(
+                "UPDATE delphi_jobs SET status='dead' WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        let held: String = db
+            .admin()
+            .query_one(
+                "SELECT scope_key FROM delphi_job_guards WHERE env=$1 AND root_job_id=$2::text::uuid",
+                &[&ENV, &job],
+            )
+            .unwrap()
+            .get(0);
+        let released: bool = db
+            .admin()
+            .query_one("SELECT pd_release_scope($1,$2)", &[&ENV, &held])
+            .unwrap()
+            .get(0);
+        assert!(!released, "the unconfirmed attempt still holds its scope");
+    }
+
+    /// The down file restores every function to its 000049 definition.
+    #[test]
+    fn the_down_file_restores_every_function_exactly() {
+        let defs = |db: &Db| -> std::collections::BTreeMap<String, String> {
+            db.admin()
+                .query(
+                    "SELECT p.oid::regprocedure::text, pg_get_functiondef(p.oid) FROM pg_proc p
+                     WHERE p.pronamespace='public'::regnamespace AND p.prokind='f'",
+                    &[],
+                )
+                .unwrap()
+                .iter()
+                .map(|r| (r.get(0), r.get(1)))
+                .collect()
+        };
+        let before = defs(&Db::new_without("000050"));
+        let after = Db::new();
+        let forward = defs(&after);
+        after
+            .admin()
+            .batch_execute(
+                &std::fs::read_to_string(
+                    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join(
+                        "../../server/postgres/migrations/down/000050_remove_derived_jobs.sql",
+                    ),
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        let back = defs(&after);
+        // Two restored bodies differ from 000049 in text only: a local
+        // variable of pd_writer_admit is named writer_scope, and one comment
+        // word of pd_enqueue reads "scope". Every other line, and every
+        // other function, is byte for byte.
+        for name in [
+            "pd_enqueue(text,integer,text,text,text,text,uuid,uuid,text,text,text,text,smallint,integer,text,text,text,jsonb)",
+            "pd_writer_admit(text,integer,text,text,text,text,uuid,uuid,text,text,jsonb,text)",
+        ] {
+            let (b, a) = (&before[name], &back[name]);
+            assert_eq!(b.lines().count(), a.lines().count(), "{name}");
+            for (bl, al) in b.lines().zip(a.lines()) {
+                assert!(
+                    bl == al || al.contains("writer_scope") || al.contains("(no scope is held)"),
+                    "{name}: {bl} / {al}"
+                );
+            }
+        }
+        let differ = before
+            .keys()
+            .chain(back.keys())
+            .filter(|k| !k.starts_with("pd_enqueue(") && !k.starts_with("pd_writer_admit("))
+            .filter(|k| before.get(*k) != back.get(*k))
+            .collect::<std::collections::BTreeSet<_>>();
+        for k in &differ {
+            println!(
+                "DIFFER {k}\n--- before\n{}\n--- after down\n{}",
+                before.get(*k).map_or("", |s| s),
+                back.get(*k).map_or("", |s| s)
+            );
+        }
+        assert!(differ.is_empty(), "{differ:?}");
+        let changed = before
+            .iter()
+            .filter(|(name, def)| forward.get(*name) != Some(def))
+            .map(|(name, _)| name.clone())
+            .collect::<Vec<_>>();
+        assert!(
+            changed.contains(&"pq_reap_one(text,uuid)".to_owned()),
+            "{changed:?}"
+        );
+        println!("FUNCTIONS_REPLACED_BY_000050 {changed:?}");
     }
 
     /// The worker reaches no model and no pipeline: its source has no

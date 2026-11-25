@@ -199,6 +199,127 @@ BEGIN
  IF reply->>'outcome'='enqueued' THEN PERFORM public.pd_writer_bind(p_env,p_job,p_scope,p_actor); END IF;
  RETURN reply;
 END $$;
+-- 000023's pq_reap_one, pq_end_attempt (/2) and pd_release_scope and 000030's
+-- pd_finalize, exactly as before 000050.
+CREATE OR REPLACE FUNCTION public.pq_reap_one(p_env text,p_job uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
+DECLARE j public.polis_queue_jobs; s text;
+BEGIN
+ j=public.pq_lock(p_env,p_job,true,false); IF j.job_id IS NULL THEN RETURN NULL; END IF;
+ IF j.stage<>'noop' AND j.state='running' AND j.locked_until<=clock_timestamp() THEN
+  j=public.pq_terminate_attempt(j,'parked','expired','exit_unconfirmed');
+  UPDATE public.polis_queue_jobs SET parked_attempt_count=parked_attempt_count-1 WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+  RETURN public.pq_result('parked',j);
+ END IF;
+ IF j.stage<>'noop' AND (
+ EXISTS(SELECT 1 FROM public.polis_queue_attempts WHERE env=p_env AND job_id=p_job AND process_exit_confirmed_at IS NULL)
+ OR EXISTS(SELECT 1 FROM public.delphi_provider_requests WHERE env=p_env AND job_id=p_job AND state IN ('intent','submission_unknown')))
+ THEN RETURN NULL; END IF;
+ IF j.state='running' AND j.locked_until<=clock_timestamp() THEN
+  s=CASE WHEN j.attempt_count-j.parked_attempt_count>=j.max_attempts THEN 'dead' ELSE 'retry_wait' END;
+  j=public.pq_terminate_attempt(j,s,'expired','lease_expired');
+ ELSIF j.state='parked' AND j.eligible_at<=clock_timestamp() THEN
+  s=CASE WHEN j.attempt_count-j.parked_attempt_count>=j.max_attempts THEN 'dead' ELSE 'queued' END;
+  UPDATE public.polis_queue_jobs SET state=s,version=version+1,mgmt_version=mgmt_version+1,updated_at=clock_timestamp() WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+ ELSIF j.state IN ('queued','retry_wait') AND j.attempt_count-j.parked_attempt_count>=j.max_attempts THEN
+  s='dead';
+  UPDATE public.polis_queue_jobs SET state=s,version=version+1,mgmt_version=mgmt_version+1,last_error_code='attempt_budget_exhausted',updated_at=clock_timestamp() WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+ ELSE RETURN NULL;
+ END IF;
+ IF s='dead' THEN UPDATE public.polis_queue_runs SET state='dead' WHERE env=p_env AND run_id=j.run_id; END IF;
+ RETURN public.pq_result(s,j);
+END $$;
+CREATE OR REPLACE FUNCTION public.pq_end_attempt(p_env text,p_job uuid,p_owner uuid,p_attempt uuid,p_epoch bigint,
+ p_action text,p_error text,p_process_exit_confirmed boolean,p_eligible_at timestamptz DEFAULT NULL)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
+DECLARE j public.polis_queue_jobs; a public.polis_queue_attempts; s text;
+BEGIN
+ j=public.pd_lock(p_env,p_job,false,false);
+ IF j.job_id IS NULL OR j.stage='noop' THEN RETURN public.pq_result('fenced',j); END IF;
+ SELECT * INTO a FROM public.polis_queue_attempts WHERE env=p_env AND job_id=p_job AND attempt_id=p_attempt;
+ IF a.attempt_id IS NULL OR a.owner_id IS DISTINCT FROM p_owner OR a.lease_epoch IS DISTINCT FROM p_epoch
+ THEN RETURN public.pq_result('fenced',j); END IF;
+ IF p_action IS NULL OR p_action NOT IN ('confirm_exit','retry','permanent','release','park')
+ OR p_process_exit_confirmed IS DISTINCT FROM true THEN RAISE EXCEPTION 'process exit proof required'; END IF;
+ UPDATE public.polis_queue_attempts SET process_exit_confirmed_at=COALESCE(process_exit_confirmed_at,clock_timestamp())
+ WHERE env=p_env AND attempt_id=p_attempt;
+ IF p_action='confirm_exit' THEN RETURN public.pq_result('exit_confirmed',j); END IF;
+ IF NOT public.pq_owns(j,p_owner,p_attempt,p_epoch) THEN RETURN public.pq_result('fenced',j); END IF;
+ s=CASE WHEN p_action='park' THEN 'parked' WHEN p_action='permanent' OR j.attempt_count-j.parked_attempt_count>=j.max_attempts THEN 'dead' ELSE 'retry_wait' END;
+ IF EXISTS(SELECT 1 FROM public.delphi_provider_requests WHERE env=p_env AND job_id=p_job AND state IN ('intent','submission_unknown'))
+ THEN s='parked'; p_error='provider_unresolved'; END IF;
+ j=public.pq_terminate_attempt(j,s,s,p_error,p_action='release');
+ IF s='parked' AND p_action<>'park' THEN
+  UPDATE public.polis_queue_jobs SET parked_attempt_count=parked_attempt_count-1 WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+ END IF;
+ IF s='parked' AND p_eligible_at IS NOT NULL THEN
+  UPDATE public.polis_queue_jobs SET eligible_at=p_eligible_at WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+ END IF;
+ RETURN public.pq_result(s,j);
+END $$;
+CREATE OR REPLACE FUNCTION public.pd_release_scope(p_env text,p_scope text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path=pg_catalog,pg_temp AS $$
+DECLARE g public.delphi_job_guards; ids uuid[];
+BEGIN
+ -- Match admission lock order when release and enqueue share a transaction.
+ PERFORM pg_advisory_xact_lock(hashtextextended(jsonb_build_array('pd:scope',p_env,p_scope)::text,0));
+ SELECT * INTO g FROM public.delphi_job_guards WHERE env=p_env AND scope_key=p_scope FOR UPDATE;
+ IF NOT FOUND THEN RETURN false; END IF;
+ WITH RECURSIVE descendants(id) AS (SELECT g.root_job_id UNION SELECT j.job_id FROM public.delphi_jobs j JOIN descendants d ON j.parent_job_id=d.id)
+ SELECT array_agg(id) INTO ids FROM descendants;
+ IF EXISTS(SELECT 1 FROM public.delphi_jobs WHERE job_id=ANY(ids) AND status NOT IN ('succeeded','dead','cancelled'))
+ OR EXISTS(SELECT 1 FROM public.polis_queue_attempts WHERE env=p_env AND job_id=ANY(ids) AND process_exit_confirmed_at IS NULL)
+ OR EXISTS(SELECT 1 FROM public.delphi_provider_requests WHERE env=p_env AND job_id=ANY(ids) AND state IN ('intent','submission_unknown','submitted')) THEN RETURN false; END IF;
+ DELETE FROM public.delphi_job_guards WHERE env=p_env AND scope_key=p_scope;
+ RETURN true;
+END $$;
+CREATE OR REPLACE FUNCTION public.pd_finalize(p_env text,p_job uuid,p_owner uuid,p_attempt uuid,p_epoch bigint,p_uri text,p_sha text)
+RETURNS jsonb LANGUAGE plpgsql SET search_path=pg_catalog,pg_temp SET TimeZone='UTC' AS $$
+DECLARE j public.polis_queue_jobs; a public.polis_queue_attempts; r public.polis_queue_runs; raw text; m jsonb;
+BEGIN
+ j=public.pd_lock(p_env,p_job);
+ IF j.stage LIKE 'graph_%' THEN RAISE EXCEPTION 'graph manifest required'; END IF;
+ SELECT * INTO a FROM public.polis_queue_attempts WHERE env=p_env AND job_id=p_job AND attempt_id=p_attempt;
+ SELECT * INTO r FROM public.polis_queue_runs WHERE env=p_env AND run_id=j.run_id;
+ IF j.state='succeeded' AND j.terminal_attempt_id=p_attempt AND a.owner_id=p_owner AND a.lease_epoch=p_epoch THEN
+  RETURN public.pq_result(CASE WHEN a.output_sha256=p_sha AND r.expected_output_uri=p_uri THEN 'already_succeeded' ELSE 'invalid_output' END,j);
+ END IF;
+ IF NOT public.pq_owns(j,p_owner,p_attempt,p_epoch) THEN RETURN public.pq_result('fenced',j); END IF;
+ IF a.process_exit_confirmed_at IS NULL THEN RAISE EXCEPTION 'process exit proof required'; END IF;
+ IF p_uri IS NULL OR p_uri !~ '^file://.+' OR length(p_uri)>2048 OR p_sha IS NULL OR p_sha !~ '^[0-9a-f]{64}$'
+ THEN RETURN public.pq_result('invalid_output',j); END IF;
+ SELECT line INTO raw FROM public.polis_queue_logs WHERE env=p_env AND attempt_id=p_attempt AND stream='manifest'
+ AND encode(sha256(convert_to(line,'UTF8')),'hex')=p_sha ORDER BY seq DESC LIMIT 1;
+ IF raw IS NULL THEN RETURN public.pq_result('invalid_output',j); END IF;
+ BEGIN m=raw::jsonb; EXCEPTION WHEN invalid_text_representation THEN RETURN public.pq_result('invalid_output',j); END;
+ IF (m->>'schema' IS DISTINCT FROM 'polis-jobs.output-manifest/1' AND m->>'schema' IS DISTINCT FROM 'polis-jobs.output-manifest/2')
+ OR m->>'job_id' IS DISTINCT FROM p_job::text OR m->>'attempt_id' IS DISTINCT FROM p_attempt::text
+ OR m->>'stage' IS DISTINCT FROM j.stage OR m->>'outcome' IS DISTINCT FROM 'succeeded'
+ OR COALESCE(m->>'phase','') NOT IN ('submit','recheck','run')
+ OR jsonb_typeof(m->'outputs') IS DISTINCT FROM 'array'
+ OR jsonb_typeof(m->'inputs') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(m->'models') IS DISTINCT FROM 'object'
+ OR jsonb_typeof(m->'cost') IS DISTINCT FROM 'object'
+ OR (m ? 'artifacts' AND m->'artifacts'<>'[]'::jsonb)
+ THEN RETURN public.pq_result('invalid_output',j); END IF;
+ IF EXISTS(SELECT 1 FROM jsonb_array_elements(m->'outputs') o WHERE o->>'store' IS DISTINCT FROM CASE WHEN m->>'schema'='polis-jobs.output-manifest/2' THEN 'postgres' ELSE 'dynamodb' END
+ OR COALESCE(o->>'table','')='' OR NOT (o ? 'keys' OR o ? 'key_prefix') OR COALESCE(o->>'rows','') !~ '^[0-9]+$')
+ THEN RETURN public.pq_result('invalid_output',j); END IF;
+ IF EXISTS(SELECT 1 FROM public.delphi_provider_requests WHERE env=p_env AND job_id=p_job AND state IN ('intent','submission_unknown','submitted'))
+ THEN RAISE EXCEPTION 'provider request unresolved'; END IF;
+ IF EXISTS(SELECT 1 FROM public.delphi_writer_runs WHERE env=p_env AND job_id=p_job) THEN
+  IF m->>'schema' IS DISTINCT FROM 'polis-jobs.output-manifest/2' OR NOT (m ? 'results') OR m ? 'family_spool'
+  THEN RETURN public.pq_result('invalid_output',j); END IF;
+  PERFORM public.pd_writer_publish(p_env,p_job,p_attempt,m->'results');
+ ELSIF m->>'schema'<>'polis-jobs.output-manifest/1' THEN RETURN public.pq_result('invalid_output',j);
+ END IF;
+ UPDATE public.polis_queue_attempts SET outcome='succeeded',ended_at=clock_timestamp(),output_sha256=p_sha WHERE env=p_env AND attempt_id=p_attempt;
+ UPDATE public.polis_queue_jobs SET state='succeeded',terminal_attempt_id=p_attempt,owner_id=NULL,attempt_id=NULL,locked_until=NULL,
+ output_sha256=p_sha,version=version+1,mgmt_version=mgmt_version+1,updated_at=clock_timestamp() WHERE env=p_env AND job_id=p_job RETURNING * INTO j;
+ UPDATE public.delphi_jobs SET output_manifest_digest=decode(p_sha,'hex') WHERE env=p_env AND job_id=p_job;
+ UPDATE public.polis_queue_runs SET state='succeeded',expected_output_uri=p_uri,expected_output_sha256=p_sha,output_sha256=p_sha WHERE env=p_env AND run_id=j.run_id;
+ RETURN public.pq_result('succeeded',j,false);
+END $$;
 ALTER TABLE public.polis_queue_jobs DROP CONSTRAINT pq_stage_derived;
 ALTER TABLE public.polis_queue_jobs DROP CONSTRAINT polis_queue_jobs_stage_check;
 ALTER TABLE public.polis_queue_jobs ADD CONSTRAINT polis_queue_jobs_stage_check CHECK(stage IN ('noop','delphi_full_pipeline','delphi_narrative','math_rebuild','graph_embed','graph_cluster','graph_topics','graph_narrative'));

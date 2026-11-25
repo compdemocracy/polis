@@ -2,13 +2,24 @@
 //! it claims one derived job, reads its source run's three stored families
 //! through a checked reader, makes the run's topic map exactly as `from-run`
 //! does, and stores only the map family in a result batch of the derived
-//! job's own, through the queue's fenced put, seal, exit proof and finalize.
+//! job's own, through the queue's fenced put, seal and finalize.
+//!
+//! It keeps nothing on the box. Its inputs are stored and digest-checked and
+//! its only writes are fenced by owner, attempt, epoch and live lease, so the
+//! database is the whole record: an attempt whose worker vanished (process,
+//! container or box) expires with its lease, the reaper makes the job
+//! claimable again as an ordinary retry, any worker runs it again, and a late
+//! write by the old attempt is refused (`result writer fenced` at put and
+//! seal, `fenced` at finalize). There is no journal, no state file and no
+//! exit proof for this stage; the migration that adds the stage exempts it,
+//! and only it, from the exit-proof checks of claim, reap, end and finalize.
+//! The manifest lives in memory and in the queue's log table.
 //!
 //! What it can reach, by construction: this module and the daemon loop in
 //! `polis-topic-map derived-worker` are Rust reading stored rows. They link no
 //! embedding model, UMAP, EVoC, namer or pipeline, spawn no process, and the
 //! only SQL they send is the queue's own functions (`pq_claim`,
-//! `pq_heartbeat`, `pq_reap`, `pq_end_attempt`, `pq_fail`, `pq_finalize`,
+//! `pq_heartbeat`, `pq_reap`, `pq_fail`, `pq_finalize`,
 //! `pd_result_put_family`, `pd_result_seal`) and the two stored-run readers
 //! (`pd_run_record`, `pd_result_artifact_wire`). A source whose families
 //! are missing, changed or unreadable ends the job; nothing is ever
@@ -25,7 +36,7 @@
 use crate::derived::{Operation, SPEC_SCHEMA};
 use crate::from_run;
 use crate::stored::{self, Outcome, RunIdentity, Wires};
-use polis_queue_adapter::jobs::journal::{self, Journal};
+use polis_queue_adapter::Completion;
 use polis_queue_adapter::jobs::lease::Heartbeat;
 use polis_queue_adapter::jobs::rpc::Rpc;
 use polis_queue_adapter::jobs::transport::Connector;
@@ -336,9 +347,6 @@ pub struct Config {
     pub connector: Arc<Connector>,
     /// The source reader's own connection, same login, opened per job.
     pub reader: Box<dyn Fn(Instant) -> Result<postgres::Client, String> + Send + Sync>,
-    pub journal_dir: std::path::PathBuf,
-    pub boot_id: String,
-    pub container_id: String,
     pub lease_seconds: u32,
     pub bounds: Bounds,
 }
@@ -380,7 +388,6 @@ pub struct Worker {
     pub cfg: Config,
     pub owner: String,
     rpc: Rpc,
-    journal: Journal,
 }
 
 fn args(v: &[Value]) -> Vec<Value> {
@@ -389,56 +396,12 @@ fn args(v: &[Value]) -> Vec<Value> {
 
 impl Worker {
     pub fn new(cfg: Config) -> Result<Self, String> {
-        let journal = Journal::open(&cfg.journal_dir).map_err(|e| e.to_string())?;
         let rpc = Rpc::new(cfg.connector.clone(), &cfg.env);
         Ok(Self {
             owner: uuid::Uuid::new_v4().to_string(),
             cfg,
             rpc,
-            journal,
         })
-    }
-
-    /// The existing daemon's restart rule: every journaled attempt of this
-    /// env whose process is provably gone (another boot or container, or its
-    /// pid dead) ends as a retry, `daemon_restarted`. An entry not provably
-    /// gone is left; its job parks `exit_unconfirmed` at the reaper when its
-    /// lease expires, for an operator.
-    pub fn recover(&mut self) -> Vec<(String, String)> {
-        let mut ended = vec![];
-        for e in self.journal.entries() {
-            if e.env != self.cfg.env
-                || !journal::provably_gone(
-                    &e,
-                    &self.cfg.boot_id,
-                    &self.cfg.container_id,
-                    &self.owner,
-                )
-            {
-                continue;
-            }
-            let reply = self.rpc.committed(
-                "pq_fail",
-                &args(&[
-                    json!(e.env),
-                    json!(e.job_id),
-                    json!(e.owner_id),
-                    json!(e.attempt_id),
-                    json!(e.lease_epoch),
-                    json!(false),
-                    json!("daemon_restarted"),
-                    json!(true),
-                ]),
-            );
-            if let Ok(r) = reply {
-                let _ = self.journal.remove(&e.attempt_id);
-                ended.push((
-                    e.job_id.clone(),
-                    r["state"].as_str().unwrap_or_default().to_owned(),
-                ));
-            }
-        }
-        ended
     }
 
     /// One reaper pass over class `derived` (the daemon's own reaper).
@@ -457,9 +420,9 @@ impl Worker {
     #[doc(hidden)]
     pub fn pass_until(&mut self, crash: Option<CrashAt>) -> Result<Pass, String> {
         let attempt = uuid::Uuid::new_v4().to_string();
-        let reply = self
+        let claim = self
             .rpc
-            .committed(
+            .call(
                 "pq_claim",
                 &args(&[
                     json!(self.cfg.env),
@@ -471,6 +434,64 @@ impl Worker {
                 ]),
             )
             .map_err(|e| e.to_string())?;
+        match claim {
+            Completion::Committed(reply) => self.run_claimed(&attempt, reply, crash),
+            Completion::Unknown(reply) => self.pass_after_uncertain_claim(&attempt, &reply),
+        }
+    }
+
+    /// The claim's reply came back but its COMMIT's did not, so whether the
+    /// claim holds is a question for the database, never a file: renew the
+    /// exact token (owner, attempt, epoch). If the renewal is owned the claim
+    /// committed and the job is run under it; otherwise the claim did not
+    /// commit, or its lease is gone, and the job is left to the reaper, which
+    /// makes it claimable again when the lease expires. A new token is never
+    /// used for a claim that may have committed.
+    #[doc(hidden)]
+    pub fn pass_after_uncertain_claim(
+        &mut self,
+        attempt: &str,
+        reply: &Value,
+    ) -> Result<Pass, String> {
+        if reply["outcome"] != "owned" || reply["attempt_id"] != attempt {
+            return Ok(Pass::Idle);
+        }
+        let renewed = self.rpc.call(
+            "pq_heartbeat",
+            &args(&[
+                json!(self.cfg.env),
+                reply["job_id"].clone(),
+                json!(self.owner),
+                json!(attempt),
+                reply["lease_epoch"].clone(),
+                json!(self.cfg.lease_seconds),
+            ]),
+        );
+        let job = reply["job_id"].as_str().unwrap_or_default().to_owned();
+        match renewed {
+            Ok(Completion::Committed(h)) if h["outcome"] == "owned" => {
+                log(&job, attempt, "claim_renewed", "owned", &"");
+                self.run_claimed(attempt, reply.clone(), None)
+            }
+            other => {
+                let word = match &other {
+                    Ok(Completion::Committed(h)) => h["outcome"].as_str().unwrap_or("?").to_owned(),
+                    Ok(Completion::Unknown(_)) => "uncertain".into(),
+                    Err(e) => e.to_string(),
+                };
+                log(&job, attempt, "claim_abandoned", &word, &"");
+                Ok(Pass::Idle)
+            }
+        }
+    }
+
+    fn run_claimed(
+        &mut self,
+        attempt: &str,
+        reply: Value,
+        crash: Option<CrashAt>,
+    ) -> Result<Pass, String> {
+        let attempt = attempt.to_owned();
         if reply["outcome"] != "owned" {
             return Ok(Pass::Idle);
         }
@@ -486,27 +507,6 @@ impl Worker {
             json!(attempt),
             json!(epoch),
         ];
-        // Journaled before any work: this process is the only one that can
-        // write for the attempt (no child), so its pid stands for the group.
-        let pid = std::process::id();
-        let entry = journal::Entry {
-            schema: journal::SCHEMA.into(),
-            env: self.cfg.env.clone(),
-            owner_id: self.owner.clone(),
-            job_id: job.clone(),
-            attempt_id: attempt.clone(),
-            lease_epoch: epoch.clone(),
-            pgid: i32::try_from(pid).ok(),
-            daemon_pid: pid,
-            boot_id: self.cfg.boot_id.clone(),
-            container_id: self.cfg.container_id.clone(),
-        };
-        if self.journal.write(&entry).is_err() {
-            let mut a = id.clone();
-            a.push(json!(true));
-            let _ = self.rpc.committed("pq_release", &a);
-            return Err("journal unwritable".into());
-        }
         let heartbeat = Heartbeat::start(
             self.cfg.connector.clone(),
             self.cfg.env.clone(),
@@ -523,11 +523,12 @@ impl Worker {
         let pass = match result {
             Ok(p) => p,
             Err(fail) => {
+                // No exit proof is claimed (`false`): this stage needs none.
                 let mut a = id.clone();
                 a.extend([
                     json!(matches!(fail, Fail::Permanent(_))),
                     json!(fail.code()),
-                    json!(true),
+                    json!(false),
                 ]);
                 let r = self
                     .rpc
@@ -541,9 +542,6 @@ impl Worker {
                 }
             }
         };
-        if !matches!(pass, Pass::Crashed { .. }) {
-            let _ = self.journal.remove(&attempt);
-        }
         Ok(pass)
     }
 
@@ -628,17 +626,6 @@ impl Worker {
         self.rpc
             .insert_logs(attempt_uuid, &[(0, "manifest", manifest.as_str())])
             .map_err(transient)?;
-        // In process and no child: this process is the writer, alive and
-        // fenced, so its own exit proof is honest (as `refuse_without_child`).
-        let mut confirm = id.to_vec();
-        confirm.extend([json!("confirm_exit"), Value::Null, json!(true)]);
-        let c = self
-            .rpc
-            .committed("pq_end_attempt", &confirm)
-            .map_err(transient)?;
-        if c["outcome"] != "exit_confirmed" {
-            return Err(Fail::Transient(format!("exit proof: {}", c["outcome"])));
-        }
         if crash == Some(CrashAt::BeforeFinalize) {
             return crashed();
         }
@@ -670,7 +657,7 @@ fn log(job: &str, attempt: &str, event: &str, word: &str, detail: &dyn std::fmt:
     );
 }
 
-/// The daemon: off unless [`SWITCH`] is `1`; then recover, reap and claim
+/// The daemon: off unless [`SWITCH`] is `1`; then reap and claim
 /// one job at a time until a shutdown signal.
 pub fn daemon(get: impl Fn(&str) -> Option<String>) -> Result<(), String> {
     if get(SWITCH).as_deref() != Some("1") {
@@ -694,25 +681,11 @@ pub fn daemon(get: impl Fn(&str) -> Option<String>) -> Result<(), String> {
                 .connect_bounded(deadline, bounds.statement)
                 .map_err(|e| e.to_string())
         }),
-        journal_dir: get("POLIS_JOBS_DERIVED_JOURNAL_DIR")
-            .filter(|s| !s.is_empty())
-            .ok_or("POLIS_JOBS_DERIVED_JOURNAL_DIR is required")?
-            .into(),
-        boot_id: get("POLIS_JOBS_BOOT_ID")
-            .filter(|s| !s.is_empty())
-            .or_else(|| {
-                std::fs::read_to_string("/proc/sys/kernel/random/boot_id")
-                    .ok()
-                    .map(|s| s.trim().to_owned())
-            })
-            .unwrap_or_else(|| "unknown-boot".into()),
-        container_id: get("POLIS_JOBS_CONTAINER_ID").unwrap_or_else(|| "unknown-container".into()),
         lease_seconds: 120,
         bounds,
     };
     polis_queue_adapter::jobs::shutdown::install();
     let mut worker = Worker::new(cfg)?;
-    worker.recover();
     while !polis_queue_adapter::jobs::shutdown::requested() {
         let _ = worker.reap();
         match worker.pass() {
