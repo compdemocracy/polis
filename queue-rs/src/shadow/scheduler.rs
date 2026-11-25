@@ -277,6 +277,7 @@ impl<'a> Scheduler<'a> {
         self.state.roll_day(now);
         self.reconcile_storage()?;
         self.measure_pending(now);
+        self.measure_derived(now);
         self.poll_deferred_graph(now)?;
         self.recover_graph()?;
         if let Some(flight) = self.state.graph_flight.clone() {
@@ -297,8 +298,8 @@ impl<'a> Scheduler<'a> {
                 let l = &self.state.storage;
                 log(
                     "paused",
-                    json!({"reason": reason.word(), "storage_bytes": l.bytes,
-                           "storage_day_bytes": l.day_bytes,
+                    json!({"reason": reason.word(), "storage_bytes": l.accounted(),
+                           "storage_day_bytes": l.accounted_day(),
                            "storage_budget_bytes": self.cfg.storage_budget_bytes,
                            "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
                            "storage_daily_bytes": self.cfg.storage_daily_log(),
@@ -375,6 +376,56 @@ impl<'a> Scheduler<'a> {
         self.derived.step(self.cfg, &self.db, &zids, now, None);
     }
 
+    /// The derived jobs' bytes, with the backfill on (`storage::Derived`):
+    /// the env's terminal derived jobs not yet measured by this process, a
+    /// few per poll, by the same measure as a run's. Until it has caught up,
+    /// or while one cannot be read, the storage pause holds everything.
+    fn measure_derived(&mut self, now: i64) {
+        if !self.cfg.derived.enabled || self.derived.admitter.is_none() {
+            return;
+        }
+        let limit = MEASURE_PER_CYCLE as i64;
+        let d = &mut self.state.storage.derived;
+        d.behind = true;
+        let (since, skip) = d.window();
+        // Errors can carry SQL input: a closed word only.
+        let Ok(jobs) = self.db.derived_terminal(since, &skip, limit) else {
+            return log("derived_storage_unread", json!({"reason": "list"}));
+        };
+        let (mut measured, mut bytes) = (0u64, 0u64);
+        for (job_id, zid, completed) in &jobs {
+            let p = Pending {
+                env: self.cfg.env.clone(),
+                job_id: job_id.clone(),
+                zid: *zid,
+                comments: 0,
+                set: None,
+            };
+            let Ok(m) = self.db.measure(&p) else {
+                log("derived_storage_unread", json!({"reason": "measure"}));
+                break;
+            };
+            let total = m.total();
+            self.state
+                .storage
+                .derived
+                .add(now, job_id.clone(), *completed, total);
+            measured += 1;
+            bytes += total;
+        }
+        let l = &mut self.state.storage;
+        l.derived.behind = measured < jobs.len() as u64 || jobs.len() as i64 == limit;
+        if measured > 0 {
+            log(
+                "derived_storage",
+                json!({"measured": measured, "bytes": bytes, "derived_jobs": l.derived.jobs,
+                       "derived_bytes": l.derived.bytes, "derived_day_bytes": l.derived.day_bytes,
+                       "storage_bytes": l.accounted(), "storage_day_bytes": l.accounted_day(),
+                       "storage_budget_bytes": self.cfg.storage_budget_bytes}),
+            );
+        }
+    }
+
     /// Every pause of `pace` but the full runs' daily cap.
     fn derived_pauses(&self) -> Option<Pause> {
         let operator = self.cfg.pause_file.exists();
@@ -435,8 +486,8 @@ impl<'a> Scheduler<'a> {
                         "storage",
                         json!({"job_id": p.job_id, "comments": p.comments, "set": p.set,
                                "bytes": m.total(),
-                               "measured": m, "storage_bytes": l.bytes,
-                               "storage_day_bytes": l.day_bytes,
+                               "measured": m, "storage_bytes": l.accounted(),
+                               "storage_day_bytes": l.accounted_day(),
                                "storage_budget_bytes": self.cfg.storage_budget_bytes,
                                "storage_live_reserve_bytes": self.cfg.storage_live_reserve_bytes,
                                "storage_daily_bytes": self.cfg.storage_daily_log(),

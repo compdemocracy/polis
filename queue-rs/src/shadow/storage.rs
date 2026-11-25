@@ -255,28 +255,120 @@ pub struct Pending {
 /// starts with no record of what it measured. `delphi_jobs` holds one row per
 /// job and has no index led by a prefix of `env`, so this is the one read
 /// that scans it; it never runs again for that state file.
-pub fn shadow_jobs(tx: &mut Transaction<'_>) -> Result<Vec<Pending>> {
-    tx.query(
-        "SELECT env, job_id::text, zid, \
+///
+/// With the topic map backfill on, `derived_env` is the scheduler's env: its
+/// derived jobs are left out, since [`Derived`] measures them.
+pub fn shadow_jobs(tx: &mut Transaction<'_>, derived_env: Option<&str>) -> Result<Vec<Pending>> {
+    let all = "SELECT env, job_id::text, zid, \
                 coalesce((config_effective #>> '{shadow,comments}')::bigint, 0), \
                 config_effective #>> '{shadow,set}' \
-         FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' ORDER BY created_at, job_id",
-        &[],
-    )?
-    .iter()
-    .map(|r| {
-        Ok(Pending {
-            env: r.try_get(0)?,
-            job_id: r.try_get(1)?,
-            zid: r.try_get(2)?,
-            comments: r.try_get(3)?,
-            set: r
-                .try_get::<_, Option<String>>(4)?
-                .as_deref()
-                .and_then(crate::shadow::plan::Set::from_word),
+         FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' ORDER BY created_at, job_id";
+    let rows = match derived_env {
+        None => tx.query(all, &[])?,
+        Some(env) => tx.query(
+            "SELECT env, job_id::text, zid, \
+                coalesce((config_effective #>> '{shadow,comments}')::bigint, 0), \
+                config_effective #>> '{shadow,set}' \
+             FROM public.delphi_jobs WHERE left(env, 7) = 'shadow-' \
+               AND NOT (env = $1 AND kind = 'derived') ORDER BY created_at, job_id",
+            &[&env],
+        )?,
+    };
+    rows.iter()
+        .map(|r| {
+            Ok(Pending {
+                env: r.try_get(0)?,
+                job_id: r.try_get(1)?,
+                zid: r.try_get(2)?,
+                comments: r.try_get(3)?,
+                set: r
+                    .try_get::<_, Option<String>>(4)?
+                    .as_deref()
+                    .and_then(crate::shadow::plan::Set::from_word),
+            })
         })
-    })
-    .collect()
+        .collect()
+}
+
+/// How long after its completion a derived job is still looked for again, in
+/// case a completion that committed late carries an earlier timestamp than
+/// one already read.
+pub const DERIVED_LAG_MS: i64 = 120_000;
+
+/// The scheduler's env's terminal derived jobs completed since `$2` (ms),
+/// leaving out `$3` (the ones of that window already measured), oldest
+/// completion first, at most `$4`: the env's range of `delphi_jobs_history`,
+/// filtered.
+pub const DERIVED_SQL: &str = "SELECT job_id::text, zid, \
+ (extract(epoch FROM completed_at) * 1000)::bigint FROM public.delphi_jobs \
+ WHERE env = $1 AND kind = 'derived' AND status IN ('succeeded','dead','cancelled') \
+   AND completed_at >= to_timestamp($2::float8 / 1000) AND NOT (job_id::text = ANY($3::text[])) \
+ ORDER BY completed_at, job_id LIMIT $4";
+
+/// Terminal derived jobs to measure: `(job_id, zid, completed_at ms)`.
+pub fn derived_terminal(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    since_ms: i64,
+    skip: &[String],
+    limit: i64,
+) -> Result<Vec<(String, i32, i64)>> {
+    tx.query(DERIVED_SQL, &[&env, &(since_ms as f64), &skip, &limit])?
+        .iter()
+        .map(|r| Ok((r.try_get(0)?, r.try_get(1)?, r.try_get(2)?)))
+        .collect()
+}
+
+/// The derived jobs' bytes (the topic map backfill on): measured from the
+/// database by [`measure`], like a run's, and held in process memory only. A
+/// scheduler that starts reads every terminal derived job of its env again,
+/// a few per poll, and admits nothing until it has caught up; so it is never
+/// in the state file, and the full runs' ledger leaves derived jobs out.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Derived {
+    /// Terminal derived jobs are not all measured yet (or one could not be
+    /// read): the storage pause holds, as for a pending run.
+    pub behind: bool,
+    pub jobs: u64,
+    pub bytes: u64,
+    /// The UTC day `day_bytes` is for: the bytes of derived jobs that
+    /// completed on it.
+    pub day: i64,
+    pub day_bytes: u64,
+    /// The latest completion measured (ms), and the jobs measured within
+    /// [`DERIVED_LAG_MS`] of it.
+    pub(crate) since_ms: i64,
+    pub(crate) recent: Vec<(i64, String)>,
+}
+
+impl Derived {
+    /// One measured derived job, completed at `completed_ms`.
+    pub fn add(&mut self, now_ms: i64, job_id: String, completed_ms: i64, bytes: u64) {
+        self.roll_day(now_ms);
+        self.jobs += 1;
+        self.bytes = self.bytes.saturating_add(bytes);
+        if completed_ms.div_euclid(86_400_000) == self.day {
+            self.day_bytes = self.day_bytes.saturating_add(bytes);
+        }
+        self.since_ms = self.since_ms.max(completed_ms);
+        self.recent.push((completed_ms, job_id));
+        let floor = self.since_ms - DERIVED_LAG_MS;
+        self.recent.retain(|(t, _)| *t >= floor);
+    }
+
+    pub fn roll_day(&mut self, now_ms: i64) {
+        let day = now_ms.div_euclid(86_400_000);
+        if day != self.day {
+            self.day = day;
+            self.day_bytes = 0;
+        }
+    }
+
+    /// Where the next read starts, and the ids it leaves out.
+    pub fn window(&self) -> (i64, Vec<String>) {
+        let ids = self.recent.iter().map(|(_, id)| id.clone()).collect();
+        (self.since_ms.saturating_sub(DERIVED_LAG_MS), ids)
+    }
 }
 
 /// What the scheduler knows of the shadow's bytes.
@@ -293,6 +385,9 @@ pub struct Ledger {
     pub day_bytes: u64,
     /// Terminal jobs not yet measured; nothing is admitted while any is.
     pub pending: Vec<Pending>,
+    /// The derived jobs' bytes: process memory, never saved.
+    #[serde(skip)]
+    pub derived: Derived,
 }
 
 impl Ledger {
@@ -302,6 +397,18 @@ impl Ledger {
             self.day = day;
             self.day_bytes = 0;
         }
+        self.derived.roll_day(now_ms);
+    }
+
+    /// The bytes the storage budget is held to: the measured runs' and the
+    /// derived jobs'.
+    pub fn accounted(&self) -> u64 {
+        self.bytes.saturating_add(self.derived.bytes)
+    }
+
+    /// Today's share of [`Ledger::accounted`].
+    pub fn accounted_day(&self) -> u64 {
+        self.day_bytes.saturating_add(self.derived.day_bytes)
     }
 
     pub fn add(&mut self, now_ms: i64, comments: i64, bytes: u64) {

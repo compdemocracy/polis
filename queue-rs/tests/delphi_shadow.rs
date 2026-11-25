@@ -1956,11 +1956,9 @@ fn the_storage_budget_and_a_set_daily_limit_hold_admission_from_the_databases_ow
     // Listed again from the database (a lost state file), it keeps its set,
     // read from its run record; the run admitted before runs named one has
     // none.
-    let listed = db::read_only(
-        &mut f.superuser(),
-        30_000,
-        polis_queue_adapter::shadow::storage::shadow_jobs,
-    )
+    let listed = db::read_only(&mut f.superuser(), 30_000, |tx| {
+        polis_queue_adapter::shadow::storage::shadow_jobs(tx, None)
+    })
     .unwrap();
     assert_eq!(
         listed.iter().map(|p| p.set).collect::<Vec<_>>(),

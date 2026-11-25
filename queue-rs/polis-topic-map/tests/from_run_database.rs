@@ -2417,7 +2417,9 @@ mod backfill {
             .unwrap()
             .with_admitter(counting(&asked, &[]));
         cycles(&mut s, 1);
-        let before = s.state.storage.bytes;
+        // What the storage pauses are held to: the runs' bytes and the
+        // derived jobs' (the latter in process memory, read from the database).
+        let before = s.state.storage.accounted();
         let url = url_for(&db.name, &db.login);
         let get = move |k: &str| match k {
             "QUEUE_DATABASE_URL" => Some(url.clone()),
@@ -2440,7 +2442,7 @@ mod backfill {
         println!("worker: {:?}", w.pass().unwrap());
         assert_eq!(job_status(&db, &derived_job_ids(&db)[0]), "succeeded");
         cycles(&mut s, 3);
-        let after = s.state.storage.bytes;
+        let after = s.state.storage.accounted();
         // The same state file is saved by run() every cycle. Verify no new file
         // is necessary to observe the stored result's contribution.
         let _ = std::fs::remove_dir_all(&d);

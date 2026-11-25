@@ -204,9 +204,21 @@ impl<'a> Db<'a> {
         })
     }
 
-    /// Every shadow env's jobs, once per state file (`storage`).
+    /// Every shadow env's jobs, once per state file (`storage`); with the
+    /// topic map backfill on, all but this env's derived jobs.
     pub fn shadow_jobs(&self) -> Result<Vec<Pending>> {
-        self.read(storage::shadow_jobs)
+        let env = self.cfg.derived.enabled.then_some(self.cfg.env.as_str());
+        self.read(|tx| storage::shadow_jobs(tx, env))
+    }
+
+    /// This env's terminal derived jobs to measure (`storage::Derived`).
+    pub fn derived_terminal(
+        &self,
+        since_ms: i64,
+        skip: &[String],
+        limit: i64,
+    ) -> Result<Vec<(String, i32, i64)>> {
+        self.read(|tx| storage::derived_terminal(tx, &self.cfg.env, since_ms, skip, limit))
     }
 
     pub fn assignments(&self, zid: i32) -> Result<BTreeMap<i64, Vec<i64>>> {
