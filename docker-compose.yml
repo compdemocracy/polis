@@ -474,6 +474,7 @@ services:
       - POLIS_JOBS_JOURNAL_DIR=/var/lib/delphi-shadow/journal
       - POLIS_JOBS_WORK_DIR=/tmp/delphi-shadow/work
       - DELPHI_EMBEDDINGS_TABLE=1
+      - POLIS_JOBS_EMBEDDINGS_REUSE=1
       - MATH_ENV=${MATH_ENV:-prod}
       - LOG_LEVEL=${DELPHI_LOG_LEVEL:-INFO}
       - DELPHI_DEV_OR_PROD=${DELPHI_DEV_OR_PROD:-prod}
