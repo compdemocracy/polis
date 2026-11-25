@@ -107,7 +107,7 @@ def write_frame(tmp_path, monkeypatch, rows, model, *, ref=None, spool=None, fra
                  "model": model, "model_id": None, "dims": None, "env": "shadow-test", "zid": ZID,
                  "reason": "empty"}
     value.update(ref or {})
-    frame = {"schema": "polis-jobs.frame/1", "zid": ZID,
+    frame = {"schema": "polis-jobs.frame/1", "env": "shadow-test", "zid": ZID,
              "inputs": {"math_env": None, "requested_math_tick": None, "embeddings": value}}
     frame.update(frame_extra or {})
     (attempt / "frame.json").write_text(json.dumps(frame))
@@ -229,11 +229,13 @@ def _bad(case, rows, model_name):
         return {"schema": "delphi-embedding-reuse/2"}, None, "frame"
     if case == "zid":
         return {"zid": ZID + 1}, None, "frame"
+    if case == "env":
+        return {"env": "shadow-other"}, None, "frame"
     raise AssertionError(case)
 
 
 @pytest.mark.parametrize("case", ["sha256", "truncated", "rows", "frame_dims", "spool_dims", "spool_model",
-                                  "not_finite", "file_key", "schema", "zid"])
+                                  "not_finite", "file_key", "schema", "zid", "env"])
 def test_each_bad_offer_encodes_everything_and_the_run_goes_on(stages, model, model_name, recorded,
                                                                tmp_path, monkeypatch, case):
     rows = stored(dict(zip(IDS, TEXTS)))

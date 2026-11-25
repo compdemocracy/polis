@@ -101,7 +101,8 @@ def from_frame(frame: Any, frame_path: str, model: Optional[str], dims: int) -> 
     if ref["reason"] is not None:
         word = ref["reason"]
         return _nothing(word if isinstance(word, str) and word.isalpha() and len(word) <= 32 else "frame")
-    if str(ref["zid"]) != str(frame.get("zid")):
+    if str(ref["zid"]) != str(frame.get("zid")) or not isinstance(ref["env"], str) \
+            or ref["env"] != frame.get("env"):
         return _nothing("frame")
     if model is None or ref["model"] != model:
         return _nothing("model")
