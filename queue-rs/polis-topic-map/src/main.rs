@@ -33,6 +33,12 @@ const USAGE: &str = "polis-topic-map: the data and the standalone page of the fi
       DIR/Delphi_TopicMapDocument.jsonl and, when there is a map,
       DIR/topic-map.json. Never writes to the database. When the run's batch
       already holds a map, exits 3 unless the stored one is the same.
+
+  polis-topic-map derived-worker
+      The worker of the derived stage: claims one derived job at a time
+      (class derived) and stores its source run's map in the job's own batch.
+      Off unless POLIS_JOBS_DERIVED_WORKER=1. Needs POLIS_JOBS_ENV,
+      POLIS_JOBS_DERIVED_JOURNAL_DIR and the queue settings of from-run.
 ";
 
 fn args_map(args: &[String]) -> Result<Vec<(String, String)>, String> {
@@ -159,6 +165,7 @@ fn run() -> Result<(), String> {
             eprintln!("{out}: {}", summary(&made.outcome, made.wire.len()));
             Ok(())
         }
+        "derived-worker" => polis_topic_map::worker::daemon(|k| std::env::var(k).ok()),
         "from-run" => {
             let (env, job) = (one(&args, "env")?, one(&args, "job")?);
             let dir = std::path::PathBuf::from(one(&args, "out")?);

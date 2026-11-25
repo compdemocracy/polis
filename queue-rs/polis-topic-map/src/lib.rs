@@ -13,6 +13,7 @@ pub mod layout;
 pub mod page;
 pub mod palette;
 pub mod stored;
+pub mod worker;
 
 use layout::P;
 use serde::{Deserialize, Serialize};

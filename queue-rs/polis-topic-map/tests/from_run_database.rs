@@ -765,3 +765,344 @@ mod derived_jobs {
         job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "t"), CODE).unwrap());
     }
 }
+
+/// The derived stage's worker against the release chain: it stores the map
+/// `from-run` makes, in its own batch, and every way an attempt can end ends
+/// in one stored map or one recorded outcome.
+mod derived_worker {
+    use super::*;
+    use polis_topic_map::derived::{self, Admission, Operation, Request};
+    use polis_topic_map::worker::{self, CrashAt, Pass, Worker};
+    use polis_topic_map::from_run;
+
+    const CODE: &str = "cccccccccccccccccccccccccccccccccccccccc";
+
+    fn on(key: &str) -> Option<String> {
+        (key == derived::SWITCH).then(|| "1".into())
+    }
+
+    /// A succeeded source run (no map of its own) and its admitted derived job.
+    fn admitted(db: &Db, keep: Option<usize>) -> (RunIdentity, String, String) {
+        let run = support::run("biodiversity", 1424, keep);
+        let (src, _) = db.writer_run("delphi", json!({}), &run, false);
+        let req = Request {
+            operation: Operation::TopicMap,
+            version: 1,
+            env: ENV.into(),
+            source_job_id: src.job_id.clone(),
+            conversation_id: 1424,
+            selection: None,
+            inputs_sha256: None,
+            asker: "test".into(),
+        };
+        match derived::admit(&mut db.executor(), on, &req, CODE).unwrap() {
+            Admission::Enqueued(a) => (src, a.job_id, a.key),
+            other => panic!("{other:?}"),
+        }
+    }
+
+    fn worker(db: &Db, journal: &std::path::Path, boot: &str) -> Worker {
+        let (url, login) = (url_for(&db.name, &db.login), db.login.clone());
+        let get = move |k: &str| match k {
+            "QUEUE_DATABASE_URL" => Some(url.clone()),
+            "POLIS_JOBS_TRANSPORT" => Some("loopback".into()),
+            _ => None,
+        };
+        let _ = login;
+        let connector = worker::connector(&get).unwrap();
+        Worker::new(worker::Config {
+            env: ENV.into(),
+            connector: std::sync::Arc::new(connector),
+            reader: Box::new(move || from_run::connect(&get)),
+            journal_dir: journal.into(),
+            boot_id: boot.into(),
+            container_id: "generated-container".into(),
+            lease_seconds: 60,
+            bounds: worker::Bounds::default(),
+        })
+        .unwrap()
+    }
+
+    fn journal_dir() -> PathBuf {
+        PathBuf::from(env!("CARGO_TARGET_TMPDIR")).join(format!("derived-{}", Uuid::new_v4()))
+    }
+
+    /// Every family of a job's batches: (batch, family, codec bytes).
+    fn families_of(db: &Db, job: &str) -> Vec<(String, String, String)> {
+        db.admin()
+            .query(
+                "SELECT f.batch_id::text, f.family, f.codec_wire FROM delphi_result_families f
+                 JOIN delphi_result_batches b USING(env,batch_id)
+                 WHERE b.job_id=$1::text::uuid ORDER BY 1,2",
+                &[&job],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| (r.get(0), r.get(1), r.get(2)))
+            .collect()
+    }
+
+    fn count(db: &Db, sql: &str) -> i64 {
+        db.admin().query_one(sql, &[]).unwrap().get(0)
+    }
+
+    /// The served pointers of a derived scope, with the batch each names.
+    fn served(db: &Db, key: &str) -> Vec<String> {
+        db.admin()
+            .query(
+                "SELECT a.attempt_id::text FROM delphi_graph_served s
+                 JOIN delphi_artifacts a ON a.env=s.env AND a.artifact_id=s.artifact_id
+                 WHERE s.env=$1 AND s.scope_key=$2",
+                &[&ENV, &format!("derived:{key}")],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+    }
+
+    fn owned_by(wire: &str, from: &str, to: &str) -> String {
+        wire.replace(
+            &format!("\"job_id\":{{\"S\":\"{from}\"}}"),
+            &format!("\"job_id\":{{\"S\":\"{to}\"}}"),
+        )
+    }
+
+    fn state(db: &Db, job: &str) -> (String, Option<String>) {
+        let r = db
+            .admin()
+            .query_one(
+                "SELECT state, last_error_code FROM polis_queue_jobs WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        (r.get(0), r.get(1))
+    }
+
+    fn make_eligible(db: &Db, job: &str) {
+        db.admin()
+            .execute(
+                "UPDATE polis_queue_jobs SET eligible_at=clock_timestamp()-interval '1 second'
+                 WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+    }
+
+    #[test]
+    fn the_worker_stores_from_runs_bytes_in_its_own_batch_and_nothing_upstream() {
+        let db = Db::new();
+        let (src, job, key) = admitted(&db, None);
+        let source_before = families_of(&db, &src.job_id);
+        let families_before = count(&db, "SELECT count(*) FROM delphi_result_families");
+        let rows_before = count(&db, "SELECT count(*) FROM delphi_result_rows");
+        let (code, from_run_wire, err) = db.backfill(&src.job_id);
+        assert_eq!(code, 0, "{err}");
+
+        let dir = journal_dir();
+        let mut w = worker(&db, &dir, "generated-boot");
+        let pass = w.pass().unwrap();
+        assert!(
+            matches!(&pass, Pass::Stored { outcome, finalize, .. } if outcome == "map" && finalize == "succeeded"),
+            "{pass:?}"
+        );
+        assert_eq!(w.pass().unwrap(), Pass::Idle);
+        assert_eq!(state(&db, &job).0, "succeeded");
+
+        // Only the map family, in the derived job's own batch.
+        let mine = families_of(&db, &job);
+        assert_eq!(mine.len(), 1, "{:?}", mine.iter().map(|f| &f.1).collect::<Vec<_>>());
+        assert_eq!(mine[0].1, stored::FAMILY);
+        // The document, gzip and digest are from-run's bytes; only the outer
+        // rows' owner differs (four rows: document, gzip, digest, execution).
+        assert_eq!(
+            from_run_wire.matches(&format!("\"job_id\":{{\"S\":\"{}\"}}", src.job_id)).count(),
+            4
+        );
+        assert_eq!(owned_by(&from_run_wire, &src.job_id, &job), mine[0].2);
+        assert_ne!(from_run_wire, mine[0].2);
+        // The source's batch is unchanged and no upstream family was copied.
+        assert_eq!(families_of(&db, &src.job_id), source_before);
+        assert_eq!(
+            count(&db, "SELECT count(*) FROM delphi_result_families"),
+            families_before + 1
+        );
+        assert_eq!(
+            count(&db, "SELECT count(*) FROM delphi_result_rows"),
+            rows_before + 4
+        );
+        // Published once, under the derived job's own scope.
+        assert_eq!(served(&db, &key), vec![mine[0].0.clone()]);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_source_with_nothing_to_draw_ends_in_one_stored_no_map() {
+        let db = Db::new();
+        let (_, job, key) = admitted(&db, Some(2));
+        let dir = journal_dir();
+        let mut w = worker(&db, &dir, "generated-boot");
+        let pass = w.pass().unwrap();
+        assert!(
+            matches!(&pass, Pass::Stored { outcome, .. } if outcome == "too_few_comments"),
+            "{pass:?}"
+        );
+        assert_eq!(state(&db, &job).0, "succeeded");
+        assert_eq!(w.pass().unwrap(), Pass::Idle);
+        let mine = families_of(&db, &job);
+        assert_eq!(mine.len(), 1);
+        assert!(mine[0].2.contains("\"reason\":{\"S\":\"too_few_comments\"}"));
+        assert_eq!(served(&db, &key).len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_changed_source_ends_dead_with_one_word_and_is_never_retried() {
+        let db = Db::new();
+        let (src, job, _) = admitted(&db, None);
+        // A family's digest is tied to its bytes by the table's own CHECK, so
+        // the source cannot drift under its record; here the job's recorded
+        // digest of the positions disagrees with the source's record.
+        let _ = &src;
+        db.admin()
+            .execute(
+                "UPDATE delphi_jobs SET config_effective=jsonb_set(config_effective,
+                 '{derived,source,families,0,sha256}',to_jsonb(repeat('0',64)))
+                 WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        let dir = journal_dir();
+        let mut w = worker(&db, &dir, "generated-boot");
+        let pass = w.pass().unwrap();
+        assert!(
+            matches!(&pass, Pass::Failed { code, state, .. } if code == "source_changed" && state == "dead"),
+            "{pass:?}"
+        );
+        assert_eq!(w.pass().unwrap(), Pass::Idle);
+        assert!(families_of(&db, &job).is_empty());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn a_lost_finalize_reply_is_the_same_success() {
+        let db = Db::new();
+        let (_, job, key) = admitted(&db, None);
+        let dir = journal_dir();
+        let mut w = worker(&db, &dir, "generated-boot");
+        let pass = w.pass_until(Some(CrashAt::LoseFinalizeReply)).unwrap();
+        assert!(
+            matches!(&pass, Pass::Stored { finalize, .. } if finalize == "already_succeeded"),
+            "{pass:?}"
+        );
+        assert_eq!(families_of(&db, &job).len(), 1);
+        assert_eq!(served(&db, &key).len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// A crash after the put, after the seal, or after the exit proof and
+    /// before finalize; the daemon restarts (another boot): the journal proves
+    /// the old process gone, the attempt ends as a retry, and the next attempt
+    /// stores the same family in its own batch. One map is served.
+    #[test]
+    fn a_crash_before_finalize_and_a_restart_end_in_one_served_map() {
+        let db = Db::new();
+        for crash in [CrashAt::AfterPut, CrashAt::AfterSeal, CrashAt::BeforeFinalize] {
+            let (_, job, key) = admitted(&db, None);
+            let dir = journal_dir();
+            let mut first = worker(&db, &dir, "generated-boot-1");
+            assert!(matches!(
+                first.pass_until(Some(crash)).unwrap(),
+                Pass::Crashed { .. }
+            ));
+            drop(first);
+            let mut again = worker(&db, &dir, "generated-boot-2");
+            let ended = again.recover();
+            assert_eq!(ended.len(), 1, "{crash:?}");
+            assert_eq!(state(&db, &job).1.as_deref(), Some("daemon_restarted"));
+            make_eligible(&db, &job);
+            let pass = again.pass().unwrap();
+            assert!(matches!(&pass, Pass::Stored { .. }), "{crash:?} {pass:?}");
+            let batches = families_of(&db, &job);
+            assert_eq!(batches.len(), 2, "{crash:?}");
+            assert_eq!(batches[0].2, batches[1].2, "the same bytes in each batch");
+            let served = served(&db, &key);
+            assert_eq!(served.len(), 1, "{crash:?}");
+            assert!(batches.iter().any(|b| b.0 == served[0]));
+            assert_eq!(again.pass().unwrap(), Pass::Idle);
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+
+    /// The box is wiped (its journal is gone): nothing proves the old process
+    /// stopped, so the reaper parks the job `exit_unconfirmed` and nothing
+    /// claims it; after an operator confirms the old attempt's exit, a reap
+    /// queues it and one map is stored. No automatic recovery is claimed.
+    #[test]
+    fn a_wiped_box_parks_until_an_operator_confirms_the_old_exit() {
+        let db = Db::new();
+        let (_, job, key) = admitted(&db, None);
+        let dir = journal_dir();
+        let mut first = worker(&db, &dir, "generated-boot-1");
+        assert!(matches!(
+            first.pass_until(Some(CrashAt::AfterSeal)).unwrap(),
+            Pass::Crashed { .. }
+        ));
+        drop(first);
+        std::fs::remove_dir_all(&dir).unwrap();
+        let mut fresh = worker(&db, &dir, "generated-boot-2");
+        assert!(fresh.recover().is_empty());
+        db.admin()
+            .execute(
+                "UPDATE polis_queue_jobs SET locked_until=clock_timestamp()-interval '1 second'
+                 WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        fresh.reap().unwrap();
+        assert_eq!(
+            state(&db, &job),
+            ("parked".into(), Some("exit_unconfirmed".into()))
+        );
+        assert_eq!(fresh.pass().unwrap(), Pass::Idle);
+        // The operator's step: confirm the old attempt's exit.
+        let old = db
+            .admin()
+            .query_one(
+                "SELECT owner_id, attempt_id, lease_epoch FROM polis_queue_attempts
+                 WHERE job_id=$1::text::uuid",
+                &[&job],
+            )
+            .unwrap();
+        let (owner, attempt, epoch): (Uuid, Uuid, i64) = (old.get(0), old.get(1), old.get(2));
+        let job_uuid: Uuid = job.parse().unwrap();
+        let confirmed = db.call(
+            "SELECT pq_end_attempt($1,$2,$3,$4,$5,'confirm_exit',NULL::text,true)",
+            &[&ENV, &job_uuid, &owner, &attempt, &epoch],
+        );
+        assert_eq!(confirmed["outcome"], "exit_confirmed", "{confirmed}");
+        make_eligible(&db, &job);
+        fresh.reap().unwrap();
+        make_eligible(&db, &job);
+        let pass = fresh.pass().unwrap();
+        assert!(matches!(&pass, Pass::Stored { .. }), "{pass:?}");
+        assert_eq!(served(&db, &key).len(), 1);
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    /// The worker reaches no model and no pipeline: its source has no
+    /// process spawn and its crate depends on nothing that runs one.
+    #[test]
+    fn the_worker_starts_no_process_and_links_no_pipeline() {
+        let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/worker.rs"))
+            .unwrap();
+        for word in ["Command::new", "process::Command", "python", "spawn("] {
+            assert!(!src.contains(word), "{word}");
+        }
+        let manifest =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml")).unwrap();
+        for word in ["pyo3", "ort", "onnx", "tch", "reqwest", "hyper"] {
+            assert!(!manifest.contains(&format!("\n{word} =")), "{word}");
+        }
+    }
+}
