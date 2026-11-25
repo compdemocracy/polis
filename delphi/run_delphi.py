@@ -152,18 +152,31 @@ def namer_scratch_path():
     return os.path.join(parent, f"delphi-topic-names-{uuid.uuid4().hex}")
 
 
-def receive_naming(record_read):
-    """The naming's record from the pipeline's pipe, or None and the reason
-    none was received: the pipe could not be read, or it held no whole record
-    (the pipeline sent none, or only part of one)."""
+def recorded_naming(pipeline_exit_code, record, unreceived, namer):
+    """The pipeline's exit code as a stage, and the naming the manifest
+    records, from how the naming's exchange ended (topic_namer.RecordExchange).
+
+    The pipeline writes the model's names only after this run acknowledged
+    their record, and exits topic_namer.UNACKNOWLEDGED_EXIT when it kept the
+    keyword labels because the acknowledgement did not reach it. So: that
+    exit is a completed pipeline whose naming is keywords, with the counts of
+    any record held; exit 0 with a record is that record; exit 0 with none
+    means no model name was written, so keywords, with why none was received.
+    A naming failure of any kind ends here, never in a failed run. Any other
+    exit is a failed pipeline, as for a run without a namer."""
     from umap_narrative import topic_namer
-    try:
-        record = topic_namer.receive_record(record_read)
-    except OSError as e:
-        return None, f"record_unreadable ({type(e).__name__})"
+
+    if pipeline_exit_code == topic_namer.UNACKNOWLEDGED_EXIT:
+        reason = "record_unacknowledged" if record is not None else unreceived
+    elif pipeline_exit_code == 0 and record is not None:
+        return 0, record
+    elif pipeline_exit_code == 0:
+        reason = unreceived
+    else:
+        return pipeline_exit_code, None
     if record is None:
-        return None, "record_missing"
-    return record, None
+        return 0, topic_namer.record_of(topic_namer._result(namer, topic_namer.NAMER_FAILED, reason))
+    return 0, topic_namer.record_of(topic_namer.keep_keywords(record, reason))
 
 
 def _exit_on_sigterm(signum, frame):
@@ -304,44 +317,38 @@ def run(args):
         umap_command.append(f"--selection={args.selection}")
     # Likewise a run given a namer: every other run's arguments are unchanged.
     namer = getattr(args, "namer", None)
-    record_read = record_write = None
-    naming = unreceived = None
+    exchange = naming = None
     if namer is not None:
         from umap_narrative import topic_namer
-        # The naming's record (outcome, token counts) comes back on a pipe,
-        # not a file: nothing the manifest needs lives in the scratch directory.
-        # A pipe that cannot be made fails the run (it is not a naming outcome).
-        record_read, record_write = os.pipe()
+        # The naming's record (outcome, token counts) comes back over a socket
+        # pair, not a file, and is acknowledged on it before the pipeline
+        # writes the model's names: nothing the manifest needs lives in the
+        # scratch directory or anywhere else on the box. A socket pair that
+        # cannot be made fails the run before the pipeline starts (it is not
+        # a naming outcome).
+        exchange = topic_namer.RecordExchange()
         umap_command.append(f"--namer={topic_namer.namer_argument(namer)}")
         umap_command.append(f"--namer-dir={args.namer_dir}")
-        umap_command.append(f"--naming-record-fd={record_write}")
+        umap_command.append(f"--naming-record-fd={exchange.child_fd}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
-    if record_write is None:
+    if exchange is None:
         pipeline_exit_code = step_log.run_child("pipeline", umap_command)
     else:
         try:
-            try:
-                # Stopped with this run (SIGTERM, then SIGKILL) if this run is
-                # interrupted, so nothing of it outlives the scratch's removal.
-                pipeline_exit_code = step_log.run_child("pipeline", umap_command, pass_fds=(record_write,))
-            finally:
-                os.close(record_write)
-            naming, unreceived = receive_naming(record_read)
+            # Stopped with this run (SIGTERM, then SIGKILL) if this run is
+            # interrupted, so nothing of it outlives the scratch's removal.
+            pipeline_exit_code = step_log.run_child("pipeline", umap_command, pass_fds=(exchange.child_fd,))
         finally:
-            os.close(record_read)
+            record, unreceived = exchange.finish()
+        pipeline_exit_code, naming = recorded_naming(pipeline_exit_code, record, unreceived, namer)
+        if naming is not None:
+            from polismath import job_child
+            topic = job_child.full_pipeline_models(naming)["topic"]
+            print(f"Topic naming recorded by {topic}" + (f" ({naming['reason']})" if naming.get("reason") else ""))
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
-    elif unreceived is not None:
-        # The pipeline may have stored the model's names after sending a
-        # record this run did not get: a manifest written now could name a
-        # naming its stored labels disagree with. So the run fails and nothing
-        # of it is published; the call's token counts are in the pipeline's
-        # own log line (topic_names_call).
-        print(f"{RED}The naming's record did not reach this run ({unreceived}); the run fails "
-              f"rather than record a naming its stored labels may disagree with.{NC}")
-        failed_stages.append((f"naming record ({unreceived})", 1))
 
     if pipeline_exit_code == 0 and switch_on(SKIP_DATAMAPPLOT):
         print(f"{YELLOW}Skipping the datamapplot visualizations ({SKIP_DATAMAPPLOT}=1): no page is written or uploaded.{NC}")
@@ -442,8 +449,8 @@ def run(args):
                 if namer is None:
                     _finish_daemon_job(job, zid, args.region)
                 else:
-                    # How the naming ended, as the pipeline sent it (a run
-                    # that did not receive it has failed above).
+                    # How the naming ended (recorded_naming): what the
+                    # pipeline sent, or keywords when it kept them.
                     _finish_daemon_job(job, zid, args.region, naming=naming)
         sys.exit(0)
 

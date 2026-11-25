@@ -20,12 +20,10 @@ def _failing_first(monkeypatch, failures):
     return calls
 
 
-def _received(read_end, write_end):
-    os.close(write_end)
-    try:
-        return topic_namer.receive_record(read_end)
-    finally:
-        os.close(read_end)
+def _received(exchange):
+    record, _ = exchange.finish()
+    topic_namer.set_acknowledged(True)
+    return record
 
 
 def test_a_record_that_cannot_be_sent_publishes_keywords_under_a_keyword_record_with_the_cost(
@@ -33,16 +31,16 @@ def test_a_record_that_cannot_be_sent_publishes_keywords_under_a_keyword_record_
     from polismath.job_child import full_pipeline_models, naming_cost
 
     calls = _failing_first(monkeypatch, 1)
-    read_end, write_end = os.pipe()
+    exchange = topic_namer.RecordExchange()
     storage = Names()
-    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
+    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
     assert calls == ["named", "namer_failed"]
     assert {row.model_name for row in storage.rows} == {"keywords"}
     assert not any("Generated name" in label for layer in labels.values() for label in layer.values())
     assert [(n["model"], n["outcome"], n["model_clusters"]) for n in notes] == [
         ("keywords", "namer_failed", [])] * 2
     assert naming["reason"] == "record_unsent (OSError)" and naming["tokens_in"] == 25445
-    record = _received(read_end, write_end)
+    record = _received(exchange)
     assert record == naming
     # The map (from the in-memory record) and the manifest (from the pipe) agree.
     assert full_pipeline_models(record) == full_pipeline_models(naming)
@@ -52,12 +50,12 @@ def test_a_record_that_cannot_be_sent_publishes_keywords_under_a_keyword_record_
 
 def test_a_record_that_is_never_sent_never_publishes_the_models_names(pipeline, stub, monkeypatch, tmp_path):
     _failing_first(monkeypatch, 2)
-    read_end, write_end = os.pipe()
+    exchange = topic_namer.RecordExchange()
     storage = Names()
-    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
+    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
     assert {row.model_name for row in storage.rows} == {"keywords"}
     assert naming["outcome"] == "namer_failed"
-    assert _received(read_end, write_end) is None
+    assert _received(exchange) is None
 
 
 def test_the_record_is_read_without_waiting_on_a_process_that_still_holds_the_pipe():

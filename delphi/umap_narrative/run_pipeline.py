@@ -992,11 +992,14 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
     this returns: a naming failure never fails the run, and nothing here retries.
 
     The order of writes: the run's record of the naming is sent (to
-    run_delphi.py, for the manifest) before any label is written. If it cannot
-    be sent, the model's names are not published: the keyword labels are,
-    under a record that says so, with the token counts of the call that was
-    made, sent again. So what is stored and what is recorded agree, and the
-    only partial state is keyword labels recorded as keywords with the reason."""
+    run_delphi.py, for the manifest) before any label is written, and the
+    model's names are written only once run_delphi.py has answered that it
+    holds that record whole. If the record cannot be sent, it is sent once
+    more as a keyword record with the same token counts. With no answer the
+    keyword labels are written and the pipeline's exit status says so
+    (topic_namer.exit_status), and run_delphi.py records keywords. So what
+    is stored and what is recorded agree, and the only partial state is
+    keyword labels recorded as keywords with the reason."""
     from umap_narrative import topic_namer
     from umap_narrative.topic_naming import _conventional_labels
 
@@ -1029,18 +1032,28 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
                 f"tokens out {result['tokens_out']}, dollars {result['dollars']}")
 
     if record_fd is not None:
+        sent = True
         try:
             topic_namer.send_record(record_fd, result)
         except OSError as e:
             # Not sent whole: the keyword labels, under a keyword record with
-            # the same counts, sent once more. If that fails too run_delphi.py
-            # receives no record and fails the run (nothing is published).
+            # the same counts, sent once more.
             logger.error(f"The naming's record could not be sent ({type(e).__name__}); keeping keyword labels")
             result = topic_namer.keep_keywords(result, f"record_unsent ({type(e).__name__})")
             try:
                 topic_namer.send_record(record_fd, result)
             except OSError as again:
+                sent = False
                 logger.error(f"The keyword record could not be sent either ({type(again).__name__})")
+        # No label is written until run_delphi.py says it holds the record
+        # whole. Without that answer the keyword labels are written, and the
+        # exit status tells run_delphi.py to record keywords whatever it holds.
+        unheld = topic_namer.await_ack(record_fd) if sent else "unsent"
+        topic_namer.set_acknowledged(unheld is None)
+        if unheld is not None:
+            logger.error(f"run_delphi.py did not acknowledge the naming's record ({unheld}); keeping keyword labels")
+            if sent:
+                result = topic_namer.keep_keywords(result, f"record_unacknowledged ({unheld})")
 
     named = result["outcome"] == topic_namer.NAMED
     written_by = namer["model"] if named else topic_namer.KEYWORD_TOPIC_MODEL
@@ -1844,6 +1857,10 @@ def main():
         if not ok:
             logger.error(f"Processing conversation {args.zid} failed.")
             sys.exit(1)
+    if namer is not None:
+        # 0, or the status that says the naming kept keyword labels because
+        # run_delphi.py did not acknowledge its record (topic_namer.py).
+        sys.exit(topic_namer.exit_status())
 
 
 if __name__ == "__main__":

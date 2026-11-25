@@ -56,23 +56,33 @@ run_delphi.py when the run ends. Exactly when that directory is removed:
 That is safe because nothing a later step or run needs is kept there: no
 run looks for another run's directory, and the run's record of the naming
 (its outcome and token counts, for the manifest) reaches run_delphi.py over
-a pipe (``send_record`` / ``receive_record``), never through a file. What
-can be left is the hierarchy (the participants' own comments that the
-conversation shows, and keywords) and at most the program's names.
+a Unix socket pair (``send_record``, ``RecordExchange``), never through a
+file. What can be left is the hierarchy (the participants' own comments
+that the conversation shows, and keywords) and at most the program's names.
 
-The record is the only account of the naming: the pipeline writes the
-model's names only after sending it whole, and run_delphi.py records a
-naming only from a record it received whole. A record that does not arrive
-(the pipe cannot be read, none was sent, or only part of one) fails the run,
-so nothing is published under a naming its labels may disagree with; the
-call's token counts are then in the pipeline's own log line
-(``topic_names_call``).
+The record is the only account of the naming, and the model's names are
+stored only once run_delphi.py has said it holds the record whole: the
+pipeline sends the record, run_delphi.py's ``RecordExchange`` reads it while
+the pipeline runs and answers ``ACK``, and only after reading that answer
+(``await_ack``) does the pipeline write the model's names. With no answer
+(the record could not be sent or read, the answer was lost or did not come
+within ``ACK_SECONDS``) the pipeline writes the keyword labels and, if the
+rest of the run succeeds, exits ``UNACKNOWLEDGED_EXIT``; run_delphi.py then
+records the naming as keywords with its reason, whatever record it holds,
+and the run completes. The exit status is the last word because, unlike a
+message, the parent always receives it. A run whose record never reached
+run_delphi.py keeps the call's token counts in the pipeline's own log line
+(``topic_names_call``). Nothing of the exchange outlives the two processes.
 """
 
 import json
 import os
+import select
 import shutil
+import socket
 import subprocess
+import threading
+import time
 from typing import Any, Dict, List, Optional, Sequence
 
 import numpy as np
@@ -372,11 +382,9 @@ def send_record(fd: int, result: Dict[str, Any]) -> None:
         line = line[os.write(fd, line):]
 
 
-def receive_record(fd: int) -> Optional[Dict[str, Any]]:
-    """The last whole record sent on the pipe (a line ending in its newline),
-    read once the pipeline has exited (without waiting on any process that
-    still holds the pipe), or None when there is none. Raises OSError when
-    the pipe cannot be read: that is not the same as no record."""
+def _drain(fd: int) -> bytes:
+    """What the pipe or socket holds now, without waiting on any process that
+    still holds its other end. Raises OSError when it cannot be read."""
     os.set_blocking(fd, False)
     data = b""
     while len(data) < RECORD_MAX_BYTES:
@@ -387,6 +395,11 @@ def receive_record(fd: int) -> Optional[Dict[str, Any]]:
         if not chunk:
             break
         data += chunk
+    return data
+
+
+def _last_whole_record(data: bytes) -> Optional[Dict[str, Any]]:
+    """The last whole record in ``data`` (a line ending in its newline)."""
     for line in reversed(data.split(b"\n")[:-1]):
         try:
             doc = json.loads(line)
@@ -395,3 +408,118 @@ def receive_record(fd: int) -> Optional[Dict[str, Any]]:
         if isinstance(doc, dict) and doc.get("schema") == RECORD_SCHEMA:
             return doc
     return None
+
+
+def receive_record(fd: int) -> Optional[Dict[str, Any]]:
+    """The last whole record sent on the pipe (a line ending in its newline),
+    read once the pipeline has exited (without waiting on any process that
+    still holds the pipe), or None when there is none. Raises OSError when
+    the pipe cannot be read: that is not the same as no record."""
+    return _last_whole_record(_drain(fd))
+
+
+# run_delphi.py's answer once it holds the record whole, how long the
+# pipeline waits for it, and the pipeline's exit status when it kept the
+# keyword labels because the answer did not come (the rest of the run
+# having succeeded; 75 is EX_TEMPFAIL, which nothing else in it exits with).
+ACK = b"held\n"
+ACK_SECONDS = 60
+UNACKNOWLEDGED_EXIT = 75
+_unacknowledged = False
+
+
+def await_ack(fd: int, seconds: Optional[float] = None) -> Optional[str]:
+    """None once run_delphi.py has answered ``ACK`` on ``fd``; otherwise why
+    not, in a word: ``timeout``, ``closed`` (its end is gone), ``garbled``, or
+    the error reading."""
+    deadline = time.monotonic() + (ACK_SECONDS if seconds is None else seconds)
+    data = b""
+    try:
+        while True:
+            left = deadline - time.monotonic()
+            if left <= 0 or not select.select([fd], [], [], left)[0]:
+                return "timeout"
+            chunk = os.read(fd, len(ACK) - len(data))
+            if not chunk:
+                return "closed"
+            data += chunk
+            if not ACK.startswith(data):
+                return "garbled"
+            if data == ACK:
+                return None
+    except (OSError, ValueError) as e:
+        return type(e).__name__
+
+
+def set_acknowledged(acknowledged: bool) -> None:
+    """How this pipeline's naming ended its exchange (``exit_status``)."""
+    global _unacknowledged
+    _unacknowledged = not acknowledged
+
+
+def exit_status() -> int:
+    """A named run's exit status once everything else succeeded: 0, or
+    ``UNACKNOWLEDGED_EXIT`` when its names are keyword labels kept because
+    run_delphi.py did not acknowledge the record."""
+    return UNACKNOWLEDGED_EXIT if _unacknowledged else 0
+
+
+class RecordExchange:
+    """run_delphi.py's end of the naming's exchange with its pipeline: a Unix
+    socket pair whose other end (``child_fd``) the pipeline is given as
+    ``--naming-record-fd``. A thread reads the record while the pipeline
+    runs and, holding a whole one, answers ``ACK``. ``finish``, once the
+    pipeline has exited, returns what is held. Nothing is kept anywhere else."""
+
+    POLL_SECONDS = 0.1
+
+    def __init__(self):
+        self._mine, self._theirs = socket.socketpair()
+        self.child_fd = self._theirs.fileno()
+        self._data = b""
+        self._record = None
+        self._reason = None
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._receive, name="naming-record", daemon=True)
+        self._thread.start()
+
+    def _receive(self) -> None:
+        fd = self._mine.fileno()
+        try:
+            while not self._stop.is_set() and len(self._data) < RECORD_MAX_BYTES:
+                if not select.select([fd], [], [], self.POLL_SECONDS)[0]:
+                    continue
+                chunk = os.read(fd, 65536)
+                if not chunk:
+                    return
+                self._data += chunk
+                record = _last_whole_record(self._data)
+                if record is not None:
+                    self._record = record
+                    try:
+                        os.write(fd, ACK)
+                    except OSError as e:
+                        self._reason = f"ack_unsent ({type(e).__name__})"
+                    return
+        except (OSError, ValueError) as e:
+            self._reason = f"record_unreadable ({type(e).__name__})"
+
+    def finish(self):
+        """``(record, None)``, or ``(record or None, why)``: ``record_missing``
+        (no whole record), ``record_unreadable (<error>)``, ``ack_unsent
+        (<error>)``. A record sent but not yet read when the pipeline exited
+        is read here; it was never acknowledged."""
+        self._theirs.close()
+        self._stop.set()
+        self._thread.join()
+        try:
+            if self._record is None and self._reason is None:
+                try:
+                    self._record = _last_whole_record(self._data + _drain(self._mine.fileno()))
+                except OSError as e:
+                    self._reason = f"record_unreadable ({type(e).__name__})"
+            if self._record is None and self._reason is None:
+                self._reason = "record_missing"
+            return self._record, self._reason
+        finally:
+            self._mine.close()

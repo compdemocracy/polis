@@ -196,9 +196,9 @@ def test_a_source_without_a_namer_is_never_a_fresh_layout(monkeypatch, tmp_path)
 
 def test_a_comment_no_longer_shown_sends_its_keyword_record_and_leaves_nothing(monkeypatch, tmp_path):
     # Through the naming step itself, as run_delphi.py runs it: the record of
-    # a refused naming is sent on the pipe before any label is written, the
-    # labels are the keywords, the program never runs, no scratch is made.
-    import os
+    # a refused naming is sent on the record socket before any label is
+    # written, the labels are the keywords, the program never runs, no
+    # scratch is made.
     import stat
     import sys
 
@@ -230,20 +230,16 @@ def test_a_comment_no_longer_shown_sends_its_keyword_record_and_leaves_nothing(m
     storage = Names()
     out = tmp_path / "out"
     out.mkdir()
-    read_end, write_end = os.pipe()
+    exchange = topic_namer.RecordExchange()
     step_log.record()
     try:
         run_pipeline.process_layers_and_create_visualizations(
             "7", "c", np.zeros((60, 2)), LAYERS, [f"c{i}" for i in range(60)], str(out),
             name_topics=True, dynamo_storage=storage, job_id="job", namer=HAIKU,
-            namer_dir=str(tmp_path / "naming"), naming=naming, naming_record_fd=write_end)
+            namer_dir=str(tmp_path / "naming"), naming=naming, naming_record_fd=exchange.child_fd)
     finally:
         step_log._record = None
-        os.close(write_end)
-    try:
-        record = topic_namer.receive_record(read_end)
-    finally:
-        os.close(read_end)
+        record, _ = exchange.finish()
 
     assert stub_argv(tmp_path) == []
     assert not (tmp_path / "naming").exists()

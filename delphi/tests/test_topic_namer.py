@@ -312,8 +312,8 @@ def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None, record_fd=N
 
 def test_named_the_models_names_are_the_labels_recorded_as_the_models(pipeline, stub, monkeypatch, tmp_path):
     storage = Names()
-    read_end, write_end = os.pipe()
-    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
+    exchange = topic_namer.RecordExchange()
+    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
     assert labels == {0: {"0": "0_0: Generated name 0_0", "1": "0_1: Generated name 0_1",
                           "2": "0_2: Generated name 0_2"}, 1: {"0": "1_0: Generated name 1_0"}}
     assert [(n["layer"], n["model"], n["outcome"], n["model_clusters"], n["written_by_model"], n["fallback"])
@@ -323,9 +323,7 @@ def test_named_the_models_names_are_the_labels_recorded_as_the_models(pipeline, 
     assert (notes[0]["prompt"], notes[0]["thinking"], notes[0]["reason"]) == ("polis-topic-names/1", "default", None)
     assert naming["outcome"] == "named" and "names" not in naming
     assert {r.model_name for r in storage.rows} == {"claude-haiku-5-5"}
-    os.close(write_end)
-    record = topic_namer.receive_record(read_end)
-    os.close(read_end)
+    record, _ = exchange.finish()
     assert record == naming and record["tokens_in"] == 25445
     # The step's scratch files are gone once read.
     assert sorted(os.listdir(tmp_path / "naming")) == []

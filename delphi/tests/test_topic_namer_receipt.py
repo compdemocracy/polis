@@ -1,16 +1,19 @@
 """What a named run stores and what its manifest records agree on every
-failure of the naming's record between the pipeline and run_delphi.py, and a
-run stopped by hand leaves nothing of its naming behind.
+failure of the exchange of the naming's record between the pipeline and
+run_delphi.py, and a run stopped by hand leaves nothing of its naming behind.
 
-The rule: the pipeline writes the model's names only after its record was
-sent whole; run_delphi.py records a naming only from a record it received
-whole. A record that does not arrive (unreadable pipe, none sent, part of
-one) fails the run, so no manifest names a naming its labels disagree with;
-the call's token counts stay in the pipeline's own log line."""
+The rule: the pipeline writes the model's names only after run_delphi.py
+acknowledged that it holds their record whole. With no acknowledgement (the
+record could not be sent or read, the acknowledgement was lost or did not
+come) the pipeline writes keyword labels and run_delphi.py records keywords
+with the reason; the run completes and is never failed or re-run for it. The
+call's token counts are in the manifest when run_delphi.py holds the record,
+and always in the pipeline's own log line."""
 import json
 import os
 import shutil
 import signal
+import socket
 import subprocess
 import sys
 import time
@@ -19,6 +22,7 @@ from pathlib import Path
 import pytest
 
 from polismath import step_log
+from polismath.job_child import full_pipeline_models, naming_cost
 from tests.test_topic_namer import (HAIKU, HAIKU_ARG, Names, delphi_app, pipeline, run_delphi_with,  # noqa: F401
                                     run_naming, stub, topic_namer)
 
@@ -30,28 +34,112 @@ def _call_facts():
     return facts
 
 
-def test_a_record_the_parent_cannot_read_is_not_received(pipeline, stub, monkeypatch, tmp_path):
-    # The sequence the review found: the record is sent whole, the model's
-    # names are stored, then reading the pipe fails.
-    read_end, write_end = os.pipe()
+def _models(storage):
+    return {row.model_name for row in storage.rows}
+
+
+@pytest.fixture
+def quick_ack(monkeypatch):
+    # The pipeline waits this long for an acknowledgement that will not come.
+    monkeypatch.setattr(topic_namer, "ACK_SECONDS", 0.5)
+    yield
+    topic_namer.set_acknowledged(True)
+
+
+def _fails_on(monkeypatch, fd):
+    real_read = os.read
+
+    def read(f, n):
+        if f == fd:
+            raise OSError("this end cannot be read in this test")
+        return real_read(f, n)
+
+    monkeypatch.setattr(os, "read", read)
+
+
+def test_an_acknowledged_record_stores_the_models_names_and_the_manifest_names_the_model(
+        pipeline, stub, monkeypatch, tmp_path):
+    exchange = topic_namer.RecordExchange()
+    storage = Names()
+    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    record, unreceived = exchange.finish()
+    assert (record, unreceived) == (naming, None) and _models(storage) == {HAIKU["model"]}
+    assert topic_namer.exit_status() == 0
+    assert run_delphi.recorded_naming(0, record, unreceived, HAIKU) == (0, naming)
+
+
+def test_a_record_the_parent_cannot_read_leaves_keywords_recorded_as_keywords(
+        pipeline, stub, monkeypatch, tmp_path, quick_ack):
+    # The sequence the review found: the record is sent whole, then reading
+    # it fails. The model's names are never stored.
+    exchange = topic_namer.RecordExchange()
+    _fails_on(monkeypatch, exchange._mine.fileno())
+    storage = Names()
+    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    assert _models(storage) == {"keywords"}
+    assert naming["outcome"] == "namer_failed" and naming["reason"] == "record_unacknowledged (timeout)"
+    assert topic_namer.exit_status() == topic_namer.UNACKNOWLEDGED_EXIT
+    record, unreceived = exchange.finish()
+    assert (record, unreceived) == (None, "record_unreadable (OSError)")
+    code, recorded = run_delphi.recorded_naming(topic_namer.exit_status(), record, unreceived, HAIKU)
+    assert code == 0 and full_pipeline_models(recorded)["topic"] == "keywords"
+    assert recorded["reason"] == "record_unreadable (OSError)"
+    # The call's cost is in the pipeline's own log line.
+    assert _call_facts()["tokens_in"] == naming["tokens_in"] == 25445
+
+
+def test_an_acknowledgement_lost_on_the_way_leaves_keywords_and_the_manifest_keeps_the_cost(
+        pipeline, stub, monkeypatch, tmp_path, quick_ack):
+    # run_delphi.py holds the record and answers; the pipeline cannot read
+    # the answer. Model names are not stored, and the record held says
+    # "named": the exit status overrules it.
+    exchange = topic_namer.RecordExchange()
+    _fails_on(monkeypatch, exchange.child_fd)
+    storage = Names()
+    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    assert _models(storage) == {"keywords"}
+    assert naming["reason"] == "record_unacknowledged (OSError)"
+    record, unreceived = exchange.finish()
+    assert record["outcome"] == "named" and unreceived is None
+    code, recorded = run_delphi.recorded_naming(topic_namer.exit_status(), record, unreceived, HAIKU)
+    assert code == 0 and full_pipeline_models(recorded)["topic"] == "keywords"
+    assert (recorded["outcome"], recorded["reason"]) == ("namer_failed", "record_unacknowledged")
+    assert naming_cost(recorded)["llm_tokens_in"] == 25445
+
+
+def test_an_acknowledgement_that_does_not_come_leaves_keywords(pipeline, stub, monkeypatch, tmp_path, quick_ack):
+    mine, theirs = socket.socketpair()
     try:
         storage = Names()
-        _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
-        assert {row.model_name for row in storage.rows} == {HAIKU["model"]}
-        real_read = os.read
-
-        def read(fd, n):
-            if fd == read_end:
-                raise OSError("the pipe cannot be read in this test")
-            return real_read(fd, n)
-
-        monkeypatch.setattr(os, "read", read)
-        assert run_delphi.receive_naming(read_end) == (None, "record_unreadable (OSError)")
-        # The call's cost is in the pipeline's own log line.
-        assert _call_facts()["tokens_in"] == naming["tokens_in"] == 25445
+        _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=theirs.fileno())
+        assert _models(storage) == {"keywords"}
+        assert naming["reason"] == "record_unacknowledged (timeout)" and naming["tokens_in"] == 25445
+        assert topic_namer.exit_status() == topic_namer.UNACKNOWLEDGED_EXIT
+        # Whatever reached the other end says "named"; the exit status overrules it.
+        record = topic_namer.receive_record(mine.fileno())
+        assert record["outcome"] == "named"
+        _, recorded = run_delphi.recorded_naming(topic_namer.UNACKNOWLEDGED_EXIT, record, None, HAIKU)
+        assert full_pipeline_models(recorded)["topic"] == "keywords"
     finally:
-        os.close(read_end)
-        os.close(write_end)
+        mine.close()
+        theirs.close()
+
+
+def test_a_parent_that_is_gone_leaves_keywords_without_waiting(pipeline, stub, monkeypatch, tmp_path):
+    mine, theirs = socket.socketpair()
+    mine.close()
+    monkeypatch.setattr(topic_namer, "ACK_SECONDS", 30)
+    try:
+        storage = Names()
+        started = time.monotonic()
+        _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=theirs.fileno())
+        assert time.monotonic() - started < 20
+        assert _models(storage) == {"keywords"} and naming["reason"].startswith("record_unsent")
+        assert topic_namer.exit_status() == topic_namer.UNACKNOWLEDGED_EXIT
+        assert _call_facts()["tokens_in"] == 25445
+    finally:
+        theirs.close()
+        topic_namer.set_acknowledged(True)
 
 
 def test_a_record_that_is_never_sent_whole_leaves_keywords_and_the_cost_in_the_log(
@@ -60,17 +148,14 @@ def test_a_record_that_is_never_sent_whole_leaves_keywords_and_the_cost_in_the_l
         raise OSError("the record pipe is refused for this test")
 
     monkeypatch.setattr(topic_namer, "send_record", refuse)
-    read_end, write_end = os.pipe()
-    try:
-        storage = Names()
-        _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
-        assert {row.model_name for row in storage.rows} == {"keywords"}
-        assert naming["outcome"] == "namer_failed" and naming["reason"].startswith("record_unsent")
-        assert run_delphi.receive_naming(read_end) == (None, "record_missing")
-        assert _call_facts()["tokens_in"] == 25445
-    finally:
-        os.close(read_end)
-        os.close(write_end)
+    exchange = topic_namer.RecordExchange()
+    storage = Names()
+    _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    assert {row.model_name for row in storage.rows} == {"keywords"}
+    assert naming["outcome"] == "namer_failed" and naming["reason"].startswith("record_unsent")
+    assert exchange.finish() == (None, "record_missing")
+    assert _call_facts()["tokens_in"] == 25445
+    topic_namer.set_acknowledged(True)
 
 
 def test_a_record_not_sent_after_another_outcome_is_sent_again(pipeline, stub, monkeypatch, tmp_path):
@@ -85,39 +170,44 @@ def test_a_record_not_sent_after_another_outcome_is_sent_again(pipeline, stub, m
         real(fd, result)
 
     monkeypatch.setattr(topic_namer, "send_record", first_fails)
-    read_end, write_end = os.pipe()
-    try:
-        storage = Names()
-        run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=write_end)
-        record, unreceived = run_delphi.receive_naming(read_end)
-        assert calls == ["timeout", "timeout"] and unreceived is None
-        assert record["outcome"] == "timeout" and "record_unsent" in record["reason"]
-        assert {row.model_name for row in storage.rows} == {"keywords"}
-    finally:
-        os.close(read_end)
-        os.close(write_end)
+    exchange = topic_namer.RecordExchange()
+    storage = Names()
+    run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    record, unreceived = exchange.finish()
+    assert calls == ["timeout", "timeout"] and unreceived is None
+    assert record["outcome"] == "timeout" and "record_unsent" in record["reason"]
+    assert {row.model_name for row in storage.rows} == {"keywords"}
 
 
-# What the stand-in pipeline sends on the record pipe: nothing, or a whole
-# record without its final newline (part of one).
+# What the stand-in pipeline sends on the record socket, and its exit status:
+# nothing; a whole record without its final newline (part of one); a whole
+# named record, then the status of a pipeline whose acknowledgement did not
+# come; a whole named record, acknowledged.
 SENDS = {
-    "nothing": "",
-    "part": json.dumps({"schema": "polis-topic-names.run-record/1", "outcome": "named",
-                        "namer": {"model": "claude-haiku-5-5"}}),
+    "nothing": ("", 0, "keywords (record_missing)"),
+    "part": (json.dumps({"schema": "polis-topic-names.run-record/1", "outcome": "named",
+                         "namer": {"model": "claude-haiku-5-5"}}), 0, "keywords (record_missing)"),
+    "unacknowledged": (json.dumps({"schema": "polis-topic-names.run-record/1", "outcome": "named",
+                                   "namer": HAIKU, "tokens_in": 9}) + "\n", 75,
+                       "keywords (record_unacknowledged)"),
+    "acknowledged": (json.dumps({"schema": "polis-topic-names.run-record/1", "outcome": "named",
+                                 "namer": HAIKU, "tokens_in": 9}) + "\n", 0, "claude-haiku-5-5"),
 }
 
 
 @pytest.mark.parametrize("sent", sorted(SENDS))
-def test_a_run_that_receives_no_whole_record_fails(delphi_app, sent):
+def test_a_run_whatever_its_record_completes_and_records_what_was_stored(delphi_app, sent):
+    text, status, recorded = SENDS[sent]
     script = delphi_app / "umap_narrative" / "run_pipeline.py"
-    text = script.read_text()
-    start = text.index('    if a.startswith("--naming-record-fd=")')
-    script.write_text(text[:start] + '    if a.startswith("--naming-record-fd="):\n'
-                      f'        os.write(int(a.split("=", 1)[1]), {SENDS[sent]!r}.encode())\n')
+    source = script.read_text()
+    start = source.index('    if a.startswith("--naming-record-fd=")')
+    script.write_text(source[:start] + '    if a.startswith("--naming-record-fd="):\n'
+                      f'        os.write(int(a.split("=", 1)[1]), {text!r}.encode())\n'
+                      f'sys.exit({status})\n')
     done = run_delphi_with(delphi_app, f"--namer={HAIKU_ARG}")
-    assert done.returncode == 1, done.stdout + done.stderr
-    assert "naming record (record_missing)" in done.stdout
-    assert "Pipeline completed successfully" not in done.stdout
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert f"Topic naming recorded by {recorded}\n" in done.stdout
+    assert "Pipeline completed successfully" in done.stdout
 
 
 @pytest.mark.parametrize("step_log_on", [False, True])

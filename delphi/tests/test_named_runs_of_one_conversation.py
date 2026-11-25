@@ -217,20 +217,17 @@ def pipeline(tmp_path, monkeypatch):
         extra = {}
         if namer is not None:
             # As run_delphi.py gives them: the attempt's naming directory and
-            # the pipe the naming's record is sent on.
+            # the socket the naming's record is sent and acknowledged on.
             (r.dir / "naming").mkdir()
-            read_end, write_end = os.pipe()
-            extra = dict(namer_dir=str(r.dir / "naming"), naming_record_fd=write_end)
+            exchange = topic_namer.RecordExchange()
+            extra = dict(namer_dir=str(r.dir / "naming"), naming_record_fd=exchange.child_fd)
         try:
             assert run_pipeline._process_conversation(
                 ZID, str(out), True, True, False, False, {}, selection=SELECTION, namer=namer, **extra)
         finally:
             if extra:
-                os.close(write_end)
-                try:
-                    r.record = topic_namer.receive_record(read_end)
-                finally:
-                    os.close(read_end)
+                r.record, _ = exchange.finish()
+                topic_namer.set_acknowledged(True)
         if namer is not None:
             # Nothing of the naming is left in the attempt's directory.
             assert os.listdir(r.dir / "naming") == []
