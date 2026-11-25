@@ -41,6 +41,8 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
            status text, job_config jsonb, created_at text,
            job_type text NOT NULL DEFAULT 'full_pipeline');
          CREATE INDEX ON delphi_result_jobs(env, conversation_id);
+         CREATE TABLE delphi_job_aliases(public_id text PRIMARY KEY, job_id uuid NOT NULL,
+           source text NOT NULL);
          CREATE TABLE stand_in_runs(env text, job_id uuid, record jsonb);
          CREATE TABLE stand_in_wires(env text, artifact_id uuid, family text, wire text,
            delay float8 NOT NULL DEFAULT 0);
@@ -303,6 +305,7 @@ pub(crate) fn app_on(db: &Db) -> App {
     app.delphi_topic_map_db = Some(db.pool(pool_limits()));
     app.delphi_topic_map_auth_db = Some(db.pool(auth_pool_limits()));
     app.delphi_topic_map_env = "test".into();
+    app.delphi_topic_map_derived = true;
     app
 }
 
@@ -2320,6 +2323,12 @@ fn derived(
         &[&job, &zid.to_string(), &status, &config.to_string()],
     )
     .unwrap();
+    // Its address, as admission records it for good.
+    c.execute(
+        "INSERT INTO delphi_job_aliases VALUES('derived/1:'||$1,$2::text::uuid,'derived')",
+        &[&key, &job],
+    )
+    .unwrap();
     let families: Vec<_> = wire
         .map(|(_, rows)| {
             json!({"family": contract::FAMILY, "artifact_id": artifact, "job_id": job,
@@ -2693,15 +2702,40 @@ fn a_derived_map_not_yet_made_or_never_made_says_so() {
 
 #[test]
 fn review_derived_moderation_and_replacement() {
-    let db=Db::new("review_moderation"); let mut c=db.connect();
+    let db = Db::new("review_moderation");
+    let mut c = db.connect();
     c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID}); INSERT INTO comments(zid,tid,mod) VALUES({ZID},14,-1);")).unwrap();
-    let map=stored(small_map()); let wire=map_family(ZID,&map);
-    let x=listed_run(&mut c,"test",ZID,"all_comments/1","2026-01-01T00:00:00.000000Z",None,None);
-    publish(&mut c,"test",ZID,"delphi:all_comments",&x,&uuid(0xa000));
-    let y=derived(&mut c,ZID,&x,&x,"COMPLETED",Some((&wire,3)));
-    let own_art=uuid(0xb000);
-    let own=listed_run(&mut c,"test",ZID,"all_comments/1","2025-01-01T00:00:00.000000Z",Some((3,&own_art)),None);
-    wire_at(&mut c,"test",&own_art,&wire,&own);
+    let map = stored(small_map());
+    let wire = map_family(ZID, &map);
+    let x = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "all_comments/1",
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    publish(
+        &mut c,
+        "test",
+        ZID,
+        "delphi:all_comments",
+        &x,
+        &uuid(0xa000),
+    );
+    let y = derived(&mut c, ZID, &x, &x, "COMPLETED", Some((&wire, 3)));
+    let own_art = uuid(0xb000);
+    let own = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "all_comments/1",
+        "2025-01-01T00:00:00.000000Z",
+        Some((3, &own_art)),
+        None,
+    );
+    wire_at(&mut c, "test", &own_art, &wire, &own);
     runtime().block_on(async {
         let app=Arc::new(app_on(&db));
         let url=format!("/api/v3/delphi/topicMap?report_id=r1&job_id={x}");
@@ -2737,39 +2771,373 @@ fn review_derived_moderation_and_replacement() {
 
 #[test]
 fn review_named_derived_id_reports_the_source() {
-    let db=Db::new("review_named"); let mut c=db.connect();
-    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});")).unwrap();
-    let x=listed_run(&mut c,"test",ZID,"all_comments/1","2026-01-01T00:00:00.000000Z",None,None);
-    let map=stored(document(20,&x)); let y=derived(&mut c,ZID,&x,&x,"COMPLETED",Some((&map_family(ZID,&map),3)));
+    let db = Db::new("review_named");
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let x = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        "all_comments/1",
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let map = stored(document(20, &x));
+    let y = derived(
+        &mut c,
+        ZID,
+        &x,
+        &x,
+        "COMPLETED",
+        Some((&map_family(ZID, &map), 3)),
+    );
     runtime().block_on(async {
-        let app=Arc::new(app_on(&db));
-        let out=crate::dispatch(app,None,with(&format!("/api/v3/delphi/topicMap?report_id=r1&job_id={y}"),&[])).await;
-        eprintln!("named derived status={} job={:?} made_by={:?} selection={:?}",out.status,header(&out,contract::HEADER_JOB),header(&out,contract::HEADER_MADE_BY),header(&out,contract::HEADER_SELECTION));
-        assert_eq!(header(&out,contract::HEADER_JOB),Some(x.as_str()));
-        assert_eq!(header(&out,contract::HEADER_MADE_BY),Some(y.as_str()));
+        let app = Arc::new(app_on(&db));
+        let out = crate::dispatch(
+            app,
+            None,
+            with(
+                &format!("/api/v3/delphi/topicMap?report_id=r1&job_id={y}"),
+                &[],
+            ),
+        )
+        .await;
+        eprintln!(
+            "named derived status={} job={:?} made_by={:?} selection={:?}",
+            out.status,
+            header(&out, contract::HEADER_JOB),
+            header(&out, contract::HEADER_MADE_BY),
+            header(&out, contract::HEADER_SELECTION)
+        );
+        assert_eq!(header(&out, contract::HEADER_JOB), Some(x.as_str()));
+        assert_eq!(header(&out, contract::HEADER_MADE_BY), Some(y.as_str()));
     });
 }
 
 #[test]
 fn review_unchanged_replies() {
+    unchanged_replies(true);
+}
+
+/// The same replies with derived reads off: what the route answered before
+/// derived maps, byte for byte.
+#[test]
+fn review_unchanged_replies_off() {
+    unchanged_replies(false);
+}
+
+fn unchanged_replies(derived: bool) {
     NEXT.store(100, Ordering::SeqCst);
-    let db=Db::new("review_bytes"); let mut c=db.connect();
-    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});")).unwrap();
-    let map=stored(document(30,"fixed"));
-    let job=served(&mut c,"test",ZID,"delphi","participant_visible/1",Some(&map_family(ZID,&map)));
+    let db = Db::new("review_bytes");
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let map = stored(document(30, "fixed"));
+    let job = served(
+        &mut c,
+        "test",
+        ZID,
+        "delphi",
+        "participant_visible/1",
+        Some(&map_family(ZID, &map)),
+    );
     runtime().block_on(async {
-        let app=Arc::new(app_on(&db));
-        for suffix in [String::new(),format!("&job_id={job}"),"&list=jobs".into()] {
-            for gz in [false,true] {
-                let hs=if gz{vec![("accept-encoding","gzip")]}else{vec![]};
-                let out=crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),&hs)).await;
-                eprintln!("PARITY suffix={suffix} gz={gz} status={} headers={:?} bodysha={:x}",out.status,out.headers,Sha256::digest(bytes(&out)));
+        let mut app = app_on(&db);
+        app.delphi_topic_map_derived = derived;
+        let app = Arc::new(app);
+        for suffix in [String::new(), format!("&job_id={job}"), "&list=jobs".into()] {
+            for gz in [false, true] {
+                let hs = if gz {
+                    vec![("accept-encoding", "gzip")]
+                } else {
+                    vec![]
+                };
+                let out = crate::dispatch(
+                    app.clone(),
+                    None,
+                    with(
+                        &format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),
+                        &hs,
+                    ),
+                )
+                .await;
+                eprintln!(
+                    "PARITY suffix={suffix} gz={gz} status={} headers={:?} bodysha={:x}",
+                    out.status,
+                    out.headers,
+                    Sha256::digest(bytes(&out))
+                );
             }
         }
-        std::thread::scope(|s|s.spawn(|| c.batch_execute("DELETE FROM stand_in_wires; DELETE FROM stand_in_runs").unwrap()).join().unwrap());
-        for suffix in [String::new(),format!("&job_id={job}"),"&list=jobs".into()] {
-            let out=crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),&[])).await;
-            eprintln!("PARITY absent suffix={suffix} status={} headers={:?} bodysha={:x}",out.status,out.headers,Sha256::digest(bytes(&out)));
+        std::thread::scope(|s| {
+            s.spawn(|| {
+                c.batch_execute("DELETE FROM stand_in_wires; DELETE FROM stand_in_runs")
+                    .unwrap()
+            })
+            .join()
+            .unwrap()
+        });
+        for suffix in [String::new(), format!("&job_id={job}"), "&list=jobs".into()] {
+            let out = crate::dispatch(
+                app.clone(),
+                None,
+                with(
+                    &format!("/api/v3/delphi/topicMap?report_id=r1{suffix}"),
+                    &[],
+                ),
+            )
+            .await;
+            eprintln!(
+                "PARITY absent suffix={suffix} status={} headers={:?} bodysha={:x}",
+                out.status,
+                out.headers,
+                Sha256::digest(bytes(&out))
+            );
         }
+    });
+}
+
+/// With derived reads off the route makes no derived lookup of any kind: the
+/// job address table is gone, derived jobs exist, and every reply is the
+/// one a route without derived maps gives; the same database with the
+/// switch on fails at the lookup, so the lookup is what was skipped.
+#[test]
+fn derived_reads_off_make_no_derived_lookup() {
+    let db = Db::new("derived_off");
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let p = "participant_visible/1";
+    let x = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    publish(&mut c, "test", ZID, "delphi", &x, &uuid(0xa000));
+    let map = stored(document(20, "off"));
+    let y = derived(
+        &mut c,
+        ZID,
+        &x,
+        &x,
+        "COMPLETED",
+        Some((&map_family(ZID, &map), 3)),
+    );
+    c.batch_execute("DROP TABLE delphi_job_aliases").unwrap();
+    runtime().block_on(async {
+        let mut off = app_on(&db);
+        off.delphi_topic_map_derived = false;
+        let off = Arc::new(off);
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        for target in [url.to_owned(), format!("{url}&job_id={x}")] {
+            let out = crate::dispatch(off.clone(), None, with(&target, &[])).await;
+            let body = no_map_body(&out);
+            assert_eq!(body.reason, NoMapReason::NotStored, "{target}");
+            assert_eq!(body.map_job_id, None);
+            assert_eq!(header(&out, contract::HEADER_MADE_BY), None);
+        }
+        // The derived job named: as before derived maps, a job of the
+        // conversation read as a run, with no maker named.
+        let out = crate::dispatch(off.clone(), None, with(&format!("{url}&job_id={y}"), &[])).await;
+        assert_eq!(header(&out, contract::HEADER_MADE_BY), None);
+        assert_ne!(out.status, 500, "{}", text(&out));
+        let list = crate::dispatch(off.clone(), None, with(&format!("{url}&list=jobs"), &[])).await;
+        assert_eq!(list.status, 200, "{}", text(&list));
+        assert!(!text(&list).contains("\"map\""), "{}", text(&list));
+        let on = Arc::new(app_on(&db));
+        let out = crate::dispatch(on.clone(), None, with(url, &[])).await;
+        assert_eq!(out.status, 500, "the lookup runs when on: {}", text(&out));
+    });
+}
+
+/// A login that may not read the job address table: every derived lookup is
+/// no derived map (logged once per process), never a 500, and in-run maps
+/// are served as before.
+#[test]
+fn a_login_that_cannot_read_job_addresses_finds_no_derived_map() {
+    let db = Db::new("derived_permission");
+    let mut c = db.connect();
+    let role = format!("topic_map_reader_{}", std::process::id());
+    c.batch_execute(&format!(
+        "INSERT INTO reports VALUES('r1',{ZID});
+         CREATE ROLE {role} LOGIN;
+         GRANT SELECT ON ALL TABLES IN SCHEMA public TO {role};
+         REVOKE SELECT ON delphi_job_aliases FROM {role};"
+    ))
+    .unwrap();
+    let p = "participant_visible/1";
+    let x = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2026-01-01T00:00:00.000000Z",
+        None,
+        None,
+    );
+    publish(&mut c, "test", ZID, "delphi", &x, &uuid(0xa000));
+    let map = stored(document(20, "denied"));
+    let y = derived(
+        &mut c,
+        ZID,
+        &x,
+        &x,
+        "COMPLETED",
+        Some((&map_family(ZID, &map), 3)),
+    );
+    let own_art = uuid(0xb000);
+    let own = listed_run(
+        &mut c,
+        "test",
+        ZID,
+        p,
+        "2025-01-01T00:00:00.000000Z",
+        Some((3, &own_art)),
+        None,
+    );
+    let own_map = stored(document(25, "own"));
+    wire_at(&mut c, "test", &own_art, &map_family(ZID, &own_map), &own);
+    let mut config = db.config.clone();
+    config.user(&role);
+    runtime().block_on(async {
+        let mut app = app_on(&db);
+        let pool =
+            |limits| crate::db::Pool::new(Connector::Plain(Box::new(config.clone())), limits);
+        app.delphi_topic_map_db = Some(pool(pool_limits()));
+        app.delphi_topic_map_auth_db = Some(pool(auth_pool_limits()));
+        let app = Arc::new(app);
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        for target in [
+            url.to_owned(),
+            format!("{url}&job_id={x}"),
+            format!("{url}&job_id={y}"),
+        ] {
+            let out = crate::dispatch(app.clone(), None, with(&target, &[])).await;
+            let body = no_map_body(&out);
+            assert_eq!(body.reason, NoMapReason::NotStored, "{target}");
+            assert_eq!(body.job_id.as_deref(), Some(x.as_str()));
+            assert_eq!(body.map_job_id, None);
+        }
+        let out =
+            crate::dispatch(app.clone(), None, with(&format!("{url}&job_id={own}"), &[])).await;
+        assert_eq!(out.status, 200);
+        assert_eq!(text(&out), own_map.document);
+        let list = crate::dispatch(app.clone(), None, with(&format!("{url}&list=jobs"), &[])).await;
+        assert_eq!(list.status, 200, "{}", text(&list));
+        assert!(!text(&list).contains("\"map\""), "{}", text(&list));
+    });
+    drop(c);
+    drop(db);
+    let admin: postgres::Config = std::env::var("POLIS_API_TEST_DATABASE_URL")
+        .unwrap()
+        .parse()
+        .unwrap();
+    admin
+        .connect(NoTls)
+        .unwrap()
+        .batch_execute(&format!("DROP ROLE {role}"))
+        .unwrap();
+}
+
+/// A request naming the derived job itself, in each of its states: the run
+/// is its source, the maker the derived job, as a read of the source.
+#[test]
+fn a_named_derived_job_answers_as_its_source() {
+    let db = Db::new("derived_named");
+    let mut c = db.connect();
+    c.batch_execute(&format!("INSERT INTO reports VALUES('r1',{ZID});"))
+        .unwrap();
+    let p = "participant_visible/1";
+    let run = |c: &mut postgres::Client, at: &str| listed_run(c, "test", ZID, p, at, None, None);
+    let (xm, xp, xn, xf) = (
+        run(&mut c, "2026-01-04T00:00:00.000000Z"),
+        run(&mut c, "2026-01-03T00:00:00.000000Z"),
+        run(&mut c, "2026-01-02T00:00:00.000000Z"),
+        run(&mut c, "2026-01-01T00:00:00.000000Z"),
+    );
+    let map = stored(document(20, "named"));
+    let no_map = no_map_family(ZID, "too_few_comments");
+    let ym = derived(
+        &mut c,
+        ZID,
+        &xm,
+        &xm,
+        "COMPLETED",
+        Some((&map_family(ZID, &map), 3)),
+    );
+    let yp = derived(&mut c, ZID, &xp, &xp, "RUNNING", None);
+    let yn = derived(&mut c, ZID, &xn, &xn, "COMPLETED", Some((&no_map, 1)));
+    let yf = derived(&mut c, ZID, &xf, &xf, "FAILED", None);
+    // A derived job of this conversation whose source is another's run.
+    let foreign = listed_run(
+        &mut c,
+        "test",
+        ZID + 1,
+        p,
+        "2026-01-05T00:00:00.000000Z",
+        None,
+        None,
+    );
+    let yx = derived(&mut c, ZID, &foreign, &foreign, "COMPLETED", None);
+    // A derived job whose source's address names another job.
+    let xo = run(&mut c, "2025-12-01T00:00:00.000000Z");
+    let yo = derived(
+        &mut c,
+        ZID,
+        &xo,
+        &xo,
+        "COMPLETED",
+        Some((&map_family(ZID, &map), 3)),
+    );
+    c.execute(
+        "UPDATE delphi_job_aliases SET job_id=$1::text::uuid WHERE job_id=$2::text::uuid",
+        &[&ym, &yo],
+    )
+    .unwrap();
+    runtime().block_on(async {
+        let app = Arc::new(app_on(&db));
+        let url = "/api/v3/delphi/topicMap?report_id=r1";
+        let get = |job: &str| {
+            let app = app.clone();
+            let target = format!("{url}&job_id={job}");
+            async move { crate::dispatch(app, None, with(&target, &[])).await }
+        };
+        let (by_y, by_x) = (get(&ym).await, get(&xm).await);
+        assert_eq!(by_y.status, 200, "{}", text(&by_y));
+        assert_eq!(bytes(&by_y), bytes(&by_x));
+        assert_eq!(by_y.headers, by_x.headers);
+        assert_eq!(header(&by_y, contract::HEADER_JOB), Some(xm.as_str()));
+        assert_eq!(header(&by_y, contract::HEADER_MADE_BY), Some(ym.as_str()));
+        assert_eq!(header(&by_y, contract::HEADER_SELECTION), Some(p));
+        for (y, x, reason) in [
+            (&yp, &xp, NoMapReason::MapPending),
+            (&yn, &xn, NoMapReason::TooFewComments),
+            (&yf, &xf, NoMapReason::MapFailed),
+        ] {
+            let (by_y, by_x) = (get(y).await, get(x).await);
+            assert_eq!(bytes(&by_y), bytes(&by_x), "{reason:?}");
+            let body = no_map_body(&by_y);
+            assert_eq!(body.reason, reason);
+            assert_eq!(body.job_id.as_deref(), Some(x.as_str()));
+            assert_eq!(body.map_job_id.as_deref(), Some(y.as_str()));
+        }
+        assert_eq!(
+            get(&yx).await.status,
+            404,
+            "a source of another conversation"
+        );
+        let out = get(&yo).await;
+        assert_eq!(
+            out.status,
+            500,
+            "an address naming another job: {}",
+            text(&out)
+        );
     });
 }

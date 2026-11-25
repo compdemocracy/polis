@@ -174,25 +174,17 @@ impl Migrated {
             .as_i64()
             .unwrap_or_else(|| claim["lease_epoch"].as_str().unwrap().parse().unwrap());
         for (family, wire) in families {
-        let wire = wire.replace(JOB, &job.to_string());
-        let put = one(
-            &mut ex,
-            "SELECT pd_result_put_family($1,$2,$3,$4,$5,$6,$7)",
-            &[
-                &ENV,
-                &job,
-                &owner,
-                &attempt,
-                &epoch,
-                family,
-                &wire,
-            ],
-        );
-        assert_eq!(
-            put["sha256"],
-            hex(&Sha256::digest(wire.as_bytes())),
-            "{put}"
-        );
+            let wire = wire.replace(JOB, &job.to_string());
+            let put = one(
+                &mut ex,
+                "SELECT pd_result_put_family($1,$2,$3,$4,$5,$6,$7)",
+                &[&ENV, &job, &owner, &attempt, &epoch, family, &wire],
+            );
+            assert_eq!(
+                put["sha256"],
+                hex(&Sha256::digest(wire.as_bytes())),
+                "{put}"
+            );
         }
         let seal = one(
             &mut ex,
@@ -352,82 +344,217 @@ mod review_support;
 
 #[test]
 fn review_real_worker_to_route() {
-    use polis_topic_map::{stored as store, derived, worker};
+    use polis_topic_map::{derived, stored as store, worker};
     let db = Migrated::new();
-    db.connect(&db.app).batch_execute(&format!(
-        "INSERT INTO users(uid,hname) VALUES(1,'generated owner');
+    db.connect(&db.app)
+        .batch_execute(&format!(
+            "INSERT INTO users(uid,hname) VALUES(1,'generated owner');
          INSERT INTO conversations(zid,owner,topic) VALUES({ZID},1,'generated');
          INSERT INTO reports(report_id,zid) VALUES('{REPORT}',{ZID});"
-    )).unwrap();
+        ))
+        .unwrap();
     let run = review_support::run("biodiversity", ZID as i64, None);
-    let x = db.writer_families("delphi", json!({"selection":"participant_visible/1"}), &[
-        (store::POSITIONS, &run.positions), (store::ASSIGNMENTS, &run.assignments), (store::NAMES, &run.names)]);
-    let request = derived::Request { operation:derived::Operation::TopicMap,version:1,env:ENV.into(),
-        source_job_id:x.clone(),conversation_id:ZID,selection:Some("participant_visible/1".into()),inputs_sha256:None,asker:"test".into() };
-    let admission = derived::admit(&mut db.connect(&db.writer), |k| (k==derived::SWITCH).then(||"1".into()), &request, &"c".repeat(40)).unwrap();
-    let y = match admission { derived::Admission::Enqueued(a)=>a.job_id, a=>panic!("{a:?}") };
-    let make_app = || { let mut app=super::app();
-        app.delphi_topic_map_db=Some(crate::db::Pool::new(Connector::Plain(Box::new(db.config(&db.name,&db.app))),pool_limits()));
-        app.delphi_topic_map_auth_db=Some(crate::db::Pool::new(Connector::Plain(Box::new(db.config(&db.name,&db.app))),auth_pool_limits()));
-        app.delphi_topic_map_env=ENV.into(); Arc::new(app) };
-    let rt=tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap();
-    let url=format!("/api/v3/delphi/topicMap?report_id={REPORT}&job_id={x}");
-    let out=rt.block_on(crate::dispatch(make_app(),None,with(&url,&[])));
-    assert_eq!(out.status,200,"{}",text(&out));
-    assert_eq!(serde_json::from_str::<Value>(&text(&out)).unwrap()["reason"],"map_pending");
-    let dsn=db.url(&db.writer);
-    let get=move |k:&str| match k {"QUEUE_DATABASE_URL"=>Some(dsn.clone()),"POLIS_JOBS_TRANSPORT"=>Some("loopback".into()),_=>None};
-    let mut w=worker::Worker::new(worker::Config {env:ENV.into(),connector:Arc::new(worker::connector(&get).unwrap()),
-        reader:Box::new(move |deadline|worker::connector(&get).unwrap().connect_bounded(deadline,std::time::Duration::from_secs(30)).map_err(|e|e.to_string())),
-        lease_seconds:60,bounds:worker::Bounds::default()}).unwrap();
-    let pass=w.pass().unwrap(); eprintln!("worker {pass:?}");
-    assert!(matches!(pass,worker::Pass::Stored{ref outcome,ref finalize,..} if outcome=="map" && finalize=="succeeded"));
-    let app=make_app();
-    let out=rt.block_on(crate::dispatch(app.clone(),None,with(&url,&[])));
-    eprintln!("real worker route status={} body_prefix={}",out.status,text(&out).chars().take(160).collect::<String>());
-    assert_eq!(out.status,200,"{}",text(&out));
-    assert_eq!(header(&out,contract::HEADER_JOB),Some(x.as_str()));
-    assert_eq!(header(&out,contract::HEADER_MADE_BY),Some(y.as_str()));
-    let doc:Value=serde_json::from_str(&text(&out)).unwrap();
-    assert!(doc.get("reason").is_none(),"{doc}");
-    let default=rt.block_on(crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id={REPORT}"),&[])));
-    assert_eq!(default.status,200); assert_eq!(bytes(&default),bytes(&out));
-    assert_eq!(header(&default,contract::HEADER_JOB),Some(x.as_str()));
-    let list=rt.block_on(crate::dispatch(app.clone(),None,with(&format!("/api/v3/delphi/topicMap?report_id={REPORT}&list=jobs"),&[])));
-    eprintln!("real worker list {}",text(&list));
-    let listed:Value=serde_json::from_str(&text(&list)).unwrap();
-    assert_eq!(listed["jobs"][0]["current"],true);
-    assert_eq!(listed["jobs"][0]["map"]["job_id"],y);
+    let x = db.writer_families(
+        "delphi",
+        json!({"selection":"participant_visible/1"}),
+        &[
+            (store::POSITIONS, &run.positions),
+            (store::ASSIGNMENTS, &run.assignments),
+            (store::NAMES, &run.names),
+        ],
+    );
+    let request = derived::Request {
+        operation: derived::Operation::TopicMap,
+        version: 1,
+        env: ENV.into(),
+        source_job_id: x.clone(),
+        conversation_id: ZID,
+        selection: Some("participant_visible/1".into()),
+        inputs_sha256: None,
+        asker: "test".into(),
+    };
+    let admission = derived::admit(
+        &mut db.connect(&db.writer),
+        |k| (k == derived::SWITCH).then(|| "1".into()),
+        &request,
+        &"c".repeat(40),
+    )
+    .unwrap();
+    let y = match admission {
+        derived::Admission::Enqueued(a) => a.job_id,
+        a => panic!("{a:?}"),
+    };
+    let make_app = || {
+        let mut app = super::app();
+        app.delphi_topic_map_db = Some(crate::db::Pool::new(
+            Connector::Plain(Box::new(db.config(&db.name, &db.app))),
+            pool_limits(),
+        ));
+        app.delphi_topic_map_auth_db = Some(crate::db::Pool::new(
+            Connector::Plain(Box::new(db.config(&db.name, &db.app))),
+            auth_pool_limits(),
+        ));
+        app.delphi_topic_map_env = ENV.into();
+        app.delphi_topic_map_derived = true;
+        Arc::new(app)
+    };
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let url = format!("/api/v3/delphi/topicMap?report_id={REPORT}&job_id={x}");
+    let out = rt.block_on(crate::dispatch(make_app(), None, with(&url, &[])));
+    assert_eq!(out.status, 200, "{}", text(&out));
+    assert_eq!(
+        serde_json::from_str::<Value>(&text(&out)).unwrap()["reason"],
+        "map_pending"
+    );
+    let dsn = db.url(&db.writer);
+    let get = move |k: &str| match k {
+        "QUEUE_DATABASE_URL" => Some(dsn.clone()),
+        "POLIS_JOBS_TRANSPORT" => Some("loopback".into()),
+        _ => None,
+    };
+    let mut w = worker::Worker::new(worker::Config {
+        env: ENV.into(),
+        connector: Arc::new(worker::connector(&get).unwrap()),
+        reader: Box::new(move |deadline| {
+            worker::connector(&get)
+                .unwrap()
+                .connect_bounded(deadline, std::time::Duration::from_secs(30))
+                .map_err(|e| e.to_string())
+        }),
+        lease_seconds: 60,
+        bounds: worker::Bounds::default(),
+    })
+    .unwrap();
+    let pass = w.pass().unwrap();
+    eprintln!("worker {pass:?}");
+    assert!(
+        matches!(pass,worker::Pass::Stored{ref outcome,ref finalize,..} if outcome=="map" && finalize=="succeeded")
+    );
+    let app = make_app();
+    let out = rt.block_on(crate::dispatch(app.clone(), None, with(&url, &[])));
+    eprintln!(
+        "real worker route status={} body_prefix={}",
+        out.status,
+        text(&out).chars().take(160).collect::<String>()
+    );
+    assert_eq!(out.status, 200, "{}", text(&out));
+    assert_eq!(header(&out, contract::HEADER_JOB), Some(x.as_str()));
+    assert_eq!(header(&out, contract::HEADER_MADE_BY), Some(y.as_str()));
+    let doc: Value = serde_json::from_str(&text(&out)).unwrap();
+    assert!(doc.get("reason").is_none(), "{doc}");
+    let default = rt.block_on(crate::dispatch(
+        app.clone(),
+        None,
+        with(&format!("/api/v3/delphi/topicMap?report_id={REPORT}"), &[]),
+    ));
+    assert_eq!(default.status, 200);
+    assert_eq!(bytes(&default), bytes(&out));
+    assert_eq!(header(&default, contract::HEADER_JOB), Some(x.as_str()));
+    let list = rt.block_on(crate::dispatch(
+        app.clone(),
+        None,
+        with(
+            &format!("/api/v3/delphi/topicMap?report_id={REPORT}&list=jobs"),
+            &[],
+        ),
+    ));
+    eprintln!("real worker list {}", text(&list));
+    let listed: Value = serde_json::from_str(&text(&list)).unwrap();
+    assert_eq!(listed["jobs"][0]["current"], true);
+    assert_eq!(listed["jobs"][0]["map"]["job_id"], y);
     // Query plan under the real views, at successively larger histories.
-    let mut owner=db.connect(&db.app);
+    let mut owner = db.connect(&db.app);
     for n in [1000i32, 10000] {
         owner.execute("INSERT INTO delphi_jobs(job_id,env,zid,kind,origin,status,config_effective) SELECT gen_random_uuid(),$1,$2,'full_pipeline','legacy_import','succeeded','{}' FROM generate_series(1,$3)",&[&ENV,&ZID,&n]).unwrap();
         owner.batch_execute("ANALYZE delphi_jobs").unwrap();
-        let key=derived::key(derived::Operation::TopicMap,1,ENV,&x);
-        let ids=vec![x.clone()]; let keys=vec![key.clone()];
-        let plan=owner.query(REVIEW_PLAN,&[&ENV,&ZID,&ids,&keys,&ZID.to_string()]).unwrap();
-        for row in plan { eprintln!("PLAN added={n} {}",row.get::<_,String>(0)); }
+        let key = derived::key(derived::Operation::TopicMap, 1, ENV, &x);
+        let ids = vec![x.clone()];
+        let keys = vec![key.clone()];
+        let plan = owner
+            .query(REVIEW_PLAN, &[&ENV, &ZID, &ids, &keys, &ZID.to_string()])
+            .unwrap();
+        for row in plan {
+            eprintln!("PLAN added={n} {}", row.get::<_, String>(0));
+        }
     }
     owner.execute("UPDATE delphi_jobs SET kind='derived',config_effective=jsonb_build_object('derived',jsonb_build_object('key',encode(sha256(convert_to(job_id::text,'UTF8')),'hex'),'source',jsonb_build_object('job_id',job_id::text))) WHERE origin='legacy_import'",&[]).unwrap();
     owner.batch_execute("ANALYZE delphi_jobs").unwrap();
-    let mut ids=vec![x.clone()]; ids.extend((0..50).map(|_|uuid::Uuid::new_v4().to_string()));
-    let keys:Vec<String>=ids.iter().map(|id|derived::key(derived::Operation::TopicMap,1,ENV,id)).collect();
-    for row in owner.query(REVIEW_PLAN,&[&ENV,&ZID,&ids,&keys,&ZID.to_string()]).unwrap() {
-        eprintln!("PLAN derived_history {}",row.get::<_,String>(0));
+    let mut ids = vec![x.clone()];
+    ids.extend((0..50).map(|_| uuid::Uuid::new_v4().to_string()));
+    let keys: Vec<String> = ids
+        .iter()
+        .map(|id| derived::key(derived::Operation::TopicMap, 1, ENV, id))
+        .collect();
+    for row in owner
+        .query(REVIEW_PLAN, &[&ENV, &ZID, &ids, &keys, &ZID.to_string()])
+        .unwrap()
+    {
+        eprintln!("PLAN derived_history {}", row.get::<_, String>(0));
     }
-    let mut ex=db.connect(&db.writer);
-    let alias=format!("derived/1:{}",derived::key(derived::Operation::TopicMap,1,ENV,&x));
-    assert!(ex.query("SELECT job_id FROM delphi_job_aliases WHERE public_id=$1",&[&alias]).is_err());
+    // The exact lookup the route makes, at the same history, for the same 51 runs.
+    let aliases: Vec<String> = keys.iter().map(|k| format!("derived/1:{k}")).collect();
+    let scopes: Vec<String> = keys.iter().map(|k| format!("derived:{k}")).collect();
+    let explain = format!(
+        "EXPLAIN (ANALYZE, BUFFERS) {}",
+        crate::delphi_topic_map::PRODUCERS
+    );
+    for row in owner
+        .query(
+            &explain,
+            &[&ENV, &ZID, &ids, &keys, &aliases, &scopes, &ZID.to_string()],
+        )
+        .unwrap()
+    {
+        eprintln!("PLAN exact_list {}", row.get::<_, String>(0));
+    }
+    let mut ex = db.connect(&db.writer);
+    let alias = format!(
+        "derived/1:{}",
+        derived::key(derived::Operation::TopicMap, 1, ENV, &x)
+    );
+    assert!(
+        ex.query(
+            "SELECT job_id FROM delphi_job_aliases WHERE public_id=$1",
+            &[&alias]
+        )
+        .is_err()
+    );
     owner.batch_execute("GRANT SELECT(public_id,job_id,source) ON public.delphi_job_aliases TO polis_queue_executor").unwrap();
     let exact=ex.query_one("SELECT j.job_id FROM public.delphi_job_aliases a JOIN public.delphi_result_jobs j ON j.job_id=a.job_id::text WHERE a.public_id=$1 AND a.source='derived' AND j.env=$2 AND j.conversation_id=$3 AND j.job_type='derived' AND j.job_config->'derived'->'source'->>'job_id'=$4",&[&alias,&ENV,&ZID.to_string(),&x]).unwrap().get::<_,String>(0);
-    assert_eq!(exact,y); eprintln!("exact alias grant lookup returned expected producer");
+    assert_eq!(exact, y);
+    eprintln!("exact alias grant lookup returned expected producer");
     for row in ex.query("EXPLAIN (ANALYZE, BUFFERS) SELECT job_id FROM delphi_job_aliases WHERE public_id=$1 AND source='derived'",&[&alias]).unwrap(){eprintln!("PLAN exact {}",row.get::<_,String>(0));}
     // Existing lookup RPC is callable read-only, but introduces an advisory lock.
-    let mut c=db.connect(&db.writer); c.batch_execute("BEGIN READ ONLY").unwrap();
-    let lookup:Value=c.query_one("SELECT pd_derived_admit($1,$2,$3::text::uuid,$4,NULL,NULL)",&[&ENV,&derived::key(derived::Operation::TopicMap,1,ENV,&x),&x,&ZID]).unwrap().get(0);
-    let locks:i64=c.query_one("SELECT count(*) FROM pg_locks WHERE pid=pg_backend_pid() AND locktype='advisory'",&[]).unwrap().get(0);
-    eprintln!("read-only existing RPC outcome={} advisory_locks={locks}",lookup["outcome"]); c.batch_execute("ROLLBACK").unwrap();
+    let mut c = db.connect(&db.writer);
+    c.batch_execute("BEGIN READ ONLY").unwrap();
+    let lookup: Value = c
+        .query_one(
+            "SELECT pd_derived_admit($1,$2,$3::text::uuid,$4,NULL,NULL)",
+            &[
+                &ENV,
+                &derived::key(derived::Operation::TopicMap, 1, ENV, &x),
+                &x,
+                &ZID,
+            ],
+        )
+        .unwrap()
+        .get(0);
+    let locks: i64 = c
+        .query_one(
+            "SELECT count(*) FROM pg_locks WHERE pid=pg_backend_pid() AND locktype='advisory'",
+            &[],
+        )
+        .unwrap()
+        .get(0);
+    eprintln!(
+        "read-only existing RPC outcome={} advisory_locks={locks}",
+        lookup["outcome"]
+    );
+    c.batch_execute("ROLLBACK").unwrap();
     drop(w);
 }
 
-const REVIEW_PLAN:&str = r#"EXPLAIN (ANALYZE, BUFFERS) WITH s AS (SELECT * FROM unnest($3::text[],$4::text[]) AS s(source,key)),          j AS (SELECT s.source, s.key, j.job_id, j.status,                 j.job_config->'derived'->'source'->>'job_id' AS made_from                FROM public.delphi_result_jobs j JOIN s ON j.job_config->'derived'->>'key'=s.key                WHERE j.env=$1 AND j.conversation_id=$5 AND j.job_type='derived')          SELECT j.source, j.job_id, j.status, j.made_from,           (SELECT p.artifact_id::text FROM public.delphi_result_publications p            WHERE p.env=$1 AND p.zid=$2 AND p.scope_key='derived:'||j.key AND p.job_id=j.job_id LIMIT 1)          FROM j"#;
+const REVIEW_PLAN: &str = r#"EXPLAIN (ANALYZE, BUFFERS) WITH s AS (SELECT * FROM unnest($3::text[],$4::text[]) AS s(source,key)),          j AS (SELECT s.source, s.key, j.job_id, j.status,                 j.job_config->'derived'->'source'->>'job_id' AS made_from                FROM public.delphi_result_jobs j JOIN s ON j.job_config->'derived'->>'key'=s.key                WHERE j.env=$1 AND j.conversation_id=$5 AND j.job_type='derived')          SELECT j.source, j.job_id, j.status, j.made_from,           (SELECT p.artifact_id::text FROM public.delphi_result_publications p            WHERE p.env=$1 AND p.zid=$2 AND p.scope_key='derived:'||j.key AND p.job_id=j.job_id LIMIT 1)          FROM j"#;

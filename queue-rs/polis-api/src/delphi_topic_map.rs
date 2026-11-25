@@ -870,6 +870,7 @@ async fn answer(
     if q.list.is_some() {
         let asked = q.selection;
         let listing = place.clone();
+        let derived = app.delphi_topic_map_derived;
         // A side with no env lists no run, as an env with none stored.
         let sides: Vec<(Source, String, String)> = sides
             .into_iter()
@@ -879,7 +880,7 @@ async fn answer(
             match pool
                 .with(move |c| {
                     let _place = listing;
-                    classified(list_jobs(c, zid, &sides, asked))
+                    classified(list_jobs(c, zid, &sides, asked, derived))
                 })
                 .await
             {
@@ -923,6 +924,7 @@ async fn answer(
                 gzip,
                 tags: tags.clone(),
                 form: String::new(),
+                derived: app.delphi_topic_map_derived,
             });
             (source, scope, ask)
         })
@@ -1662,6 +1664,7 @@ fn list_jobs(
     zid: i32,
     sides: &[(Source, String, String)],
     asked: Option<Selection>,
+    derived: bool,
 ) -> anyhow::Result<Vec<contract::ListedJob>> {
     if sides.is_empty() {
         return Ok(Vec::new());
@@ -1711,9 +1714,10 @@ fn list_jobs(
         ],
     )?;
     // The derived map job of every listed run and of each side's served run,
-    // one statement per side, by the runs' derived keys ([`producers`]).
+    // one statement per side, by the runs' derived keys ([`producers`]);
+    // none when derived maps are not read.
     let mut made: Vec<(String, String, Producer)> = Vec::new();
-    for (_, env, _) in sides {
+    for (_, env, _) in sides.iter().filter(|_| derived) {
         let mut ids: Vec<String> = Vec::new();
         for row in rows.iter().chain(pointers.iter()) {
             if row.try_get::<_, String>(0).is_ok_and(|e| e == *env) {
@@ -1747,7 +1751,10 @@ fn list_jobs(
             // that disagree are the read's answer, so no run; no job, or one
             // that failed, is nothing stored.
             match made_by(env, &job) {
-                None | Some(Producer::None) | Some(Producer::Failed(_)) => continue,
+                None
+                | Some(Producer::None)
+                | Some(Producer::Unavailable(_))
+                | Some(Producer::Failed(_)) => continue,
                 Some(Producer::Stored { job: by, .. }) => {
                     let rows = c.query_opt(
                         "SELECT (f->>'row_count')::bigint \
@@ -1903,6 +1910,9 @@ struct Ask {
     tags: Vec<String>,
     /// What this reader's ETag adds to the stored digest ([`reader_form`]).
     form: String,
+    /// Whether derived maps are read (`POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS`):
+    /// off, no derived lookup of any kind is made.
+    derived: bool,
 }
 
 struct Read {
@@ -1951,6 +1961,8 @@ struct Unverified {
 /// The run, then its map's part, on one connection: indexed reads and the
 /// result store's own functions, nothing computed here.
 fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Read> {
+    // The derived job a request named, when it named one: see below.
+    let mut via: Option<String> = None;
     let (job, selection, mut artifact) = match &ask.job {
         None => {
             let rows = c.query(
@@ -1986,11 +1998,12 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                 }
             }
         }
-        Some(job) => {
-            let Some(row) = c.query_opt(
-                "SELECT conversation_id, status, job_config->>'selection' \
+        Some(named) => {
+            let Some(mut row) = c.query_opt(
+                "SELECT conversation_id, status, job_config->>'selection', job_type, \
+                  job_config->'derived'->'source'->>'job_id' \
                  FROM public.delphi_result_jobs WHERE env=$1 AND job_id=$2 LIMIT 1",
-                &[&ask.env, job],
+                &[&ask.env, named],
             )?
             else {
                 return Ok(Read {
@@ -1999,6 +2012,43 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
                     made_by: None,
                 });
             };
+            let mut job = named;
+            // A derived job named itself, when derived maps are read: its
+            // source run is the run (its selection, its scope, the document's
+            // own provenance) and the derived job the map's maker, exactly as
+            // a read of the source that found it.
+            let source: Option<String> = if ask.derived
+                && row.try_get::<_, Option<String>>(0)? == Some(ask.zid.to_string())
+                && row.try_get::<_, Option<String>>(3)?.as_deref() == Some("derived")
+            {
+                let Some(source) = row.try_get::<_, Option<String>>(4)? else {
+                    return Ok(Read {
+                        found: Found::Unreadable,
+                        selection: None,
+                        made_by: None,
+                    });
+                };
+                Some(source)
+            } else {
+                None
+            };
+            if let Some(source) = &source {
+                via = Some(named.clone());
+                let Some(of_source) = c.query_opt(
+                    "SELECT conversation_id, status, job_config->>'selection', job_type, NULL::text \
+                     FROM public.delphi_result_jobs WHERE env=$1 AND job_id=$2 LIMIT 1",
+                    &[&ask.env, source],
+                )?
+                else {
+                    return Ok(Read {
+                        found: Found::NoSuchRun,
+                        selection: None,
+                        made_by: None,
+                    });
+                };
+                row = of_source;
+                job = source;
+            }
             // Another conversation's run is no run of this report's.
             if row.try_get::<_, Option<String>>(0)? != Some(ask.zid.to_string()) {
                 return Ok(Read {
@@ -2040,6 +2090,10 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
     }
     // The map is read from the run's own batch only, never followed to an
     // earlier one, and every row read must name the run's job.
+    // A request naming a derived job asks for its map, never the run's own.
+    if via.is_some() {
+        artifact = None;
+    }
     let part = match artifact.as_deref() {
         Some(a) => read_part(c, &ask, a, &job, state)?,
         None => None,
@@ -2050,8 +2104,10 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
     let mut made_by = None;
     let part = match part {
         Some(part) => Some(part),
-        None => match producer(c, &ask.env, ask.zid, &job)? {
-            Producer::None => None,
+        // Derived maps not read: no lookup, the run's own answer.
+        None if !ask.derived => None,
+        None => match addressed(producer(c, &ask.env, ask.zid, &job)?, via.as_deref()) {
+            Producer::None | Producer::Unavailable(_) => None,
             Producer::Unreadable => Some(Part::Unreadable),
             Producer::Pending(by) => {
                 return Ok(Read {
@@ -2141,6 +2197,9 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
 enum Producer {
     /// No derived job for the run.
     None,
+    /// No derived job can be looked up: the login may not read the job
+    /// address table (`permission`). Answered as [`Producer::None`].
+    Unavailable(&'static str),
     /// Its derived job is waiting or running.
     Pending(String),
     /// Its derived job ended without storing anything.
@@ -2149,16 +2208,22 @@ enum Producer {
     /// reason there is none) at `artifact`.
     Stored { job: String, artifact: String },
     /// Rows that disagree: a finished job with no published map, a job made
-    /// from another run, two jobs for one key.
+    /// from another run, a specification of another key, operation or
+    /// version.
     Unreadable,
 }
 
 /// The derived topic map job of each run in `sources` (of `env` and the
-/// conversation `zid`), found by the run's derived key: the job whose
-/// specification holds that key, and, when it has finished, the map its own
-/// publication scope (`derived:<key>`) points at. One statement however many
-/// runs; never the newest derived job of the conversation, never a run
-/// record.
+/// conversation `zid`), by exact address: the run's derived key
+/// ([`derived_key`], the generator's own), the job address table's one row
+/// for it (`delphi_job_aliases`, primary key `derived/1:<key>`), the job
+/// that row names (`delphi_result_jobs` by env and job id) and, when it has
+/// finished, its own publication (`derived:<key>`). One statement however
+/// many runs (the list's own bound): per run, one primary-key read of the
+/// address table and, per address found, one read of the job by its
+/// `(env, job_id::text)` index and one of its publication by the served
+/// pointer's primary key `(env, zid, scope_key)`; no history is read. Never the newest derived job of the
+/// conversation, never a run record.
 fn producers(
     c: &mut postgres::Client,
     env: &str,
@@ -2169,18 +2234,30 @@ fn producers(
         return Ok(Vec::new());
     }
     let keys: Vec<String> = sources.iter().map(|s| derived_key(env, s)).collect();
-    let rows = c.query(
-        "WITH s AS (SELECT * FROM unnest($3::text[],$4::text[]) AS s(source,key)), \
-         j AS (SELECT s.source, s.key, j.job_id, j.status, \
-                j.job_config->'derived'->'source'->>'job_id' AS made_from \
-               FROM public.delphi_result_jobs j JOIN s ON j.job_config->'derived'->>'key'=s.key \
-               WHERE j.env=$1 AND j.conversation_id=$5 AND j.job_type='derived') \
-         SELECT j.source, j.job_id, j.status, j.made_from, \
-          (SELECT p.artifact_id::text FROM public.delphi_result_publications p \
-           WHERE p.env=$1 AND p.zid=$2 AND p.scope_key='derived:'||j.key AND p.job_id=j.job_id LIMIT 1) \
-         FROM j",
-        &[&env, &zid, &sources, &keys, &zid.to_string()],
-    )?;
+    let aliases: Vec<String> = keys.iter().map(|k| format!("{ALIAS_PREFIX}{k}")).collect();
+    let scopes: Vec<String> = keys.iter().map(|k| format!("derived:{k}")).collect();
+    let rows = match c.query(
+        PRODUCERS,
+        &[
+            &env,
+            &zid,
+            &sources,
+            &keys,
+            &aliases,
+            &scopes,
+            &zid.to_string(),
+        ],
+    ) {
+        Ok(rows) => rows,
+        Err(e) if e.code() == Some(&postgres::error::SqlState::INSUFFICIENT_PRIVILEGE) => {
+            derived_lookup_unavailable("permission");
+            return Ok(sources
+                .iter()
+                .map(|s| (s.clone(), Producer::Unavailable("permission")))
+                .collect());
+        }
+        Err(e) => return Err(e.into()),
+    };
     let mut out: Vec<(String, Producer)> = Vec::with_capacity(sources.len());
     for source in sources {
         let mine: Vec<_> = rows
@@ -2193,9 +2270,14 @@ fn producers(
                 let job: String = row.try_get(1)?;
                 let status: Option<String> = row.try_get(2)?;
                 let from: Option<String> = row.try_get(3)?;
-                let artifact: Option<String> = row.try_get(4)?;
+                let specified: Option<bool> = row.try_get(4)?;
+                // Its publication counts only when it points at its own map.
+                let published_by: Option<String> = row.try_get(6)?;
+                let artifact: Option<String> = row
+                    .try_get::<_, Option<String>>(5)?
+                    .filter(|_| published_by.as_deref() == Some(job.as_str()));
                 match (
-                    from.as_deref() == Some(source.as_str()),
+                    from.as_deref() == Some(source.as_str()) && specified == Some(true),
                     status.as_deref(),
                     artifact,
                 ) {
@@ -2206,11 +2288,66 @@ fn producers(
                     (true, _, _) => Producer::Pending(job),
                 }
             }
+            // One address names one job: rows that say otherwise disagree.
             _ => Producer::Unreadable,
         };
         out.push((source.clone(), producer));
     }
     Ok(out)
+}
+
+/// The producer a run's key addresses, held to the derived job a request
+/// named (`via`): the run's key must address that very job, else the rows
+/// disagree. A lookup that cannot be made stays no derived map.
+fn addressed(found: Producer, via: Option<&str>) -> Producer {
+    let Some(via) = via else {
+        return found;
+    };
+    match &found {
+        Producer::Pending(by) | Producer::Failed(by) | Producer::Stored { job: by, .. }
+            if by == via =>
+        {
+            found
+        }
+        Producer::Unavailable(_) => found,
+        _ => Producer::Unreadable,
+    }
+}
+
+/// The statement of [`producers`]: `$1` env, `$2` zid, `$3` the source runs,
+/// `$4` their keys, `$5` their addresses, `$6` their publication scopes (all
+/// computed here, so every lookup is by equality on a key), `$7` the zid as
+/// the job view's text.
+pub(crate) const PRODUCERS: &str = "SELECT s.source, j.job_id, j.status, \
+      j.job_config->'derived'->'source'->>'job_id', \
+      j.job_config->'derived'->>'key' = s.key \
+       AND j.job_config->'derived'->>'operation' = 'topic_map' \
+       AND j.job_config->'derived'->>'version' = '1', \
+      p.artifact, p.job_id \
+     FROM unnest($3::text[],$4::text[],$5::text[],$6::text[]) AS s(source,key,alias,scope) \
+     CROSS JOIN LATERAL (SELECT a.job_id::text AS job FROM public.delphi_job_aliases a \
+       WHERE a.public_id=s.alias AND a.source='derived' LIMIT 1) a \
+     CROSS JOIN LATERAL (SELECT j.job_id, j.status, j.job_config FROM public.delphi_result_jobs j \
+       WHERE j.env=$1 AND j.job_id=a.job AND j.conversation_id=$7 AND j.job_type='derived' LIMIT 1) j \
+     LEFT JOIN LATERAL (SELECT p.artifact_id::text AS artifact, p.job_id \
+       FROM public.delphi_result_publications p \
+       WHERE p.env=$1 AND p.zid=$2 AND p.scope_key=s.scope LIMIT 1) p ON true";
+
+/// The job address table's prefix for a derived job's key, as admission
+/// writes it (`derived/<schema>:<key>`).
+const ALIAS_PREFIX: &str = "derived/1:";
+
+/// The one line a process writes when a derived lookup cannot be made (the
+/// login may not read the job address table), the first time only: every
+/// such lookup is answered as no derived map, and in-run maps are served as
+/// before.
+fn derived_lookup_unavailable(reason: &'static str) {
+    static SAID: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if !SAID.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        eprintln!(
+            "{{\"event\":\"delphi_topic_map_derived_lookup\",\"outcome\":\"unavailable\",\"reason\":\"{reason}\"}}"
+        );
+    }
 }
 
 /// [`producers`] for one run.

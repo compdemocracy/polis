@@ -67,8 +67,11 @@
 //! finished the answer is [`NoMapReason::MapPending`]; when it ended without
 //! a map, the reason it stored ([`NoMap::map_job_id`] names the job); when it
 //! failed, [`NoMapReason::MapFailed`]. A listed run with such a job says so
-//! ([`ListedJob::map`]). The route only reads: it never asks for a map to be
-//! made.
+//! ([`ListedJob::map`]). A query naming the derived job itself (`job_id`)
+//! is answered as the same query naming its run: [`HEADER_JOB`] the run,
+//! [`HEADER_MADE_BY`] the job, the run's selection. The route only reads: it
+//! never asks for a map to be made. A deployment reads derived maps only when
+//! it turns them on; until then every answer is as it was before them.
 //!
 //! Every answer is one of the types below:
 //!

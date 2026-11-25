@@ -228,6 +228,10 @@ pub struct App {
     pub delphi_topic_map_env: String,
     pub delphi_topic_map_scope: Option<String>,
     pub delphi_topic_map_shadow_env: Option<String>,
+    /// Whether the route reads derived maps (a run's map made by a derived
+    /// job from its stored results): `POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS=1`.
+    /// Off, the route makes no derived lookup of any kind.
+    pub delphi_topic_map_derived: bool,
     pub delphi_topic_map_served: AtomicU64,
     pub delphi_topic_map_fallback: AtomicU64,
     pub delphi_topic_map: crate::delphi_topic_map::State,
@@ -499,6 +503,7 @@ impl App {
             delphi_topic_map_env: String::new(),
             delphi_topic_map_scope: None,
             delphi_topic_map_shadow_env: None,
+            delphi_topic_map_derived: false,
             delphi_topic_map_served: AtomicU64::new(0),
             delphi_topic_map_fallback: AtomicU64::new(0),
             delphi_topic_map: crate::delphi_topic_map::State::default(),

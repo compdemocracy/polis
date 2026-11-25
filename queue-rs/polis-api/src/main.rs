@@ -1184,6 +1184,14 @@ async fn startup() -> Result<Startup> {
         // naming no source when the served env has nothing stored). Never a
         // served env.
         state.delphi_topic_map_shadow_env = envs.shadow;
+        // Off unless named: a run without its own map is served the map a
+        // derived job made from its stored results, found by the run's key
+        // in the job address table (which this login must read; without the
+        // read, a derived map is simply not found). Off, no derived lookup.
+        state.delphi_topic_map_derived = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
+            .ok()
+            .as_deref()
+            == Some("1");
         // Who is a moderator (sent the full map; everyone else is sent
         // moderated-out comments as bare points) reads Node's tables with
         // Node's read login unless a dedicated one is given.
