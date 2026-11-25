@@ -204,21 +204,19 @@ impl<'a> Db<'a> {
         })
     }
 
-    /// Every shadow env's jobs, once per state file (`storage`); with the
-    /// topic map backfill on, all but this env's derived jobs.
+    /// Every shadow env's jobs, once per state file (`storage`), but this
+    /// env's derived jobs: their bytes are [`storage::derived_total`]'s,
+    /// whatever the topic map backfill's switch, so a state file listed with
+    /// it off never counts them a second time when it is on.
     pub fn shadow_jobs(&self) -> Result<Vec<Pending>> {
-        let env = self.cfg.derived.enabled.then_some(self.cfg.env.as_str());
-        self.read(|tx| storage::shadow_jobs(tx, env))
+        self.read(|tx| storage::shadow_jobs(tx, Some(self.cfg.env.as_str())))
     }
 
-    /// This env's terminal derived jobs to measure (`storage::Derived`).
-    pub fn derived_terminal(
-        &self,
-        since_ms: i64,
-        skip: &[String],
-        limit: i64,
-    ) -> Result<Vec<(String, i32, i64)>> {
-        self.read(|tx| storage::derived_terminal(tx, &self.cfg.env, since_ms, skip, limit))
+    /// The bytes this env's terminal derived jobs have stored
+    /// (`storage::derived_total`): one read-only statement, on the
+    /// scheduler's own read connection, with its statement and lock timeouts.
+    pub fn derived_total(&self, day_start_ms: i64) -> Result<storage::DerivedTotal> {
+        self.read(|tx| storage::derived_total(tx, &self.cfg.env, day_start_ms))
     }
 
     pub fn assignments(&self, zid: i32) -> Result<BTreeMap<i64, Vec<i64>>> {

@@ -206,7 +206,7 @@ fn held(
     if daily_cap && state.day_runs >= cfg.daily_runs {
         return Some(Pause::DailyCap);
     }
-    if !state.storage.pending.is_empty() || state.storage.derived.behind {
+    if !state.storage.pending.is_empty() {
         return Some(Pause::StorageUnmeasured);
     }
     // The smallest run there can be, of the current set (the one share that

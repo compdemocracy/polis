@@ -10,8 +10,9 @@
 //! the backfill on and admission off, the backfill reads nothing (it is
 //! checked before any pause, roster or set read) and one `derived_held` line
 //! says `admission_off`. With the backfill on, the derived jobs' stored bytes
-//! count against the storage budget whatever the admission's switch
-//! (`storage::Derived`).
+//! count against the storage budget whatever the admission's switch: one
+//! reading of the database every few minutes (`storage::Derived`), the one
+//! read the backfill makes with admission off.
 //!
 //! **Nothing on the box.** What has been asked and what is done is in
 //! Postgres. The inventory is a query, every cycle nothing pauses it: a page

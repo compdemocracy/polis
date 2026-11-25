@@ -337,6 +337,11 @@ impl<'a> Scheduler<'a> {
             let off = Some(Held::AdmissionOff);
             return self.derived.step(self.cfg, &self.db, &[], now, off);
         }
+        // An unknown total of the derived jobs' bytes asks for none.
+        if !self.state.storage.derived.known() {
+            let unknown = Some(Held::Paused(Pause::StorageUnmeasured));
+            return self.derived.step(self.cfg, &self.db, &[], now, unknown);
+        }
         let held = if self.state.in_flight.is_some() || self.state.graph_flight.is_some() {
             Some(Held::FullRun)
         } else {
@@ -377,53 +382,39 @@ impl<'a> Scheduler<'a> {
     }
 
     /// The derived jobs' bytes, with the backfill on (`storage::Derived`):
-    /// the env's terminal derived jobs not yet measured by this process, a
-    /// few per poll, by the same measure as a run's. Until it has caught up,
-    /// or while one cannot be read, the storage pause holds everything.
+    /// one reading of the database, at the first cycle and then every
+    /// `storage::DERIVED_READ_MS`, whatever the admission's switch. A reading
+    /// that fails leaves the total unknown: no derived job is asked for, and
+    /// the full runs are held to their own bytes, as before derived jobs.
     fn measure_derived(&mut self, now: i64) {
         if !self.cfg.derived.enabled || self.derived.admitter.is_none() {
             return;
         }
-        let limit = MEASURE_PER_CYCLE as i64;
+        if !self.state.storage.derived.due(now) {
+            return;
+        }
+        let day_start = now.div_euclid(86_400_000) * 86_400_000;
         let d = &mut self.state.storage.derived;
-        d.behind = true;
-        let (since, skip) = d.window();
-        // Errors can carry SQL input: a closed word only.
-        let Ok(jobs) = self.db.derived_terminal(since, &skip, limit) else {
-            return log("derived_storage_unread", json!({"reason": "list"}));
-        };
-        let (mut measured, mut bytes) = (0u64, 0u64);
-        for (job_id, zid, completed) in &jobs {
-            let p = Pending {
-                env: self.cfg.env.clone(),
-                job_id: job_id.clone(),
-                zid: *zid,
-                comments: 0,
-                set: None,
-            };
-            let Ok(m) = self.db.measure(&p) else {
-                log("derived_storage_unread", json!({"reason": "measure"}));
-                break;
-            };
-            let total = m.total();
-            self.state
-                .storage
-                .derived
-                .add(now, job_id.clone(), *completed, total);
-            measured += 1;
-            bytes += total;
+        match self.db.derived_total(day_start) {
+            Ok(t) => {
+                d.read = Some(t);
+                d.read_ms = now;
+                d.day = now.div_euclid(86_400_000);
+            }
+            // Errors can carry SQL input: a closed word only.
+            Err(_) => {
+                d.read = None;
+                return log("derived_storage_unread", json!({"reason": "read"}));
+            }
         }
-        let l = &mut self.state.storage;
-        l.derived.behind = measured < jobs.len() as u64 || jobs.len() as i64 == limit;
-        if measured > 0 {
-            log(
-                "derived_storage",
-                json!({"measured": measured, "bytes": bytes, "derived_jobs": l.derived.jobs,
-                       "derived_bytes": l.derived.bytes, "derived_day_bytes": l.derived.day_bytes,
-                       "storage_bytes": l.accounted(), "storage_day_bytes": l.accounted_day(),
-                       "storage_budget_bytes": self.cfg.storage_budget_bytes}),
-            );
-        }
+        let l = &self.state.storage;
+        log(
+            "derived_storage",
+            json!({"derived": l.derived.read, "derived_bytes": l.derived.bytes(),
+                   "derived_day_bytes": l.derived.day_bytes(),
+                   "storage_bytes": l.accounted(), "storage_day_bytes": l.accounted_day(),
+                   "storage_budget_bytes": self.cfg.storage_budget_bytes}),
+        );
     }
 
     /// Every pause of `pace` but the full runs' daily cap.

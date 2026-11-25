@@ -2441,8 +2441,29 @@ mod backfill {
         .unwrap();
         println!("worker: {:?}", w.pass().unwrap());
         assert_eq!(job_status(&db, &derived_job_ids(&db)[0]), "succeeded");
+        // The next beat reads the finished map.
+        s.state.storage.derived.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
         cycles(&mut s, 3);
         let after = s.state.storage.accounted();
+        {
+            use polis_queue_adapter::shadow::storage;
+            let job = derived_job_ids(&db)[0].clone();
+            let mut admin = db.admin();
+            let mut tx = admin.transaction().unwrap();
+            let m = storage::measure(&mut tx, ENV, &job, 1424).unwrap();
+            let t = s.state.storage.derived.read.unwrap();
+            println!("MAP measure={m:?} total={} reading={t:?}", m.total());
+            assert_eq!(m.embeddings, 0, "a derived job stores no embeddings");
+            assert_eq!(t.families, m.families);
+            assert_eq!(t.log_bytes, m.log_bytes);
+            assert_eq!(t.family_bytes, m.family_bytes);
+            assert!(
+                t.row_bytes >= m.result_row_bytes,
+                "the row model stays above"
+            );
+            assert!(t.row_bytes <= 2 * m.result_row_bytes, "and within twice");
+            assert!(t.bytes >= m.total());
+        }
         // The same state file is saved by run() every cycle. Verify no new file
         // is necessary to observe the stored result's contribution.
         let _ = std::fs::remove_dir_all(&d);
@@ -2815,5 +2836,311 @@ mod backfill {
                 .any(|l| l.contains("derived_unread") || l.contains("roster_unread")),
             "unexpected set read: {lines:?}"
         );
+    }
+
+    fn review_cancelled_map(db: &Db) -> String {
+        let run = support::run("biodiversity", 1424, Some(2));
+        let src = db
+            .writer_run("delphi", json!({"selection": RULE}), &run, false)
+            .0;
+        assert_eq!(
+            TopicMap { get: on }
+                .admit(
+                    &mut db.executor(),
+                    &Source {
+                        env: ENV.into(),
+                        job_id: src.job_id,
+                        zid: 1424,
+                        selection: Some(RULE.into()),
+                    },
+                    &"c".repeat(40)
+                )
+                .unwrap(),
+            Outcome::Enqueued
+        );
+        let id = derived_job_ids(db)
+            .into_iter()
+            .find(|id| job_status(db, id) == "queued")
+            .unwrap();
+        cancel(db, &id);
+        id
+    }
+
+    /// The scheduler's real save and load across the backfill's switch: on,
+    /// off, on. With it on the total is the runs' ledger and one reading of
+    /// the derived jobs' bytes from the database, the same before and after;
+    /// with it off nothing is read and the total is the runs' ledger alone,
+    /// as before derived jobs.
+    #[test]
+    fn review_storage_survives_switching_backfill_off() {
+        use polis_queue_adapter::shadow::storage;
+        scheduler::keep_lines();
+        let db = Db::new();
+        review_cancelled_map(&db);
+        let d = dir();
+        std::fs::write(d.join("pause"), "").unwrap();
+        let on = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut s = scheduler::Scheduler::new(&on)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 2);
+        let before = s.state.storage.accounted();
+        let derived = s.state.storage.derived.bytes();
+        let runs = s.state.storage.bytes;
+        assert_eq!(derived, storage::JOB_BYTES, "one cancelled derived job");
+        assert_eq!(before, runs + derived);
+        s.state.save(&on.state_path).unwrap();
+        drop(s);
+        let off = cfg(&db, &d, &[]);
+        let mut s = scheduler::Scheduler::new(&off).unwrap();
+        let from = all().len();
+        cycles(&mut s, 2);
+        let during = s.state.storage.accounted();
+        assert!(
+            events("derived_storage", from).is_empty(),
+            "off: no reading"
+        );
+        s.state.save(&off.state_path).unwrap();
+        drop(s);
+        let mut s = scheduler::Scheduler::new(&on)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 2);
+        let after = s.state.storage.accounted();
+        println!("ON-OFF-ON: before={before} off={during} after={after} derived={derived}");
+        std::fs::remove_dir_all(d).unwrap();
+        assert_eq!(
+            during, runs,
+            "off: the runs' ledger, as before derived jobs"
+        );
+        assert_eq!(after, before, "stored bytes must not move with the switch");
+    }
+
+    /// A state file first listed with the backfill off, then read with it
+    /// on: the derived job is counted once, and the total is what a scheduler
+    /// with a fresh state file reads.
+    #[test]
+    fn review_storage_counts_once_after_switching_backfill_on() {
+        use polis_queue_adapter::shadow::storage;
+        let db = Db::new();
+        review_cancelled_map(&db);
+        let d = dir();
+        std::fs::write(d.join("pause"), "").unwrap();
+        let c = cfg(&db, &d, &[]);
+        let mut s = scheduler::Scheduler::new(&c).unwrap();
+        cycles(&mut s, 2);
+        let before = s.state.storage.accounted();
+        s.state.save(&c.state_path).unwrap();
+        drop(s);
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 2);
+        let after = s.state.storage.accounted();
+        let fresh_dir = dir();
+        std::fs::write(fresh_dir.join("pause"), "").unwrap();
+        let fc = cfg(&db, &fresh_dir, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let mut f = scheduler::Scheduler::new(&fc)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut f, 2);
+        let fresh = f.state.storage.accounted();
+        println!(
+            "OFF-ON: before={before} after={after} fresh={fresh} derived={}",
+            s.state.storage.derived.bytes()
+        );
+        std::fs::remove_dir_all(d).unwrap();
+        std::fs::remove_dir_all(fresh_dir).unwrap();
+        assert_eq!(after, before + storage::JOB_BYTES, "counted once");
+        assert_eq!(after, fresh, "one stored job must not be counted twice");
+    }
+
+    #[test]
+    fn review_storage_finds_a_late_terminal_commit() {
+        let db = Db::new();
+        let template = review_cancelled_map(&db);
+        let d = dir();
+        std::fs::write(d.join("pause"), "").unwrap();
+        // A genuine uncommitted row, with a simulated earlier completion clock:
+        // no sleep is necessary to reproduce the completion/commit ordering.
+        let mut admin = db.admin();
+        let mut tx = admin.transaction().unwrap();
+        tx.batch_execute("SET LOCAL session_replication_role=replica")
+            .unwrap();
+        tx.execute("INSERT INTO delphi_jobs SELECT (jsonb_populate_record(NULL::delphi_jobs, to_jsonb(j) || jsonb_build_object('job_id',gen_random_uuid(),'completed_at',j.completed_at - interval '121 seconds'))).* FROM delphi_jobs j WHERE job_id=$1::text::uuid", &[&template]).unwrap();
+        let c = cfg(&db, &d, &[("DELPHI_SHADOW_DERIVED_BACKFILL", "1")]);
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        let mut s = scheduler::Scheduler::new(&c)
+            .unwrap()
+            .with_admitter(counting(&asked, &[]));
+        cycles(&mut s, 1);
+        assert_eq!(s.state.storage.derived.read.unwrap().jobs, 1);
+        tx.commit().unwrap();
+        // The next beat (`storage::DERIVED_READ_MS`) reads again.
+        s.state.storage.derived.read_ms -= polis_queue_adapter::shadow::storage::DERIVED_READ_MS;
+        cycles(&mut s, 1);
+        let measured = s.state.storage.derived.read.unwrap().jobs;
+        let rows: i64 = db
+            .admin()
+            .query_one("SELECT count(*) FROM delphi_jobs WHERE kind='derived'", &[])
+            .unwrap()
+            .get(0);
+        println!("LATE commit: rows={rows} measured={measured}");
+        std::fs::remove_dir_all(d).unwrap();
+        assert_eq!(
+            measured, rows as u64,
+            "committed terminal jobs must eventually be accounted"
+        );
+    }
+
+    #[test]
+    fn review_storage_large_restart_and_env_daily_count() {
+        use polis_queue_adapter::shadow::{plan, storage};
+        scheduler::keep_lines();
+        ALL.with(|a| a.borrow_mut().clear());
+        let db = Db::new();
+        let template = review_cancelled_map(&db);
+        let mut a = db.admin();
+        // Planner and accounting-only filler, not real worker executions.
+        a.batch_execute("SET session_replication_role=replica")
+            .unwrap();
+        a.execute("INSERT INTO delphi_jobs SELECT (jsonb_populate_record(NULL::delphi_jobs, to_jsonb(j) || jsonb_build_object('job_id',gen_random_uuid(),'zid',2000+g%100,'created_at','2026-01-01T00:00:00Z','completed_at','2026-01-01T00:00:00Z'::timestamptz + g*interval '1 second'))).* FROM delphi_jobs j CROSS JOIN generate_series(1,40000) g WHERE job_id=$1::text::uuid", &[&template]).unwrap();
+        a.batch_execute("SET session_replication_role=origin; ANALYZE delphi_jobs")
+            .unwrap();
+        let now = scheduler::now_ms();
+        let since = (now.div_euclid(86_400_000) * 86_400) as f64;
+        let today: i64 = a
+            .query_one(shadow_backfill::TODAY_SQL, &[&ENV, &since, &"derived"])
+            .unwrap()
+            .get(0);
+        assert_eq!(today, 1);
+        // A job outside every configured set still consumes this env's day;
+        // a different env does not. Neither change touches participant data.
+        a.batch_execute("SET session_replication_role=replica")
+            .unwrap();
+        a.execute(
+            "UPDATE delphi_jobs SET zid=99999 WHERE job_id=$1::text::uuid",
+            &[&template],
+        )
+        .unwrap();
+        a.execute("INSERT INTO delphi_jobs SELECT (jsonb_populate_record(NULL::delphi_jobs,to_jsonb(j)||jsonb_build_object('job_id',gen_random_uuid(),'env','shadow-other'))).* FROM delphi_jobs j WHERE job_id=$1::text::uuid", &[&template]).unwrap();
+        a.batch_execute("SET session_replication_role=origin")
+            .unwrap();
+        let today: i64 = a
+            .query_one(shadow_backfill::TODAY_SQL, &[&ENV, &since, &"derived"])
+            .unwrap()
+            .get(0);
+        assert_eq!(today, 1);
+        // Each derived job's attempt, family and log lines, as a real one
+        // stores them (one family of a 2.5 KB wire), for the reading's plan.
+        a.batch_execute(
+            "SET session_replication_role=replica;
+             INSERT INTO polis_queue_attempts(env,attempt_id,job_id,owner_id,lease_epoch,outcome)
+               SELECT env,gen_random_uuid(),job_id,gen_random_uuid(),1,'succeeded'
+               FROM delphi_jobs WHERE kind='derived';
+             INSERT INTO delphi_result_families(env,batch_id,family,codec_wire,content_sha,row_count)
+               SELECT q.env,q.attempt_id,'topic_map',x.w,encode(sha256(convert_to(x.w,'UTF8')),'hex'),20
+               FROM polis_queue_attempts q JOIN delphi_jobs j USING(env,job_id),
+                    LATERAL (SELECT string_agg(md5(q.attempt_id::text||g::text),'')||chr(10) AS w
+                             FROM generate_series(1,80) g) x
+               WHERE j.kind='derived';
+             INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line)
+               SELECT q.env,q.attempt_id,s,'stdout','derived map stored'
+               FROM polis_queue_attempts q JOIN delphi_jobs j USING(env,job_id),
+                    generate_series(0,1) s WHERE j.kind='derived';
+             SET session_replication_role=origin;
+             ANALYZE delphi_jobs; ANALYZE polis_queue_attempts;
+             ANALYZE delphi_result_families; ANALYZE polis_queue_logs",
+        )
+        .unwrap();
+        let day = (now.div_euclid(86_400_000) * 86_400_000) as f64;
+        for pass in ["first", "second"] {
+            let started = std::time::Instant::now();
+            let plan = a
+                .query(
+                    &format!(
+                        "EXPLAIN (ANALYZE, BUFFERS) {}",
+                        storage::derived_total_sql()
+                    ),
+                    &[&ENV, &day],
+                )
+                .unwrap();
+            println!(
+                "DERIVED TOTAL PLAN {pass} ({:?})\n{}",
+                started.elapsed(),
+                plan.iter()
+                    .map(|r| r.get::<_, String>(0))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            );
+        }
+        let d = dir();
+        let c = cfg(
+            &db,
+            &d,
+            &[
+                ("DELPHI_SHADOW_DERIVED_BACKFILL", "1"),
+                ("DELPHI_SHADOW_STORAGE_BUDGET_MB", "1048576"),
+            ],
+        );
+        let asked = Rc::new(RefCell::new(Vec::new()));
+        for restart in 0..2 {
+            let mut off = counting(&asked, &[]);
+            off.switched = false;
+            let mut s = scheduler::Scheduler::new(&c).unwrap().with_admitter(off);
+            s.state.storage.reconciled = true;
+            let from = all().len();
+            cycles(&mut s, 1);
+            let t = s
+                .state
+                .storage
+                .derived
+                .read
+                .expect("read at the first cycle");
+            assert_eq!(t.jobs, 40_001);
+            assert_eq!(t.families, 40_001);
+            assert_eq!(t.log_lines, 80_002);
+            cycles(&mut s, 1);
+            assert_eq!(
+                events("derived_storage", from).len(),
+                1,
+                "one reading a beat"
+            );
+            assert!(asked.borrow().is_empty());
+            assert_eq!(s.derived.queries, 0);
+            let signals = polis_queue_adapter::shadow::db::Signals {
+                probe_ms: 0.0,
+                math_lag_ms: 0,
+            };
+            assert_eq!(
+                plan::pause(
+                    &c,
+                    &s.state,
+                    false,
+                    Some(plan::Disk {
+                        free_mb: u64::MAX,
+                        used_pct: 0.0
+                    }),
+                    Some(&signals),
+                    None
+                ),
+                None,
+                "a restart never holds full runs on derived accounting"
+            );
+            s.state.save(&c.state_path).unwrap();
+            println!(
+                "RESTART {restart}: 40001 terminal jobs read in one statement at the first cycle ({} bytes), full runs not held, admission off",
+                t.bytes
+            );
+        }
+        assert!(
+            events("derived_held", 0)
+                .iter()
+                .any(|l| l["reason"] == "admission_off")
+        );
+        std::fs::remove_dir_all(d).unwrap();
     }
 }
