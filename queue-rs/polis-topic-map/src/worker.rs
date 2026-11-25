@@ -361,7 +361,9 @@ pub enum Pass {
         state: String,
     },
     #[doc(hidden)]
-    Crashed { job_id: String },
+    Crashed {
+        job_id: String,
+    },
 }
 
 pub struct Worker {
@@ -517,7 +519,10 @@ impl Worker {
                     json!(fail.code()),
                     json!(true),
                 ]);
-                let r = self.rpc.committed("pq_fail", &a).map_err(|e| e.to_string())?;
+                let r = self
+                    .rpc
+                    .committed("pq_fail", &a)
+                    .map_err(|e| e.to_string())?;
                 log(&job, &attempt, "failed", fail.code(), &fail);
                 Pass::Failed {
                     job_id: job.clone(),
@@ -547,14 +552,20 @@ impl Worker {
         let crashed = || Ok(Pass::Crashed { job_id: job.into() });
         let mut put = id.to_vec();
         put.extend([json!(stored::FAMILY), json!(made.wire)]);
-        let receipt = self.rpc.committed("pd_result_put_family", &put).map_err(transient)?;
+        let receipt = self
+            .rpc
+            .committed("pd_result_put_family", &put)
+            .map_err(transient)?;
         if receipt["sha256"] != hex(&Sha256::digest(made.wire.as_bytes())) {
             return Err(Fail::Transient("put receipt".into()));
         }
         if crash == Some(CrashAt::AfterPut) {
             return crashed();
         }
-        let results = self.rpc.committed("pd_result_seal", id).map_err(transient)?;
+        let results = self
+            .rpc
+            .committed("pd_result_seal", id)
+            .map_err(transient)?;
         if results["batch_id"] != attempt || results["families"] != json!([stored::FAMILY]) {
             return Err(Fail::Transient("seal receipt".into()));
         }
@@ -593,8 +604,13 @@ impl Worker {
             "results": results,
         }))
         .map_err(transient)?;
-        polis_queue_adapter::jobs::manifest::validate(Some(manifest.as_bytes()), job, attempt, STAGE)
-            .map_err(|_| Fail::Permanent("manifest_invalid"))?;
+        polis_queue_adapter::jobs::manifest::validate(
+            Some(manifest.as_bytes()),
+            job,
+            attempt,
+            STAGE,
+        )
+        .map_err(|_| Fail::Permanent("manifest_invalid"))?;
         let sha = hex(&Sha256::digest(manifest.as_bytes()));
         let attempt_uuid = uuid::Uuid::parse_str(attempt).map_err(transient)?;
         self.rpc
@@ -604,7 +620,10 @@ impl Worker {
         // fenced, so its own exit proof is honest (as `refuse_without_child`).
         let mut confirm = id.to_vec();
         confirm.extend([json!("confirm_exit"), Value::Null, json!(true)]);
-        let c = self.rpc.committed("pq_end_attempt", &confirm).map_err(transient)?;
+        let c = self
+            .rpc
+            .committed("pq_end_attempt", &confirm)
+            .map_err(transient)?;
         if c["outcome"] != "exit_confirmed" {
             return Err(Fail::Transient(format!("exit proof: {}", c["outcome"])));
         }
@@ -643,7 +662,10 @@ fn log(job: &str, attempt: &str, event: &str, word: &str, detail: &dyn std::fmt:
 /// one job at a time until a shutdown signal.
 pub fn daemon(get: impl Fn(&str) -> Option<String>) -> Result<(), String> {
     if get(SWITCH).as_deref() != Some("1") {
-        eprintln!("{}", json!({"event": "derived_worker", "outcome": "switched_off"}));
+        eprintln!(
+            "{}",
+            json!({"event": "derived_worker", "outcome": "switched_off"})
+        );
         return Ok(());
     }
     let env = get("POLIS_JOBS_ENV")
@@ -777,7 +799,13 @@ mod tests {
     #[test]
     fn only_one_turns_the_worker_on() {
         for v in [None, Some("0"), Some("true"), Some("")] {
-            let got = daemon(|k| if k == SWITCH { v.map(str::to_owned) } else { None });
+            let got = daemon(|k| {
+                if k == SWITCH {
+                    v.map(str::to_owned)
+                } else {
+                    None
+                }
+            });
             assert_eq!(got, Ok(()), "{v:?}");
         }
     }

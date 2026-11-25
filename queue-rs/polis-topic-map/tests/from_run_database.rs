@@ -794,8 +794,8 @@ mod derived_jobs {
 mod derived_worker {
     use super::*;
     use polis_topic_map::derived::{self, Admission, Operation, Request};
-    use polis_topic_map::worker::{self, CrashAt, Pass, Worker};
     use polis_topic_map::from_run;
+    use polis_topic_map::worker::{self, CrashAt, Pass, Worker};
 
     const CODE: &str = "cccccccccccccccccccccccccccccccccccccccc";
 
@@ -933,12 +933,19 @@ mod derived_worker {
 
         // Only the map family, in the derived job's own batch.
         let mine = families_of(&db, &job);
-        assert_eq!(mine.len(), 1, "{:?}", mine.iter().map(|f| &f.1).collect::<Vec<_>>());
+        assert_eq!(
+            mine.len(),
+            1,
+            "{:?}",
+            mine.iter().map(|f| &f.1).collect::<Vec<_>>()
+        );
         assert_eq!(mine[0].1, stored::FAMILY);
         // The document, gzip and digest are from-run's bytes; only the outer
         // rows' owner differs (four rows: document, gzip, digest, execution).
         assert_eq!(
-            from_run_wire.matches(&format!("\"job_id\":{{\"S\":\"{}\"}}", src.job_id)).count(),
+            from_run_wire
+                .matches(&format!("\"job_id\":{{\"S\":\"{}\"}}", src.job_id))
+                .count(),
             4
         );
         assert_eq!(owned_by(&from_run_wire, &src.job_id, &job), mine[0].2);
@@ -973,7 +980,11 @@ mod derived_worker {
         assert_eq!(w.pass().unwrap(), Pass::Idle);
         let mine = families_of(&db, &job);
         assert_eq!(mine.len(), 1);
-        assert!(mine[0].2.contains("\"reason\":{\"S\":\"too_few_comments\"}"));
+        assert!(
+            mine[0]
+                .2
+                .contains("\"reason\":{\"S\":\"too_few_comments\"}")
+        );
         assert_eq!(served(&db, &key).len(), 1);
         let _ = std::fs::remove_dir_all(dir);
     }
@@ -1029,7 +1040,11 @@ mod derived_worker {
     #[test]
     fn a_crash_before_finalize_and_a_restart_end_in_one_served_map() {
         let db = Db::new();
-        for crash in [CrashAt::AfterPut, CrashAt::AfterSeal, CrashAt::BeforeFinalize] {
+        for crash in [
+            CrashAt::AfterPut,
+            CrashAt::AfterSeal,
+            CrashAt::BeforeFinalize,
+        ] {
             let (_, job, key) = admitted(&db, None);
             let dir = journal_dir();
             let mut first = worker(&db, &dir, "generated-boot-1");
@@ -1116,8 +1131,8 @@ mod derived_worker {
     /// process spawn and its crate depends on nothing that runs one.
     #[test]
     fn the_worker_starts_no_process_and_links_no_pipeline() {
-        let src = std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/worker.rs"))
-            .unwrap();
+        let src =
+            std::fs::read_to_string(concat!(env!("CARGO_MANIFEST_DIR"), "/src/worker.rs")).unwrap();
         for word in ["Command::new", "process::Command", "python", "spawn("] {
             assert!(!src.contains(word), "{word}");
         }
