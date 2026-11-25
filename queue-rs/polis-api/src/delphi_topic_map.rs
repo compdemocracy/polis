@@ -115,6 +115,52 @@ pub const DEADLINE: Duration = Duration::from_millis(3000);
 pub const DEFAULT_SCOPE: &str = "delphi";
 /// A shadow env's prefix: a served env never reads as the shadow.
 pub const SHADOW_PREFIX: &str = "shadow-";
+
+/// The result envs the route reads, from the deployment's settings.
+#[derive(Debug)]
+pub struct Envs {
+    /// The served Delphi's env, when its results are in Postgres
+    /// (`DELPHI_RESULT_BACKEND=postgres`). `None` when they are in DynamoDB:
+    /// the served side then has nothing stored and is never read.
+    pub served: Option<String>,
+    /// The shadow's env (`POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV`).
+    pub shadow: Option<String>,
+}
+
+impl Envs {
+    /// From `DELPHI_RESULT_BACKEND`, `DELPHI_RESULT_ENV` and
+    /// `POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV`. The backend is read as Node
+    /// and the Delphi service read it: unset or empty is DynamoDB, and any
+    /// value other than `postgres` and `dynamodb` refuses rather than guess.
+    pub fn from_settings(
+        backend: Option<&str>,
+        served: Option<&str>,
+        shadow: Option<&str>,
+    ) -> anyhow::Result<Self> {
+        let named = |s: Option<&str>| s.filter(|s| !s.is_empty()).map(str::to_owned);
+        let served = match backend.unwrap_or_default() {
+            "postgres" => Some(named(served).ok_or_else(|| {
+                anyhow::anyhow!("DELPHI_RESULT_ENV is required for report topic map reads")
+            })?),
+            "" | "dynamodb" => None,
+            _ => anyhow::bail!(
+                "the report topic map reads DELPHI_RESULT_BACKEND as postgres, dynamodb or unset, and refuses any other value"
+            ),
+        };
+        let shadow = named(shadow);
+        match &shadow {
+            Some(shadow) => anyhow::ensure!(
+                shadow.starts_with(SHADOW_PREFIX) && Some(shadow) != served.as_ref(),
+                "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+            ),
+            None => anyhow::ensure!(
+                served.is_some(),
+                "the report topic map needs the served Delphi's results in Postgres (DELPHI_RESULT_BACKEND=postgres and DELPHI_RESULT_ENV) or the shadow's (POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV, a shadow- env), and has neither"
+            ),
+        }
+        Ok(Self { served, shadow })
+    }
+}
 /// Stored families whose verdict a process keeps.
 const VERDICTS: usize = 4096;
 /// Readers' forms being made at once in the process ([`reader_body`]). The
@@ -784,27 +830,9 @@ async fn answer(
     if q.list.is_some() && q.job_id.is_some() {
         return refused(Refused::BadParameter("list"));
     }
-    let served = || {
-        let base = app
-            .delphi_topic_map_scope
-            .clone()
-            .unwrap_or_else(|| DEFAULT_SCOPE.to_owned());
-        (Source::Served, app.delphi_topic_map_env.clone(), base)
-    };
-    let shadow = || {
-        app.delphi_topic_map_shadow_env
-            .clone()
-            .map(|env| (Source::Shadow, env, DEFAULT_SCOPE.to_owned()))
-    };
-    // The sides read, in order: the one named, or without `source` the served
-    // side and then, when the deployment reads one, the shadow's.
-    let sides: Vec<(Source, String, String)> = match q.source {
-        Some(Source::Served) => vec![served()],
-        Some(Source::Shadow) => match shadow() {
-            Some(side) => vec![side],
-            None => return refused(Refused::SourceUnavailable),
-        },
-        None => std::iter::once(served()).chain(shadow()).collect(),
+    let sides = match sides(app, q.source) {
+        Ok(sides) => sides,
+        Err(r) => return refused(r),
     };
     let selection_asked = q.selection.unwrap_or_default();
     let pool = app.delphi_topic_map_db.as_ref()?;
@@ -837,6 +865,11 @@ async fn answer(
     if q.list.is_some() {
         let asked = q.selection;
         let listing = place.clone();
+        // A side with no env lists no run, as an env with none stored.
+        let sides: Vec<(Source, String, String)> = sides
+            .into_iter()
+            .filter_map(|s| s.env.map(|env| (s.source, env, s.base)))
+            .collect();
         return Some(
             match pool
                 .with(move |c| {
@@ -872,19 +905,21 @@ async fn answer(
         None => None,
     };
     let named_run = job.is_some();
-    let asks: Vec<(Source, Ask)> = sides
+    // A side with no env is never asked: it has nothing stored.
+    let asks: Vec<(Source, String, Option<Ask>)> = sides
         .into_iter()
-        .map(|(source, env, base)| {
-            let ask = Ask {
+        .map(|Side { source, env, base }| {
+            let scope = selection_asked.scope(&base);
+            let ask = env.map(|env| Ask {
                 env,
-                scope: selection_asked.scope(&base),
+                scope: scope.clone(),
                 zid,
                 job: job.clone(),
                 gzip,
                 tags: tags.clone(),
                 form: String::new(),
-            };
-            (source, ask)
+            });
+            (source, scope, ask)
         })
         .collect();
     let state = app.delphi_topic_map.clone();
@@ -907,10 +942,14 @@ async fn answer(
                 };
                 let form = reader_form(state.validator_key(), zid, &hidden);
                 let mut first = None;
-                for (source, mut ask) in asks {
-                    ask.form = form.clone();
-                    let scope = ask.scope.clone();
-                    let read = read(c, ask, &state)?;
+                for (source, scope, ask) in asks {
+                    let read = match ask {
+                        Some(mut ask) => {
+                            ask.form = form.clone();
+                            read(c, ask, &state)?
+                        }
+                        None => unread(named_run),
+                    };
                     if !nothing_stored(&read.found) {
                         return Ok(Some((read, source, scope, hidden, form)));
                     }
@@ -1728,6 +1767,54 @@ fn nothing_stored(found: &Found) -> bool {
                 ..
             }
     )
+}
+
+/// One side a request reads: its source, its env (`None` for a served side
+/// whose results are not in Postgres) and its base publication scope.
+struct Side {
+    source: Source,
+    env: Option<String>,
+    base: String,
+}
+
+/// The sides a request reads, in order: the one named, or without `source`
+/// the served side and then, when the deployment reads one, the shadow's.
+fn sides(app: &App, source: Option<Source>) -> Result<Vec<Side>, Refused> {
+    let served = Side {
+        source: Source::Served,
+        // Empty only when the route was started on the shadow alone.
+        env: Some(app.delphi_topic_map_env.clone()).filter(|e| !e.is_empty()),
+        base: app
+            .delphi_topic_map_scope
+            .clone()
+            .unwrap_or_else(|| DEFAULT_SCOPE.to_owned()),
+    };
+    let shadow = app.delphi_topic_map_shadow_env.clone().map(|env| Side {
+        source: Source::Shadow,
+        env: Some(env),
+        base: DEFAULT_SCOPE.to_owned(),
+    });
+    Ok(match source {
+        Some(Source::Served) => vec![served],
+        Some(Source::Shadow) => vec![shadow.ok_or(Refused::SourceUnavailable)?],
+        None => std::iter::once(served).chain(shadow).collect(),
+    })
+}
+
+/// What [`read`] answers for an env with nothing stored, read from no env:
+/// no served run, or for a named run no such run.
+fn unread(named_run: bool) -> Read {
+    Read {
+        found: if named_run {
+            Found::NoSuchRun
+        } else {
+            Found::NoMap {
+                job: None,
+                reason: NoMapReason::NoRun,
+            }
+        },
+        selection: None,
+    }
 }
 
 /// What one request reads.
