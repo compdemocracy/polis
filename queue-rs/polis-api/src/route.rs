@@ -223,6 +223,8 @@ pub struct App {
     pub delphi_result_fallback: AtomicU64,
     pub delphi_topic_map_db: Option<Arc<Pool>>,
     pub delphi_topic_map_auth_db: Option<Arc<Pool>>,
+    /// The served Delphi's result env; empty when its results are not in
+    /// Postgres and the route reads the shadow's alone.
     pub delphi_topic_map_env: String,
     pub delphi_topic_map_scope: Option<String>,
     pub delphi_topic_map_shadow_env: Option<String>,
