@@ -490,19 +490,6 @@ if [ "$DELPHI_DERIVED_WORKER_SELECTED" = 1 ]; then
   fi
 fi
 
-# The scheduler asks for derived map jobs only when a worker will run them:
-# with the backfill on and no worker started on this deploy (its line off, or
-# refused above), one more Compose file composes the scheduler's admission
-# switch 0, so the backfill reads and asks for nothing, and one line says so.
-if [ "$DELPHI_DERIVED_BACKFILL_SELECTED" = 1 ]; then
-  DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived.yml)
-  if [ "$DELPHI_DERIVED_WORKER_SELECTED" != 1 ]; then
-    printf 'services:\n  delphi-shadow-scheduler:\n    environment:\n      - POLIS_JOBS_DERIVED_ADMISSION=0\n' | sudo tee docker-compose.derived-admission-off.yml > /dev/null
-    DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived-admission-off.yml)
-    echo "DELPHI_SHADOW_DERIVED_BACKFILL=1 with no derived topic map worker started: the scheduler starts with POLIS_JOBS_DERIVED_ADMISSION=0, so it asks for no map job that nothing would run" >&2
-  fi
-fi
-
 if [ -f "/etc/app-info/log_group_name.txt" ]; then
   LOG_GROUP_NAME=$(cat "/etc/app-info/log_group_name.txt")
   export AWS_LOG_GROUP_NAME=$LOG_GROUP_NAME
@@ -775,9 +762,24 @@ fi
 # before the scheduler, so a map job asked for is one a worker runs.
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_DERIVED_WORKER_SELECTED" = 1 ]; then
   echo "POLIS_JOBS_DERIVED_WORKER=1: starting the derived topic map worker (delphi-derived-worker)"
-  "${COMPOSE[@]}" up -d delphi-derived-worker --no-build --force-recreate \
-    || echo "The derived topic map worker did not start; the deploy continues without it" >&2
+  if ! "${COMPOSE[@]}" up -d delphi-derived-worker --no-build --force-recreate; then
+    echo "The derived topic map worker did not start; the deploy continues without it" >&2
+    DELPHI_DERIVED_WORKER_SELECTED=0
+  fi
 fi
+# The scheduler asks for derived map jobs only when a worker will run them:
+# with the backfill on and no worker started on this deploy (its line off, or
+# refused above), one more Compose file composes the scheduler's admission
+# switch 0, so the backfill reads and asks for nothing, and one line says so.
+if [ "$DELPHI_DERIVED_BACKFILL_SELECTED" = 1 ]; then
+  DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived.yml)
+  if [ "$DELPHI_DERIVED_WORKER_SELECTED" != 1 ]; then
+    printf 'services:\n  delphi-shadow-scheduler:\n    environment:\n      - POLIS_JOBS_DERIVED_ADMISSION=0\n' | sudo tee docker-compose.derived-admission-off.yml > /dev/null
+    DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived-admission-off.yml)
+    echo "DELPHI_SHADOW_DERIVED_BACKFILL=1 with no derived topic map worker started: the scheduler starts with POLIS_JOBS_DERIVED_ADMISSION=0, so it asks for no map job that nothing would run" >&2
+  fi
+fi
+
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
   if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then
