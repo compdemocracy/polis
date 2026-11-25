@@ -601,6 +601,10 @@ pub(crate) async fn lateness<F: std::future::Future>(work: F) -> (F::Output, Dur
 #[path = "delphi_topic_map_database_tests.rs"]
 pub(crate) mod database_tests;
 
+#[cfg(feature = "db-tests")]
+#[path = "delphi_topic_map_migrated_database_tests.rs"]
+mod migrated_database_tests;
+
 /// A map of two levels and five comments (ids 10 to 14): at the finer level
 /// topics 0_0 {10, 11}, 0_1 {12, 13} and 0_2 {14}; at the coarser 1_0 {10, 11,
 /// 12} and 1_1 {13, 14}. Comment 14 is the only member of 0_2, whose name is
