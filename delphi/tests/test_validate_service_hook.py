@@ -297,3 +297,37 @@ def test_read_shadow_with_its_read_route_is_refused_before_polling(tmp_path, rou
     assert p.returncode != 0
     assert f'{message} cannot be selected together' in p.stderr
     assert not (tmp_path/'calls').exists()
+
+
+# The derived topic map worker is optional work: never required, so it never
+# fails the deploy. On the Delphi box with its exact switch line on, one line
+# says whether it runs; with the line off (or any other role), nothing is
+# probed or said.
+@pytest.mark.parametrize('line', [None, 'POLIS_JOBS_DERIVED_WORKER=0', 'POLIS_JOBS_DERIVED_WORKER=true',
+                                  '# POLIS_JOBS_DERIVED_WORKER=1'])
+def test_the_derived_worker_switched_off_is_neither_probed_nor_named(tmp_path, line):
+    if line is not None:
+        (tmp_path/'.env').write_text(line + '\n')
+    p = probe(tmp_path, role='delphi')
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3
+    assert 'derived' not in p.stdout + p.stderr
+
+
+@pytest.mark.parametrize('absent,running', [('', True), ('delphi-derived-worker', False)])
+def test_the_derived_worker_switched_on_is_reported_and_never_required(tmp_path, absent, running):
+    (tmp_path/'.env').write_text('POLIS_JOBS_DERIVED_WORKER=1\n')
+    p = probe(tmp_path, role='delphi', absent=absent)
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3 + ['delphi-derived-worker']
+    if running:
+        assert 'delphi-derived-worker running (POLIS_JOBS_DERIVED_WORKER=1)' in p.stdout
+    else:
+        assert 'delphi-derived-worker is not running although POLIS_JOBS_DERIVED_WORKER=1' in p.stderr
+
+
+def test_the_derived_worker_line_on_a_web_box_says_nothing(tmp_path):
+    (tmp_path/'.env').write_text('POLIS_JOBS_DERIVED_WORKER=1\n')
+    p = probe(tmp_path, role='server')
+    assert p.returncode == 0, p.stderr
+    assert 'derived' not in p.stdout + p.stderr

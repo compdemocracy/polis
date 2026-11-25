@@ -282,6 +282,19 @@ ready() {
     *) echo "Unknown service type: $role" >&2; return 1 ;;
   esac
 }
+# The derived topic map worker is optional work, as the Delphi shadow is, and
+# never named in DELPHI_SERVICES, so its not running never fails the deploy.
+# On the Delphi box with its switch line on, one line says whether it runs;
+# with the line off, this says nothing.
+derived_worker_report() {
+  [ "$role" = delphi ] || return 0
+  grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null || return 0
+  if containers_ready delphi-derived-worker; then
+    echo "delphi-derived-worker running (POLIS_JOBS_DERIVED_WORKER=1)"
+  else
+    echo "delphi-derived-worker is not running although POLIS_JOBS_DERIVED_WORKER=1 (optional work, so the deploy is not failed; the deploy log says why)" >&2
+  fi
+}
 # Require consecutive successes so a restarting process cannot pass on one poll.
 successes=0
 attempts=60
@@ -291,6 +304,7 @@ for attempt in $(seq 1 "$attempts"); do
   if ready; then
     successes=$((successes + 1))
     if [ "$successes" -ge 3 ]; then
+      derived_worker_report
       echo "ValidateService passed for $role"
       exit 0
     fi
