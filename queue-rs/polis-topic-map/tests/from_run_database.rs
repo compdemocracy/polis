@@ -1510,37 +1510,78 @@ mod derived_worker {
             )
             .unwrap();
         let back = defs(&after);
-        // Two restored bodies differ from 000049 in text only: a local
-        // variable of pd_writer_admit is named writer_scope, and one comment
-        // word of pd_enqueue reads "scope". Every other line, and every
-        // other function, is byte for byte.
-        for name in [
-            "pd_enqueue(text,integer,text,text,text,text,uuid,uuid,text,text,text,text,smallint,integer,text,text,text,jsonb)",
-            "pd_writer_admit(text,integer,text,text,text,text,uuid,uuid,text,text,jsonb,text)",
+        // Normalize only the six documented whole-line substitutions, in
+        // their exact function signatures. Compare the entire map afterward:
+        // an extra overload, a missing function or any other edit must fail.
+        // Read the historical local name from its declaration. Only the
+        // exact six full lines below may change; no line is exempted.
+        let original_writer = &before["pd_writer_admit(text,integer,text,text,text,text,uuid,uuid,text,text,jsonb,text)"];
+        let original_name = original_writer
+            .lines()
+            .find_map(|line| {
+                line.strip_prefix("DECLARE frame text; conf jsonb; reply jsonb;")
+                    .and_then(|s| s.strip_suffix(" text;"))
+            })
+            .unwrap();
+        assert!(!original_name.is_empty());
+        assert!(
+            original_name
+                .bytes()
+                .all(|b| b.is_ascii_lowercase() || b == b'_')
+        );
+        let mut expected = before.clone();
+        for (name, substitutions) in [
+            (
+                "pd_enqueue(text,integer,text,text,text,text,uuid,uuid,text,text,text,text,smallint,integer,text,text,text,jsonb)",
+                vec![(
+                    format!(
+                        " -- The poison latch (no {original_name} is held): the scope's last three jobs all dead\n"
+                    ),
+                    " -- The poison latch (no scope is held): the scope's last three jobs all dead\n",
+                )],
+            ),
+            (
+                "pd_writer_admit(text,integer,text,text,text,text,uuid,uuid,text,text,jsonb,text)",
+                vec![
+                    (
+                        format!(
+                            "DECLARE frame text; conf jsonb; reply jsonb;{original_name} text;\n"
+                        ),
+                        "DECLARE frame text; conf jsonb; reply jsonb;writer_scope text;\n",
+                    ),
+                    (
+                        format!(
+                            " {original_name}='writer:'||public.pd_graph_hash(jsonb_build_array(p_zid,p_scope));\n"
+                        ),
+                        " writer_scope='writer:'||public.pd_graph_hash(jsonb_build_array(p_zid,p_scope));\n",
+                    ),
+                    (
+                        format!(" PERFORM public.pd_release_scope(p_env,{original_name});\n"),
+                        " PERFORM public.pd_release_scope(p_env,writer_scope);\n",
+                    ),
+                    (
+                        format!(
+                            " reply=public.pd_enqueue(p_env,p_zid,{original_name},p_actor,p_key,p_sha,p_run,p_job,\n"
+                        ),
+                        " reply=public.pd_enqueue(p_env,p_zid,writer_scope,p_actor,p_key,p_sha,p_run,p_job,\n",
+                    ),
+                    (
+                        format!("  p_stage,p_report,{original_name},conf);\n"),
+                        "  p_stage,p_report,writer_scope,conf);\n",
+                    ),
+                ],
+            ),
         ] {
-            let (b, a) = (&before[name], &back[name]);
-            assert_eq!(b.lines().count(), a.lines().count(), "{name}");
-            for (bl, al) in b.lines().zip(a.lines()) {
-                assert!(
-                    bl == al || al.contains("writer_scope") || al.contains("(no scope is held)"),
-                    "{name}: {bl} / {al}"
-                );
+            let definition = expected.get_mut(name).unwrap();
+            for (old, new) in substitutions {
+                assert_eq!(definition.matches(old.as_str()).count(), 1, "{name}: {old}");
+                *definition = definition.replacen(old.as_str(), new, 1);
             }
         }
-        let differ = before
-            .keys()
-            .chain(back.keys())
-            .filter(|k| !k.starts_with("pd_enqueue(") && !k.starts_with("pd_writer_admit("))
-            .filter(|k| before.get(*k) != back.get(*k))
-            .collect::<std::collections::BTreeSet<_>>();
-        for k in &differ {
-            println!(
-                "DIFFER {k}\n--- before\n{}\n--- after down\n{}",
-                before.get(*k).map_or("", |s| s),
-                back.get(*k).map_or("", |s| s)
-            );
-        }
-        assert!(differ.is_empty(), "{differ:?}");
+        assert_eq!(
+            expected, back,
+            "down must restore every normalized definition"
+        );
         let changed = before
             .iter()
             .filter(|(name, def)| forward.get(*name) != Some(def))

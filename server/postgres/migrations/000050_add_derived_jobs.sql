@@ -61,18 +61,18 @@
 -- function keeps its signature, owner, SECURITY DEFINER, search_path and
 -- grants, and behaves as before for every existing stage and class.
 --
--- Locks at deploy, all until this file's COMMIT, which follows at once (no
--- statement here reads table rows: every CHECK is added NOT VALID, so nothing
--- is scanned however many rows the tables hold):
+-- Locks at deploy are held until this file's COMMIT. Adding the CHECKs
+-- NOT VALID avoids scanning existing rows; it does not bound lock duration.
 --   polis_queue_jobs  ACCESS EXCLUSIVE (DROP/ADD CONSTRAINT): queue claims,
---                     heartbeats and admissions wait, milliseconds.
+--                     heartbeats and admissions wait until commit/rollback.
 --   delphi_jobs       ACCESS EXCLUSIVE (DROP/ADD CONSTRAINT): likewise.
---   CREATE OR REPLACE FUNCTION locks only the function's catalog row.
+--   CREATE OR REPLACE FUNCTION changes catalog entries, not table rows.
 -- conversations, votes, comments and participants are not touched or locked.
--- lock_timeout is 5 s (the runner's DDL bound): if a long queue transaction
--- holds either table, this file gives up with nothing changed and no history
--- row, and the next deploy runs it again; while it waits, queue work on that
--- table waits behind it, at most those 5 s.
+-- lock_timeout is 5 s per lock acquisition, not for the whole file or for
+-- how long an acquired lock is held. If a conflicting lock is not released
+-- within that wait, the transaction rolls back with no history row and the
+-- next deploy retries. Earlier locks remain held through later statements
+-- and their waits until the transaction ends. No elapsed duration is promised.
 --
 -- NOT VALID is exact here: each new list is a superset of the validated list
 -- it replaces, in the same transaction, so every existing row satisfies it,

@@ -9,9 +9,11 @@
 -- The two tables are held first (ACCESS EXCLUSIVE, until COMMIT), so no
 -- derived admission can commit between the check and the restore. Restores
 -- each function to the body it had before 000050 and each CHECK to its
--- earlier list, validated (this scans polis_queue_jobs and delphi_jobs once
--- under that lock; seconds at most on millions of rows; queue work waits,
--- conversations, votes, comments and participants are not touched).
+-- earlier list, validated (this scans polis_queue_jobs and delphi_jobs
+-- under those locks; queue readers and writers wait until commit/rollback).
+-- Scan and lock-hold duration depend on table size and database load; the
+-- 5 s lock_timeout bounds each acquisition wait, not the scans or transaction.
+-- conversations, votes, comments and participants are not touched.
 -- Runner history is not edited here; the operator removes the 000050 history
 -- row in the same sitting, after this succeeds.
 BEGIN;
