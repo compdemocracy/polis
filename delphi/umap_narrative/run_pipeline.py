@@ -1318,25 +1318,13 @@ def _read_selected_inputs(zid, selection_name, facts):
 
 
 def _embeddings_to_store(texts, ids, vectors):
-    """The (texts, ids, vectors) a run hands the embeddings table.
+    """Hand over every vector used, including a text conflict.
 
-    Every vector the run used, the reused ones included: pd_embedding_put keeps a
-    row already stored for the same comment and text as it is (ON CONFLICT DO
-    NOTHING, migration 000038), so only the new comments add rows; and the daemon
-    closes the run's embedding set only when the run hands over rows, a set that
-    covers every stored row of the conversation and model, which the datamapplot
-    step reads back as the served set. The one exception, only when the frame
-    offered stored vectors: a comment stored under another text is left out, since
-    its new vector cannot be stored under the same id (pd_embedding_put refuses
-    the whole call). Without an offer, everything, as before."""
-    offer = _reuse_offer()
-    if offer is None or not offer.rows:
-        return texts, ids, vectors
-    keep = [i for i, (tid, text) in enumerate(zip(ids, texts)) if not offer.text_changed(tid, text)]
-    if len(keep) == len(ids):
-        return texts, ids, vectors
-    logger.info(f"Not re-storing {len(ids) - len(keep)} comments whose text changed since they were stored")
-    return [texts[i] for i in keep], [ids[i] for i in keep], np.asarray(vectors)[keep]
+    The immutable table refuses a different text for a stored comment id. Keep
+    that refusal: silently omitting the new vector would close a set containing
+    the old vector while this run's layout used the new one.
+    """
+    return texts, ids, vectors
 
 
 def _store_base(export_dynamo, conversation_id, document_vectors, document_map, cluster_layers,

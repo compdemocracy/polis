@@ -149,7 +149,7 @@ def test_a_mix_encodes_exactly_the_missing_texts_once_in_order(stages, model, mo
     assert (facts["embeddings_reused"], facts["embeddings_encoded"], facts["n_comments"], facts["dims"]) == (2, 2, 4, DIMS)
 
 
-def test_a_comment_stored_under_another_text_is_encoded_and_not_stored_again(stages, model, model_name, recorded,
+def test_a_comment_stored_under_another_text_is_encoded_and_kept_for_conflict_check(stages, model, model_name, recorded,
                                                                               tmp_path, monkeypatch):
     write_frame(tmp_path, monkeypatch, stored({3: TEXTS[0], 7: "the text it had", 11: TEXTS[2], 20: TEXTS[3]}),
                 model_name)
@@ -159,8 +159,8 @@ def test_a_comment_stored_under_another_text_is_encoded_and_not_stored_again(sta
     facts = recorded()["embed_encode"]
     assert (facts["embeddings_reused"], facts["embeddings_encoded"], facts["embeddings_text_changed"]) == (3, 1, 1)
     texts, ids, kept = stages.pipeline._embeddings_to_store(TEXTS, IDS, vectors)
-    assert ids == [3, 11, 20] and texts == [TEXTS[0], TEXTS[2], TEXTS[3]]
-    assert np.array_equal(kept, vectors[[0, 2, 3]])
+    assert ids is IDS and texts is TEXTS
+    assert kept is vectors
 
 
 def test_another_model_encodes_everything(stages, model, recorded, tmp_path, monkeypatch):
