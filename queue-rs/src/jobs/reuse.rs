@@ -26,8 +26,13 @@
 //!
 //! A reuse file never fails, retries or holds up a run past its bound: any
 //! absence, bound or error leaves the run without the file and the frame says
-//! why in one word (`reason`). The read is two statements in one read-only
-//! transaction, each under `statement_timeout` 20 s and `lock_timeout` 5 s; it
+//! why in one word (`reason`). The whole preparation (every exchange on the
+//! connection, the spool and the file) has one deadline, [`DEADLINE`]: the
+//! driver's deadline closes the socket at it however the transport stalls, and
+//! the file is renamed into place only before it, so past it the run goes on
+//! without the file (`timeout`). The read is two statements in one read-only
+//! transaction, under `statement_timeout`, `lock_timeout` and
+//! `idle_in_transaction_session_timeout` so the server also ends its side; it
 //! takes ACCESS SHARE only, and reads by the primary keys
 //! (`delphi_embedding_models` by its unique name, `delphi_comment_embeddings`
 //! by `(env, zid, model_id, tid)`, `delphi_embedding_sets` by
@@ -40,13 +45,23 @@ use postgres::{Client, IsolationLevel};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::time::{Duration, Instant};
 
 /// The frame value's schema.
 pub const SCHEMA: &str = "delphi-embedding-reuse/1";
 /// The file, relative to the attempt directory (the frame's directory).
 pub const FILE: &str = "inputs/embeddings.spool";
-const STATEMENT_TIMEOUT: &str = "20s";
+/// The one bound on the daemon's whole preparation of the reuse file, from the
+/// first exchange on the bundle's connection to the file's rename. A 10,000
+/// comment read and write measured 1.6 s; 15 s is ten times that, small beside
+/// a run (minutes) and far under the child's own timeout (hours).
+pub const DEADLINE: Duration = Duration::from_secs(15);
+/// The server's own bounds, inside the transaction, so a backend whose client
+/// has gone (the driver closed the socket at [`DEADLINE`]) ends its work and
+/// its transaction by itself within the same 15 s.
+const STATEMENT_TIMEOUT: &str = "15s";
 const LOCK_TIMEOUT: &str = "5s";
+const IDLE_TIMEOUT: &str = "15s";
 /// The spool header before the model name: magic, dims, row count, name length.
 const HEADER: usize = 16;
 
@@ -172,7 +187,9 @@ pub fn read(
         .map_err(|e| classify(&e))?;
     tx.batch_execute(&format!(
         "SET LOCAL statement_timeout = '{STATEMENT_TIMEOUT}'; \
-         SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'; SET LOCAL enable_seqscan = off"
+         SET LOCAL lock_timeout = '{LOCK_TIMEOUT}'; \
+         SET LOCAL idle_in_transaction_session_timeout = '{IDLE_TIMEOUT}'; \
+         SET LOCAL enable_seqscan = off"
     ))
     .map_err(|e| classify(&e))?;
     let m = tx
@@ -221,6 +238,7 @@ pub fn write(
     model: &str,
     stored: &Stored,
     max_bytes: usize,
+    deadline: Instant,
 ) -> Result<(String, usize), Skip> {
     let spool = embedding::write_spool(model, stored.dims, &stored.rows).map_err(|e| {
         if e.to_string() == "embedding_spool_bound" {
@@ -234,15 +252,24 @@ pub fn write(
     }
     let path = attempt_dir.join(FILE);
     let temporary = attempt_dir.join(format!("{FILE}.tmp"));
+    let late = || Instant::now() >= deadline;
+    if late() {
+        return Err(Skip::Timeout);
+    }
     let written = path
         .parent()
         .map_or(Ok(()), std::fs::create_dir_all)
-        .and_then(|_| std::fs::write(&temporary, &spool))
-        .and_then(|_| std::fs::rename(&temporary, &path));
-    if written.is_err() {
+        .and_then(|_| std::fs::write(&temporary, &spool));
+    // The file appears only before the deadline, or not at all.
+    let written = match written {
+        Ok(()) if late() => Err(Skip::Timeout),
+        Ok(()) => std::fs::rename(&temporary, &path).map_err(|_| Skip::Unwritable),
+        Err(_) => Err(Skip::Unwritable),
+    };
+    if let Err(skip) = written {
         let _ = std::fs::remove_file(&temporary);
         let _ = std::fs::remove_file(&path);
-        return Err(Skip::Unwritable);
+        return Err(skip);
     }
     Ok((sha256_hex(&spool), stored.rows.len()))
 }
@@ -250,16 +277,42 @@ pub fn write(
 /// Read and write on the bundle's connection; never an error: the frame's
 /// `inputs.embeddings` value, with the file or with the reason there is none.
 pub fn prepare(client: &mut Client, attempt_dir: &Path, zid: i64, request: &Request) -> Value {
+    prepare_by(client, attempt_dir, zid, request, Instant::now() + DEADLINE)
+}
+
+/// [`prepare`] with its deadline given (a test passes a short one). The
+/// driver's deadline covers every exchange on `client`; when it passes, the
+/// driver drops the connection, closing its socket, so nothing of it is held
+/// past the deadline; the caller drops the client right after in any case.
+pub fn prepare_by(
+    client: &mut Client,
+    attempt_dir: &Path,
+    zid: i64,
+    request: &Request,
+    deadline: Instant,
+) -> Value {
     let Some(model) = request.model.as_deref() else {
         return frame(request, zid, Err(Skip::Model));
     };
     if !pinned(model) {
         return frame(request, zid, Err(Skip::Unpinned));
     }
-    let done = read(client, &request.env, zid, model, request.max_bytes).and_then(|stored| {
-        write(attempt_dir, model, &stored, request.max_bytes)
-            .map(|(sha, rows)| (sha, rows, stored.model_id, stored.dims))
-    });
+    client.set_deadline(Some(deadline));
+    let done = read(client, &request.env, zid, model, request.max_bytes)
+        .map_err(|skip| {
+            // A driver timeout carries no SQL state: past the deadline, any
+            // error is the deadline's.
+            if Instant::now() >= deadline {
+                Skip::Timeout
+            } else {
+                skip
+            }
+        })
+        .and_then(|stored| {
+            write(attempt_dir, model, &stored, request.max_bytes, deadline)
+                .map(|(sha, rows)| (sha, rows, stored.model_id, stored.dims))
+        });
+    client.set_deadline(None);
     frame(request, zid, done)
 }
 
@@ -520,7 +573,7 @@ mod tests {
                 },
             ],
         };
-        let (sha, rows) = write(&dir, "m", &stored, MAX_SPOOL_BYTES).unwrap_or_default();
+        let (sha, rows) = write(&dir, "m", &stored, MAX_SPOOL_BYTES, far()).unwrap_or_default();
         let bytes = std::fs::read(dir.join(FILE)).unwrap_or_default();
         assert_eq!((sha, rows), (sha256_hex(&bytes), 2));
         let back = embedding::read_spool(&bytes).ok();
@@ -528,10 +581,21 @@ mod tests {
         // One byte under the spool's size is refused, and no file is left.
         let other = dir.join("other");
         assert_eq!(
-            write(&other, "m", &stored, bytes.len() - 1).err(),
+            write(&other, "m", &stored, bytes.len() - 1, far()).err(),
             Some(Skip::Bound)
         );
         assert!(!other.join(FILE).exists());
+        // Past the deadline no file is written at all.
+        let late = dir.join("late");
+        assert_eq!(
+            write(&late, "m", &stored, MAX_SPOOL_BYTES, Instant::now()).err(),
+            Some(Skip::Timeout)
+        );
+        assert!(!late.join(FILE).exists());
         std::fs::remove_dir_all(&dir).unwrap_or_default();
+    }
+
+    fn far() -> Instant {
+        Instant::now() + DEADLINE
     }
 }

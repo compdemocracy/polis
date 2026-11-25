@@ -194,6 +194,14 @@ def test_an_unpinned_model_is_never_reused_even_when_offered(stages, monkeypatch
     assert (facts["embeddings_reused"], facts["embeddings_encoded"], facts["embeddings_reuse"]) == (0, 4, "unpinned")
 
 
+def test_a_file_over_the_bound_is_not_read(stages, model, model_name, recorded, tmp_path, monkeypatch):
+    monkeypatch.setattr(embedding_reuse, "MAX_FILE_BYTES", 64)
+    write_frame(tmp_path, monkeypatch, stored(dict(zip(IDS, TEXTS))), model_name)
+    stages.pipeline._embed(TEXTS, IDS)
+    assert model.encoded == [TEXTS]
+    assert recorded()["embed_encode"]["embeddings_reuse"] == "file"
+
+
 def _bad(case, rows, model_name):
     """(ref overrides, spool bytes or None, reason) for one bad offer."""
     good = write_spool(model_name, DIMS, rows)

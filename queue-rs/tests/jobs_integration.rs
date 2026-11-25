@@ -2855,6 +2855,94 @@ mod embedding_reuse {
         println!("{plan}");
     }
 
+    /// A transport that stalls after the connection is up (a proxy that holds
+    /// the transaction's first message, as a network that stops answering
+    /// would): the run goes on without the file at the deadline, and the driver
+    /// has closed the socket by then, before the client is even dropped.
+    #[test]
+    fn a_stalled_transport_ends_at_the_deadline_without_the_file_and_closes_its_socket() {
+        use std::io::{Read, Write};
+        use std::net::{Shutdown, TcpListener, TcpStream};
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+        let db = seeded();
+        let target = url_for(&db.name, "postgres");
+        let server = target
+            .split_once('@')
+            .unwrap()
+            .1
+            .split('/')
+            .next()
+            .unwrap()
+            .to_owned();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let local = listener.local_addr().unwrap();
+        let (held_tx, held_rx) = mpsc::channel();
+        let (closed_tx, closed_rx) = mpsc::channel();
+        let proxy = std::thread::spawn(move || {
+            let (mut front, _) = listener.accept().unwrap();
+            let mut back = TcpStream::connect(&server).unwrap();
+            let mut from_client = front.try_clone().unwrap();
+            let mut to_server = back.try_clone().unwrap();
+            let replies = std::thread::spawn(move || {
+                let _ = std::io::copy(&mut back, &mut front);
+            });
+            let mut buf = [0u8; 65536];
+            let mut holding = false;
+            let has = |chunk: &[u8], word: &[u8]| chunk.windows(word.len()).any(|w| w == word);
+            loop {
+                match from_client.read(&mut buf) {
+                    Ok(0) | Err(_) => {
+                        let _ = closed_tx.send(Instant::now());
+                        break;
+                    }
+                    Ok(n) => {
+                        let chunk = &buf[..n];
+                        if !holding && (has(chunk, b"START TRANSACTION") || has(chunk, b"BEGIN")) {
+                            holding = true;
+                            let _ = held_tx.send(());
+                        }
+                        if !holding && to_server.write_all(chunk).is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = to_server.shutdown(Shutdown::Both);
+            let _ = replies.join();
+        });
+        let mut c =
+            Client::connect(&format!("postgresql://postgres@{local}/{}", db.name), NoTls).unwrap();
+        let dir = scratch();
+        let bound = Duration::from_secs(2);
+        let started = Instant::now();
+        let value = reuse::prepare_by(
+            &mut c,
+            &dir,
+            ZID,
+            &request(Some(granite()), MAX_SPOOL_BYTES),
+            started + bound,
+        );
+        let took = started.elapsed();
+        held_rx
+            .try_recv()
+            .expect("the transport stalled inside the reuse transaction");
+        assert_eq!(value["reason"], "timeout", "{value}");
+        assert!(value["file"].is_null() && !dir.join(reuse::FILE).exists());
+        assert!(
+            took >= bound && took < bound + Duration::from_secs(2),
+            "{took:?}"
+        );
+        // The driver closed the socket at the deadline; the client still exists.
+        let closed = closed_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("the socket is closed at the deadline, not held open");
+        assert!(closed.duration_since(started) < bound + Duration::from_secs(2));
+        drop(c);
+        proxy.join().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
     #[test]
     fn off_means_no_file_and_the_bundle_value_is_unchanged() {
         let db = seeded();

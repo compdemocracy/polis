@@ -36,6 +36,9 @@ SCHEMA = "delphi-embedding-reuse/1"
 FILE = "inputs/embeddings.spool"
 FRAME_ENV = "DELPHI_FRAME"
 KEYS = frozenset(("schema", "file", "sha256", "rows", "model", "model_id", "dims", "env", "zid", "reason"))
+# The contract's bound on the file (``embedding_spool.MAX_SPOOL_BYTES``); a larger
+# file is not read at all.
+MAX_FILE_BYTES = 268_435_456
 
 # THE RULE: a stored model name may be reused only when it pins the computation
 # that produced its vectors, by its form alone: ``<repo>@<revision>:<dims>``, with
@@ -110,10 +113,13 @@ def from_frame(frame: Any, frame_path: str, model: Optional[str], dims: int) -> 
         return _nothing("frame")
     path = os.path.join(os.path.dirname(os.path.abspath(frame_path)), FILE)
     try:
-        if not stat.S_ISREG(os.lstat(path).st_mode):
+        info = os.lstat(path)
+        if not stat.S_ISREG(info.st_mode) or info.st_size > MAX_FILE_BYTES:
             return _nothing("file")
         with open(path, "rb") as f:
-            data = f.read()
+            data = f.read(MAX_FILE_BYTES + 1)
+        if len(data) > MAX_FILE_BYTES:
+            return _nothing("file")
     except OSError:
         return _nothing("file")
     if hashlib.sha256(data).hexdigest() != ref["sha256"]:
