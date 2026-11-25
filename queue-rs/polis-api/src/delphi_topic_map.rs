@@ -116,6 +116,14 @@ pub const DEFAULT_SCOPE: &str = "delphi";
 /// A shadow env's prefix: a served env never reads as the shadow.
 pub const SHADOW_PREFIX: &str = "shadow-";
 
+/// Read once at startup, only when the topic map handler is enabled.
+pub fn derived_reads_from_env() -> bool {
+    std::env::var("POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
+        .ok()
+        .as_deref()
+        == Some("1")
+}
+
 /// The result envs the route reads, from the deployment's settings.
 #[derive(Debug)]
 pub struct Envs {

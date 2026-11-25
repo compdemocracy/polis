@@ -116,6 +116,11 @@ polis_api_ready() {
             ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : []),
             ...(selected.includes("delphiTopicMap") ? ["POLIS_API_DELPHI_TOPIC_MAP_READS"] : [])
           ].sort().join(",");
+          // Derived reads modify the selected topic map handler; they do not
+          // select another route and are optional when that handler is selected.
+          const enabledSwitches = (h.routing?.enabledSwitches ?? ["!"]).filter(key =>
+            !(selected.includes("delphiTopicMap") &&
+              key === "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS"));
           // The vote writer reports itself enabled, with its counters, exactly
           // when its route is selected.
           const writer = h.postVotes;
@@ -127,7 +132,7 @@ polis_api_ready() {
             writer?.enabled !== true;
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
-              routes((h.routing?.enabledSwitches ?? ["!"]).join(",")) !==
+              routes(enabledSwitches.join(",")) !==
                 expectedSwitches || !writerReady ||
               !p?.readOnly || !p.reachable || p.limit !== 8 ||
               p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||

@@ -1188,10 +1188,7 @@ async fn startup() -> Result<Startup> {
         // derived job made from its stored results, found by the run's key
         // in the job address table (which this login must read; without the
         // read, a derived map is simply not found). Off, no derived lookup.
-        state.delphi_topic_map_derived = std::env::var("POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
-            .ok()
-            .as_deref()
-            == Some("1");
+        state.delphi_topic_map_derived = delphi_topic_map::derived_reads_from_env();
         // Who is a moderator (sent the full map; everyone else is sent
         // moderated-out comments as bare points) reads Node's tables with
         // Node's read login unless a dedicated one is given.
