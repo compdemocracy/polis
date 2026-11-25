@@ -764,6 +764,28 @@ mod derived_jobs {
         let mut ex = db.executor();
         job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "t"), CODE).unwrap());
     }
+    #[test]
+    fn review_existing_key_checks_rule() {
+        let db = Db::new();
+        let src = source(&db);
+        let mut ex = db.executor();
+        job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "first"), CODE).unwrap());
+        let mut req = request(&src.job_id, "second");
+        req.selection = Some("all/1".into());
+        let actual = derived::admit(&mut ex, on, &req, CODE).unwrap();
+        assert_eq!(actual, Admission::Refused(Refusal::SourceRule));
+    }
+    #[test]
+    fn review_existing_key_checks_hashes() {
+        let db = Db::new();
+        let src = source(&db);
+        let mut ex = db.executor();
+        job_of(&derived::admit(&mut ex, on, &request(&src.job_id, "first"), CODE).unwrap());
+        let mut req = request(&src.job_id, "second");
+        req.inputs_sha256 = Some(vec!["0".repeat(64); 3]);
+        let actual = derived::admit(&mut ex, on, &req, CODE).unwrap();
+        assert_eq!(actual, Admission::Refused(Refusal::SourceHash));
+    }
 }
 
 /// The derived stage's worker against the release chain: it stores the map

@@ -261,7 +261,7 @@ pub fn check_source(req: &Request, record: &Value) -> Result<from_run::Plan, Ref
     Ok(plan)
 }
 
-fn reply_to_admission(reply: &Value, key: &str) -> Result<Admission, String> {
+fn reply_to_admission(reply: &Value, key: &str, req: &Request) -> Result<Admission, String> {
     let admitted = || -> Result<Admitted, String> {
         Ok(Admitted {
             job_id: reply["job_id"]
@@ -275,7 +275,28 @@ fn reply_to_admission(reply: &Value, key: &str) -> Result<Admission, String> {
     };
     match reply["outcome"].as_str() {
         Some("enqueued") => Ok(Admission::Enqueued(admitted()?)),
-        Some("existing") => Ok(Admission::Existing(admitted()?)),
+        Some("existing") => {
+            let a = admitted()?;
+            // A key hit still has to satisfy this asker's declared inputs.
+            // Compare the durable specification, so a later change to the
+            // source's current-publication pointer cannot change the answer.
+            if a.spec["source"]["selection"] != json!(req.selection) {
+                return Ok(Admission::Refused(Refusal::SourceRule));
+            }
+            if let Some(expected) = &req.inputs_sha256 {
+                let Some(families) = a.spec["source"]["families"].as_array() else {
+                    return Ok(Admission::Refused(Refusal::KeyConflict));
+                };
+                if expected
+                    .iter()
+                    .map(|s| Some(s.as_str()))
+                    .ne(families.iter().map(|f| f["sha256"].as_str()))
+                {
+                    return Ok(Admission::Refused(Refusal::SourceHash));
+                }
+            }
+            Ok(Admission::Existing(a))
+        }
         Some("conflict") => Ok(Admission::Refused(Refusal::KeyConflict)),
         Some("refused") => reply["reason"]
             .as_str()
@@ -360,7 +381,7 @@ pub fn admit(
         // not succeeded) also comes back here, before any record is read.
         let looked = call(client, &req, &k, None, code)?;
         if looked["outcome"] != "none" {
-            return reply_to_admission(&looked, &k);
+            return reply_to_admission(&looked, &k, &req);
         }
         let record: Value = client
             .query_one(
@@ -375,7 +396,7 @@ pub fn admit(
             Err(refusal) => return Ok(Admission::Refused(refusal)),
         };
         let spec = spec(&req, &k, &plan);
-        reply_to_admission(&call(client, &req, &k, Some(&spec), code)?, &k)
+        reply_to_admission(&call(client, &req, &k, Some(&spec), code)?, &k, &req)
     })();
     log(req, key_made.as_deref(), &answer);
     answer
