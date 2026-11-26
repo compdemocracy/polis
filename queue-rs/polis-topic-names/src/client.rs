@@ -54,7 +54,7 @@ pub fn valid_region(region: &str) -> bool {
 }
 
 /// Where AWS credentials come from.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum AwsCredentials {
     /// The default AWS credential chain, read when the call is made: the
     /// environment, the shared profile files, the container's credentials,
@@ -68,8 +68,18 @@ pub enum AwsCredentials {
     },
 }
 
+// Credentials must stay redacted even in a caller's debug diagnostics.
+impl std::fmt::Debug for AwsCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::DefaultChain => "DefaultChain",
+            Self::Given { .. } => "Given { .. }",
+        })
+    }
+}
+
 /// How a call is authenticated.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum Auth<'a> {
     /// The Claude API: the key goes in `x-api-key`.
     ApiKey(&'a str),
@@ -78,6 +88,15 @@ pub enum Auth<'a> {
         region: &'a str,
         credentials: &'a AwsCredentials,
     },
+}
+
+impl std::fmt::Debug for Auth<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::ApiKey(_) => "ApiKey(..)",
+            Self::Bedrock { .. } => "Bedrock { .. }",
+        })
+    }
 }
 
 /// How the call is made. [`Settings::default`] is production's.

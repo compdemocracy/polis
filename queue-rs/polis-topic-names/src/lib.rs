@@ -168,7 +168,7 @@ impl Run {
 }
 
 /// What authenticates the call.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub enum Access<'a> {
     /// The Claude API key, when one is set.
     Key(Option<&'a str>),
@@ -177,6 +177,15 @@ pub enum Access<'a> {
         region: Option<&'a str>,
         credentials: &'a client::AwsCredentials,
     },
+}
+
+impl std::fmt::Debug for Access<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Key(_) => "Key(..)",
+            Self::Bedrock { .. } => "Bedrock { .. }",
+        })
+    }
 }
 
 /// Names the hierarchy. `key` is the key's value when one is set and not

@@ -2,7 +2,7 @@
 name = "polis-topic-names"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.94.1"
 publish = false
 license = "AGPL-3.0-or-later"
 description = "Names a Delphi run's topic hierarchy with one model call, checks the reply, and records the outcome; any failure is an outcome, never a crash."
