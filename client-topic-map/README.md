@@ -32,6 +32,7 @@ No client uses it yet.
 | `topic-list.js` | the list | 7,976 |
 | `theme-neutral.js` | the neutral theme | 5,754 |
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
+| `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -387,6 +388,65 @@ recomputed; none changes placement there. Such a difference can add or remove
 a spiral ring and change placement on another document. It is not a general
 placement tolerance.
 
+## The highlights: `highlights.js`
+
+`PolisTopicMapHighlights` chooses the comments a page brings forward over the
+map: the comments that stand out on the whole map as most consensus or most
+divisive, the map's top few and each topic's own, with each topic's summaries
+sorted highest consensus first and the topics that stand out as topics
+marked. It draws nothing and measures nothing new: it takes numbers Polis
+already computes, keyed by comment id (the document's point id).
+
+```js
+var numbers = PolisTopicMapHighlights.numbersFrom(math, comments);
+// math: the math result (GET /api/v3/math/pca2); comments: GET /api/v3/comments
+var h = PolisTopicMapHighlights.highlights(doc, numbers, { n: 5, perTopic: 1, minVotes: 5, level: 0, standout: 0.9 });
+```
+
+| Number | What it is | Where Polis computes it |
+| --- | --- | --- |
+| `consensus` | group-informed consensus as the report shows it: the mean over the opinion groups of (agrees + 1) / (agrees + disagrees + 2); 1 when every group agrees | `client-report/src/util/normalizeConsensus.js`, from the math result's `group-votes` |
+| `divisive` | the comment's extremity: the length of its projection on the two principal components; the axis of the report's "How divisive was the conversation?" chart | the math result's `pca["comment-extremity"]` (`delphi/polismath/pca_kmeans_rep/pca.py`, `compute_comment_extremity`) |
+| `votes` | agree + disagree + pass | the comments route's counts |
+
+Either measure can be replaced by any other number per comment, for example the
+math result's `group-aware-consensus` (the product over groups, which the math
+engine stores).
+
+- **Eligible:** a point with an id (held-back points are never chosen), a finite
+  value for the measure, and at least `minVotes` votes (5, the topic
+  statistics page's floor).
+- **Order:** most first; ties go to more votes, then to the smaller id.
+- **Standouts only:** a comment is brought forward for a measure only when it
+  is in the top share of the map's eligible comments for that measure
+  (`standout`, default 0.9: the top tenth). The line is the value of the k-th
+  comment in order, k = ceil(count × (1 − standout)); every eligible comment at
+  or above it is a standout, so ties at the line are all in. The map's `n` and
+  each topic's `perTopic` picks come from the standouts only: a topic with no
+  standout has no pick; nothing is forced. `standout: 0` makes every eligible
+  comment a standout.
+- **Each topic** of `level` gets its `perTopic` standouts per measure, all its
+  standouts (`standouts.consensus`, `standouts.divisive`, most first), and a
+  summary of its eligible comments' consensus (`summary`) and divisiveness
+  (`divisiveSummary`): `count`, `min`, `q1`, `median`, `q3`, `max`; quartiles
+  by the linear interpolation of plotly.js's box trace, which draws the topic
+  statistics page, at position p × n − 0.5. Topics are sorted by median
+  consensus, then upper quartile, then count, then their order in the
+  document; a topic with no eligible comment comes last, with `summary: null`.
+- **Special topics** (`special.consensus`, `special.divisive` on each topic):
+  over the topics with a summary, a topic is special for consensus when its
+  median consensus is in the top share of the topics' medians (`topicStandout`,
+  default 0.85, by the same k-th rule) and its spread q3 − q1 is at or under
+  the `spreadQuantile` quantile of the topics' spreads (default 0.25, the
+  narrowest quarter); special for division when its median divisiveness is in
+  the top share of the topics' medians of that measure (`topicDivisive`,
+  default 0.9).
+- **Returns** `{ settings, eligible, standout, special, consensus, divisive,
+  topics }`; `standout` gives each measure's `line` and `count`, `special` each
+  rule's lines and how many topics it marks; each chosen comment is
+  `{ index, id, x, y, value, votes, topic }`, where `index` is the point's
+  place in the document and `topic` the id of its topic at `level`, or `null`.
+
 ## Taking it into a client
 
 Code is shared between the clients today in two ways. Build tooling lives in the
@@ -497,6 +557,11 @@ node --test client-topic-map/test/*.test.js
   cell, every outline segment) are equal to the recorded values exactly. The
   fixture is a cut of a public conversation's stored map, with names written
   by a language model.
+- `test/highlights.test.js`: the choice of comments to bring forward, on
+  small made-up documents: the report's consensus formula, extremity by the
+  math result's order, the vote floor, held-back points never chosen, the
+  order of ties, each topic's comments and summary, the order of topics, and
+  the quartile rule.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.
