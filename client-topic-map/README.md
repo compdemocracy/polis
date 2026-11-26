@@ -34,7 +34,7 @@ No client uses it yet.
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
 | `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 32,422 |
-| `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; every other comment in view revealed on hover or focus, and selected on click with the poured form and the counts in words | |
+| `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; at the deepest step every other comment's first words beside its dot where there is room; the comment nearest the pointer revealed on hover or focus, and selected on click with the poured form and the counts in words | |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -133,7 +133,11 @@ to the theme's `font.family`.
 What differs from the default drawing while it is selected:
 
 - the positions are drawn linearly (y up), fitted to the extent of every point
-  with a pad of 3% of the smaller side; `projection`, `level`, `collision`, the
+  with a pad of 3% of the smaller side; on a map with room (at least
+  `zoom.surface.minAreaPerPoint`, 6000, px² of frame per point) the pad is
+  widened so that every zone's shape lies inside the frame with `fitMargin`
+  (8) px to spare (`fitFor`, `zoneReach`): a zone of lone points reaches
+  about two and a half blur widths past them; `projection`, `level`, `collision`, the
   theme's colours and the document's colours do not apply;
 - the gestures are the default drawing's (drag, the wheel and a pinch about the
   pointer, double-click in and Shift-double-click out), within the zoom
@@ -676,6 +680,24 @@ One rule for every size of conversation, not a preset for small ones.
   (`leader: [x0, y0, x1, y1]` on the label) is kept off every name and label;
   the deepest zoom's overlay draws the leader and rings the dot in the kind's
   colour. `densecomments` then has `on` and `surface` true and `budget`.
+- **Targets.** Where the overlay is on (`densecomments.detail.on`), the
+  pointer picks the comment nearest it within `reach` (40) px, the comments'
+  Voronoi cells cut at that distance: a written-out comment answers by its
+  text and graphic, a lead by its words, every other comment by its cell.
+  Further than 40 px from every comment nothing is picked and a click clears
+  the selection. The picked dot is ringed. The comments in view are put on a
+  grid of 40 px cells once per settled view, so a pointer move reads nine
+  cells (`pointIndex`, `nearestPoint`). Where the view is too crowded for the
+  overlay (Bowling Green's whole map) the map's own tooltip answers, within
+  a dot's radius (`hitRadiusMin`).
+- **Leads.** At the deepest step (`densecomments.detail.deep`), every other
+  comment in view with text gets its first words beside its dot (`lead`:
+  at most 5 words and 30 characters on one line, cut with "…", 12 px,
+  weight 400, `#6f7682` over a white halo), most votes first; a lead is
+  never over another lead, a written-out comment, its rule, graphic or
+  leader, a name or another comment's dot, and with no free place it is
+  left out, so the fewest votes go first. At the surface there are none.
+  `lead: false` turns them off.
 - **Steps.** A map with that room at the fit (`isSmall`) has one step,
   straight to its comments, and its zoom ends at `zoomLimit`:
   sqrt(points / `minInView`), at least ×2, where on average fewer than
@@ -729,6 +751,11 @@ node --test client-topic-map/test/*.test.js
   its standouts out at the whole-map view within the budget, balanced, beside
   their dots; a crowded map and the reference write none; names grow within
   the bounds; a small map's steps end where nothing new would show.
+- `test/nearest-leads.test.js`: the nearest comment within the reach (and
+  nothing beyond it), a stable tie, the grid against a scan of 4,000 comments;
+  leads only at the deepest step, cut with "…", never over anything, the
+  fewest votes left out; the fit of a small map keeps every zone inside the
+  frame.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.

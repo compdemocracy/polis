@@ -1172,7 +1172,7 @@
     }
     if (!dense.fit || dense.fitW !== this._w || dense.fitH !== this._h) {
       var size = D.canvasSize(this._w, this._h);
-      dense.fit = D.fitView(dense.model.extent, size.W, size.H, dense.model.settings.pad);
+      dense.fit = D.fitFor(dense.model, size.W, size.H);
       dense.fitW = this._w;
       dense.fitH = this._h;
     }

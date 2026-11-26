@@ -552,6 +552,55 @@
     return { s: s, tx: W / 2 - s * (extent.minX + extent.maxX) / 2, ty: H / 2 + s * (extent.minY + extent.maxY) / 2 };
   }
 
+  // How far, in px, the zones' shapes (each zone's points' density, blurred,
+  // above its threshold) reach past the extent of the points at a fit of W
+  // by H whose pad leaves room for any reach. A zone of lone points reaches
+  // about two and a half blur widths past them.
+  function zoneReach(model, W, H, margin) {
+    var cfg = model.settings, ex = model.extent, m = Math.min(W, H);
+    var sc = gridScale({ W: W, H: H, view: { s: 1 }, fit: { s: 1 } });
+    var trial = fitView(ex, W, H, cfg.pad + (3 * sc.sigma + 2 * sc.cell + margin) / m);
+    var frame = { W: W, H: H, view: trial, fit: trial };
+    var px0 = ex.minX * trial.s + trial.tx, px1 = ex.maxX * trial.s + trial.tx;
+    var py0 = -ex.maxY * trial.s + trial.ty, py1 = -ex.minY * trial.s + trial.ty;
+    var topic = model.points.topic, zl = cfg.zoneLayer, reach = 0;
+    model.zoneIdx.forEach(function (zi) {
+      var G = densityGrid(model, frame, function (i) { return topic[zl][i] === zi; }, sc.cell, sc.sigma);
+      if (G.mx <= 0) return;
+      var thr = G.mx * 0.05, c = G.cell;
+      for (var gy = 0; gy < G.gh; gy++) for (var gx = 0; gx < G.gw; gx++) {
+        if (!(G.g[gy * G.gw + gx] > thr)) continue;
+        reach = Math.max(reach, px0 - gx * c, (gx + 1) * c - px1, py0 - gy * c, (gy + 1) * c - py1);
+      }
+    });
+    return reach;
+  }
+
+  // The first view of the dense drawing at W by H: fitView, with the pad
+  // widened on a map with room (at least zoom.surface.minAreaPerPoint px² of
+  // frame per point, 6000 by default: a small conversation, whose zones are
+  // lone points with wide shapes) so that every zone's shape lies inside the
+  // frame with `fitMargin` px to spare (8 by default). A crowded map keeps
+  // the pad as it is. Worked out once per size.
+  var fitCache = typeof WeakMap === "function" ? new WeakMap() : null;
+  function fitFor(model, W, H) {
+    var cfg = model.settings, base = cfg.pad, ex = model.extent;
+    var key = W + "x" + H, memo = fitCache && fitCache.get(model);
+    if (memo && memo[key]) return Object.assign({}, memo[key]);
+    var fit = fitView(ex, W, H, base);
+    var degenerate = !Number.isFinite(ex.minX) || !Number.isFinite(ex.maxX) || !Number.isFinite(ex.minY) || !Number.isFinite(ex.maxY) ||
+      (ex.minX === ex.maxX && ex.minY === ex.maxY);
+    var Z = cfg.zoom, perPoint = Z && Z.surface && Z.surface.minAreaPerPoint ? Z.surface.minAreaPerPoint : 6000;
+    var roomy = W * H / Math.max(1, model.points.n) >= perPoint;
+    if (roomy && !degenerate && cfg.zones !== "none" && model.zoneIdx && model.zoneIdx.length) {
+      var m = Math.min(W, H), margin = cfg.fitMargin != null ? cfg.fitMargin : 8;
+      var reach = zoneReach(model, W, H, margin);
+      if (reach + margin > base * m) fit = fitView(ex, W, H, (reach + margin) / m);
+    }
+    if (fitCache) { if (!memo) fitCache.set(model, memo = {}); memo[key] = Object.assign({}, fit); }
+    return fit;
+  }
+
   /* --------------------------------------------------------------- placement */
 
   // layout(model, { width, height, measure, view, prev }) : the names placed
@@ -566,7 +615,7 @@
   function layout(model, opts) {
     var cfg = model.settings, T = model.topics, pal = palette(cfg.scheme);
     var size = canvasSize(opts.width, opts.height), W = size.W, H = size.H;
-    var fit = fitView(model.extent, W, H, cfg.pad);
+    var fit = fitFor(model, W, H);
     var view = opts.view ? Object.assign({}, opts.view) : Object.assign({}, fit);
     var measure = opts.measure;
     var famOf = function (L) { return (cfg.monoLayers || []).indexOf(L) >= 0 ? cfg.fontMono : cfg.fontSans; };
@@ -743,6 +792,8 @@
         if (!deepOn) commentLevel = { on: true, inView: sb.inView, spacing: null };
         commentLevel.surface = true; commentLevel.budget = cap;
       }
+      // the deepest step (not only the surface): where a page may write leads
+      if (deepOn) commentLevel.deep = true;
       if (deepOn || sb.n > 0) {
         var C = Z.comments, lg = Math.log2(Math.max(1, view.s / fit.s)), slot = Z.slot;
         var nWords = Math.round(C.words + C.wordsPerDoubling * lg), cWrap = C.wrap + C.wrapPerDoubling * lg;
@@ -1020,7 +1071,7 @@
   // other view draws these same shapes scaled and moved (shapeTransform), so
   // a border never changes shape with the zoom.
   function fixedShapes(model, width, height) {
-    var size = canvasSize(width, height), fit = fitView(model.extent, size.W, size.H, model.settings.pad);
+    var size = canvasSize(width, height), fit = fitFor(model, size.W, size.H);
     return zoneShapes(model, { W: size.W, H: size.H, view: fit, fit: fit });
   }
 
@@ -1047,7 +1098,7 @@
     resolveZoom: resolveZoom, commentsInView: commentsInView, zoomStage: zoomStage, WARM_TINT: WARM_TINT, NEUTRAL_TINT: NEUTRAL_TINT,
     rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
     weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
-    fitView: fitView, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,
+    fitView: fitView, fitFor: fitFor, zoneReach: zoneReach, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,
     gridScale: gridScale, blurRadius: blurRadius, binnedCounts: binnedCounts, densityGrid: densityGrid,
     contourSegs: contourSegs, zoneAlpha: zoneAlpha, zoneShapes: zoneShapes,
     surfaceBudget: surfaceBudget, isSmall: isSmall, zoomLimit: zoomLimit

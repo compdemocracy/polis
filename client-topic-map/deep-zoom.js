@@ -13,8 +13,14 @@
  *   - draws, after each placement, the four-row group vote graphic
  *     (PolisVoteGraphic, rows) in each label's reserved box, and a short rule
  *     at the label's left in the report's colour for consensus or division;
- *   - reveals any other comment in view on hover or keyboard focus: a card
- *     with its text, its four-row graphic and the counts in words
+ *   - at the deepest step, writes every other comment in view as a lead: its
+ *     first few words on one line beside its dot, smaller and quieter than
+ *     the standouts, never over another lead, a standout, a graphic, a name
+ *     or another dot; a lead with no room is left out, fewest votes first;
+ *   - reveals the comment nearest the pointer (within `reach` px; a Voronoi
+ *     partition of the comments in view, read from a grid built once per
+ *     settled view) or under keyboard focus: its dot is ringed and a card
+ *     shows its text, its four-row graphic and the counts in words
  *     (PolisVoteGraphic.readout); moving away hides it;
  *   - selects a comment (or a standout) on click: the card stays, with the
  *     poured form at a size where its dots read, and the counts beside it;
@@ -53,7 +59,13 @@
     leader: "#59606b",      // the line from a dot to its comment written out beside it
     // the card: its comment text (font) and its smaller lines (small), px
     card: { width: 300, font: 14, small: 12, rowsW: 84, rowsH: 19, pouredW: 168, pouredH: 84 },
-    hitRadius: 6,           // px: the least distance at which a dot answers the pointer
+    // px: the pointer picks the comment nearest it within this distance (the
+    // comments' Voronoi cells, cut at reach); further from every comment,
+    // nothing is picked and a click clears the selection
+    reach: 40,
+    // the deepest step's leads: at most `words` words and `chars` characters
+    // on one line (cut with "…"), `font` px at `weight`, `gap` px from the dot
+    lead: { words: 5, chars: 30, font: 12, weight: 400, gap: 6, ink: "#6f7682", halo: "rgba(255, 255, 255, 0.9)" },
     scheme: "light",
     // The report's own colours for agree and disagree (client-report
     // src/components/globals.js, brandColors), as the highlights page uses them.
@@ -66,6 +78,7 @@
     out.slot = Object.assign({}, DEFAULTS.slot, o.slot || {});
     out.card = Object.assign({}, DEFAULTS.card, o.card || {});
     out.colors = Object.assign({}, DEFAULTS.colors, o.colors || {});
+    out.lead = o.lead === false ? false : Object.assign({}, DEFAULTS.lead, o.lead || {});
     return out;
   }
 
@@ -137,6 +150,97 @@
     } };
   }
 
+  // The comments a pointer can pick ([{ i, x, y }] in screen px), on a grid
+  // of `cell` px: built once per settled view, so a pointer move reads only
+  // the cells around it, never every comment.
+  function pointIndex(dots, cell) {
+    cell = Math.max(1, cell || 1);
+    var cells = new Map();
+    dots.forEach(function (d) {
+      var k = Math.floor(d.x / cell) + "," + Math.floor(d.y / cell), a = cells.get(k);
+      if (!a) cells.set(k, a = []);
+      a.push(d);
+    });
+    return { cell: cell, cells: cells, dots: dots };
+  }
+
+  // The point index of the comment nearest (px, py) within reach px, or
+  // null: each comment's Voronoi cell, cut at reach. At equal distance the
+  // smaller point index wins, so a tie always picks the same comment.
+  function nearestPoint(index, px, py, reach) {
+    if (!index || !(reach > 0)) return null;
+    var c = index.cell, r = Math.ceil(reach / c), gx = Math.floor(px / c), gy = Math.floor(py / c);
+    var best = null, bd = reach * reach;
+    for (var x = gx - r; x <= gx + r; x++) for (var y = gy - r; y <= gy + r; y++) {
+      var a = index.cells.get(x + "," + y);
+      if (!a) continue;
+      for (var k = 0; k < a.length; k++) {
+        var d = a[k], dd = (d.x - px) * (d.x - px) + (d.y - py) * (d.y - py);
+        if (best === null ? dd <= bd : (dd < bd || (dd === bd && d.i < best.i))) { bd = dd; best = d; }
+      }
+    }
+    return best ? best.i : null;
+  }
+
+  // A comment's lead: its first words on one line, at most `words` words and
+  // `chars` characters, cut with "…" when anything is left out.
+  function leadText(text, words, chars) {
+    var w = String(text == null ? "" : text).trim().split(/\s+/).filter(Boolean);
+    if (!w.length) return "";
+    var out = "", n = 0;
+    for (; n < w.length && n < words; n++) {
+      var next = out ? out + " " + w[n] : w[n];
+      if (next.length > chars && out) break;
+      out = next;
+    }
+    var cut = n < w.length;
+    if (out.length > chars) { out = out.slice(0, Math.max(1, chars - 1)); cut = true; }
+    return cut ? out.replace(/[\s,.;:!?\u2013\u2014-]+$/, "") + "\u2026" : out;
+  }
+
+  function overlaps(a, b) { return a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]; }
+
+  // The leads at the deepest step. cands: the comments in view that are not
+  // written out, [{ i, x, y, text, votes }] (screen px); o: { W, H, measure,
+  // lead, taken, dots }, where taken are the boxes [x0, y0, x1, y1] no lead
+  // may overlap (the names, the written-out comments with their graphics and
+  // rules, their leaders) and dots the comments in view ({ i, x, y }), whose
+  // dots no lead may cover but its own. Most votes first, then the smaller
+  // point index, so where there is no room the fewest votes are left out.
+  // Each lead tries the right of its dot, then the left, then a line above
+  // or below on either side; with no free place it is left out.
+  // Returns [{ point, text, x, y, w, h, box }]: x, y the text's top left.
+  function placeLeads(cands, o) {
+    var L = o.lead, out = [];
+    if (!L || !cands.length) return out;
+    var boxes = (o.taken || []).slice(), dots = o.dots || [], W = o.W, H = o.H;
+    var h = Math.round(L.font * 1.25), g = L.gap, m = 1, dr = 2.5;
+    var free = function (b, self) {
+      if (b[0] < 2 || b[1] < 2 || b[2] > W - 2 || b[3] > H - 2) return false;
+      for (var k = 0; k < boxes.length; k++) if (overlaps(b, boxes[k])) return false;
+      for (var q = 0; q < dots.length; q++) {
+        var d = dots[q];
+        if (d.i !== self && d.x > b[0] - dr && d.x < b[2] + dr && d.y > b[1] - dr && d.y < b[3] + dr) return false;
+      }
+      return true;
+    };
+    cands.slice().sort(function (a, b) { return (b.votes || 0) - (a.votes || 0) || a.i - b.i; }).forEach(function (c) {
+      var t = leadText(c.text, L.words, L.chars);
+      if (!t) return;
+      var w = Math.ceil(o.measure(t, L)), hg = g * 0.5;
+      var tries = [[c.x + g, c.y - h / 2], [c.x - g - w, c.y - h / 2],
+        [c.x + hg, c.y - hg - h], [c.x + hg, c.y + hg], [c.x - hg - w, c.y - hg - h], [c.x - hg - w, c.y + hg]];
+      for (var j = 0; j < tries.length; j++) {
+        var x = tries[j][0], y = tries[j][1], b = [x - m, y - m, x + w + m, y + h + m];
+        if (!free(b, c.i)) continue;
+        boxes.push(b);
+        out.push({ point: c.i, text: t, x: x, y: y, w: w, h: h, box: b });
+        return;
+      }
+    });
+    return out;
+  }
+
   /* ---------------------------------------------------------- the overlay */
 
   function PolisTopicMapDeepZoom(map, options) {
@@ -151,7 +255,7 @@
     this.rank = {};
     var self = this;
     this.ranking.forEach(function (r) { self.rank[String(r.id)] = r; });
-    this.labels = []; this.on = false; this.moving = false;
+    this.labels = []; this.leads = []; this.on = false; this.deep = false; this.moving = false; this._ix = null;
     this.hovered = null; this.selected = null; this.focusIndex = -1;
 
     var doc = document, el = this.el;
@@ -173,7 +277,8 @@
     var down = null;
     this._h = {
       comments: function (e) {
-        self.labels = e.detail.comments || []; self.on = !!e.detail.on; self.moving = false; self._paint();
+        self.labels = e.detail.comments || []; self.on = !!e.detail.on; self.deep = !!(e.detail.on && e.detail.deep);
+        self.moving = false; self._ix = null; self._placeLeads(); self._paint();
         // a card comes back only while its comment is still in view
         var back = self.selected !== null ? self.selected : self.hovered;
         if (self.on && back !== null && self._inView(back)) self._showCard(back, self.selected !== null);
@@ -223,7 +328,11 @@
     el.addEventListener("keydown", this._h.key);
     el.addEventListener("blur", this._h.blur);
     var lay = map.denseLayout && map.denseLayout();
-    if (lay) { this.labels = lay.comments || []; this.on = !!(lay.commentLevel && lay.commentLevel.on); this._paint(); }
+    if (lay) {
+      var cl = lay.commentLevel || {};
+      this.labels = lay.comments || []; this.on = !!cl.on; this.deep = !!(cl.on && cl.deep);
+      this._placeLeads(); this._paint();
+    }
   }
 
   var P = PolisTopicMapDeepZoom.prototype;
@@ -251,31 +360,78 @@
     return s.x >= 0 && s.y >= 0 && s.x <= lv.W && s.y <= lv.H;
   };
 
-  // The comments in view (with an id), left to right: [{ i, x, y }].
-  P._dotsInView = function () {
-    var lv = this._view(), out = [];
-    if (!lv || !this.on) return out;
-    var ids = this.doc.points.id;
+  // The comments in view (with an id) and their grid, for the settled view:
+  // built once per view (one pass over the points), not per pointer move.
+  P._index = function () {
+    var lv = this._view();
+    if (!lv || !this.on) return null;
+    var v = lv.view, key = [v.s, v.tx, v.ty, lv.W, lv.H].join(",");
+    if (this._ix && this._ix.key === key) return this._ix.index;
+    var ids = this.doc.points.id, out = [];
     for (var i = 0; i < ids.length; i++) {
       if (ids[i] == null) continue;
-      var s = this._screen(i, lv.view);
+      var s = this._screen(i, v);
       if (s.x >= 0 && s.y >= 0 && s.x <= lv.W && s.y <= lv.H) out.push({ i: i, x: s.x, y: s.y });
     }
-    return out.sort(function (a, b) { return a.x - b.x || a.y - b.y; });
+    out.sort(function (a, b) { return a.x - b.x || a.y - b.y; });
+    var index = pointIndex(out, this.options.reach);
+    this._ix = { key: key, index: index };
+    return index;
   };
 
-  // The point under (px, py): a standout's label first, then the nearest dot
-  // within hitRadius; null when nothing is, or when the view is not close
-  // enough for comments (the map's own tooltip answers there).
+  // The comments in view (with an id), left to right: [{ i, x, y }].
+  P._dotsInView = function () {
+    var ix = this._index();
+    return ix ? ix.dots : [];
+  };
+
+  // The point the pointer picks at (px, py): a written-out comment's text or
+  // graphic first, then a lead's words, then the comment nearest within
+  // reach; null when none is, or when the view is not close enough for
+  // comments (the map's own tooltip answers there).
   P._hit = function (px, py) {
     if (!this.on || this.moving) return null;
-    for (var j = 0; j < this.labels.length; j++) {
-      var b = this.labels[j].box;
-      if (px >= b[0] && px <= b[2] && py >= b[1] && py <= b[3]) return this.labels[j].point;
-    }
-    var dots = this._dotsInView(), best = null, bd = this.options.hitRadius;
-    dots.forEach(function (d) { var dd = Math.hypot(d.x - px, d.y - py); if (dd <= bd) { bd = dd; best = d.i; } });
-    return best;
+    var inBox = function (b) { return px >= b[0] && px <= b[2] && py >= b[1] && py <= b[3]; };
+    for (var j = 0; j < this.labels.length; j++) if (inBox(this.labels[j].box)) return this.labels[j].point;
+    for (var k = 0; k < this.leads.length; k++) if (inBox(this.leads[k].box)) return this.leads[k].point;
+    return nearestPoint(this._index(), px, py, this.options.reach);
+  };
+
+  // The leads for the settled view: only at the deepest step.
+  P._placeLeads = function () {
+    this.leads = [];
+    var o = this.options, L = o.lead, lv = this._view(), P0 = this.doc.points;
+    if (!L || !this.deep || !lv || !P0.text) return;
+    var self = this, written = {}, taken = [];
+    this.labels.forEach(function (l) {
+      written[l.point] = true;
+      taken.push([l.box[0] - o.rule - 4, l.box[1], l.box[2], l.box[3]]);
+      if (l.leader) {
+        var q = l.leader, len = Math.hypot(q[2] - q[0], q[3] - q[1]);
+        for (var u = 0; u <= len; u += 4) { var x = q[0] + (q[2] - q[0]) * u / (len || 1), y = q[1] + (q[3] - q[1]) * u / (len || 1); taken.push([x - 1.5, y - 1.5, x + 1.5, y + 1.5]); }
+      }
+    });
+    var lay = this.map.denseLayout && this.map.denseLayout();
+    ((lay && lay.names) || []).forEach(function (n) { if (n.box) taken.push(n.box.slice()); });
+    var dots = this._dotsInView(), votes = this.numbers && this.numbers.votes, cands = [];
+    dots.forEach(function (d) {
+      if (written[d.i]) return;
+      var t = P0.text[d.i];
+      if (typeof t !== "string" || !t.trim()) return;
+      var id = P0.id[d.i], nv = Array.isArray(P0.votes) ? P0.votes[d.i] : votes ? votes[id] : 0;
+      cands.push({ i: d.i, x: d.x, y: d.y, text: t, votes: Number(nv) || 0 });
+    });
+    var ctx = this.overlay.getContext && this.overlay.getContext("2d"), fam = this._family();
+    var measure = function (t, f) {
+      if (ctx && ctx.measureText) { ctx.font = f.weight + " " + f.font + "px " + fam; return ctx.measureText(t).width; }
+      return t.length * f.font * 0.55;
+    };
+    this.leads = placeLeads(cands, { W: lv.W, H: lv.H, measure: measure, lead: L, taken: taken, dots: dots });
+  };
+
+  P._family = function () {
+    var t = this.map.theme;
+    return t && t.font && t.font.family ? t.font.family : "sans-serif";
   };
 
   P._groups = function (id) {
@@ -387,7 +543,15 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height);
     if (this.moving) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    var self = this;
+    var self = this, L = o.lead;
+    // the leads first, quieter than everything drawn over them
+    if (this.leads.length && L) {
+      ctx.font = L.weight + " " + L.font + "px " + this._family(); ctx.textBaseline = "top"; ctx.lineJoin = "round";
+      this.leads.forEach(function (l) {
+        ctx.lineWidth = 3; ctx.strokeStyle = L.halo; ctx.strokeText(l.text, l.x, l.y + 1);
+        ctx.fillStyle = L.ink; ctx.fillText(l.text, l.x, l.y + 1);
+      });
+    }
     this.labels.forEach(function (lab) {
       var r = self.rank[String(lab.id)];
       // at the surface a label stands beside its dot: a leader from the dot
@@ -440,6 +604,10 @@
   PolisTopicMapDeepZoom.balancedOrder = balancedOrder;
   PolisTopicMapDeepZoom.numbersFor = numbersFor;
   PolisTopicMapDeepZoom.hasCounts = hasCounts;
+  PolisTopicMapDeepZoom.pointIndex = pointIndex;
+  PolisTopicMapDeepZoom.nearestPoint = nearestPoint;
+  PolisTopicMapDeepZoom.leadText = leadText;
+  PolisTopicMapDeepZoom.placeLeads = placeLeads;
 
   root.PolisTopicMapDeepZoom = PolisTopicMapDeepZoom;
   if (typeof module !== "undefined" && module.exports) module.exports = PolisTopicMapDeepZoom;
