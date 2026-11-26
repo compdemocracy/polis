@@ -248,6 +248,12 @@ fn d1_d2_d6_the_receipt_is_the_probability_to_within_2_to_the_minus_50() {
                 gap <= 2f64.powi(-50),
                 "{list:?} position {j}: measured {measured:e}, q {q:e}"
             );
+            if measured > 0.0 {
+                let receipt = cdf(&list, Unit::new(starts[j]).unwrap()).unwrap();
+                assert_eq!(receipt.index(), j);
+                assert_eq!(receipt.probability().to_bits(), q.to_bits());
+                assert!((receipt.probability() - measured).abs() <= 2f64.powi(-50));
+            }
             if list[j] == 0.0 {
                 assert_eq!(measured, 0.0, "D2: a zero weight is never chosen: {list:?}");
             }

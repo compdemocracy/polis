@@ -38,6 +38,10 @@ functions. No participant sees anything different because it exists.
    real chance under the draw by at most 2^-50 (about 9e-16), whatever the
    number of candidates, whenever the total is at least 2^-1021.
 
+The probability bound assumes the caller supplies a uniform random unit from
+[0, 1), or uniformly from the 53-bit grid. `Unit` validates the range and
+finiteness; it cannot validate the caller's random source.
+
 The receipt also names the rule and its complete parameters, the draw's
 arithmetic (`legacy-cdf/1`), how many weights were read as 1 and why, any
 candidate whose weight was too small to be reachable ("absorbed"), the number
@@ -84,6 +88,11 @@ times the novelty, then squared.
   extra every five votes seen, and is exactly 1 from 280 votes on.
 - **The square** deepens every difference.
 
+Use the stored extremity rather than recomputing it from the served centre:
+the wire centre has its axis sign flipped while the components do not. With
+fewer than two component rows the engine stores zero extremity for every
+comment, including when the one loading is nonzero.
+
 **A worked example.** A comment with 3 agrees, 1 disagree and no passes, at
 E = 0.5: p = 1/6, a = 4/6, novelty = 1 + 8 x 2^(-0.8) = 5.5948; the product is
 (5/6) x 1.5 x (4/6) x 5.5948 = 4.6623, and the weight is its square, 21.74.
@@ -100,7 +109,10 @@ E = 0.5: p = 1/6, a = 4/6, novelty = 1 + 8 x 2^(-0.8) = 5.5948; the product is
 **The first tick and comments with no votes.** At a conversation's first tick
 the previous tick has no counts, so A = D = P = S = 0 for every scored comment:
 weight = (1/2 x (1 + E) x 1/2 x 9)^2 = 81/16 x (1 + E)^2, about 5.06 (1 + E)^2.
-The first pass is ranked by extremity alone.
+The first pass is ranked by extremity alone. The adapter must supply an
+explicit zero `Counts` cell for each currently scored comment to obtain this
+result. An empty `HistoricalCountFrame` produces no weights and therefore the
+draw's fallback weight of 1; it does not synthesize those zero cells.
 
 **No votes is not the largest weight.** At E = 0: no votes gives 5.0625; one
 agree 12.53; three agrees 16.14, the largest for any number of agrees with no
@@ -203,15 +215,19 @@ that selects it, by bisection over doubles, and checks that its length differs
 from the receipt's q by at most 2^-50. Also tested: a weight of 0 is never
 chosen; no draw fails when the total is at least 2^-1021 and every draw is
 refused below it; a single candidate is chosen with q = 1 exactly; multiplying
-every weight by a power of two changes only `random_n`, by exactly that power;
-the q's of a list sum to 1 within 3n x 2^-53.
+every weight by a power of two changes only `random_n`, by exactly that power,
+when the original and scaled values stay in the supported range and positive
+weights and intermediate products remain normal; the q's of a list sum to 1
+within 3n x 2^-53.
 
 **The equation's properties**, each checked against its formula before it was
-written: every weight is a positive normal number at most 1e150 (or refused,
-off the defaults); one more pass lowers the weight; turning a disagree or a
-pass into an agree, or a pass into a disagree, raises it; extremity never
-lowers it (E = 0 and E = 5e-324 give the same weight); novelty is in (1, 9]
-and exactly 1 from 280 votes; meta is exactly 49; the two counterexamples
+written: every returned weight is a positive normal number at most 1e150;
+out-of-range computations are refused, including at the defaults for a large
+enough extremity, while the defaults with E at most 1e70 stay in range; one
+more pass lowers the weight; turning a disagree or a pass into an agree, or a
+pass into a disagree, raises it; extremity never lowers it (E = 0 and
+E = 5e-324 give the same weight); novelty is in (1, 9] in real arithmetic and
+rounds to exactly 1 from 280 votes; meta is exactly 49; the two counterexamples
 above (no votes is not the largest; 5 to 6 agrees falls 12.7%) are kept as
 tests. A result does not depend on the order its inputs are given in, and the
 explanation (the named factors) evaluated left to right is the weight bit for

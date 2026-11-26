@@ -51,6 +51,18 @@ fn stored_weights_1_matches_the_node_transliteration_bit_for_bit() {
         assert_eq!(r.index() as u64, case["index"].as_u64().unwrap(), "{case}");
         let random_n = case["random_n"].as_f64().unwrap();
         assert_eq!(r.random_n().to_bits(), random_n.to_bits(), "{case}");
+        let chosen_key = r.comment().get().to_string();
+        let mapped_weight = case["priorities"]
+            .get(&chosen_key)
+            .and_then(Value::as_f64)
+            .filter(|w| *w != 0.0)
+            .unwrap_or(1.0);
+        assert_eq!(
+            r.probability().to_bits(),
+            (mapped_weight / total).to_bits(),
+            "{case}"
+        );
+        assert_eq!(r.lanes()[0].contribution(), r.probability());
         drawn += 1;
     }
     println!(
