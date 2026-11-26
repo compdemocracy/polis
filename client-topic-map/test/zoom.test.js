@@ -465,8 +465,12 @@ test("zoomed in, no zone's tint reads cream, ivory, beige or warm off-white, lig
       m.map.resetView();
       const [px, py] = screenOf(m.map, m.map._dense.model.topics[t].x, m.map._dense.model.topics[t].y);
       zoomIn(m.map, px, py, 3);
+      // the shapes are the fit's; zoomed in past the first step each is drawn
+      // wholly in its zoomed tint
+      const now = m.map._denseViewNow(), fit = m.map._dense.fit;
+      assert.equal(Dense.zoomedTintShare(m.map._dense.model, now.s / fit.s), 1);
       for (const z of m.map._dense.shapes.zones) {
-        const c = over(oklchRgb(...parseOklch(z.tint)), 0.2, [255, 255, 255]);
+        const c = over(oklchRgb(...parseOklch(Dense.palette("light").zoneTintZoomed(z.hue))), 0.2, [255, 255, 255]);
         assert.ok(!warmOffWhite(c), `zone ${z.id} hue ${z.hue}: ${c.map(Math.round)}`);
       }
     }
@@ -477,4 +481,174 @@ test("(reported, not tested) the at-rest tints that read warm off-white", (t) =>
   const pal = Dense.palette("light"), warm = [];
   for (let h = 0; h < 360; h++) if (warmOffWhite(over(oklchRgb(...parseOklch(pal.zoneTint(h))), 0.2, [255, 255, 255]))) warm.push(h);
   t.diagnostic(`at rest, light: hues ${warm.length ? warm[0] + " to " + warm.at(-1) : "none"} (${warm.length} of 360) read warm off-white`);
+});
+
+/* ------------------------------------------------- one sheet under a lens */
+
+// The outlines' segments as drawn: every moveTo before the first dot's (a
+// dot is a moveTo and an arc).
+function outlineStarts(log) {
+  const out = [];
+  for (const c of log) { if (c[0] === "arc") { out.pop(); break; } if (c[0] === "moveTo") out.push([c[1], c[2]]); }
+  return out;
+}
+// A name of the settled placement at its place on the map (data units).
+function onMap(lay) {
+  const v = lay.view, out = {};
+  for (const n of lay.names) out[n.id] = [(n.x - v.tx) / v.s, (v.ty - n.y) / v.s, n];
+  return out;
+}
+
+test("a zone's or district's border is one shape at every zoom and step, only scaled and moved", () => {
+  const m = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const model = m.map._dense.model, fixed = Dense.fixedShapes(model, ref.canvas.W, ref.canvas.H);
+  const expected = [];
+  for (const z of fixed.zones) for (const s of z.segs) expected.push([s[0], s[1]]);
+  for (const d of fixed.districts) for (const s of d.segs) expected.push([s[0], s[1]]);
+  assert.ok(expected.length > 100);
+  const shapes = m.map._dense.shapes;
+  m.log.length = 0;
+  m.map._draw();
+  const rest = outlineStarts(m.log);
+  assert.equal(rest.length, expected.length, "at rest: as many segments");
+  assert.deepEqual(rest, expected, "at rest");
+  const t = model.topics[model.zoneIdx[0]], [px, py] = screenOf(m.map, t.x, t.y);
+  const views = [];
+  for (let i = 0; i < 5; i++) {
+    if (i) zoomIn(m.map, px, py, 1);
+    fire(m.map, "wheel", { deltaY: -40, clientX: px + 7, clientY: py - 5 });
+    for (const settled of [false, true]) {
+      if (settled) m.map.settle(); else m.map._step(performance.now() + 120);
+      m.log.length = 0;
+      m.map._draw();
+      const now = m.map._denseViewNow(), st = Dense.shapeTransform(m.map._dense.fit, now);
+      assert.equal(m.map._dense.shapes, shapes, "the shapes are never worked out again");
+      assert.deepEqual(outlineStarts(m.log), expected, `zoom ×${(now.s / m.map._dense.fit.s).toFixed(2)}`);
+      const tr = m.log.find((c) => c[0] === "setTransform" && c[1] !== m.map._dpr);
+      assert.deepEqual(tr.slice(1), [m.map._dpr * st.k, 0, 0, m.map._dpr * st.k, m.map._dpr * st.ox, m.map._dpr * st.oy]);
+      // the outline keeps its width on screen
+      const lw = m.log.find((c) => c[0] === "=" && c[1] === "lineWidth");
+      assert.ok(Math.abs(lw[2] * st.k - fixed.zones[0].outlineWidth) < 1e-9);
+      views.push(st.k);
+    }
+  }
+  assert.ok(Math.max(...views) > 16, "reached the comments' depth");
+});
+
+test("the zoomed tint turns smoothly with the zoom, never at one step", () => {
+  const model = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces).map._dense.model;
+  let last = 0;
+  for (let z = 0.8; z <= 2; z += 0.01) {
+    const u = Dense.zoomedTintShare(model, z);
+    assert.ok(u >= last - 1e-12 && u - last < 0.06, `×${z.toFixed(2)}: ${u}`);
+    last = u;
+  }
+  assert.equal(Dense.zoomedTintShare(model, 1), 0);
+  assert.equal(Dense.zoomedTintShare(model, 1.5), 1);
+});
+
+test("placement is the same for the same view, and placing a view again from its own placement returns it", () => {
+  const a = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces), b = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const t = a.map._dense.model.topics[a.map._dense.model.zoneIdx[1]], [px, py] = screenOf(a.map, t.x, t.y);
+  for (let i = 0; i < 4; i++) {
+    zoomIn(a.map, px, py, 1); zoomIn(b.map, px, py, 1);
+    const la = a.map.denseLayout(), lb = b.map.denseLayout();
+    assert.deepEqual(la.names.map((n) => [n.id, n.x, n.y]), lb.names.map((n) => [n.id, n.x, n.y]));
+    const frame = a.map._dense.frame, model = a.map._dense.model;
+    const opts = { width: ref.canvas.W, height: ref.canvas.H, view: frame.view, measure: (text, f) => {
+      const k = f.font + "|" + parseFloat(f.letterSpacing) + "|" + text;
+      return referenceWidths.has(k) ? referenceWidths.get(k) : String(text).length * f.size * 0.5; } };
+    const again = Dense.layout(model, Object.assign({ prev: frame }, opts));
+    const pick = (f) => f.placed.map((p) => [p.ti, p.x, p.y, p.f]).concat(f.comments.map((c) => ["c" + c.point, c.x, c.y]));
+    assert.deepEqual(pick(again), pick(frame), `again ×${(frame.view.s / frame.fit.s).toFixed(1)}`);
+    assert.deepEqual(pick(Dense.layout(model, Object.assign({ prev: again }, opts))), pick(again));
+  }
+});
+
+test("a one-pixel pan or one wheel notch keeps every name on screen where it was on the map", (t) => {
+  const m = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const model = m.map._dense.model, T = model.topics;
+  const lines = [];
+  const ruledMoves = { pan: 0, notch: 0 };
+  for (const zi of model.zoneIdx.slice(0, 3)) {
+    m.map.resetView();
+    const [px, py] = screenOf(m.map, T[zi].x, T[zi].y);
+    for (let depth = 1; depth <= 4; depth++) {
+      zoomIn(m.map, px, py, 1);
+      for (const move of ["pan", "notch"]) {
+        const before = onMap(m.map.denseLayout());
+        if (move === "pan") { m.map._view.cx -= 1 / Math.pow(2, m.map._view.zoom); }
+        else { fire(m.map, "wheel", { deltaY: -100, clientX: px, clientY: py }); }
+        m.map.settle();
+        const lay = m.map.denseLayout(), after = onMap(lay), v = lay.view;
+        for (const id of Object.keys(after)) {
+          if (!before[id]) continue;
+          const [bx, by] = before[id], [ax, ay] = after[id];
+          const px1 = Math.hypot((ax - bx) * v.s, (ay - by) * v.s);
+          // a waypoint held at the edge moves with the edge, not with the map
+          if (after[id][2].held || before[id][2].held) continue;
+          // or a rule moves it: its place before is now beyond its reach from
+          // its anchor, off the map, or under a name placed before it
+          const n = after[id][2], sx = bx * v.s + v.tx, sy = -by * v.s + v.ty, hw = n.w / 2 + 1.5, hh = n.h / 2 + 1.5;
+          const was = [sx - hw, sy - hh, sx + hw, sy + hh];
+          const ruled = Math.hypot(sx - n.x0, sy - n.y0) > n.reach - 1e-6 || was[0] < 2 || was[1] < 2 || was[2] > lay.width - 2 || was[3] > lay.height - 2 ||
+            lay.names.some((o) => o.id !== id && o.alpha >= 0.5 && overlaps(o.box, was)) || lay.comments.some((c) => overlaps(c.box, was));
+          if (px1 >= 0.01) { assert.ok(ruled, `zone ${zi}, ×${(v.s / lay.fit.s).toFixed(2)} ${move}: ${id} moved ${px1.toFixed(2)} px on the map`); ruledMoves[move]++; continue; }
+          assert.ok(px1 < 0.01, `zone ${zi}, ×${(v.s / lay.fit.s).toFixed(2)} ${move}: ${id} moved ${px1.toFixed(2)} px on the map`);
+        }
+        const gone = Object.keys(before).filter((id) => !after[id]), came = Object.keys(after).filter((id) => !before[id]);
+        lines.push(`${move} ×${(v.s / lay.fit.s).toFixed(2)}: kept ${Object.keys(after).length - came.length}, left ${gone.length}, came ${came.length}`);
+        if (move === "pan") assert.equal(gone.length + came.length, 0, lines.at(-1));
+      }
+    }
+  }
+  assert.ok(lines.length === 24);
+  // a one-pixel pan moves none; a notch moves only names a rule moves (they
+  // slide there when drawn)
+  assert.equal(ruledMoves.pan, 0);
+  t.diagnostic(`a notch moved ${ruledMoves.notch} names by a rule; ${lines.join("; ")}`);
+});
+
+test("after names are placed again, a name kept slides and one that comes fades in; settle() and less motion cut to the end", () => {
+  const m = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const T = m.map._dense.model.topics, zi = m.map._dense.model.zoneIdx[0], [px, py] = screenOf(m.map, T[zi].x, T[zi].y);
+  zoomIn(m.map, px, py, 2);
+  assert.equal(m.map._denseFade, null, "settle() places at once");
+  const drawnBefore = m.map._denseDrawnLabels.map((d) => d.key);
+  fire(m.map, "dblclick", { clientX: px, clientY: py });
+  m.map._step(performance.now() + 1000);
+  m.map._draw();
+  // as the settle timer does it
+  m.map._dense.settleNow = true;
+  m.map._draw();
+  const fade = m.map._denseFade;
+  assert.ok(fade && fade.ms === Dense.PRESET_ZOOM.fadeMs);
+  const first = m.map._denseDrawnLabels, fresh = new Set(m.map.denseLayout().names.map((n) => "t" + T.findIndex((t) => t.id === n.id)));
+  for (const d of first) if (!drawnBefore.includes(d.key)) assert.ok(d.alpha < 0.05, `${d.key} comes in faint`);
+  fade.t0 -= 10000;
+  m.map._draw();
+  assert.equal(m.map._denseFade, null);
+  const end = m.map._denseDrawnLabels;
+  assert.deepEqual(end.map((d) => d.key).sort(), [...fresh].concat(m.map._dense.frame.comments.map((c) => "c" + c.point)).sort());
+  for (const d of end) assert.equal(d.alpha, d.p.alpha);
+  // less motion: a step cuts to its end, and names are placed at once
+  const saved = globalThis.matchMedia;
+  globalThis.matchMedia = (q) => ({ matches: /reduce/.test(q) });
+  try {
+    const z0 = m.map._view.zoom;
+    fire(m.map, "dblclick", { clientX: px, clientY: py, shiftKey: true });
+    m.map._step(performance.now());
+    assert.equal(m.map._view.zoom, z0 - 1);
+    m.map._dense.settleNow = true;
+    m.map._draw();
+    assert.equal(m.map._denseFade, null);
+  } finally { globalThis.matchMedia = saved; }
+});
+
+test("a step eases from the old view to the new", () => {
+  const m = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const z0 = m.map._view.zoom;
+  fire(m.map, "dblclick", { clientX: 300, clientY: 300 });
+  const a = m.map._anim, zs = [0.1, 0.5, 0.9].map((t) => { m.map._step(a.t0 + a.ms * t); return m.map._view.zoom - z0; });
+  assert.ok(zs[0] < 0.1 && Math.abs(zs[1] - 0.5) < 1e-9 && zs[2] > 0.9, zs.join(" "));
 });

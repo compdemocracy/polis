@@ -142,10 +142,25 @@ What differs from the default drawing while it is selected:
   click selects as in the default drawing, with the same events. The settings
   `hover` and `click` are refused: both are always on;
 - zones, districts and dots scale with the view; names keep their size in
-  pixels. While the view moves, the last placement is drawn moved with it; when
-  the view (or the element's size) has not changed for `zoom.settleMs` (120 ms)
-  the names are placed again for that view, so going in shows names that had
-  no room, and a name whose anchor has left the view takes none;
+  pixels. The zones and districts are worked out once for the element's size,
+  at the fit (the picture at rest), and every other view draws those same
+  shapes scaled and moved (`fixedShapes`, `shapeTransform`), their strokes at
+  the same width on screen; a zone's tint turns to its zoomed tint smoothly
+  between the fit and the first step (`zoomedTintShare`). While the view
+  moves, the last placement is drawn moved with it (a waypoint kept inside the
+  view at its edge); when the view (or the element's size) has not changed
+  for `zoom.settleMs` (120 ms) the names are placed again for that view, so
+  going in shows names that had no room, and a name whose anchor has left the
+  view takes none. Each placement starts from the one before (`layout`'s
+  `prev`): a name or comment label is tried first where it was on the map,
+  then at its previous offset from its anchor, and the others keep out of the
+  places it held, so the same view gives the same placement and a small pan
+  moves no name. Over `zoom.fadeMs` (240 ms) a name on screen before and after
+  slides to its new place and one that comes or goes fades; `settle()`,
+  `resetView()` and a reader who asks for less motion
+  (`prefers-reduced-motion`) get the end at once. A double-click step eases
+  from the old view to the new (a wheel notch eases out), or cuts to it with
+  less motion;
 - zoomed in until the points in view are few and far apart, each point with
   text and an id is labelled with its first words, placed after the names by
   the same rule (the most voted first when the document has `points.votes`);
@@ -171,6 +186,7 @@ The zoom settings are the key `zoom` of the drawing's settings, merged over
 | `comments.maxLines` | at most this many lines of a label, the last cut with "…"; `null`, no limit | `null` |
 | `comments.align` | `"left"` draws each label's lines from its text's left edge; otherwise they are centred | centred |
 | `comments` | `false` turns comment labels off | |
+| `fadeMs` | how long a name kept slides, and one that comes or goes fades, after names are placed again (0: at once) | `240` |
 | `slot` | `{ w, h, gap }`: a box w by h px reserved gap px to the right of each comment label's text, taken into its room when it is placed; nothing is drawn in it | `null` |
 
 A placed comment label, in `denseLayout().comments` and in the `comments` of

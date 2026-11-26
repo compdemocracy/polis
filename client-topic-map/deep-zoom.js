@@ -158,7 +158,15 @@
 
     var down = null;
     this._h = {
-      comments: function (e) { self.labels = e.detail.comments || []; self.on = !!e.detail.on; self.moving = false; self._paint(); },
+      comments: function (e) {
+        self.labels = e.detail.comments || []; self.on = !!e.detail.on; self.moving = false; self._paint();
+        // the rows and rules fade in with the comment labels they stand beside
+        var st = self.overlay.style, fade = map.drawing && map.drawing.zoom ? map.drawing.zoom.fadeMs : 0;
+        if (st && fade > 0 && root.requestAnimationFrame) {
+          st.transition = "none"; st.opacity = "0";
+          root.requestAnimationFrame(function () { st.transition = "opacity " + fade + "ms"; st.opacity = "1"; });
+        }
+      },
       down: function (e) { down = { x: e.clientX, y: e.clientY }; self.moving = true; self._clearOverlay(); self._hideCard(); },
       up: function () { self.moving = false; },
       wheel: function () { self.moving = true; self._clearOverlay(); self._hideCard(); },

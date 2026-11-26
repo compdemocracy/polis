@@ -498,6 +498,11 @@
       clearTimeout(this._denseMoveTimer);
       this._denseMoveTimer = 0;
       this._dense.settleNow = true;
+      this._denseFade = null;
+      this._denseQuick = true;
+      this._draw();
+      this._denseQuick = false;
+      return;
     } else {
       var v = initialView(this.data.bounds, this._w, this._h);
       var toWorldY = this.projection === "linear" ? latToWorldLinear : latToWorld;
@@ -506,18 +511,31 @@
     this._draw();
   };
 
-  PolisTopicMap.prototype._animateZoom = function (zoom, px, py, ms) {
+  /* ease: null (linear, the default drawing), "out" (a wheel notch: fast,
+     then slowing, so notches in a row chain smoothly) or "inOut" (a step). */
+  PolisTopicMap.prototype._animateZoom = function (zoom, px, py, ms, ease) {
     var lim = this._zoomLimits();
     zoom = clamp(zoom, lim[0], lim[1]);
-    this._anim = { z0: this._view.zoom, z1: zoom, px: px, py: py, at: this._worldAt(px, py), t0: performance.now(), ms: ms };
+    this._anim = { z0: this._view.zoom, z1: zoom, px: px, py: py, at: this._worldAt(px, py), t0: performance.now(), ms: ms, ease: ease || null };
     this.redraw();
   };
+
+  function easeBy(kind, t) {
+    if (kind === "out") return 1 - Math.pow(1 - t, 3);
+    if (kind === "inOut") return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    return t;
+  }
+
+  /* Whether the reader asked for less motion: then a step cuts to its end. */
+  function reducedMotion() {
+    try { return !!(root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches); } catch (e) { return false; }
+  }
 
   PolisTopicMap.prototype._step = function (now) {
     var a = this._anim;
     if (!a) return;
     var t = a.ms > 0 ? clamp((now - a.t0) / a.ms, 0, 1) : 1;
-    this._zoomTo(a.z0 + (a.z1 - a.z0) * t, a.px, a.py, a.at);
+    this._zoomTo(a.z0 + (a.z1 - a.z0) * easeBy(a.ease, t), a.px, a.py, a.at);
     if (t >= 1) this._anim = null;
   };
 
@@ -532,13 +550,16 @@
     var p = this._local(e);
     this._step(performance.now());
     var scale = wheelScale(wheelDelta(e), 0.01);
-    this._animateZoom(this._view.zoom + Math.log2(scale), p[0], p[1], this.theme.motion.wheelMs);
+    this._animateZoom(this._view.zoom + Math.log2(scale), p[0], p[1], this.theme.motion.wheelMs, this.drawing ? "out" : null);
   };
 
   PolisTopicMap.prototype._doubleClick = function (e) {
     if (!this._view) return;
     var p = this._local(e);
-    this._animateZoom(this._view.zoom + (e.shiftKey ? -1 : 1), p[0], p[1], this.theme.motion.doubleClickMs);
+    /* In the dense drawing a step eases from the old view to the new one,
+       or cuts to it when the reader asked for less motion. */
+    var ms = this.drawing && reducedMotion() ? 0 : this.theme.motion.doubleClickMs;
+    this._animateZoom(this._view.zoom + (e.shiftKey ? -1 : 1), p[0], p[1], ms, this.drawing ? "inOut" : null);
   };
 
   PolisTopicMap.prototype._pointerDown = function (e) {
@@ -1000,7 +1021,11 @@
       clearTimeout(this._denseMoveTimer);
       this._denseMoveTimer = 0;
       if (this._dense) this._dense.settleNow = true;
+      /* at once: no slide or fade from the placement before */
+      this._denseFade = null;
+      this._denseQuick = true;
       this._draw();
+      this._denseQuick = false;
       return;
     }
     this._settling = true;
@@ -1197,7 +1222,17 @@
      Names are measured on the map's canvas. */
   PolisTopicMap.prototype._denseFrame = function () {
     var D = denseRules(), dense = this._denseModel();
+    /* The zones and districts: worked out once for this size, at the fit,
+       and only scaled and moved with the view afterwards. */
+    if (!dense.shapes || dense.shapesW !== this._w || dense.shapesH !== this._h) {
+      dense.shapes = D.fixedShapes(dense.model, this._w, this._h);
+      dense.shapesW = this._w;
+      dense.shapesH = this._h;
+      dense.tintImages = {};
+    }
     if (!dense.frame || dense.w !== this._w || dense.h !== this._h || this._remeasure || dense.settleNow) {
+      var old = dense.frame && dense.w === this._w && dense.h === this._h ? dense.frame : null;
+      var drawn = old ? this._denseDrawnLabels : null;
       this._remeasure = false;
       dense.settleNow = false;
       clearTimeout(this._denseMoveTimer);
@@ -1210,10 +1245,14 @@
         return ctx.measureText(text).width;
       };
       var opts = { width: this._w, height: this._h, measure: measure };
-      if (!this._denseAtFit()) opts.view = this._denseViewNow();
+      /* Away from the fit, the placement before is the starting point: a
+         name keeps its place on the map unless a rule moves it. */
+      if (!this._denseAtFit()) { opts.view = this._denseViewNow(); if (old) opts.prev = old; }
       dense.frame = D.layout(dense.model, opts);
       ctx.letterSpacing = "0px";
-      dense.shapes = D.zoneShapes(dense.model, dense.frame);
+      /* What was on screen slides or fades into the new placement. */
+      var fadeMs = reducedMotion() ? 0 : this.drawing.zoom.fadeMs;
+      this._denseFade = drawn && drawn.length && fadeMs > 0 && !this._denseQuick ? { t0: performance.now(), ms: fadeMs, from: drawn } : null;
       dense.w = this._w;
       dense.h = this._h;
       var f = dense.frame, st = f.stats, zoom = f.view.s / f.fit.s;
@@ -1304,29 +1343,20 @@
     ctx.fillStyle = pal.ground;
     ctx.fillRect(0, 0, w, h);
 
-    if (moving) ctx.setTransform(dpr * mk, 0, 0, dpr * mk, dpr * ox, dpr * oy);
+    /* The shapes are the fit's, scaled and moved to the view now; their
+       strokes keep their width on screen. */
+    var st = D.shapeTransform(frame.fit, now), sk = st.k, shaped = sk !== 1 || st.ox !== 0 || st.oy !== 0;
+    var tintShare = Math.round(D.zoomedTintShare(model, now.s / frame.fit.s) * 16) / 16;
+    if (shaped) ctx.setTransform(dpr * sk, 0, 0, dpr * sk, dpr * st.ox, dpr * st.oy);
     for (i = 0; i < shapes.zones.length; i++) {
       var z = shapes.zones[i], G = z.grid;
       if (z.alpha) {
-        var rgb = this._rgbOf(z.tint);
-        var oc = document.createElement("canvas");
-        oc.width = G.gw;
-        oc.height = G.gh;
-        var octx = oc.getContext("2d");
-        var img = octx.createImageData(G.gw, G.gh);
-        for (k = 0; k < z.alpha.length; k++) {
-          img.data[k * 4] = rgb[0];
-          img.data[k * 4 + 1] = rgb[1];
-          img.data[k * 4 + 2] = rgb[2];
-          img.data[k * 4 + 3] = z.alpha[k];
-        }
-        octx.putImageData(img, 0, 0);
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(oc, 0, 0, G.gw * G.cell, G.gh * G.cell);
+        ctx.drawImage(this._denseTint(dense, i, tintShare, pal), 0, 0, G.gw * G.cell, G.gh * G.cell);
       }
       if (z.outline) {
         ctx.strokeStyle = z.outline;
-        ctx.lineWidth = moving ? z.outlineWidth / mk : z.outlineWidth;
+        ctx.lineWidth = shaped ? z.outlineWidth / sk : z.outlineWidth;
         ctx.beginPath();
         for (segs = z.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
         ctx.stroke();
@@ -1334,8 +1364,8 @@
     }
     if (shapes.districts.length) {
       var d0 = shapes.districts[0];
-      ctx.lineWidth = moving ? d0.width / mk : d0.width;
-      ctx.setLineDash(moving ? d0.dash.map(function (x) { return x / mk; }) : d0.dash);
+      ctx.lineWidth = shaped ? d0.width / sk : d0.width;
+      ctx.setLineDash(shaped ? d0.dash.map(function (x) { return x / sk; }) : d0.dash);
       for (i = 0; i < shapes.districts.length; i++) {
         var d = shapes.districts[i];
         ctx.strokeStyle = d.stroke;
@@ -1345,7 +1375,7 @@
       }
       ctx.setLineDash([]);
     }
-    if (moving) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (shaped) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     /* Every point, held back or not, in grey (or by its topic's or zone's hue
        when the settings say so), in one path per colour. */
@@ -1383,13 +1413,13 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    var labels = D.drawOrder(frame.placed).concat(frame.comments);
-    for (i = 0; i < labels.length; i++) {
-      var p = labels[i], px = moving ? ox + mk * p.x : p.x, py = moving ? oy + mk * p.y : p.y;
+    var labels = D.drawOrder(frame.placed).concat(frame.comments), drawn = this._denseLabelsNow(labels, now, moving, mk, ox, oy, frame);
+    for (i = 0; i < drawn.length; i++) {
+      var p = drawn[i].p, px = drawn[i].x, py = drawn[i].y;
       var y0 = py - p.h / 2 + p.lh / 2;
       ctx.font = p.weight + " " + p.f + "px " + p.fam;
       ctx.letterSpacing = p.letterSpacing;
-      ctx.globalAlpha = p.alpha;
+      ctx.globalAlpha = drawn[i].alpha;
       ctx.strokeStyle = pal.halo;
       ctx.lineWidth = p.haloWidth;
       /* A comment label set with align "left" is drawn from its text's left edge. */
@@ -1402,7 +1432,81 @@
     ctx.globalAlpha = 1;
     ctx.letterSpacing = "0px";
     this._labelHits = [];
+    if (this._denseFade) this.redraw();
     if (this.onTiming) this.onTiming("draw", performance.now() - started);
+  };
+
+  /* A zone's tint as an image of its grid, in its tint at rest turned by
+     share (0 to 1, in sixteenths) toward its tint zoomed in; made once per
+     zone and share. */
+  PolisTopicMap.prototype._denseTint = function (dense, i, share, pal) {
+    var key = i + ":" + share, cached = dense.tintImages[key];
+    if (cached) return cached;
+    var z = dense.shapes.zones[i], G = z.grid, rgb = this._rgbOf(z.tint), k;
+    if (share > 0) {
+      var to = this._rgbOf(pal.zoneTintZoomed(z.hue));
+      rgb = [0, 1, 2].map(function (c) { return Math.round(rgb[c] + (to[c] - rgb[c]) * share); });
+    }
+    var oc = document.createElement("canvas");
+    oc.width = G.gw;
+    oc.height = G.gh;
+    var octx = oc.getContext("2d");
+    var img = octx.createImageData(G.gw, G.gh);
+    for (k = 0; k < z.alpha.length; k++) {
+      img.data[k * 4] = rgb[0];
+      img.data[k * 4 + 1] = rgb[1];
+      img.data[k * 4 + 2] = rgb[2];
+      img.data[k * 4 + 3] = z.alpha[k];
+    }
+    octx.putImageData(img, 0, 0);
+    return (dense.tintImages[key] = oc);
+  };
+
+  function labelKey(p) { return p.point != null ? "c" + p.point : "t" + p.ti; }
+  function sameLabel(a, b) {
+    return a.f === b.f && a.weight === b.weight && a.fam === b.fam && a.lines.join("\n") === b.lines.join("\n");
+  }
+
+  /* Where each label is drawn now, and how strongly: [{ key, p, x, y, alpha }],
+     in drawing order. At rest, where it was placed. While the view moves,
+     carried with the map, a waypoint kept inside the view at its edge. For
+     fadeMs after names are placed again, a label on screen before and after
+     slides from where it was to its new place, one that leaves fades out
+     where it was, and one that comes fades in. The list is kept: it is what
+     the next placement starts its slides and fades from. */
+  PolisTopicMap.prototype._denseLabelsNow = function (labels, now, moving, mk, ox, oy, frame) {
+    var fade = this._denseFade, u = 1, W = frame.W, H = frame.H, out = [], kept = {}, i;
+    if (fade) {
+      u = clamp((performance.now() - fade.t0) / fade.ms, 0, 1);
+      if (u >= 1) this._denseFade = fade = null;
+    }
+    var eu = u * u * (3 - 2 * u);
+    var place = function (p) {
+      var x = moving ? ox + mk * p.x : p.x, y = moving ? oy + mk * p.y : p.y;
+      if (moving && p.role === "waypoint") {
+        x = clamp(x, p.w / 2 + 3.5, W - p.w / 2 - 3.5);
+        y = clamp(y, p.h / 2 + 3.5, H - p.h / 2 - 3.5);
+      }
+      return [x, y];
+    };
+    var to = {};
+    for (i = 0; i < labels.length; i++) to[labelKey(labels[i])] = labels[i];
+    if (fade) {
+      fade.from.forEach(function (d) {
+        var fx = d.wx * now.s + now.tx, fy = -d.wy * now.s + now.ty, p = to[d.key];
+        if (p && sameLabel(p, d.p)) kept[d.key] = { x: fx, y: fy, alpha: d.alpha };
+        else if (d.alpha * (1 - eu) > 0.004) out.push({ key: d.key, p: d.p, x: fx, y: fy, alpha: d.alpha * (1 - eu) });
+      });
+    }
+    for (i = 0; i < labels.length; i++) {
+      var p = labels[i], k = labelKey(p), q = place(p), a = p.alpha, f0 = kept[k];
+      if (f0) out.push({ key: k, p: p, x: f0.x + (q[0] - f0.x) * eu, y: f0.y + (q[1] - f0.y) * eu, alpha: f0.alpha + (a - f0.alpha) * eu });
+      else out.push({ key: k, p: p, x: q[0], y: q[1], alpha: fade ? a * eu : a });
+    }
+    this._denseDrawnLabels = out.map(function (d) {
+      return { key: d.key, p: d.p, x: d.x, y: d.y, alpha: d.alpha, wx: (d.x - now.tx) / now.s, wy: (now.ty - d.y) / now.s };
+    });
+    return out;
   };
 
   PolisTopicMap.geometry = {

@@ -122,7 +122,10 @@
     floor: 11,
     focusSize: [13, 17],
     waypointAlpha: 0.62,
-    budget: { district: 5, finest: 6, comments: 5, waypoints: 2 }
+    budget: { district: 5, finest: 6, comments: 5, waypoints: 2 },
+    // when names are placed again, a name kept slides to its new place and a
+    // name that comes or goes fades, over this many ms (0: at once)
+    fadeMs: 240
   };
 
   // The zoom settings: given keys over PRESET_ZOOM, and given comment and
@@ -479,11 +482,15 @@
 
   /* --------------------------------------------------------------- placement */
 
-  // layout(model, { width, height, measure, view }) : the names placed at one
-  // size of the map. Greedy, in priority order: the name's box (its text and
-  // 1.5 px) is tried at the anchor, then on rings of 16 directions out to its
-  // reach; if no position is free the size is multiplied by 0.88 and every
-  // step is tried again; below the minimum size the name is dropped.
+  // layout(model, { width, height, measure, view, prev }) : the names placed
+  // at one size of the map. Greedy, in priority order: the name's box (its
+  // text and 1.5 px) is tried at the anchor, then on rings of 16 directions
+  // out to its reach; if no position is free the size is multiplied by 0.88
+  // and every step is tried again; below the minimum size the name is
+  // dropped. With prev (the frame of the placement before), each label is
+  // tried first where prev put it on the map: the same view and prev give the
+  // same placement, and placing a view again with its own placement as prev
+  // returns that placement.
   function layout(model, opts) {
     var cfg = model.settings, T = model.topics, pal = palette(cfg.scheme);
     var size = canvasSize(opts.width, opts.height), W = size.W, H = size.H;
@@ -528,6 +535,44 @@
       stats.stage = zl.stage; stats.focus = commentsOn ? "comments" : focusLevel;
     }
     var seq = zl ? zoomedNames(model, zl, focusLevel, wayLayers, W, H) : model.order.map(function (ti) { return { ti: ti }; });
+    // The previous placement (opts.prev, a frame this function returned): a
+    // name or comment label it placed is tried first where it was on the map,
+    // then at its previous offset from its anchor, and only then on the
+    // rings; and the others try first to keep out of the places it held.
+    var prev = opts.prev && opts.prev.view ? opts.prev : null, prevAt = {}, reserved = [];
+    if (prev) {
+      var pv = prev.view, same = pv.s === view.s && pv.tx === view.tx && pv.ty === view.ty;
+      var toNow = function (x, y) { return same ? [x, y] : [(x - pv.tx) / pv.s * view.s + view.tx, -((pv.ty - y) / pv.s) * view.s + view.ty]; };
+      var remember = function (k, p, f) {
+        var cx = (p.box[0] + p.box[2]) / 2, cy = (p.box[1] + p.box[3]) / 2, at = toNow(cx, cy);
+        var hw = (p.box[2] - p.box[0]) / 2, hh = (p.box[3] - p.box[1]) / 2;
+        prevAt[k] = { x: at[0], y: at[1], dx: cx - p.x0, dy: cy - p.y0, f: f };
+        reserved.push({ k: k, b: [at[0] - hw, at[1] - hh, at[0] + hw, at[1] + hh] });
+      };
+      prev.placed.forEach(function (p) { remember("t" + p.ti, p, p.f); });
+      (prev.comments || []).forEach(function (p) { remember("c" + p.point, p, p.f); });
+    }
+    var hitsReserved = function (b, k) {
+      for (var q = 0; q < reserved.length; q++) {
+        var o = reserved[q].b;
+        if (reserved[q].k !== k && b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) return true;
+      }
+      return false;
+    };
+    var release = function (k) { reserved = reserved.filter(function (r) { return r.k !== k; }); };
+    // the offsets a label tries: where it was, its previous offset, then the
+    // rings; and, with a previous placement, a first pass keeping out of the
+    // places other labels held
+    var candidates = function (k, f, ax, ay, reach, rings) {
+      var pa = prevAt[k], out = [];
+      if (pa && Math.abs(pa.f - f) < 0.01) {
+        var ex = pa.x - ax, ey = pa.y - ay;
+        if (Math.hypot(ex, ey) <= reach + 1e-9) out.push([ex, ey, true]);
+        if (Math.hypot(pa.dx, pa.dy) <= reach + 1e-9) out.push([pa.dx, pa.dy, true]);
+      }
+      return out.concat(rings);
+    };
+    var passes = prev ? [true, false] : [false];
     var focusPlaced = 0;
     for (var c = 0; c < seq.length; c++) {
       var e = seq[c], ti = e.ti;
@@ -567,16 +612,21 @@
         var step = Math.max(2, f * 0.4);
         var tries = [[0, 0]];
         for (var rr = step; rr <= reach; rr += step) for (var a = 0; a < 16; a++) { var th = a * Math.PI / 8; tries.push([rr * Math.cos(th), rr * Math.sin(th) * 0.75]); }
+        var nk = "t" + ti, positions = tries.length;
+        if (prev) tries = candidates(nk, f, x0, y0, reach, tries);
+        for (var pass = 0; pass < passes.length && !done; pass++)
         for (var j = 0; j < tries.length; j++) {
           var dx = tries[j][0], dy = tries[j][1];
           var cxl = x0 + dx, cyl = y0 + dy;
           var b = [cxl - w / 2 - m, cyl - h / 2 - m, cxl + w / 2 + m, cyl + h / 2 + m];
           if (b[0] < 2 || b[1] < 2 || b[2] > W - 2 || b[3] > H - 2) continue;
           if (hits(b)) continue;
+          if (passes[pass] && !tries[j][2] && hitsReserved(b, nk)) continue;
+          if (prev) release(nk);
           var blocking = alpha >= 0.5; if (blocking) add(b);
           placed.push({ ti: ti, L: L, lines: lines, f: f, baseFont: font, weight: weight, fam: fam, caps: caps,
             letterSpacing: spacing, lh: lh, lineWidths: lw, w: w, h: h, x: cxl, y: cyl, x0: x0, y0: y0, dx: dx, dy: dy,
-            box: b, rScreen: rScreen, reach: reach, step: step, positions: tries.length, hue: hue,
+            box: b, rScreen: rScreen, reach: reach, step: step, positions: positions, hue: hue,
             ink: pal.labelInk(hue), alpha: alpha, haloWidth: pal.haloWidth(f),
             shrunk: f < font - 0.01, shrinkSteps: tried.length - 1 });
           if (zl) { placed[placed.length - 1].role = e.role; placed[placed.length - 1].held = held; }
@@ -622,11 +672,16 @@
           for (var cl = 0; cl < clines.length; cl++) { var cmw = measure(clines[cl], cSpec); clw.push(cmw); cwid = Math.max(cwid, cmw); }
           var ch = clines.length * clh;
           var bw = slot ? cwid + slot.gap + slot.w : cwid, bh = slot ? Math.max(ch, slot.h) : ch;
-          for (var cj = 0; cj < ctries.length; cj++) {
-            var bx = px0 + ctries[cj][0], by = py0 + ctries[cj][1];
+          var ck = "c" + pi, cTries = prev ? candidates(ck, cf, px0, py0, creach, ctries) : ctries, cDone = false;
+          for (var cpass = 0; cpass < passes.length && !cDone; cpass++)
+          for (var cj = 0; cj < cTries.length; cj++) {
+            var bx = px0 + cTries[cj][0], by = py0 + cTries[cj][1];
             var cb = [bx - bw / 2 - cm, by - bh / 2 - cm, bx + bw / 2 + cm, by + bh / 2 + cm];
             if (cb[0] < 2 || cb[1] < 2 || cb[2] > W - 2 || cb[3] > H - 2) continue;
             if (hits(cb)) continue;
+            if (passes[cpass] && !cTries[cj][2] && hitsReserved(cb, ck)) continue;
+            if (prev) release(ck);
+            cDone = true;
             add(cb);
             var tx = bx - bw / 2 + cwid / 2;
             comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: ccut, lines: clines, f: cf, weight: cw, fam: cfam,
@@ -818,7 +873,34 @@
     return { cell: sc.cell, sigma: sc.sigma, zones: zones, districts: districts };
   }
 
+  // The shapes of the map, worked out once from the data: every zone and
+  // district at the fit for this size, which is the picture at rest. Any
+  // other view draws these same shapes scaled and moved (shapeTransform), so
+  // a border never changes shape with the zoom.
+  function fixedShapes(model, width, height) {
+    var size = canvasSize(width, height), fit = fitView(model.extent, size.W, size.H, model.settings.pad);
+    return zoneShapes(model, { W: size.W, H: size.H, view: fit, fit: fit });
+  }
+
+  // How the shapes at the fit land in a view: screen = k * fit px + (ox, oy).
+  function shapeTransform(fit, view) {
+    var k = view.s / fit.s;
+    return { k: k, ox: view.tx - fit.tx * k, oy: view.ty - fit.ty * k };
+  }
+
+  // How far a zone's tint has turned from its tint at rest to its tint
+  // zoomed in (palette().zoneTintZoomed), 0 to 1: 0 at the fit and zoomed
+  // out, 1 from the first step, eased between, so the tint never changes at
+  // one zoom.
+  function zoomedTintShare(model, zoom) {
+    var Z = model.settings.zoom, first = Z && Z.steps && Z.steps.length ? Z.steps[0] : 1.5;
+    if (!Z || !(zoom > 1)) return 0;
+    var u = Math.max(0, Math.min(1, (zoom - 1) / Math.max(1e-6, first - 1)));
+    return u * u * (3 - 2 * u);
+  }
+
   var PolisTopicMapDense = {
+    fixedShapes: fixedShapes, shapeTransform: shapeTransform, zoomedTintShare: zoomedTintShare,
     DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, PRESET_ZOOM: PRESET_ZOOM, DEFAULT_FACE: DEFAULT_FACE,
     resolveZoom: resolveZoom, commentsInView: commentsInView, zoomStage: zoomStage, WARM_TINT: WARM_TINT, NEUTRAL_TINT: NEUTRAL_TINT,
     rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
