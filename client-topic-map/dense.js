@@ -76,7 +76,14 @@
     zoneLayer: "zone",
     zones: "tint",
     subOutline: "district",
-    dots: "grey"
+    dots: "grey",
+    // Names follow the room the map has for them. With fewer names than the
+    // map has room for (more than `area` px² of map per name drawn), every
+    // name grows by sqrt(area per name / area), at most `grow` times; a grown
+    // name is at most `maxPx`, and at most `spread` times its topic's spread
+    // on screen at the fit (its zone's extent), never under its size at rest.
+    // A map with as many names as Bowling Green's has no room: nothing grows.
+    room: { area: 40000, grow: 1.4, maxPx: 36, spread: 0.6 }
   };
 
   // Zoom and the comments it shows, with values chosen on a conversation of
@@ -123,6 +130,19 @@
     focusSize: [13, 17],
     waypointAlpha: 0.62,
     budget: { district: 5, finest: 6, comments: 5, waypoints: 2 },
+    // The comments at the surface: with a list of comments to bring forward
+    // (comments.only, the standouts) and room on the map, they are written
+    // out at the whole-map view and at every step, not only the deepest.
+    // Room: the map has at least minAreaPerPoint px² per point in view (a
+    // map of thousands has not, and writes none); then one comment per
+    // areaPerComment px² of the map not taken by names, at most max. Each
+    // is placed beside its dot, not over it: in the white space within
+    // reach px of the dot, covering no other dot, name or comment, tied to
+    // its dot by a leader (label.leader). A map with that room is small:
+    // its steps collapse to one, straight to its comments, and its zoom
+    // ends at sqrt(points / minInView), at least x2 (zoomLimit), where on
+    // average fewer than minInView points would be left in view.
+    surface: { minAreaPerPoint: 6000, areaPerComment: 120000, max: 10, reach: 180, gap: 8, minInView: 8 },
     // when names are placed again, a name kept slides to its new place and a
     // name that comes or goes fades, over this many ms (0: at once)
     fadeMs: 240
@@ -137,6 +157,7 @@
     out.slot = given.slot ? { w: Number(given.slot.w) || 0, h: Number(given.slot.h) || 0, gap: given.slot.gap == null ? 4 : Number(given.slot.gap) } : null;
     out.steps = given.steps === false ? null : (Array.isArray(given.steps) && given.steps.length ? given.steps.map(Number) : PRESET_ZOOM.steps.slice());
     out.budget = Object.assign({}, PRESET_ZOOM.budget, given.budget || {});
+    out.surface = given.surface === false ? null : Object.assign({}, PRESET_ZOOM.surface, given.surface || {});
     out.focusSize = (given.focusSize || PRESET_ZOOM.focusSize).slice();
     return out;
   }
@@ -153,7 +174,9 @@
     var coarse = cfg.layers.slice().sort(function (a, b) { return b - a; }), k = coarse.length;
     var step = function (i) { var n = Z.steps.length; return i < n ? Z.steps[i] : Z.steps[n - 1] * Math.pow(2, i - n + 1); };
     var stage = 0;
-    for (var i = 0; i < k; i++) if (by >= step(i)) stage = i + 1;
+    // a small map (room for its comments at the whole-map view) has one step, to its comments
+    if (isSmall(model, W, H)) stage = by >= Z.steps[0] ? k : 0;
+    else for (var i = 0; i < k; i++) if (by >= step(i)) stage = i + 1;
     var X = model.points.x, Y = model.points.y, P = model.points.topic, inView = new Float64Array(model.topics.length);
     for (i = 0; i < model.points.n; i++) {
       var x = X[i] * view.s + view.tx, y = -Y[i] * view.s + view.ty;
@@ -163,15 +186,50 @@
     return { zoom: by, stage: stage, k: k, coarse: coarse, inView: inView };
   }
 
+  // The surface settings when they apply: steps on, a list of comments to
+  // bring forward (comments.only) and at least one of them with text.
+  function surfaceOn(model) {
+    var Z = model.settings.zoom;
+    return Z && Z.surface && Z.steps && Z.comments && Array.isArray(Z.comments.only) && model.commentOrder.length ? Z.surface : null;
+  }
+  // Whether the whole map has room for comments at its surface (W by H px).
+  function isSmall(model, W, H) {
+    var s = surfaceOn(model);
+    return !!s && W * H / Math.max(1, model.points.n) >= s.minAreaPerPoint;
+  }
+  // The deepest zoom offered, as a multiple of the fit: the preset's max;
+  // on a small map, where on average minInView points are left in view
+  // (at least one double-click, x2): a step further would show nothing new.
+  function zoomLimit(model, width, height) {
+    var Z = model.settings.zoom, size = canvasSize(width, height);
+    if (!Z) return PRESET_ZOOM.max;
+    if (!isSmall(model, size.W, size.H)) return Z.max;
+    return Math.min(Z.max, Math.max(2, Math.sqrt(model.points.n / Z.surface.minInView)));
+  }
+  // How many comments the surface writes out in this view: none unless the
+  // view has minAreaPerPoint px² per point in it; else one per
+  // areaPerComment px² not taken by the names placed, at most max.
+  function surfaceBudget(model, view, W, H, placed, s) {
+    var X = model.points.x, Y = model.points.y, n = 0;
+    for (var i = 0; i < model.points.n; i++) {
+      var x = X[i] * view.s + view.tx, y = -Y[i] * view.s + view.ty;
+      if (x >= 0 && y >= 0 && x <= W && y <= H) n++;
+    }
+    if (!n || W * H / n < s.minAreaPerPoint) return { n: 0, inView: n };
+    var free = W * H;
+    placed.forEach(function (p) { free -= (p.box[2] - p.box[0]) * (p.box[3] - p.box[1]); });
+    return { n: Math.max(0, Math.min(s.max, Math.floor(free / s.areaPerComment))), inView: n };
+  }
+
   // The names to place zoomed in, in order: { ti, pin, alpha, font, role }.
-  function zoomedNames(model, zl, focusLevel, wayLayers, W, H) {
+  function zoomedNames(model, zl, focusLevel, wayLayers, W, H, fontOf) {
     var cfg = model.settings, Z = cfg.zoom, T = model.topics, inView = zl.inView;
     var roles = rolesOf(cfg.layers), budgetOf = {};
     Object.keys(Z.budget).forEach(function (r) { if (r in roles) budgetOf[roles[r]] = Z.budget[r]; });
     var countMax = {};
     T.forEach(function (t) { countMax[t.level] = Math.max(countMax[t.level] || 1, t.count); });
     var sized = function (ti) {
-      var base = model.baseFont[ti]; if (base == null) base = 0;
+      var base = fontOf ? fontOf(ti) : model.baseFont[ti]; if (base == null) base = 0;
       if (zl.stage === 0) return base;
       var fs = Z.focusSize, g = Math.sqrt(T[ti].count / countMax[T[ti].level]);
       return Math.max(base, Z.floor, fs[0] + (fs[1] - fs[0]) * g);
@@ -228,9 +286,17 @@
       (a || []).forEach(function (v) { var L = levelOf(v, roles); if (out.indexOf(L) < 0) out.push(L); });
       return out;
     };
+    // When roles fall on one level (a document of one level is all zone,
+    // district and finest at once), the zone's value keeps its level: the
+    // coarsest topics a map has are named as zones, as guideposts.
     var byLayer = function (o) {
-      var out = {};
-      Object.keys(o || {}).forEach(function (k) { out[levelOf(k, roles)] = o[k]; });
+      var out = {}, zoneSet = {};
+      Object.keys(o || {}).forEach(function (k) {
+        var L = levelOf(k, roles);
+        if (zoneSet[L] && k !== "zone") return;
+        out[L] = o[k];
+        if (k === "zone") zoneSet[L] = true;
+      });
       return out;
     };
     cfg.layers = list(cfg.layers);
@@ -434,15 +500,21 @@
     // zoom.comments.only: a list of point ids, first placed first; only those
     // points are given a label (an empty list gives none)
     var onlyIds = cfg.zoom && cfg.zoom.comments && Array.isArray(cfg.zoom.comments.only) ? cfg.zoom.comments.only : null;
+    // zoom.comments.kinds (beside only): each listed comment's kind, so the
+    // surface can balance its budget between the kinds
+    var commentKind = {};
     if (onlyIds) {
       var withText = {}, byId = {};
       commentOrder.forEach(function (pi) { withText[pi] = true; });
       for (i = 0; i < N; i++) if (ids[i] != null && !(String(ids[i]) in byId)) byId[String(ids[i])] = i;
-      var seen = {};
+      var seen = {}, kinds = Array.isArray(cfg.zoom.comments.kinds) ? cfg.zoom.comments.kinds : null;
       commentOrder = [];
-      onlyIds.forEach(function (id) {
+      onlyIds.forEach(function (id, k) {
         var pi = byId[String(id)];
-        if (pi !== undefined && withText[pi] && !seen[pi]) { seen[pi] = true; commentOrder.push(pi); }
+        if (pi !== undefined && withText[pi] && !seen[pi]) {
+          seen[pi] = true; commentOrder.push(pi);
+          if (kinds && kinds[k] != null) commentKind[pi] = String(kinds[k]);
+        }
       });
     }
 
@@ -451,7 +523,7 @@
 
     return {
       settings: cfg, topics: T, points: { x: X, y: Y, topic: P.topic, n: N, id: ids, text: text, votes: votes },
-      commentOrder: commentOrder,
+      commentOrder: commentOrder, commentKind: commentKind,
       centre: { cx: cx, cy: cy }, extent: { minX: minX, maxX: maxX, minY: minY, maxY: maxY },
       zoneIdx: zoneIdx, zoneOrder: zoneOrder, zoneHue: zoneHue, zoneOf: zoneOf, zoneBy: zoneBy, hueOf: hueOf,
       districtIdx: districtIdx, pointTopic: pointTopic, pointZone: pointZone,
@@ -534,7 +606,21 @@
       }
       stats.stage = zl.stage; stats.focus = commentsOn ? "comments" : focusLevel;
     }
-    var seq = zl ? zoomedNames(model, zl, focusLevel, wayLayers, W, H) : model.order.map(function (ti) { return { ti: ti }; });
+    // names follow the room (cfg.room): the same growth at every zoom, so a
+    // name keeps its size in px; with no room every name is its size at rest
+    var room = cfg.room, grow = 1;
+    if (room && model.order.length) {
+      var perName = W * H / model.order.length;
+      if (perName > room.area) grow = Math.min(room.grow, Math.sqrt(perName / room.area));
+    }
+    var fontOf = function (ti) {
+      var b = model.baseFont[ti];
+      if (b == null || grow === 1) return b;
+      var byExtent = isFinite(T[ti].r) ? room.spread * T[ti].r * fit.s : Infinity;
+      return Math.max(b, Math.min(b * grow, room.maxPx, byExtent));
+    };
+    var seq = zl ? zoomedNames(model, zl, focusLevel, wayLayers, W, H, fontOf) : model.order.map(function (ti) { return { ti: ti }; });
+    stats.grow = grow;
     // The previous placement (opts.prev, a frame this function returned): a
     // name or comment label it placed is tried first where it was on the map,
     // then at its previous offset from its anchor, and only then on the
@@ -584,7 +670,7 @@
         dropped.push({ ti: ti, reason: "anchor more than 50 px outside the map", x0: x0, y0: y0, ink: pal.labelInk(model.hueOf[ti]) });
         continue;
       }
-      var font = e.font != null ? e.font : model.baseFont[ti];
+      var font = e.font != null ? e.font : fontOf(ti);
       if (cfg.dynamic && cfg.fadeCoarse && L > 0) {
         var fill = rScreen / (0.42 * Math.min(W, H)); alpha = Math.max(0, Math.min(1, 1.5 - fill));
         if (alpha < 0.12) continue;
@@ -647,9 +733,17 @@
     // comments, by the same rule, after every name
     // (zoomed in with steps, only at the comments' stage and within budget)
     var comments = [], cap = zl ? Z.budget.comments : Infinity;
-    if (Z && Z.comments && (zl || !Z.steps)) {
-      if (!zl) commentLevel = commentsInView(model, view, W, H, Z.comments);
-      if (zl ? commentsOn : commentLevel.on) {
+    // the surface (zoom.surface): standouts written out wherever the view has room
+    var surf = surfaceOn(model), sb = surf ? surfaceBudget(model, view, W, H, placed, surf) : { n: 0 };
+    if (Z && Z.comments && (zl || !Z.steps || sb.n > 0)) {
+      if (!zl && !Z.steps) commentLevel = commentsInView(model, view, W, H, Z.comments);
+      var deepOn = zl ? commentsOn : commentLevel.on;
+      if (sb.n > 0) {
+        cap = Math.max(sb.n, deepOn ? Z.budget.comments : 0);
+        if (!deepOn) commentLevel = { on: true, inView: sb.inView, spacing: null };
+        commentLevel.surface = true; commentLevel.budget = cap;
+      }
+      if (deepOn || sb.n > 0) {
         var C = Z.comments, lg = Math.log2(Math.max(1, view.s / fit.s)), slot = Z.slot;
         var nWords = Math.round(C.words + C.wordsPerDoubling * lg), cWrap = C.wrap + C.wrapPerDoubling * lg;
         var cf = C.font, cw = weightFor(cf), cfam = cfg.fontSans;
@@ -658,21 +752,61 @@
         var ctries = [[0, 0]];
         for (var cr = cstep; cr <= creach; cr += cstep) for (var ca = 0; ca < 16; ca++) { var cth = ca * Math.PI / 8; ctries.push([cr * Math.cos(cth), cr * Math.sin(cth) * 0.75]); }
         var PX = model.points;
+        // at the surface a label sits beside its dot, in the white space: the
+        // dots in view (screen px), which no label may cover
+        var dotsNow = [];
+        if (sb.n > 0) for (var di = 0; di < PX.n; di++) {
+          var dxs = sx(PX.x[di]), dys = sy(PX.y[di]);
+          if (dxs >= -4 && dys >= -4 && dxs <= W + 4 && dys <= H + 4) dotsNow.push([dxs, dys]);
+        }
+        var coversDot = function (b) {
+          for (var q = 0; q < dotsNow.length; q++) { var d = dotsNow[q]; if (d[0] > b[0] - 3 && d[0] < b[2] + 3 && d[1] > b[1] - 3 && d[1] < b[3] + 3) return true; }
+          return false;
+        };
+        // the offsets of a box's centre from its dot: the box's nearest edge gap px
+        // and further from the dot, sideways first (a line of text reads beside a dot)
+        var dirs = [];
+        for (var da = 0; da < 16; da++) dirs.push(da * Math.PI / 8);
+        dirs.sort(function (p, q) { return Math.abs(Math.sin(p)) - Math.abs(Math.sin(q)) || p - q; });
+        var besideTries = function (bw, bh) {
+          var out = [];
+          for (var r = surf.gap; r <= surf.reach; r += 6) dirs.forEach(function (th) {
+            var ux = Math.cos(th), uy = Math.sin(th);
+            var t = Math.min(Math.abs(ux) > 1e-9 ? (bw / 2 + cm) / Math.abs(ux) : Infinity, Math.abs(uy) > 1e-9 ? (bh / 2 + cm) / Math.abs(uy) : Infinity);
+            out.push([ux * (t + r), uy * (t + r)]);
+          });
+          return out;
+        };
+        // a leader from the dot to the label's nearest edge, kept off every name and label
+        var leaderOf = function (x, y, b) { return [x, y, Math.max(b[0], Math.min(b[2], x)), Math.max(b[1], Math.min(b[3], y))]; };
+        var leaderBoxes = function (l) {
+          var len = Math.hypot(l[2] - l[0], l[3] - l[1]), out = [];
+          for (var u = 5; u < len - 2; u += 5) { var lx = l[0] + (l[2] - l[0]) * u / len, ly = l[1] + (l[3] - l[1]) * u / len; out.push([lx - 1.5, ly - 1.5, lx + 1.5, ly + 1.5]); }
+          return out;
+        };
+        // with kinds, the surface first gives each kind half the budget, then fills
+        var kindOf = model.commentKind || {}, hasKinds = sb.n > 0 && Object.keys(kindOf).length > 0;
+        var perKind = {}, done = {}, halves = hasKinds ? [Math.ceil(cap / 2), Infinity] : [Infinity];
+        for (var hv = 0; hv < halves.length; hv++)
         for (var ci = 0; ci < model.commentOrder.length && comments.length < cap; ci++) {
           var pi = model.commentOrder[ci], px0 = sx(PX.x[pi]), py0 = sy(PX.y[pi]);
+          if (done[pi]) continue;
           if (px0 < 0 || py0 < 0 || px0 > W || py0 > H) continue;
+          var kd = kindOf[pi] || "";
+          if (hasKinds && (perKind[kd] || 0) >= halves[hv]) continue;
           var words = PX.text[pi].trim().split(/\s+/), nw = Math.min(words.length, nWords);
-          var ctext = words.slice(0, nw).join(" ") + (nw < words.length ? "\u2026" : "");
+          var ctext = words.slice(0, nw).join(" ") + (nw < words.length ? "…" : "");
           var clines = wrapText(ctext, cWrap), clw = [], cwid = 0, ccut = nw < words.length;
           if (C.maxLines > 0 && clines.length > C.maxLines) {
             clines = clines.slice(0, C.maxLines);
-            clines[clines.length - 1] = clines[clines.length - 1].replace(/[\s\u2026]*$/, "") + "\u2026";
+            clines[clines.length - 1] = clines[clines.length - 1].replace(/[\s…]*$/, "") + "…";
             ctext = clines.join(" "); ccut = true;
           }
           for (var cl = 0; cl < clines.length; cl++) { var cmw = measure(clines[cl], cSpec); clw.push(cmw); cwid = Math.max(cwid, cmw); }
           var ch = clines.length * clh;
           var bw = slot ? cwid + slot.gap + slot.w : cwid, bh = slot ? Math.max(ch, slot.h) : ch;
-          var ck = "c" + pi, cTries = prev ? candidates(ck, cf, px0, py0, creach, ctries) : ctries, cDone = false;
+          var ck = "c" + pi, base = sb.n > 0 ? besideTries(bw, bh) : ctries;
+          var cTries = prev ? candidates(ck, cf, px0, py0, sb.n > 0 ? Infinity : creach, base) : base, cDone = false;
           for (var cpass = 0; cpass < passes.length && !cDone; cpass++)
           for (var cj = 0; cj < cTries.length; cj++) {
             var bx = px0 + cTries[cj][0], by = py0 + cTries[cj][1];
@@ -680,16 +814,24 @@
             if (cb[0] < 2 || cb[1] < 2 || cb[2] > W - 2 || cb[3] > H - 2) continue;
             if (hits(cb)) continue;
             if (passes[cpass] && !cTries[cj][2] && hitsReserved(cb, ck)) continue;
+            var leader = null, lboxes = [];
+            if (sb.n > 0) {
+              if (coversDot(cb)) continue;
+              leader = leaderOf(px0, py0, cb); lboxes = leaderBoxes(leader);
+              if (Math.hypot(leader[2] - px0, leader[3] - py0) > surf.reach + surf.gap) continue;
+              if (lboxes.some(hits)) continue;
+            }
             if (prev) release(ck);
             cDone = true;
-            add(cb);
+            add(cb); lboxes.forEach(add);
             var tx = bx - bw / 2 + cwid / 2;
             comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: ccut, lines: clines, f: cf, weight: cw, fam: cfam,
               letterSpacing: "0px", lh: clh, lineWidths: clw, w: cwid, h: ch, x: tx, y: by, x0: px0, y0: py0, box: cb,
               ink: pal.commentInk, alpha: pal.commentAlpha, haloWidth: pal.haloWidth(cf), align: C.align === "left" ? "left" : "center",
-              slot: slot ? { x: tx + cwid / 2 + slot.gap, y: by - slot.h / 2, w: slot.w, h: slot.h } : null });
+              slot: slot ? { x: tx + cwid / 2 + slot.gap, y: by - slot.h / 2, w: slot.w, h: slot.h } : null, leader: leader });
             break;
           }
+          if (cDone) { done[pi] = true; perKind[kd] = (perKind[kd] || 0) + 1; }
         }
       }
     }
@@ -907,7 +1049,8 @@
     weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
     fitView: fitView, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,
     gridScale: gridScale, blurRadius: blurRadius, binnedCounts: binnedCounts, densityGrid: densityGrid,
-    contourSegs: contourSegs, zoneAlpha: zoneAlpha, zoneShapes: zoneShapes
+    contourSegs: contourSegs, zoneAlpha: zoneAlpha, zoneShapes: zoneShapes,
+    surfaceBudget: surfaceBudget, isSmall: isSmall, zoomLimit: zoomLimit
   };
 
   root.PolisTopicMapDense = PolisTopicMapDense;

@@ -50,6 +50,7 @@
     maxLines: 4,            // lines at most, the last cut with "…"
     slot: { w: 34, h: 15, gap: 6 },     // the reserved box: the four rows at 34 by 15 (3 px rows)
     rule: 3,                // px: the coloured rule at a standout's left
+    leader: "#59606b",      // the line from a dot to its comment written out beside it
     // the card: its comment text (font) and its smaller lines (small), px
     card: { width: 300, font: 14, small: 12, rowsW: 84, rowsH: 19, pouredW: 168, pouredH: 84 },
     hitRadius: 6,           // px: the least distance at which a dot answers the pointer
@@ -114,10 +115,22 @@
 
   // The dense drawing's settings that make the map label the standouts:
   // merged by the map over PRESET_DENSE and PRESET_ZOOM.
+  // The standouts in the order they are written out: the two kinds taken
+  // in turn, each strongest first, starting with the stronger kind's first,
+  // so a short budget is shared between group-informed consensus and division.
+  function balancedOrder(ranking) {
+    var by = { consensus: [], division: [] };
+    ranking.forEach(function (r) { (by[r.kind] || (by[r.kind] = [])).push(r); });
+    var first = ranking.length && ranking[0].kind === "division" ? "division" : "consensus";
+    var a = by[first], b = by[first === "division" ? "consensus" : "division"], out = [];
+    for (var i = 0; i < Math.max(a.length, b.length); i++) { if (a[i]) out.push(a[i]); if (b[i]) out.push(b[i]); }
+    return out;
+  }
+
   function drawingSettings(ranking, options, withSlot) {
-    var o = merge(options);
+    var o = merge(options), order = balancedOrder(ranking);
     return { zoom: {
-      comments: { only: ranking.map(function (r) { return r.id; }), font: o.font, words: o.words, wordsPerDoubling: 0,
+      comments: { only: order.map(function (r) { return r.id; }), kinds: order.map(function (r) { return r.kind; }), font: o.font, words: o.words, wordsPerDoubling: 0,
         wrap: o.wrap, wrapPerDoubling: 0, maxLines: o.maxLines, align: "left" },
       slot: withSlot ? { w: o.slot.w, h: o.slot.h, gap: o.slot.gap } : null,
       budget: { comments: o.budget }
@@ -377,6 +390,15 @@
     var self = this;
     this.labels.forEach(function (lab) {
       var r = self.rank[String(lab.id)];
+      // at the surface a label stands beside its dot: a leader from the dot
+      // to the label's edge, and the dot ringed in its kind's colour
+      if (lab.leader) {
+        var l = lab.leader;
+        ctx.beginPath(); ctx.moveTo(l[0], l[1]); ctx.lineTo(l[2], l[3]);
+        ctx.lineWidth = 1; ctx.strokeStyle = o.leader; ctx.stroke();
+        ctx.beginPath(); ctx.arc(l[0], l[1], 3.5, 0, Math.PI * 2);
+        ctx.lineWidth = 1.5; ctx.strokeStyle = r ? o.colors[r.kind] : o.leader; ctx.stroke();
+      }
       if (r) {
         ctx.fillStyle = o.colors[r.kind];
         ctx.fillRect(Math.round(lab.x - lab.w / 2) - o.rule - 3, Math.round(lab.y - lab.h / 2), o.rule, Math.round(lab.h));
@@ -415,6 +437,7 @@
   PolisTopicMapDeepZoom.DEFAULTS = DEFAULTS;
   PolisTopicMapDeepZoom.standoutRanking = standoutRanking;
   PolisTopicMapDeepZoom.drawingSettings = drawingSettings;
+  PolisTopicMapDeepZoom.balancedOrder = balancedOrder;
   PolisTopicMapDeepZoom.numbersFor = numbersFor;
   PolisTopicMapDeepZoom.hasCounts = hasCounts;
 

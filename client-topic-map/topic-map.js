@@ -483,8 +483,10 @@
      settings as multiples of its fitted scale. */
   PolisTopicMap.prototype._zoomLimits = function () {
     if (this.drawing && this._dense && this._dense.fit) {
-      var s = this._dense.fit.s, z = this.drawing.zoom;
-      return [Math.log2(s * z.min), Math.log2(s * z.max)];
+      var s = this._dense.fit.s, z = this.drawing.zoom, D = denseRules();
+      /* a small map's zoom ends where a step would show nothing new */
+      var max = D.zoomLimit && this._dense.model ? D.zoomLimit(this._dense.model, this._w, this._h) : z.max;
+      return [Math.log2(s * z.min), Math.log2(s * max)];
     }
     return [0, 20];
   };
@@ -1273,7 +1275,7 @@
      at the settled view. */
   function commentOut(c) {
     return { point: c.point, id: c.id, text: c.text, cut: c.cut, lines: c.lines.slice(), x: c.x, y: c.y, w: c.w, h: c.h,
-      box: c.box.slice(), slot: c.slot ? Object.assign({}, c.slot) : null };
+      box: c.box.slice(), slot: c.slot ? Object.assign({}, c.slot) : null, leader: c.leader ? c.leader.slice() : null };
   }
 
   /* The settled placement: the view, the names and the comment labels with

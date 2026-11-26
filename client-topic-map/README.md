@@ -650,6 +650,38 @@ in view allow, no budget). Zoomed in on the light ground, a zone whose hue is
 between 15 and 130 (OKLCH), whose pale tint reads cream or beige, is tinted a
 cool neutral (`oklch(0.80 0.02 250)`); its outline and names keep the hue.
 
+### The surface follows the room there is
+
+One rule for every size of conversation, not a preset for small ones.
+
+- **Names.** `room` (in `PRESET_DENSE`: `area` 40000, `grow` 1.4, `maxPx` 36,
+  `spread` 0.6): with more than `area` px² of map per name drawn, every name
+  grows by sqrt(area per name / area), at most `grow` times, at most `maxPx`
+  and at most `spread` times its topic's spread on screen at the fit, never
+  under its size at rest; the same growth at every zoom. A document of one
+  level gets the zone's sizes, wrap and capitals (where roles fall on one
+  level, the zone's value keeps it). A map with as many names as the
+  reference has no room: nothing grows (`frame.stats.grow` is 1).
+- **Comments at the surface.** `zoom.surface` (`minAreaPerPoint` 6000,
+  `areaPerComment` 120000, `max` 10, `reach` 180, `gap` 8, `minInView` 8;
+  `false` turns it off) applies when the drawing has a list of comments to
+  bring forward (`zoom.comments.only`, the deepest zoom's standouts) and the
+  steps are on. In a view with at least `minAreaPerPoint` px² per point in
+  it, one comment is written out per `areaPerComment` px² of the map not
+  taken by names, at most `max`, at the whole-map view and at every step
+  (at the deepest step, at least the comment budget). With
+  `zoom.comments.kinds` beside `only`, each kind gets half the budget first.
+  Each label is placed beside its dot, never over it: its box covers no dot,
+  name or other label; a leader from the dot to the box's nearest edge
+  (`leader: [x0, y0, x1, y1]` on the label) is kept off every name and label;
+  the deepest zoom's overlay draws the leader and rings the dot in the kind's
+  colour. `densecomments` then has `on` and `surface` true and `budget`.
+- **Steps.** A map with that room at the fit (`isSmall`) has one step,
+  straight to its comments, and its zoom ends at `zoomLimit`:
+  sqrt(points / `minInView`), at least ×2, where on average fewer than
+  `minInView` points would be left in view a step further. Other maps keep
+  `zoom.steps` and `zoom.max`.
+
 ## Tests
 
 ```sh
@@ -693,6 +725,10 @@ node --test client-topic-map/test/*.test.js
   math result's order, the vote floor, held-back points never chosen, the
   order of ties, each topic's comments and summary, the order of topics, and
   the quartile rule.
+- `test/surface.test.js`: the surface follows the room: a map with room writes
+  its standouts out at the whole-map view within the budget, balanced, beside
+  their dots; a crowded map and the reference write none; names grow within
+  the bounds; a small map's steps end where nothing new would show.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.
