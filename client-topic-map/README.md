@@ -32,6 +32,7 @@ No client uses it yet.
 | `topic-list.js` | the list | 7,976 |
 | `theme-neutral.js` | the neutral theme | 5,754 |
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 28,596 |
+| `highlights.js` | which comments to bring forward over the map: the most consensus and the most divisive, of the whole map and of each topic, as pure functions | 9,739 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -349,6 +350,45 @@ recomputed; none changes placement there. Such a difference can add or remove
 a spiral ring and change placement on another document. It is not a general
 placement tolerance.
 
+## The highlights: `highlights.js`
+
+`PolisTopicMapHighlights` chooses the comments a page brings forward over the
+map: the most consensus and the most divisive of the whole map, and of each
+topic of one level, with each topic's summary of consensus sorted highest
+first. It draws nothing and measures nothing new: it takes numbers Polis
+already computes, keyed by comment id (the document's point id).
+
+```js
+var numbers = PolisTopicMapHighlights.numbersFrom(math, comments);
+// math: the math result (GET /api/v3/math/pca2); comments: GET /api/v3/comments
+var h = PolisTopicMapHighlights.highlights(doc, numbers, { n: 5, perTopic: 1, minVotes: 5, level: 0 });
+```
+
+| Number | What it is | Where Polis computes it |
+| --- | --- | --- |
+| `consensus` | group-informed consensus as the report shows it: the mean over the opinion groups of (agrees + 1) / (agrees + disagrees + 2); 1 when every group agrees | `client-report/src/util/normalizeConsensus.js`, from the math result's `group-votes` |
+| `divisive` | the comment's extremity: the length of its projection on the two principal components; the axis of the report's "How divisive was the conversation?" chart | the math result's `pca["comment-extremity"]` (`delphi/polismath/pca_kmeans_rep/pca.py`, `compute_comment_extremity`) |
+| `votes` | agree + disagree + pass | the comments route's counts |
+
+Either measure can be replaced by any other number per comment, for example the
+math result's `group-aware-consensus` (the product over groups, which the math
+engine stores).
+
+- **Eligible:** a point with an id (held-back points are never chosen), a finite
+  value for the measure, and at least `minVotes` votes (5, the topic
+  statistics page's floor).
+- **Order:** most first; ties go to more votes, then to the smaller id.
+- **Each topic** of `level` gets `perTopic` comments per measure and a summary
+  of its eligible comments' consensus (`count`, `min`, `q1`, `median`, `q3`,
+  `max`; quartiles by the linear interpolation of plotly.js's box trace, which
+  draws the topic statistics page, at position p × n − 0.5). Topics are sorted
+  by median, then upper quartile, then count, then their order in the
+  document; a topic with no eligible comment comes last, with `summary: null`.
+- **Returns** `{ settings, eligible, consensus, divisive, topics }`; each chosen
+  comment is `{ index, id, x, y, value, votes, topic }`, where `index` is the
+  point's place in the document and `topic` the id of its topic at `level`, or
+  `null`.
+
 ## Taking it into a client
 
 Code is shared between the clients today in two ways. Build tooling lives in the
@@ -425,6 +465,11 @@ node --test client-topic-map/test/*.test.js
   cell, every outline segment) are equal to the recorded values exactly. The
   fixture is a cut of a public conversation's stored map, with names written
   by a language model.
+- `test/highlights.test.js`: the choice of comments to bring forward, on
+  small made-up documents: the report's consensus formula, extremity by the
+  math result's order, the vote floor, held-back points never chosen, the
+  order of ties, each topic's comments and summary, the order of topics, and
+  the quartile rule.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.
