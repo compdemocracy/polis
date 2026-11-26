@@ -33,6 +33,7 @@ No client uses it yet.
 | `theme-neutral.js` | the neutral theme | 5,754 |
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
+| `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 30,649 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -314,6 +315,101 @@ weight 100 to 900, latin subset, SIL Open Font License 1.1) and
 Load the style sheet on any page that shows the map; the map measures again when
 a face finishes loading. The face is named `Roboto` on that page, so any other
 style on the page that lists Roboto in its font stack gets this face too.
+
+## The group vote graphic: `vote-graphic.js`
+
+**PolisVoteGraphic** (`window.PolisVoteGraphic`, or `module.exports`) draws
+the small graphic that sits beside one comment and shows how each opinion group
+voted on it. It is two pure functions and a painter: no page, no measuring.
+
+```js
+var G = PolisVoteGraphic;
+var groups = G.groupsFromMath(math, tid);     // from GET /api/v3/math/pca2
+var L = G.layout(groups, { x: 0, y: 0, width: 34, height: 14 }, { form: "rows", scheme: "light" });
+ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
+G.draw(ctx, L);                               // fills only, inside the box
+G.caption(L);                                 // "Each row is a group, A at the top. Agree, disagree, pass: of those who voted. Dotted: did not vote."
+G.readout(L).lines;                           // ["Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote (179 of 243 voted).", ...]
+G.hit(L, x, y);                               // the group under a point (CSS px), or -1: for hover and click
+```
+
+`groups` is one object per opinion group, in order (A first):
+`{ label, agree, disagree, pass, didNotVote, didNotSee }`. The counts are named
+counts, never signed vote values. `didNotVote` is the group's members who cast
+no vote on the comment; `didNotSee`, when known, is how many of those never saw
+it (left out, the remainder is one part). `groupsFromMath(math, tid)` builds
+them from the math result: `group-votes[gid].votes[tid]` gives `A` (agrees),
+`D` (disagrees) and `S` (votes of any kind, passes included), and
+`group-votes[gid]["n-members"]` the group's size; pass is `S - A - D` and did
+not vote `n-members - S`. Groups are lettered in order of id.
+
+Two forms, from the same groups into the same box, so a page can toggle
+between them with the `form` setting:
+
+- `"rows"` (the default), **four rows, filled**: one row per group, A at the
+  top, filling the box so the rows read as one solid block. Each row runs the
+  full width (inside an inset of 1 px when the box is under 16 px tall, else
+  2 px): agree from the left to the group's share of agree, `(agree + 1) /
+  (agree + disagree + 2)`, and disagree from there to the right end. Pass and
+  those who did not vote are not drawn; their counts are in `readout`. The
+  height is split into the rows and a 1 px lighter line between each two (the
+  row above at half strength): row `i` runs from `round(i * (h + 1) / n)` to
+  `round((i + 1) * (h + 1) / n) - 1` (`rowBands`), so at 14 px the rows are 3,
+  3, 2 and 3 px, at 15 px 3 each, at 20 px 4, 5, 4 and 4. A 1 px line marks the
+  middle, where agree is half. With `showNonVoters: true` the rows are the
+  earlier drawing instead: agree, disagree and pass as shares of those who
+  voted, then those who did not vote, a light tint with dots, at the right end,
+  their share of the group times `didNotVoteMax` (0.25), at least a pixel;
+  `didNotVoteMax: 1` draws every member to scale.
+- `"poured"`: one column per group, A at the left. The upper bar is every
+  member, the votes from the left and the rest dotted; the votes pour down from
+  the voted part of the upper bar in an S bend and widen to fill the lower bar,
+  where agree, disagree and pass are shares of those who voted across its whole
+  width. The did-not-vote dots carry on below the upper bar into the space the
+  liquid leaves at its upper right, behind the liquid (`pouredDots`, on by
+  default), so that space is part of the picture rather than empty.
+
+Every rectangle `layout` returns is on whole CSS pixels, so its edges land on
+device pixels at a ratio of 1 or 2; the segments of a bar meet edge to edge and
+fill it exactly; nothing is stroked and there is no outline, frame or padding.
+Whole pixels are shared out by largest remainder, and any kind of vote that was
+cast gets at least one pixel. The poured form's paths start and end on the
+bars' edges and are painted one over another (all the votes, then agree and
+disagree, then agree), so no seam opens between them. A box too small for the
+groups gives `{ empty: true }` and `draw` paints nothing.
+
+Settings (merged over `DEFAULTS`): `form`, `scheme` (`"light"` or `"dark"`,
+the two grounds of the map), `gap` (px between groups, 1), `rowMax` (the
+tallest row, 4 px), `few` (a group with fewer agrees plus disagrees than this,
+5, has its votes drawn at `fewAlpha`, 0.45), `dotPitch` and `sawPitch` (the
+dots' spacing), `pouredHeights` (upper bar, liquid, lower bar in proportion,
+8 : 12 : 10), `mouthMin` (the voted part of the poured upper bar is at least
+2 px), `letters` and `face` (the group letters at the left of rows 6 px or
+taller, in the package's face), `didNotVoteMax` (above), and `colors`, any of
+`{ agree, disagree, pass, tint, dots, letter, middle, hatchTint }` over the
+scheme's. The default rows also take `showNonVoters` (false), `inset` (null,
+as above), `separator` (1 px; 0 lets rows touch), `separatorAlpha` (0.5; 0
+shows the ground), `middle` and `middleAlpha` (true, 0.6), and `disagreeFill`
+(`"solid"`, or `"hatch"`: 1 px diagonal lines of disagree every `hatchPitch`,
+3, px over `hatchTint`); `gap`, `rowMax`, `letters` and `didNotVoteMax` apply
+to the rows only with `showNonVoters`. The poured form takes `pouredDots`. The default
+colours put a dark agree (`#004d40` on white) beside a light, strong red
+disagree (`#eb5b3f`), far apart in lightness so the cut between them shows at
+2 px rows; pass is a mid grey (`#8e949c`) and the did-not-vote tint
+(`#e6e9ed`) is darker than the ground, so each row keeps its full length.
+`SCHEMES` holds both grounds' defaults; `FIRST_SCHEMES` the colours of the
+first drawing (the report's agree, disagree and pass), drawn with
+`{ colors: FIRST_SCHEMES.light, didNotVoteMax: 1, showNonVoters: true }`.
+
+`readout(groups or layout)` gives the numbers behind the graphic in plain
+words, for a page to show on hover or click: `{ groups, lines, text }`, one
+line per group ("Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote
+(179 of 243 voted)."). `hit(layout, x, y)` names the group whose row or column
+is under a point in the box, or -1 outside it. The page does the event
+handling; both are pure functions.
+
+At four groups, a box 14 px tall gives 2 px rows with 1 px gaps; 15 px gives
+3 px rows, 19 px gives 4 px.
 
 ## The dense drawing's rules: `dense.js`
 

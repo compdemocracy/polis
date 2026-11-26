@@ -45,15 +45,16 @@ test("choosing a run keeps the drawing in the address", () => {
 
 test("the page reads the drawing from its address and gives it to the map component", () => {
   const page = source("page.js");
-  assert.match(page, /const drawing = drawingFromAddress\(window\.location\.search\);/);
-  assert.match(page, /h\(TopicMap, \{[^}]*\n\s*drawing,\n/);
+  assert.match(page, /const \[drawing, setDrawing\] = createSignal\(drawingFromAddress\(window\.location\.search\)\);/);
+  assert.match(page, /h\(TopicMap, \{[^}]*\n\s*drawing: \(\) => drawing\(\),\n/);
 });
 
 test("the component passes a dense drawing to the map, and no drawing option otherwise", () => {
   const map = source("TopicMap.js");
   assert.match(map, /\.\.\.\(isDense\(drawing\) \? \{ drawing \} : \{\}\),/);
   assert.match(map, /map\.setDrawing\(drawing\);/);
-  assert.match(map, /props\.controls !== false && !isDense\(props\.drawing\)/, "the level and rule buttons are left out only in the dense drawing");
+  assert.match(map, /props\.controls !== false && \(choosesDrawing\(\) \|\| !isDense\(props\.drawing\)\)/, "without the drawing buttons, the row is left out in the dense drawing");
+  assert.match(map, /isDense\(props\.drawing\)\n\s*\? null\n\s*: \[\n\s*h\("div", \{ class: "polis-topic-map-levels"/, "the level and rule buttons are left out only in the dense drawing");
   assert.match(map, /import PolisTopicMapDense from "\.\.\/\.\.\/client-topic-map\/dense\.js";/);
 });
 

@@ -16,6 +16,11 @@
  *                  settings); the level and name-rule buttons, which do
  *                  nothing in it, are then left out. None, null or "default":
  *                  the map as drawn without it.
+ *   onDrawingChange
+ *                  optional: puts two buttons first in the row, one per
+ *                  drawing (DRAWINGS), shown in both drawings; a press calls
+ *                  it with "dense" or null, and the host gives the new
+ *                  drawing back as the drawing prop
  *   controls       false to leave out the row of buttons above the map
  *   onTopicSelect, onTopicHover, onLevelChange
  *                  optional: called with the map's event detail
@@ -60,6 +65,13 @@ import { chromeProperties, themeFor } from "./themes.js";
 const RULES = [
   ["as-drawn", "Names as datamapplot draws them today"],
   ["by-weight", "Largest topic first"],
+];
+
+// The two drawings, as the buttons name them (shown when the host passes
+// onDrawingChange): the map's own, and the dense drawing.
+export const DRAWINGS = [
+  ["default", "Points coloured by topic"],
+  ["dense", "Topic zones and districts"],
 ];
 
 // The dense drawing's rules, where the map looks for them (dense.js sets them
@@ -251,6 +263,24 @@ export default function TopicMap(props) {
       ),
     );
 
+  const drawingButtons = () =>
+    DRAWINGS.map(([mode, text]) =>
+      h(
+        "button",
+        {
+          type: "button",
+          "data-drawing": mode,
+          "aria-pressed": () => String((isDense(props.drawing) ? "dense" : "default") === mode),
+          onClick: () => {
+            if (typeof props.onDrawingChange === "function") props.onDrawingChange(mode === "dense" ? "dense" : null);
+          },
+        },
+        text,
+      ),
+    );
+
+  const choosesDrawing = () => typeof props.onDrawingChange === "function";
+
   return h(
     "div",
     {
@@ -260,10 +290,20 @@ export default function TopicMap(props) {
     },
     () => props.header,
     () =>
-      showsMap() && props.controls !== false && !isDense(props.drawing)
+      showsMap() && props.controls !== false && (choosesDrawing() || !isDense(props.drawing))
         ? h("div", { class: "polis-topic-map-controls" }, [
-            h("div", { class: "polis-topic-map-levels", role: "group", "aria-label": "Level of the topics shown" }, levelButtons),
-            h("div", { class: "polis-topic-map-rules", role: "group", "aria-label": "Which topic names show" }, ruleButtons),
+            choosesDrawing()
+              ? h("div", { class: "polis-topic-map-drawings", role: "group", "aria-label": "How the map is drawn" }, drawingButtons)
+              : null,
+            // The level and rule buttons do nothing in the dense drawing (the
+            // drawing buttons stay, so a pressed one keeps its focus).
+            () =>
+              isDense(props.drawing)
+                ? null
+                : [
+                    h("div", { class: "polis-topic-map-levels", role: "group", "aria-label": "Level of the topics shown" }, levelButtons),
+                    h("div", { class: "polis-topic-map-rules", role: "group", "aria-label": "Which topic names show" }, ruleButtons),
+                  ],
           ])
         : null,
     () => (counts() ? h("p", { class: "polis-topic-map-counts" }, counts()) : null),

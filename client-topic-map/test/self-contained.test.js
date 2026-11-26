@@ -10,7 +10,7 @@ const theme = require("../theme-neutral.js");
 
 const root = path.join(__dirname, "..");
 // What a page loads from the package: the scripts and the style sheet.
-const loaded = ["topic-map.js", "topic-list.js", "theme-neutral.js", "dense.js", "highlights.js", "fonts/roboto.css"];
+const loaded = ["topic-map.js", "topic-list.js", "theme-neutral.js", "dense.js", "highlights.js", "vote-graphic.js", "fonts/roboto.css"];
 const read = (file) => fs.readFileSync(path.join(root, file), "utf8");
 
 test("every script and style sheet a page loads from the package is listed here", () => {
