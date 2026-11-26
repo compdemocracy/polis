@@ -49,6 +49,10 @@ if os.environ.get("STUB_SLEEP"):
     time.sleep(float(os.environ["STUB_SLEEP"]))
 if os.environ.get("STUB_EXIT"):
     sys.exit(int(os.environ["STUB_EXIT"]))
+if os.environ.get("STUB_KILL"):
+    # Killed mid-call: half a names file written, then SIGKILL.
+    open(args[4], "w").write('{"schema": "polis-topic-names.names/1", "outc')
+    os.kill(os.getpid(), 9)
 assert args[0] == "name" and args[1] == "--in" and args[3] == "--out" and args[5] == "--namer", args
 hierarchy = json.load(open(args[2], encoding="utf-8"))
 namer = json.loads(args[6])
@@ -81,7 +85,7 @@ def stub(tmp_path, monkeypatch):
     path.chmod(path.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv(topic_namer.BINARY, str(path))
     monkeypatch.setenv("STUB_ARGV_LOG", str(tmp_path / "argv.log"))
-    for name in ("STUB_SLEEP", "STUB_EXIT", "STUB_OUTCOME", "STUB_NAMES", "STUB_DROP"):
+    for name in ("STUB_SLEEP", "STUB_EXIT", "STUB_KILL", "STUB_OUTCOME", "STUB_NAMES", "STUB_DROP"):
         monkeypatch.delenv(name, raising=False)
     return tmp_path
 
@@ -232,6 +236,35 @@ def test_a_program_that_does_not_finish_is_stopped(stub, monkeypatch):
     monkeypatch.setenv("STUB_SLEEP", "30")
     result = topic_namer.run_namer(HAIKU, small_hierarchy(), str(stub / "work"), timeout=1)
     assert (result["outcome"], result["reason"]) == ("namer_failed", "timeout_waiting_for_program")
+
+
+def test_a_program_killed_mid_call_is_namer_failed_and_leaves_no_scratch(stub, monkeypatch):
+    monkeypatch.setenv("STUB_KILL", "1")
+    work = stub / "work"
+    result = topic_namer.run_namer(HAIKU, small_hierarchy(), str(work))
+    assert (result["outcome"], result["reason"], result["names"]) == ("namer_failed", "exit_-9", {})
+    assert os.listdir(work) == []
+
+
+# Every way the program can fail, as the step sees it: its own outcomes, a
+# names file that is not JSON, a nonzero exit, a kill mid-call and a program
+# that does not finish in time.
+ONE_CALL_CASES = ([("STUB_OUTCOME", o) for o in FAILURES]
+                  + [("STUB_OUTCOME", "garbage"), ("STUB_EXIT", "1"), ("STUB_KILL", "1"), ("STUB_SLEEP", "30")])
+
+
+@pytest.mark.parametrize("setting,value", ONE_CALL_CASES)
+def test_every_failure_is_one_call_with_a_reason_and_no_scratch_left(stub, monkeypatch, setting, value):
+    monkeypatch.setenv(setting, value)
+    work = stub / "work"
+    timeout = 1 if setting == "STUB_SLEEP" else topic_namer.WAIT_SECONDS
+    result = topic_namer.run_namer(HAIKU, small_hierarchy(), str(work), timeout=timeout)
+    assert result["outcome"] != topic_namer.NAMED and result["names"] == {}
+    assert result["reason"]
+    # One call, never a second for the same naming.
+    assert len(stub_argv(stub)) == 1
+    # Neither the hierarchy (comment text) nor the names file outlives the step.
+    assert os.listdir(work) == []
 
 
 def test_no_program_no_call(tmp_path, monkeypatch):
