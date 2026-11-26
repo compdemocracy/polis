@@ -545,8 +545,9 @@
     var seen = !!(L && L.groups && L.groups.some(function (c) { return c.didNotSee !== null; }));
     var form = L && L.form === "poured" ? "poured" : "rows";
     var filled = form === "rows" && !(L && (L.drawing === "nonVoters" || L.showNonVoters === true));
-    if (filled) return "Each row is a group, A at the top. Agree from the left, disagree to the right end, of those who agreed or disagreed; the line marks half.";
-    var who = form === "poured" ? "Each column is a group, A at the left." : "Each row is a group, A at the top.";
+    var first = L && L.groups && L.groups.length ? L.groups[0].label : "A";
+    if (filled) return "Each row is a group, " + first + " at the top. Smoothed agree from the left, disagree to the right: one agree and one disagree are added to the counts. No agree or disagree votes gives half; faint rows have few votes. Passes are not drawn. The line marks half.";
+    var who = form === "poured" ? "Each column is a group, " + first + " at the left." : "Each row is a group, " + first + " at the top.";
     var dots = seen ? "Dotted: did not see it; sparse dots: saw it, did not vote." : "Dotted: did not vote.";
     return who + " Agree, disagree, pass: of those who voted. " + dots;
   }
@@ -556,16 +557,18 @@
    * result (GET /api/v3/math/pca2): group-votes[gid].votes[tid] holds A
    * (agrees), D (disagrees) and S (votes of any kind, passes included), and
    * group-votes[gid]["n-members"] the group's size. Pass is S - A - D; did not
-   * vote is n-members - S. The groups are lettered A, B, C... in order of id.
+   * vote is n-members - S. Group ids 0..9 are labelled A..J, as in the report; other ids keep
+   * their id as the label. Missing ids do not renumber the other groups.
    */
   function groupsFromMath(math, tid) {
     var gv = (math && math["group-votes"]) || {};
     var ids = Object.keys(gv).sort(function (x, y) { return Number(x) - Number(y); });
-    return ids.map(function (id, i) {
+    return ids.map(function (id) {
       var g = gv[id], v = (g.votes && g.votes[tid]) || { A: 0, D: 0, S: 0 };
       var members = num(g["n-members"]);
       var seenVotes = num(v.S);
-      return { label: String.fromCharCode(65 + i), agree: num(v.A), disagree: num(v.D),
+      var label = /^[0-9]$/.test(id) ? String.fromCharCode(65 + Number(id)) : id;
+      return { label: label, agree: num(v.A), disagree: num(v.D),
         pass: Math.max(0, seenVotes - num(v.A) - num(v.D)), didNotVote: Math.max(0, members - seenVotes) };
     });
   }

@@ -53,7 +53,8 @@ test("the preset, read by role on a four-level document, is the page's own setti
   delete merged.data; delete merged.names;
   // the two families are settings of their own, both the package's face by default
   merged.fontSans = Dense.DEFAULT_FACE; merged.fontMono = Dense.DEFAULT_FACE;
-  assert.deepEqual(Dense.resolveSettings(Dense.PRESET_DENSE, levels), merged);
+  // the preset adds one rule the recorded page did not have: names follow the room
+  assert.deepEqual(Dense.resolveSettings(Dense.PRESET_DENSE, levels), Object.assign({}, merged, { room: Dense.PRESET_DENSE.room }));
   assert.deepEqual(Dense.resolveSettings(ref.settings, levels), merged);
 });
 

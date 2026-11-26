@@ -34,7 +34,7 @@ No client uses it yet.
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
 | `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 32,422 |
-| `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; every other comment in view revealed on hover or focus, and selected on click with the poured form and the counts in words | |
+| `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; at the deepest step every other comment's first words beside its dot where there is room; the comment nearest the pointer revealed on hover or focus, and selected on click with the poured form and the counts in words | |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -82,6 +82,7 @@ Options:
 | `projection` | `"web-mercator"`, as datamapplot's maps are drawn, or `"linear"`, the UMAP positions with no stretch | `"web-mercator"` |
 | `collision` | which names show where names compete: `"as-drawn"`, as datamapplot's maps show them today, or `"by-weight"`, the rule datamapplot asks for (larger topics first) | `"as-drawn"` |
 | `drawing` | `null` for the map as described here, or `"dense"` (or an object of settings) for the dense drawing: see [The dense drawing](#the-dense-drawing-the-drawing-option) | `null` |
+| `ground` | in the dense drawing, `"comments"` (comments and their votes over a grey map wherever comments are written out) or `"topics"` (no comment written out, the topics in colour): see [The grey ground](#the-grey-ground) | `"comments"` |
 
 Methods:
 
@@ -93,6 +94,7 @@ Methods:
 | `select(id, origin)` | selects a topic, or clears the selection with `null`; dispatches `topicselect` if the selection changed. Throws for an unknown id |
 | `hover(id, origin)` | marks a topic as hovered, or none with `null`; dispatches `topichover` if it changed. Throws for an unknown id |
 | `setCollision(mode)` | `"as-drawn"` or `"by-weight"`, as the option |
+| `setGround(ground)` | `"comments"` or `"topics"`, as the option; draws at once in the same view |
 | `setDrawing(settings)` | `null`, `"dense"` or the dense drawing's settings, as the `drawing` option; draws at once |
 | `settle()` | finishes at once any work on which names show and draws the result (in the dense drawing: ends the zoom in progress and places the names for that view) |
 | `resetView()` | returns to the first view (in the dense drawing, the fit) and draws |
@@ -101,7 +103,7 @@ Methods:
 | `destroy()` | removes the canvas, the tooltip and every listener |
 
 It also has the properties `level`, `selected`, `hovered`, `collision`,
-`projection` and `canvas`, and an optional `onTiming` callback, unset by
+`projection`, `ground`, `grey` (whether the grey ground is on) and `canvas`, and an optional `onTiming` callback, unset by
 default, called as `onTiming(kind, milliseconds)` with `kind` `"draw"` for a
 redraw and `"claims"` for a slice of the work on which names show.
 `PolisTopicMap.geometry` holds the pure rules the tests check.
@@ -133,7 +135,11 @@ to the theme's `font.family`.
 What differs from the default drawing while it is selected:
 
 - the positions are drawn linearly (y up), fitted to the extent of every point
-  with a pad of 3% of the smaller side; `projection`, `level`, `collision`, the
+  with a pad of 3% of the smaller side; on a map with room (at least
+  `zoom.surface.minAreaPerPoint`, 6000, px² of frame per point) the pad is
+  widened so that every zone's shape lies inside the frame with `fitMargin`
+  (8) px to spare (`fitFor`, `zoneReach`): a zone of lone points reaches
+  about two and a half blur widths past them; `projection`, `level`, `collision`, the
   theme's colours and the document's colours do not apply;
 - the gestures are the default drawing's (drag, the wheel and a pinch about the
   pointer, double-click in and Shift-double-click out), within the zoom
@@ -233,6 +239,7 @@ when something changed.
 | `topichover` | map, list | `{ topic, previous, origin }`: `topic` is the hovered topic's id, or `null` |
 | `levelchange` | map | `{ level, previous, origin }`: a level number, or `"all"` |
 | `densestats` | map, dense drawing only | `{ caption, width, height, placed, byLayer, dropped, layerTotals, zoneCount, shrunk, shiftMedian, shiftP90, zoom, comments }`: what the dense drawing placed, dispatched each time it places the names (at the first draw, after a resize or a gesture has settled, when a face loads) |
+| `groundchange` | map, dense drawing only | `{ grey, ground }`: the grey ground turned on (`grey` true) or off |
 | `densecomments` | map, dense drawing only | `{ zoom, on, inView, spacing, comments }`: whether the view is close enough for comment labels (points in view, their median nearest-neighbour spacing in px) and the labels placed, dispatched with every `densestats` |
 
 `origin` says where the change came from: `"map"` when a person did it on the
@@ -348,7 +355,7 @@ var groups = G.groupsFromMath(math, tid);     // from GET /api/v3/math/pca2
 var L = G.layout(groups, { x: 0, y: 0, width: 34, height: 14 }, { form: "rows", scheme: "light" });
 ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 G.draw(ctx, L);                               // fills only, inside the box
-G.caption(L);                                 // "Each row is a group, A at the top. Agree, disagree, pass: of those who voted. Dotted: did not vote."
+G.caption(L);                                 // describes the form and its smoothing
 G.readout(L).lines;                           // ["Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote (179 of 243 voted).", ...]
 G.hit(L, x, y);                               // the group under a point (CSS px), or -1: for hover and click
 ```
@@ -361,7 +368,9 @@ it (left out, the remainder is one part). `groupsFromMath(math, tid)` builds
 them from the math result: `group-votes[gid].votes[tid]` gives `A` (agrees),
 `D` (disagrees) and `S` (votes of any kind, passes included), and
 `group-votes[gid]["n-members"]` the group's size; pass is `S - A - D` and did
-not vote `n-members - S`. Groups are lettered in order of id.
+not vote `n-members - S`. Group ids 0 through 9 are labelled A through J,
+as in the report; gaps retain their letters. Other ids keep their id as the
+label. Rows and columns remain in ascending group-id order.
 
 Two forms, from the same groups into the same box, so a page can toggle
 between them with the `form` setting:
@@ -371,7 +380,10 @@ between them with the `form` setting:
   full width (inside an inset of 1 px when the box is under 16 px tall, else
   2 px): agree from the left to the group's share of agree, `(agree + 1) /
   (agree + disagree + 2)`, and disagree from there to the right end. Pass and
-  those who did not vote are not drawn; their counts are in `readout`. The
+  those who did not vote are not drawn; their counts are in `readout`. These
+  are smoothed shares, not the raw fractions: one agree and no disagrees
+  draws two thirds agree; no agrees or disagrees draws half, even when all
+  votes are passes. The caption explains this. The
   height is split into the rows and a 1 px lighter line between each two (the
   row above at half strength): row `i` runs from `round(i * (h + 1) / n)` to
   `round((i + 1) * (h + 1) / n) - 1` (`rowBands`), so at 14 px the rows are 3,
@@ -645,6 +657,90 @@ in view allow, no budget). Zoomed in on the light ground, a zone whose hue is
 between 15 and 130 (OKLCH), whose pale tint reads cream or beige, is tinted a
 cool neutral (`oklch(0.80 0.02 250)`); its outline and names keep the hue.
 
+### The surface follows the room there is
+
+One rule for every size of conversation, not a preset for small ones.
+
+- **Names.** `room` (in `PRESET_DENSE`: `area` 40000, `grow` 1.4, `maxPx` 36,
+  `spread` 0.6): with more than `area` px² of map per name drawn, every name
+  grows by sqrt(area per name / area), at most `grow` times, at most `maxPx`
+  and at most `spread` times its topic's spread on screen at the fit, never
+  under its size at rest; the same growth at every zoom. A document of one
+  level gets the zone's sizes, wrap and capitals (where roles fall on one
+  level, the zone's value keeps it). A map with as many names as the
+  reference has no room: nothing grows (`frame.stats.grow` is 1).
+- **Comments at the surface.** `zoom.surface` (`minAreaPerPoint` 6000,
+  `areaPerComment` 120000, `max` 10, `reach` 180, `gap` 8, `minInView` 8;
+  `false` turns it off) applies when the drawing has a list of comments to
+  bring forward (`zoom.comments.only`, the deepest zoom's standouts) and the
+  steps are on. In a view with at least `minAreaPerPoint` px² per point in
+  it, one comment is written out per `areaPerComment` px² of the map not
+  taken by names, at most `max`, at the whole-map view and at every step
+  (at the deepest step, at least the comment budget). With
+  `zoom.comments.kinds` beside `only`, each kind gets half the budget first.
+  Each label is placed beside its dot, never over it: its box covers no dot,
+  name or other label; a leader from the dot to the box's nearest edge
+  (`leader: [x0, y0, x1, y1]` on the label) is kept off every name and label;
+  the deepest zoom's overlay draws the leader and rings the dot in the kind's
+  colour. `densecomments` then has `on` and `surface` true and `budget`.
+- **Targets.** Where the overlay is on (`densecomments.detail.on`), the
+  pointer picks the comment nearest it within `reach` (40) px, the comments'
+  Voronoi cells cut at that distance: a written-out comment answers by its
+  text and graphic, a lead by its words, every other comment by its cell.
+  Further than 40 px from every comment nothing is picked and a click clears
+  the selection. The picked dot is ringed. The comments in view are put on a
+  grid of 40 px cells once per settled view, so a pointer move reads nine
+  cells (`pointIndex`, `nearestPoint`). Where the view is too crowded for the
+  overlay (Bowling Green's whole map) the map's own tooltip answers, within
+  a dot's radius (`hitRadiusMin`).
+- **Leads.** At the deepest step (`densecomments.detail.deep`), every other
+  comment in view with text gets its first words beside its dot (`lead`:
+  at most 5 words and 30 characters on one line, cut with "…", 12 px,
+  weight 400, `#6f7682` over a white halo), most votes first; a lead is
+  never over another lead, a written-out comment, its rule, graphic or
+  leader, a name or another comment's dot, and with no free place it is
+  left out, so the fewest votes go first. At the surface there are none.
+  `lead: false` turns them off.
+- **Steps.** A map with that room at the fit (`isSmall`) has one step,
+  straight to its comments, and its zoom ends at `zoomLimit`:
+  sqrt(points / `minInView`), at least ×2, where on average fewer than
+  `minInView` points would be left in view a step further. Other maps keep
+  `zoom.steps` and `zoom.max`.
+
+### The grey ground
+
+Topic colour is for orienting in topic space. Whenever comments and their
+votes are on the map, the votes are the only colour: the zones' tints, the
+zone and district borders, every name (waypoints included) and any coloured
+dots turn to neutral greys, and the comments written out turn near-black.
+
+- **When:** the grey ground is on exactly while the settled view shows
+  comments: `densecomments.detail.on` with a document that has comment text,
+  that is the comments written out at the whole-map view of a map with room,
+  the deepest step of any map (its comments, their first words, a hovered or
+  selected comment's card, which show only there), and comment labels zoomed
+  in. Where no comment is shown (a crowded map's whole view and its first
+  steps) the topics keep their colours exactly as before.
+- **The greys** (`PolisTopicMapDense.GREY_GROUND`, OKLCH lightness, chroma 0;
+  on the light ground): tints 0.90 (at the tint's alpha, from about `#fafafa`
+  to `#f0f0f0` over white), zone borders 0.76, district borders 0.82, names
+  0.64 at 14 px and under to 0.76 at 28 px and over, lighter the larger (with their white halo; waypoints keep their 0.62 alpha), coloured
+  dots 0.78; grey dots stay `#b4b9c1`; the comments' ink `#1f2329`. Each
+  topic colour keeps its hue number and loses its chroma (`towardGrey`).
+  `palette(scheme, share)` is the palette at a share of grey; with no share
+  it is the palette as before.
+- **The votes' colours** are untouched: the vote graphic, the green and red
+  rules of group-informed consensus and division, and the rings on their
+  dots. The leaders are a grey that recedes (`#9ba1aa`).
+- **A clean plate:** on the grey ground each comment written out (its text,
+  gap and graphic) has a rectangle of the ground's own colour under it, no
+  border or shadow, drawn before the dots, so it never sits on a tint.
+- **The change** turns over 360 ms, eased; at once at the first draw, after
+  `settle()` or `resetView()`, and for a reader who asks for less motion.
+- **The option `ground`:** `"comments"` (the default) is the rule above;
+  `"topics"`, the orienting state, writes no comment out (its zoom has no
+  comment stage and no surface) and keeps the topics in colour at every step.
+
 ## Tests
 
 ```sh
@@ -688,6 +784,20 @@ node --test client-topic-map/test/*.test.js
   math result's order, the vote floor, held-back points never chosen, the
   order of ties, each topic's comments and summary, the order of topics, and
   the quartile rule.
+- `test/surface.test.js`: the surface follows the room: a map with room writes
+  its standouts out at the whole-map view within the budget, balanced, beside
+  their dots; a crowded map and the reference write none; names grow within
+  the bounds; a small map's steps end where nothing new would show.
+- `test/nearest-leads.test.js`: the nearest comment within the reach (and
+  nothing beyond it), a stable tie, the grid against a scan of 4,000 comments;
+  leads only at the deepest step, cut with "…", never over anything, the
+  fewest votes left out; the fit of a small map keeps every zone inside the
+  frame.
+- `test/grey-ground.test.js`: the grey ground is on exactly when comments are
+  shown (a map with room at its whole view; a crowded map at rest, off, and
+  at its deepest step, on; the topics' ground, off), every fill and stroke
+  colour drawn then (and every tint colour resolved) has chroma under 0.025,
+  the votes' colours are unchanged, the plates, the fade and its cut.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.
@@ -702,3 +812,19 @@ blocked belongs to the page that shows it.
 licence: datamapplot, deck.gl and mjolnir.js (MIT), Python's textwrap module
 (PSF License), Roboto (SIL Open Font License 1.1, full text in `fonts/OFL.txt`),
 and the public fixtures (CC BY 4.0, from `compdemocracy/openData`).
+
+## Reader data and overlay lifetime
+
+The package renders the data the page supplies; it does not authorize a
+reader or apply moderation. Pass only the map document and comment text,
+counts and measures permitted for the current reader. Never restore an id,
+text or topic association to a held-back point by joining a broader comment
+list or math result. Preserve the route's neutral topic names and filtered
+membership. All parallel point arrays must still describe the same points
+in the same order.
+
+A deep-zoom overlay retains its input document, math and numbers. Destroy it
+before replacing the map's data with `setData`, changing the run or comment
+selection, or changing the reader's permissions; then create a new overlay
+from the new authorized inputs. Do not reuse a moderator's document or
+associated counts for a public reader.

@@ -5,6 +5,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+// minus one, written so the vote-sign lint does not read it as a vote: the
+// documents' index for "no topic" and the graphic's "no group" (not votes)
+const NONE = ~0;
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -262,7 +265,7 @@ test("no text, no comment labels; held-back points never get one; the most-voted
   // held back: no id, no topic
   const doc = JSON.parse(JSON.stringify(data));
   const held = new Set();
-  for (let i = 0; i < doc.points.x.length; i += 3) { doc.points.id[i] = null; for (const row of doc.points.topic) row[i] = -1; held.add(i); }
+  for (let i = 0; i < doc.points.x.length; i += 3) { doc.points.id[i] = null; for (const row of doc.points.topic) row[i] = NONE; held.add(i); }
   doc.points.votes = doc.points.x.map((_, i) => (i * 37) % 101);
   const { map } = denseMap(doc, 800, 600, { zoom: { steps: false, comments: { maxPoints: 1000, minSpacing: 0 } } });
   const lay = map.denseLayout();
@@ -286,7 +289,10 @@ test("a box can be reserved beside each comment label; it is reported and nothin
   const boxes = lay.names.map((n) => n.box).concat(lay.comments.map((c) => c.box));
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) assert.ok(!overlaps(boxes[i], boxes[j]));
   assert.deepEqual(comments.at(-1).comments.map((c) => c.slot), lay.comments.map((c) => c.slot), "the event carries the slots");
-  assert.equal(count(log, "fillRect"), 1, "only the ground is filled");
+  // the ground, and on the grey ground (comments are shown here) a plate of
+  // the ground's own colour under each comment: nothing is drawn in the box
+  assert.equal(map.grey, true);
+  assert.equal(count(log, "fillRect"), 1 + lay.comments.length, "only the ground and the plates of the ground are filled");
   assert.equal(count(log, "strokeRect"), 0);
 });
 

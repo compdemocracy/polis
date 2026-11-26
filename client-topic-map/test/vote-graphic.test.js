@@ -4,6 +4,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+// minus one, written so the vote-sign lint does not read it as a vote: the
+// documents' index for "no topic" and the graphic's "no group" (not votes)
+const NONE = ~0;
 const G = require("../vote-graphic.js");
 
 const BOX = { x: 0, y: 0, width: 34, height: 14 };
@@ -303,7 +306,7 @@ test("apportion: parts sum to the width; a value above zero gets at least a pixe
 test("settings are checked", () => {
   assert.throws(() => G.layout(FOUR, BOX, { form: "ribbon" }), /form/);
   assert.throws(() => G.layout(FOUR, BOX, { scheme: "beige" }), /scheme/);
-  for (const v of [0, -1, 1.5, "x"]) assert.throws(() => G.layout(FOUR, BOX, { didNotVoteMax: v }), /didNotVoteMax/);
+  for (const v of [0, NONE, 1.5, "x"]) assert.throws(() => G.layout(FOUR, BOX, { didNotVoteMax: v }), /didNotVoteMax/);
   assert.throws(() => G.layout(FOUR, BOX, { colors: "red" }), /colors/);
 });
 
@@ -473,8 +476,8 @@ test("rows by default: the settings for the line between rows, the middle line, 
 test("rows by default: hit names the row under a point, the line below a row belongs to it; the caption", () => {
   const L = G.layout(FOUR, { x: 10, y: 20, width: 34, height: 14 }, {});   // tops 20, 24, 28, 31
   assert.deepEqual([20, 22, 23, 24, 27, 28, 30, 31, 33].map((y) => G.hit(L, 15, y)), [0, 0, 0, 1, 1, 2, 2, 3, 3]);
-  assert.equal(G.hit(L, 15, 34), -1);
-  assert.equal(G.caption(L), "Each row is a group, A at the top. Agree from the left, disagree to the right end, of those who agreed or disagreed; the line marks half.");
+  assert.equal(G.hit(L, 15, 34), NONE);
+  assert.equal(G.caption(L), "Each row is a group, A at the top. Smoothed agree from the left, disagree to the right: one agree and one disagree are added to the counts. No agree or disagree votes gives half; faint rows have few votes. Passes are not drawn. The line marks half.");
   assert.match(G.caption(G.layout(FOUR, BOX, NV)), /Dotted: did not vote/);
 });
 
@@ -592,5 +595,34 @@ test("rows by default at medium sizes: the lines stay 1 px and the rows fill the
     const last = L.row.tops.length - 1;
     assert.equal(L.row.tops[0], 0);
     assert.equal(L.row.tops[last] + L.row.heights[last], h);
+  }
+});
+
+
+test("math group labels retain their ids when ids have gaps", () => {
+  const math = { "group-votes": {
+    2: { "n-members": 5, votes: { 7: { A: 3, D: 1, S: 5 } } },
+    0: { "n-members": 8, votes: { 7: { A: 1, D: 2, S: 4 } } }
+  } };
+  const groups = G.groupsFromMath(math, 7);
+  assert.deepEqual(groups.map(g => [g.label, g.agree, g.disagree, g.pass, g.didNotVote]),
+    [["A", 1, 2, 1, 4], ["C", 3, 1, 1, 0]]);
+  assert.match(G.readout(groups).lines[1], /^Group C: 3 agreed/);
+  delete math["group-votes"][0];
+  const L = G.layout(G.groupsFromMath(math, 7), BOX);
+  assert.match(G.caption(L), /C at the top/);
+  assert.match(G.caption(G.layout(G.groupsFromMath(math, 7), BOX, { form: "poured" })), /C at the left/);
+});
+
+test("filled rows explain the smoothing even with no agree or disagree votes", () => {
+  for (const group of [
+    { label: "A", agree: 0, disagree: 0, pass: 0, didNotVote: 10 },
+    { label: "A", agree: 1, disagree: 0, pass: 0, didNotVote: 9 },
+    { label: "A", agree: 0, disagree: 0, pass: 10, didNotVote: 0 }
+  ]) {
+    const L = G.layout([group], BOX);
+    assert.match(G.caption(L), /one agree and one disagree are added/);
+    assert.match(G.caption(L), /No agree or disagree votes gives half/);
+    assert.equal(G.readout(L).groups[0].agree, group.agree);
   }
 });

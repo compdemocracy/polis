@@ -71,6 +71,8 @@ test("drawing settings: the standouts as the only labels, the budget, the box on
   assert.deepEqual(s.zoom.slot, { w: 34, h: 15, gap: 6 });
   assert.equal(Deep.drawingSettings(r, {}, false).zoom.slot, null);
   assert.equal(Deep.DEFAULTS.budget, 5);
+  assert.equal(s.zoom.comments.font, 14);
+  assert.equal(s.zoom.comments.wrap, 30);
 });
 
 test("dense labels: only the listed comments, in the list's order, none over another, at most maxLines", () => {
@@ -98,4 +100,67 @@ test("dense labels: only the listed comments, in the list's order, none over ano
 test("dense labels: an empty list gives none; null keeps every comment with text", () => {
   assert.equal(labels([]).length, 0);
   assert.ok(labels(null).length > 5);
+});
+
+
+// The overlay's event lifecycle, independent of the canvas geometry tests.
+function withOverlay(run) {
+  const saved = {};
+  for (const key of ["document", "requestAnimationFrame", "matchMedia", "CustomEvent"]) saved[key] = globalThis[key];
+  class El extends EventTarget {
+    constructor() { super(); this.style = {}; this.children = []; this.attrs = {}; }
+    appendChild(child) { this.children.push(child); child.parentNode = this; return child; }
+    hasAttribute(k) { return k in this.attrs; }
+    setAttribute(k, v) { this.attrs[k] = v; }
+    getContext() { return null; }
+    remove() {}
+  }
+  const parent = new El(), canvas = new El(); parent.appendChild(canvas);
+  const data = { points: { id: [7], x: [100], y: [-100], topic: [[0]], text: ["Generated comment."] }, topics: [{ name: "Generated topic" }] };
+  const frame = { width: 800, height: 600, view: { s: 1, tx: 0, ty: 0 }, comments: [], commentLevel: { on: true } };
+  const map = { canvas, data, drawing: { zoom: { fadeMs: 240 } }, setDrawing() {}, denseLayout() { return frame; } };
+  globalThis.document = { createElement: () => new El(), createTextNode: text => ({ textContent: text }) };
+  globalThis.requestAnimationFrame = fn => { fn(); return 1; };
+  globalThis.matchMedia = () => ({ matches: false });
+  const overlay = new Deep(map, { numbers: { consensus: { 7: 0.9 }, votes: { 7: 10 } } });
+  const dispatch = (type, detail) => parent.dispatchEvent(new CustomEvent(type, { detail }));
+  try { run(overlay, dispatch, frame); } finally {
+    overlay.destroy();
+    for (const key of Object.keys(saved)) { if (saved[key] === undefined) delete globalThis[key]; else globalThis[key] = saved[key]; }
+  }
+}
+
+test("a selected card returns after a gesture settles and after clicking it again", () => {
+  withOverlay((overlay, dispatch) => {
+    overlay.select(7); assert.equal(overlay.card.style.display, "block");
+    dispatch("wheel"); assert.equal(overlay.card.style.display, "none");
+    dispatch("densecomments", { on: true, comments: [] });
+    assert.equal(overlay.card.style.display, "block");
+    assert.equal(overlay.selected, 0);
+    dispatch("wheel"); overlay.select(7);
+    assert.equal(overlay.card.style.display, "block");
+    dispatch("densecomments", { on: false, comments: [] });
+    assert.equal(overlay.card.style.display, "none");
+  });
+});
+
+test("a selected card stays hidden while its comment is out of view", () => {
+  withOverlay((overlay, dispatch, frame) => {
+    overlay.select(7);
+    dispatch("pointerdown"); frame.view = { s: 1, tx: -1000, ty: 0 };
+    dispatch("densecomments", { on: true, comments: [] });
+    assert.equal(overlay.card.style.display, "none");
+    frame.view = { s: 1, tx: 0, ty: 0 };
+    dispatch("densecomments", { on: true, comments: [] });
+    assert.equal(overlay.card.style.display, "block");
+  });
+});
+
+test("the vote overlay skips its fade when reduced motion is requested", () => {
+  withOverlay((overlay, dispatch) => {
+    globalThis.matchMedia = () => ({ matches: true });
+    dispatch("densecomments", { on: true, comments: [] });
+    assert.equal(overlay.overlay.style.transition, "none");
+    assert.equal(overlay.overlay.style.opacity, "1");
+  });
 });

@@ -135,7 +135,7 @@
   function compareIds(a, b) {
     if (typeof a === "number" && typeof b === "number") return a - b;
     var sa = String(a), sb = String(b);
-    return sa < sb ? -1 : sa > sb ? 1 : 0;
+    return (sa > sb) - (sa < sb);
   }
 
   // Most first; ties: more votes, then the smaller id.

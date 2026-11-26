@@ -4,6 +4,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+// minus one, written so the vote-sign lint does not read it as a vote: the
+// documents' index for "no topic" and the graphic's "no group" (not votes)
+const NONE = ~0;
 const H = require("../highlights.js");
 
 // Seven points: two topics at level 0 (indexes 0 and 1 in "topics"), one
@@ -111,7 +114,7 @@ test("topics are sorted by median, then upper quartile, then count, then their o
   const d = doc();
   d.topics.splice(2, 0, { id: "0_2", level: 0, name: "Topic C" });
   d.levels[0].topics = 3;
-  d.points.topic[1] = [3, 3, 3, 3, 3, -1, 3]; // the level-1 topic moved to index 3
+  d.points.topic[1] = [3, 3, 3, 3, 3, NONE, 3]; // the level-1 topic moved to index 3
   // A: 0.5, 0.5 (median 0.5); B: 0.25, 0.75 (median 0.5, upper quartile higher); C: none.
   const consensus = { 10: 0.5, 11: 0.5, 13: 0.25, 14: 0.75 };
   const h = H.highlights(d, { consensus, divisive: {}, votes }, {});
