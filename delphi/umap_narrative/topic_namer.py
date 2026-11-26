@@ -293,8 +293,8 @@ def run_namer(namer: Dict[str, str], hierarchy: Dict[str, Any], work_dir: str,
 
 
 def remove_scratch(work_dir: str) -> None:
-    """Remove the step's two files (the hierarchy holds comment text)."""
-    for name in (HIERARCHY_FILE, NAMES_FILE):
+    """Remove the hierarchy, names and any interrupted atomic output file."""
+    for name in (HIERARCHY_FILE, NAMES_FILE, NAMES_FILE + ".tmp"):
         path = os.path.join(work_dir, name)
         if os.path.lexists(path):
             os.remove(path)

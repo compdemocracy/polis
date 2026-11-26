@@ -246,6 +246,19 @@ def test_a_program_killed_mid_call_is_namer_failed_and_leaves_no_scratch(stub, m
     assert os.listdir(work) == []
 
 
+def test_a_program_killed_during_atomic_output_leaves_no_scratch(stub, monkeypatch):
+    monkeypatch.setenv("STUB_KILL", "1")
+    program = Path(os.environ[topic_namer.BINARY])
+    # The real program writes names.json.tmp before renaming it to names.json.
+    program.write_text(program.read_text().replace(
+        'open(args[4], "w").write', 'open(args[4] + ".tmp", "w").write'))
+    work = stub / "work"
+    result = topic_namer.run_namer(HAIKU, small_hierarchy(), str(work))
+    assert (result["outcome"], result["reason"], result["names"]) == ("namer_failed", "exit_-9", {})
+    assert len(stub_argv(stub)) == 1
+    assert os.listdir(work) == []
+
+
 # Every way the program can fail, as the step sees it: its own outcomes, a
 # names file that is not JSON, a nonzero exit, a kill mid-call and a program
 # that does not finish in time.
