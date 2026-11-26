@@ -3151,3 +3151,103 @@ fn a_named_derived_job_answers_as_its_source() {
         );
     });
 }
+
+#[test]
+fn a_listed_shadow_run_without_a_map_is_found_when_no_source_is_named() {
+    let db = Db::new("listed_shadow_without_map");
+    let shadow = "shadow-test";
+    let mut c = db.connect();
+    c.batch_execute(&format!(
+        "INSERT INTO reports VALUES('r1',{ZID}),('foreign',77)"
+    ))
+    .unwrap();
+    let jobs: Vec<_> = [None, Some("participant_visible/1"), Some("all_comments/1")]
+        .into_iter()
+        .map(|selection| {
+            let job = listed_run(
+                &mut c,
+                shadow,
+                ZID,
+                selection.unwrap_or(""),
+                "2026-11-17T08:31:00.000000Z",
+                None,
+                None,
+            );
+            if selection.is_none() {
+                c.execute(
+                    "UPDATE delphi_result_jobs SET job_config='{}' WHERE job_id=$1",
+                    &[&job],
+                )
+                .unwrap();
+            }
+            job
+        })
+        .collect();
+    drop(c);
+    runtime().block_on(async {
+        // Both a configured served env with no such job and shadow-only
+        // mode must preserve the shadow's known run without a stored map.
+        for served in ["test", ""] {
+            let mut app = app_on(&db);
+            app.delphi_topic_map_env = served.into();
+            app.delphi_topic_map_shadow_env = Some(shadow.into());
+            let app = Arc::new(app);
+            let out = crate::dispatch(
+                app.clone(),
+                None,
+                with("/api/v3/delphi/topicMap?report_id=r1&list=jobs", &[]),
+            )
+            .await;
+            let list = listed(&out);
+            assert_eq!(list.jobs.len(), jobs.len());
+            assert!(list.jobs.iter().any(|j| j.selection.is_none()));
+            for job in &jobs {
+                assert!(list.jobs.iter().any(|j| &j.job_id == job));
+                for source in ["&source=shadow", ""] {
+                    let out = crate::dispatch(
+                        app.clone(),
+                        None,
+                        with(
+                            &format!("/api/v3/delphi/topicMap?report_id=r1&job_id={job}{source}"),
+                            &[],
+                        ),
+                    )
+                    .await;
+                    assert_eq!(
+                        out.status,
+                        200,
+                        "served={served:?} source={source:?}: {}",
+                        text(&out)
+                    );
+                    let body: serde_json::Value = serde_json::from_slice(&bytes(&out)).unwrap();
+                    assert_eq!(body["job_id"], *job);
+                    assert_eq!(body["source"], "shadow");
+                    assert_eq!(body["reason"], "not_stored");
+                }
+                for query in [
+                    format!("report_id=r1&job_id={job}&source=served"),
+                    format!("report_id=foreign&job_id={job}"),
+                ] {
+                    let out = crate::dispatch(
+                        app.clone(),
+                        None,
+                        with(&format!("/api/v3/delphi/topicMap?{query}"), &[]),
+                    )
+                    .await;
+                    assert_eq!(out.status, 404, "{}", text(&out));
+                }
+            }
+            let unknown = uuid(0x8000);
+            let out = crate::dispatch(
+                app,
+                None,
+                with(
+                    &format!("/api/v3/delphi/topicMap?report_id=r1&job_id={unknown}"),
+                    &[],
+                ),
+            )
+            .await;
+            assert_eq!(out.status, 404);
+        }
+    });
+}

@@ -940,7 +940,8 @@ async fn answer(
     let state = app.delphi_topic_map.clone();
     let reading = place.clone();
     // Every side on one connection, one after the other: the first side with
-    // something stored answers; when none has, the first side's answer.
+    // something stored answers; when none has, preserve a known named
+    // run over a side where that job does not exist.
     let read = pool
         .with(move |c| {
             let _place = reading;
@@ -968,7 +969,25 @@ async fn answer(
                     if !nothing_stored(&read.found) {
                         return Ok(Some((read, source, scope, hidden, form)));
                     }
-                    first.get_or_insert((read, source, scope));
+                    // A named run can exist only on the later side without
+                    // storing a map. Keep that answer over an earlier side's
+                    // missing job, so a listed run is not reported absent.
+                    if matches!(
+                        &first,
+                        Some((
+                            Read {
+                                found: Found::NoSuchRun,
+                                ..
+                            },
+                            _,
+                            _
+                        ))
+                    ) && matches!(read.found, Found::NoMap { .. })
+                    {
+                        first = Some((read, source, scope));
+                    } else {
+                        first.get_or_insert((read, source, scope));
+                    }
                 }
                 let (read, source, scope) =
                     first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
