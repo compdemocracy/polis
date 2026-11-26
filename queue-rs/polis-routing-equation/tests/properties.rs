@@ -50,6 +50,16 @@ fn h1_a_weight_is_a_positive_normal_number_at_most_the_ceiling_or_refused() {
             }
         }
     }
+    // Two cases off the defaults, computed by hand. The upper set with no
+    // votes and E = 1e70: (0.001 x (1e70 + 100) x 1 x 1001)^4, about 1e284,
+    // is above the ceiling and refused. The lower set with no votes and
+    // E = 3: (0.5 x 3.001 x 0.5 x 1)^4 = 0.75025^4.
+    assert!(matches!(
+        weight_of(&upper(), Counts::default(), 1e70, false),
+        Err(Refusal::WeightOutOfRange { .. })
+    ));
+    let low = weight_of(&lower(), Counts::default(), 3.0, false).unwrap();
+    assert!((low - 0.75025f64.powi(4)).abs() <= 1e-15, "{low:e}");
 }
 
 #[test]
@@ -333,6 +343,26 @@ fn d7_absorbed_candidates_are_flagged() {
     let c = Candidates::new(vec![CommentId::new(8), CommentId::new(9)]).unwrap();
     let d = stored_weights_1(Some(&stored), &c, Unit::new(0.5).unwrap(), &src("p")).unwrap();
     assert_eq!(d.flags().absorbed(), &[CommentId::new(9)]);
+    // The legacy mapping, counted by reason: a 0, a null and a false, and a
+    // candidate absent from the map, each read as 1, and a 3 read as itself.
+    let ids: Vec<CommentId> = (0..5).map(CommentId::new).collect();
+    let stored = StoredWeights::new(
+        src("m"),
+        [
+            (ids[0], StoredWeight::Number(0.0)),
+            (ids[1], StoredWeight::Null),
+            (ids[2], StoredWeight::False),
+            (ids[3], StoredWeight::Number(3.0)),
+        ],
+    )
+    .unwrap();
+    let c = Candidates::new(ids).unwrap();
+    let d = stored_weights_1(Some(&stored), &c, Unit::new(0.0).unwrap(), &src("p")).unwrap();
+    assert_eq!(d.flags().zero_mapped_to_one(), 1);
+    assert_eq!(d.flags().null_or_false_mapped_to_one(), 2);
+    assert_eq!(d.flags().absent_mapped_to_one(), 1);
+    assert_eq!(d.lanes()[0].normaliser(), 7.0);
+    assert_eq!(d.probability(), 1.0 / 7.0);
 }
 
 #[test]
@@ -375,17 +405,15 @@ fn d9_the_explanation_evaluated_left_to_right_is_the_weight_bit_for_bit() {
     let mut rng = XorShift::new(13);
     for _ in 0..5000 {
         let id = CommentId::new(0);
-        let c = Counts::new(
+        let (agreed, disagreed, passed) = (
             rng.below(50) as u32,
             rng.below(50) as u32,
             rng.below(50) as u32,
         );
+        let c = Counts::new(agreed, disagreed, passed);
+        let extremity = rng.unit() * 100.0;
         let counts = HistoricalCountFrame::new(src("c"), [(id, c)]).unwrap();
-        let e = ExtremityFrame::new(
-            src("e"),
-            [(id, Extremity::new(rng.unit() * 100.0).unwrap())],
-        )
-        .unwrap();
+        let e = ExtremityFrame::new(src("e"), [(id, Extremity::new(extremity).unwrap())]).unwrap();
         let out = historical_1(
             &HistoricalParams::default(),
             &counts,
@@ -410,6 +438,22 @@ fn d9_the_explanation_evaluated_left_to_right_is_the_weight_bit_for_bit() {
             ]
         );
         assert_eq!(s.explanation().exponent(), 2);
+        // Each factor against the Python expression written out again here,
+        // `importance_metric` and `priority_metric` at their defaults.
+        let seen = f64::from(agreed + disagreed + passed);
+        let p = (f64::from(passed) + 1.0) / (seen + 2.0);
+        let a = (f64::from(agreed) + 1.0) / (seen + 2.0);
+        let expected = [
+            1.0 - p,
+            extremity + 1.0,
+            a,
+            1.0 + 8.0 * 2f64.powf(-seen / 5.0),
+        ];
+        for (f, x) in s.explanation().inner().iter().zip(expected) {
+            assert_eq!(f.value().to_bits(), x.to_bits(), "{:?}", f.name());
+        }
+        let product = expected[0] * expected[1] * expected[2] * expected[3];
+        assert_eq!(s.weight().get().to_bits(), (product * product).to_bits());
         assert_eq!(
             s.explanation().evaluate().to_bits(),
             s.weight().get().to_bits()

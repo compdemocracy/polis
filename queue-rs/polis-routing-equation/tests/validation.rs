@@ -82,4 +82,55 @@ fn constructors_reject_invalid_values() {
             Err(DrawRefusal::UnsupportedLegacyWeight(_))
         ));
     }
+    // The shared arithmetic refuses what it is given directly, by position.
+    let unit = Unit::new(0.5).unwrap();
+    for (bad, at) in [
+        (vec![1.0, f64::NAN], 1),
+        (vec![-1.0], 0),
+        (vec![1.0, 2.0, 1e151], 2),
+        (vec![f64::INFINITY], 0),
+    ] {
+        assert_eq!(cdf(&bad, unit), Err(DrawRefusal::InvalidDrawWeight(at)));
+    }
+    assert_eq!(cdf(&[], unit), Err(DrawRefusal::Empty));
+    assert!(cdf(&[1e150], unit).is_ok());
+    // At most 2^24 candidates: one more is refused for its length before
+    // anything else; exactly 2^24 is not refused for its length.
+    let at_limit = vec![id; MAX_CANDIDATES];
+    assert_eq!(
+        Candidates::new(at_limit),
+        Err(DrawRefusal::DuplicateCandidate(id))
+    );
+    let over = vec![id; MAX_CANDIDATES + 1];
+    assert_eq!(
+        Candidates::new(over),
+        Err(DrawRefusal::TooManyCandidates(MAX_CANDIDATES + 1))
+    );
+    // The stored JSON: only an object of canonical decimal ids to a number,
+    // null or false.
+    for json in [
+        "[1, 2]",
+        "3",
+        r#"{"01": 1}"#,
+        r#"{"-1": 1}"#,
+        r#"{"a": 1}"#,
+        r#"{"4294967296": 1}"#,
+        r#"{"0": true}"#,
+        r#"{"0": "1"}"#,
+        r#"{"0": [1]}"#,
+        r#"{"0": 1, "0": 2}"#,
+        "{",
+    ] {
+        assert!(StoredWeights::from_json(src("m"), json).is_err(), "{json}");
+    }
+    let read =
+        StoredWeights::from_json(src("m"), r#"{"0": null, "1": false, "2": 3, "3": -2}"#).unwrap();
+    assert_eq!(read.get(CommentId::new(0)), Some(StoredWeight::Null));
+    assert_eq!(read.get(CommentId::new(1)), Some(StoredWeight::False));
+    assert_eq!(read.get(CommentId::new(2)), Some(StoredWeight::Number(3.0)));
+    assert_eq!(
+        read.get(CommentId::new(3)),
+        Some(StoredWeight::Number(-2.0))
+    );
+    assert_eq!(read.get(CommentId::new(4)), None);
 }
