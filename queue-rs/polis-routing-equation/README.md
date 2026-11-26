@@ -276,6 +276,37 @@ the right fields. Recorded replays of the public conversations, and a Python
 test that fails when the Python formula changes without this crate following,
 are the next piece.
 
+### The recorded public replays
+
+`tests/fixtures/historical-1/make_fixture.py` replays the two public
+conversations in `delphi/real_data` (VW and biodiversity, each export pinned by
+its SHA-256) through the Python math engine, at ten prefixes of their votes in
+(timestamp, file order), and records every input the engine's priority formula
+was fed and every priority it returned: VW 10 ticks and 1,034 comment cells,
+biodiversity 10 ticks and 2,189 cells (150 of them meta comments), and 8
+constructed ticks with 34 cells (one comment, which gives fewer than two PCA
+component rows; new comments; groups changing between ticks; a moderation
+change). `tests/parity_historical.rs` feeds each tick's recorded counts and
+extremities to `historical/1` at its defaults: **all 3,257 cells agree bit for
+bit; the largest relative difference is 0** (tolerance 1e-12, exact zeros
+exact). For one comment per conversation the fixture also carries an extremity
+computed, wrongly on purpose, from the served centre; it moves the weight by a
+factor of about 5, and the test requires that it does not reproduce the
+priority.
+
+Two vote-sign checks, which compare like with like: the export's raw rows with
+its agree (disagree) value equal the comments export's `agrees` (`disagrees`)
+for every comment (125 and 316); and each participant's latest vote, folded
+independently, equals the engine's loaded vote matrix comment by comment at
+every prefix. The first proves the export's sign is read as the export
+declares it; the second, that the loader neither flipped nor dropped a vote.
+
+What the replays prove: given exactly the counts and extremities the Python
+engine fed its priority formula while replaying these two public conversations
+at ten prefixes, `historical/1` returns the same numbers. They do not prove
+that a production caller will feed the crate correctly signed or correctly
+lagged counts, nor that these ticks are the ticks production ran.
+
 ## 6. What it does not do
 
 No HTTP route or handler; no database, SQL, pool or connection; no cache or
@@ -327,3 +358,17 @@ made by running its generator once, in the delphi image:
 python -I make_grid.py --delphi /app --commit <commit> --image <image id> --out grid.json
 python3 -I make_draws.py --out draws.json
 ```
+
+### The binding and the Python drift test
+
+`tests/fixtures/CURRENT_PYTHON_RULE` names the rule today's Python must match
+and its grid by SHA-256 (`historical/1 historical-1/grid.json sha256:...`).
+`delphi/tests/test_routing_equation_parity.py` re-runs the bound grid and every
+recorded replay through today's `priority_metric` and compares its source hash
+with the one the grid recorded; when the Python formula changes it fails with
+"the routing equation changed in Python; record a new rule version and its
+fixture in the routing equation crate and move the binding in the same change;
+never edit historical/1's fixture". The Delphi Python check copies
+`tests/fixtures` into its container read-only and checks it against
+`tests/fixtures/SHA256SUMS`; a missing or changed file fails. Fixtures are
+added, never changed: `SHA256SUMS` may only grow, and only the binding may move.
