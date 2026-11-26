@@ -106,14 +106,20 @@ export function readerDataFor(fetchFn) {
 
 /* Runs fn (which gives the map its drawing again, so that the comments' text
    is read) and puts the view back where the reader had moved it: the map
-   returns to its first view whenever its drawing is set. */
+   returns to its first view whenever its drawing is set. Keep an active
+   zoom too, including one whose first frame has not happened yet. */
 export function keepingView(map, fn) {
-  const moved = map.drawing && map._view && typeof map._denseAtFit === "function" && !map._denseAtFit();
+  const animation = map.drawing && map._anim;
+  const moved = map.drawing && map._view && typeof map._denseAtFit === "function" && (animation || !map._denseAtFit());
   const view = moved ? Object.assign({}, map._view) : null;
-  fn();
-  if (view && map.drawing) {
-    map._view = view;
-    map.redraw();
+  try {
+    fn();
+  } finally {
+    if (view && map.drawing) {
+      map._view = view;
+      map._anim = animation;
+      map.redraw();
+    }
   }
 }
 

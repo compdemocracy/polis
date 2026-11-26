@@ -341,3 +341,31 @@ test("the component destroys a map's wiring with the map, and reads afresh for e
   assert.match(src, /\(\[reportId, jobId, selection, doc, token\]\) => \{\n\s*dataFor = freshData\(\);/);
   assert.doesNotMatch(src, /setData\(/, "a new document is a new map, never setData under an old overlay");
 });
+
+
+for (const progress of [0, 0.5]) {
+  test(`a join arriving during a zoom preserves its target (progress ${progress})`, async () => {
+    const doc = publicMap();
+    const srv = server(doc);
+    let finishMath;
+    const pendingMath = new Promise((resolve) => { finishMath = resolve; });
+    const fetchFn = (url, init) =>
+      new URL(url, "https://example.invalid").pathname === "/api/v3/math/pca2"
+        ? pendingMath
+        : srv.fetchFn(url, init);
+    const t = drawn(doc, { fetchFn });
+    try {
+      fire(t.map.canvas, "dblclick", { clientX: 800, clientY: 500 });
+      const animation = { ...t.map._anim };
+      assert.ok(animation.z1 > animation.z0);
+      if (progress) t.map._step(animation.t0 + animation.ms * progress);
+      finishMath(json(200, mathResult(doc)));
+      await t.wired.joined;
+      t.map.settle();
+      assert.equal(t.map._view.zoom, animation.z1, "the requested zoom must finish");
+    } finally {
+      t.wired.destroy();
+      t.map.destroy();
+    }
+  });
+}
