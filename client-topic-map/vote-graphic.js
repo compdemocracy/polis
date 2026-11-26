@@ -130,7 +130,8 @@
     middleAlpha: 0.6,        // its strength
     disagreeFill: "solid",   // rows: "solid", or "hatch" (diagonal 1 px lines of disagree over hatchTint)
     hatchPitch: 3,           // rows: a hatch line every this many px, along the diagonal
-    pouredDots: true         // poured: the did-not-vote dots carry on into the space the liquid leaves at its upper right
+    pouredDots: true,        // poured: the did-not-vote dots carry on into the space the liquid leaves at its upper right
+    dotSize: null            // the dots' side, whole px (their spacing grows with it); null = 1, or in the poured form 1 px per 28 px of the box's height, at most a ninth of a column
   };
 
   function merge(settings) {
@@ -156,6 +157,11 @@
     var hp = Number(s.hatchPitch);
     if (!(hp >= 2 && Math.floor(hp) === hp)) throw new Error("hatchPitch must be a whole number, 2 or more: " + s.hatchPitch);
     s.hatchPitch = hp;
+    if (s.dotSize !== null) {
+      var ds = Number(s.dotSize);
+      if (!(ds >= 1 && Math.floor(ds) === ds)) throw new Error("dotSize must be null or a whole number of px, 1 or more: " + s.dotSize);
+      s.dotSize = ds;
+    }
     var m = Number(s.didNotVoteMax);
     if (!(m > 0 && m <= 1)) throw new Error("didNotVoteMax must be above 0 and at most 1: " + s.didNotVoteMax);
     s.didNotVoteMax = m;
@@ -244,15 +250,39 @@
     return { segments: segs, votedWidth: votedW };
   }
 
-  // The dots of a remainder segment: 1 px squares on a grid fixed to the box,
-  // so neighbouring rows' dots line up.
-  function dotsOf(seg, box, pitch) {
-    var out = [];
-    for (var y = seg.y; y < seg.y + seg.h; y++) {
+  // The dots of a remainder segment: squares of `size` px (1 unless given) on
+  // a grid fixed to the box, so neighbouring rows' dots line up; only whole
+  // dots that fit inside the segment.
+  function dotsOf(seg, box, pitch, size) {
+    var out = [], d = size || 1;
+    for (var y = seg.y; y + d <= seg.y + seg.h; y++) {
       if ((y - seg.y) % pitch !== 0) continue;
-      for (var x = seg.x; x < seg.x + seg.w; x++) if ((x - box.x) % pitch === 0) out.push({ x: x, y: y, w: 1, h: 1 });
+      for (var x = seg.x; x + d <= seg.x + seg.w; x++) if ((x - box.x) % pitch === 0) out.push({ x: x, y: y, w: d, h: d });
     }
     return out;
+  }
+
+  /*
+   * dotSizeFor(n, box, settings): the side of a did-not-vote dot, whole px, for
+   * n groups in the box. The setting dotSize when given; else 1 in the rows
+   * (they are at most a few px tall), and in the poured form 1 px per 28 px of
+   * the box's height (the label size, 42 by 28, keeps 1 px dots), never more
+   * than a ninth of a column's width, at least 1. The dots' spacing is dotPitch
+   * (sawPitch) times this side, so a dot covers the same share of its space at
+   * every size. Every layout carries it as `dotSize`.
+   */
+  function dotSizeFor(n, box, settings) {
+    var s = merge(settings);
+    var b = snapBox(box || { x: 0, y: 0, width: 0, height: 0 });
+    var k = Math.max(1, Math.floor(Number(n) || 1));
+    return dotUnit(s, b, Math.floor((b.width - (k - 1) * s.gap) / k));
+  }
+  function dotUnit(s, box, colW) {
+    if (s.dotSize !== null) return s.dotSize;
+    if (s.form !== "poured") return 1;
+    var byHeight = Math.floor(box.height / 28);
+    var byWidth = colW > 0 ? Math.floor(colW / 9) : byHeight;
+    return Math.max(1, Math.min(byHeight, byWidth));
   }
 
   function snapBox(box) {
@@ -275,6 +305,7 @@
   function finish(L, s) {
     var col = palette(s);
     var rects = [];
+    var u = L.dotSize || 1;
     L.bars.forEach(function (bar) {
       bar.segments.forEach(function (seg) {
         var rem = seg.kind === "didNotVote" || seg.kind === "didNotSee" || seg.kind === "sawDidNotVote";
@@ -282,14 +313,14 @@
         rects.push({ kind: seg.kind, x: seg.x, y: seg.y, w: seg.w, h: seg.h, fill: rem ? col.tint : col[seg.kind], alpha: alpha, group: bar.group });
         if (rem) {
           var pitch = seg.kind === "sawDidNotVote" ? s.sawPitch : s.dotPitch;
-          dotsOf(seg, L.box, pitch).forEach(function (d) {
-            rects.push({ kind: "dot", x: d.x, y: d.y, w: 1, h: 1, fill: col.dots, alpha: 1, group: bar.group });
+          dotsOf(seg, L.box, pitch * u, u).forEach(function (d) {
+            rects.push({ kind: "dot", x: d.x, y: d.y, w: u, h: u, fill: col.dots, alpha: 1, group: bar.group });
           });
         }
       });
     });
     (L.liquidDots || []).forEach(function (d) {
-      rects.push({ kind: "dot", x: d.x, y: d.y, w: 1, h: 1, fill: col.dots, alpha: 1, group: d.group, beside: "liquid" });
+      rects.push({ kind: "dot", x: d.x, y: d.y, w: u, h: u, fill: col.dots, alpha: 1, group: d.group, beside: "liquid" });
     });
     L.paths.forEach(function (p) { p.fill = col[p.kind]; p.alpha = L.bars[p.bar].few ? s.fewAlpha : 1; });
     L.rects = rects;
@@ -306,7 +337,7 @@
     if (barW < 4) return empty(box, s, cs, "the box is too narrow");
     var used = n * rowH + (n - 1) * g;
     var top = box.y + Math.floor((box.height - used) / 2);
-    var L = { form: "rows", drawing: "nonVoters", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false,
+    var L = { form: "rows", drawing: "nonVoters", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false, dotSize: dotUnit(s, box, 0),
       row: { height: rowH, gap: g, top: top, x: barX, width: barW } };
     cs.forEach(function (c, i) {
       var y = top + i * (rowH + g);
@@ -401,7 +432,8 @@
     var used = n * colW + (n - 1) * g;
     var left = box.x + Math.floor((box.width - used) / 2);
     var y0 = box.y, yL = y0 + hU, yS = yL + hL;
-    var L = { form: "poured", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false, liquidDots: [],
+    var u = dotUnit(s, box, colW), pitch = s.dotPitch * u;
+    var L = { form: "poured", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false, liquidDots: [], dotSize: u,
       column: { width: colW, gap: g, left: left, upper: hU, liquid: hL, lower: hS } };
     cs.forEach(function (c, i) {
       var x = left + i * (colW + g);
@@ -441,11 +473,11 @@
       // the liquid (the liquid is painted over them).
       if (s.pouredDots && c.didNotVote > 0) {
         var a2 = edge(up.segments, 2), b2 = edge(lo.segments, 2);
-        for (var py = yL; py < yS; py++) {
-          if ((py - box.y) % s.dotPitch !== 0) continue;
-          var t2 = (py + 1 - yL) / hL, right = a2 + (b2 - a2) * bend(Math.min(1, t2));
-          for (var px = x; px < x + colW; px++) {
-            if ((px - box.x) % s.dotPitch === 0 && px >= Math.ceil(right)) L.liquidDots.push({ x: px, y: py, group: i });
+        for (var py = yL; py + u <= yS; py++) {
+          if ((py - box.y) % pitch !== 0) continue;
+          var t2 = (py + u - yL) / hL, right = a2 + (b2 - a2) * bend(Math.min(1, t2));
+          for (var px = x; px + u <= x + colW; px++) {
+            if ((px - box.x) % pitch === 0 && px >= Math.ceil(right)) L.liquidDots.push({ x: px, y: py, group: i });
           }
         }
       }
@@ -578,7 +610,7 @@
 
   var PolisVoteGraphic = { DEFAULTS: DEFAULTS, SCHEMES: SCHEMES, FIRST_SCHEMES: FIRST_SCHEMES, DEFAULT_FACE: DEFAULT_FACE,
     layout: layout, draw: draw, caption: caption, readout: readout, hit: hit, groupsFromMath: groupsFromMath, apportion: apportion,
-    rowBands: rowBands, agreeShare: function (g) { return agreeShare(counts(g)); } };
+    rowBands: rowBands, dotSizeFor: dotSizeFor, agreeShare: function (g) { return agreeShare(counts(g)); } };
 
   root.PolisVoteGraphic = PolisVoteGraphic;
   if (typeof module !== "undefined" && module.exports) module.exports = PolisVoteGraphic;
