@@ -42,6 +42,7 @@ PRODUCTION_LIKE = {
     "AWS_S3_BUCKET_NAME": "generated-bucket",
     "DATABASE_URL": "postgres://u:p@db.internal:5432/polis?sslmode=require",
     "QUEUE_DATABASE_URL": "postgres://q@db.internal:5432/polis",
+    "POLIS_JOBS_HOST_ALLOWLIST": "db.internal",
     "MATH_POLLER_SOURCE_COMMIT": "0123456789abcdef0123456789abcdef01234567",
     "DELPHI_SHADOW_ENABLED": "1",
 }
@@ -97,6 +98,12 @@ def test_the_daemon_is_free_paced_offline_and_bounded():
     assert env["POLIS_JOBS_CONCURRENCY"] == "1"
     assert env["POLIS_JOBS_INPUT_BUNDLE"] == "1"
     assert env["DELPHI_EMBEDDINGS_TABLE"] == "1"
+    # Stored comment vectors are handed to the run; only the others are encoded.
+    # Hard-set: no deployment variable turns it off here, and no other service has it.
+    assert env["POLIS_JOBS_EMBEDDINGS_REUSE"] == "1"
+    assert _environment(service, dict(PRODUCTION_LIKE, POLIS_JOBS_EMBEDDINGS_REUSE="0"))["POLIS_JOBS_EMBEDDINGS_REUSE"] == "1"
+    assert [name for name, other in services.items()
+            if "POLIS_JOBS_EMBEDDINGS_REUSE" in _environment(other, PRODUCTION_LIKE)] == ["delphi-shadow"]
     assert (env["LLM_PROVIDER"], env["ANTHROPIC_TOPIC_MODEL"]) == ("anthropic", "none")
     assert env["DELPHI_SKIP_DATAMAPPLOT"] == "1"
     assert env["DELPHI_LOCAL_OUTPUT_CLEANUP"] == "1"
@@ -258,12 +265,12 @@ def test_the_shadow_yields_cpu_and_memory_to_every_other_service():
     # services included, keeps Docker's default weight and OOM adjustment (or
     # sets a higher weight and a lower adjustment), so under contention the
     # shadow gets the smallest share of a CPU, and when the box runs out of
-    # memory it is killed first. The optional graph executor is shadow work
-    # too: it carries exactly the shadow's weight and OOM adjustment, and every
-    # other service outranks both.
+    # memory it is killed first. The optional graph executor and the derived
+    # topic map worker are shadow work too: each carries exactly the shadow's
+    # weight and OOM adjustment, and every other service outranks them.
     services, _ = _services()
     shadow = services["delphi-shadow"]
-    shadow_daemons = ("delphi-shadow", "delphi-shadow-graph")
+    shadow_daemons = ("delphi-shadow", "delphi-shadow-graph", "delphi-derived-worker")
     for name in shadow_daemons:
         assert services[name]["cpu_shares"] == shadow["cpu_shares"], name
         assert services[name]["oom_score_adj"] == shadow["oom_score_adj"], name
@@ -290,3 +297,154 @@ def test_an_operator_may_resize_or_remove_the_cpu_limit_and_size_the_ceiling():
     assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": "0"}) == "0"
     assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": ""}) == "2"
     assert _interpolate(str(limits["cpus"]), {"DELPHI_SHADOW_CONTAINER_CPUS": "2"}) == "2"
+
+
+# --- Derived topic maps: the worker's service and the scheduler's settings ---
+
+DERIVED_KEYS = ("POLIS_JOBS_DERIVED_ADMISSION", "POLIS_JOBS_DERIVED_WORKER", "DELPHI_SHADOW_DERIVED_BACKFILL",
+                "DELPHI_SHADOW_DERIVED_PER_CYCLE", "DELPHI_SHADOW_DERIVED_DAILY",
+                "DELPHI_SHADOW_DERIVED_EVERY_SECONDS", "DELPHI_SHADOW_DERIVED_STORAGE_BYTES",
+                "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS")
+WORKER = "delphi-derived-worker"
+
+
+def _derived_overlay():
+    return yaml.safe_load((CHECKOUT / "docker-compose.derived.yml").read_text())
+
+
+@requires_checkout
+def test_with_every_derived_key_absent_no_existing_service_names_one():
+    # docker-compose.yml names the derived settings only in the worker's own
+    # service, so with them absent every other service composes exactly as
+    # it did before derived jobs. The scheduler's come from
+    # docker-compose.derived.yml, which the deploy hook adds only on the
+    # backfill's switch line; the report route's switch reaches polis-api
+    # through its env file, as every polis-api route switch does.
+    services, _ = _services()
+    for name, service in services.items():
+        if name == WORKER:
+            continue
+        text = yaml.safe_dump(service)
+        assert not [key for key in DERIVED_KEYS if key in text], name
+
+
+@requires_checkout
+def test_the_schedulers_derived_settings_default_to_the_codes_own_and_reach_only_it():
+    overlay = _derived_overlay()
+    assert set(overlay) == {"services"}
+    assert set(overlay["services"]) == {"delphi-shadow-scheduler"}
+    assert set(overlay["services"]["delphi-shadow-scheduler"]) == {"environment"}
+    composed = _environment(overlay["services"]["delphi-shadow-scheduler"], {})
+    # queue-rs/src/shadow/config.rs and backfill.rs: off, 2, 100, 3600,
+    # 1 GiB; admission off.
+    assert composed == {"DELPHI_SHADOW_DERIVED_BACKFILL": "0", "DELPHI_SHADOW_DERIVED_PER_CYCLE": "2",
+                        "DELPHI_SHADOW_DERIVED_DAILY": "100", "DELPHI_SHADOW_DERIVED_EVERY_SECONDS": "3600",
+                        "DELPHI_SHADOW_DERIVED_STORAGE_BYTES": "1073741824",
+                        "POLIS_JOBS_DERIVED_ADMISSION": "0"}
+    document = {"DELPHI_SHADOW_DERIVED_BACKFILL": "1", "DELPHI_SHADOW_DERIVED_PER_CYCLE": "5",
+                "DELPHI_SHADOW_DERIVED_DAILY": "50", "DELPHI_SHADOW_DERIVED_EVERY_SECONDS": "600",
+                "DELPHI_SHADOW_DERIVED_STORAGE_BYTES": "2097152",
+                "POLIS_JOBS_DERIVED_ADMISSION": "1"}
+    assert _environment(overlay["services"]["delphi-shadow-scheduler"], document) == document
+
+
+@requires_checkout
+def test_the_derived_worker_is_off_by_default_and_logs_in_only_to_the_job_queue():
+    services, _ = _services()
+    worker = services[WORKER]
+    assert worker["profiles"] == [WORKER]
+    assert worker["command"] == ["polis-topic-map", "derived-worker"]
+    assert worker["image"] == services["delphi-shadow"]["image"]
+    assert worker["build"] == services["delphi-shadow"]["build"]
+    off = _environment(worker, {})
+    assert off["POLIS_JOBS_DERIVED_WORKER"] == "0"
+    assert off["POLIS_JOBS_ENV"] == "shadow-delphi-1"
+    on = _environment(worker, dict(PRODUCTION_LIKE, POLIS_JOBS_DERIVED_WORKER="1"))
+    assert on["POLIS_JOBS_DERIVED_WORKER"] == "1"
+    # The job daemon's own login and transport, and nothing else: never
+    # DATABASE_URL (the input bundle's, and the web's), no provider or AWS key.
+    assert set(on) == {"POLIS_JOBS_DERIVED_WORKER", "POLIS_JOBS_ENV", "QUEUE_DATABASE_URL", "POLIS_JOBS_TRANSPORT",
+                       "POLIS_JOBS_CA_FILE", "POLIS_JOBS_HOST_ALLOWLIST"}
+    assert on["QUEUE_DATABASE_URL"] == PRODUCTION_LIKE["QUEUE_DATABASE_URL"]
+    assert on["POLIS_JOBS_TRANSPORT"] == "tls"
+    assert "env_file" not in worker
+    # Its jobs are in the shadow's env, where the scheduler asks for them.
+    scheduler = _environment(services["delphi-shadow-scheduler"], {"DELPHI_SHADOW_ENV": "shadow-twin-1"})
+    assert _environment(worker, {"DELPHI_SHADOW_ENV": "shadow-twin-1"})["POLIS_JOBS_ENV"] == scheduler["DELPHI_SHADOW_ENV"]
+
+
+@requires_checkout
+def test_the_derived_worker_keeps_nothing_on_the_box_and_is_bounded():
+    services, volumes = _services()
+    worker = services[WORKER]
+    assert "volumes" not in worker
+    assert not [name for name in volumes if "derived" in name]
+    assert worker["read_only"] is True
+    assert worker["tmpfs"] == ["/tmp:size=16m,mode=1777"]
+    assert worker["cap_drop"] == ["ALL"]
+    assert worker["security_opt"] == ["no-new-privileges:true"]
+    assert "ports" not in worker
+    # One job at a time on one thread: one CPU; a 1 GiB ceiling.
+    assert worker["deploy"]["resources"]["limits"] == {"memory": "1g", "cpus": 1}
+    assert worker["restart"] == "unless-stopped"
+
+
+def _worker_program():
+    (line,) = [line for line in (CHECKOUT / "scripts/after_install.sh").read_text().splitlines()
+               if line.lstrip().startswith("DELPHI_DERIVED_WORKER_WRONG=$(")]
+    assert line.count("'") == 2
+    return line.split("'")[1]
+
+
+def _worker_composed(env, worker_changes=None):
+    services, _ = _services()
+    worker = {"environment": _environment(services[WORKER], env), "command": services[WORKER]["command"]}
+    worker.update(worker_changes or {})
+    return {"services": {WORKER: worker, "delphi-shadow-scheduler": {
+        "environment": _environment(services["delphi-shadow-scheduler"], env)}}}
+
+
+@requires_checkout
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+@pytest.mark.parametrize("extra,changes,named", [
+    ({"POLIS_JOBS_CA_FILE": "/etc/polis/rds-ca.pem"}, None, ""),
+    ({"POLIS_JOBS_CA_FILE": "/etc/polis/rds-ca.pem", "DELPHI_SHADOW_ENV": "shadow-twin-1"}, None, ""),
+    ({"POLIS_JOBS_TRANSPORT": "local"}, None, ""),
+    ({"POLIS_JOBS_CA_FILE": "/c", "POLIS_JOBS_HOST_ALLOWLIST": " , "}, None,
+     f"{WORKER}.POLIS_JOBS_HOST_ALLOWLIST"),
+    # The combinations that cannot work, each named, never its value.
+    ({"POLIS_JOBS_CA_FILE": "/c", "QUEUE_DATABASE_URL": ""}, None, f"{WORKER}.QUEUE_DATABASE_URL"),
+    ({}, None, f"{WORKER}.POLIS_JOBS_CA_FILE"),
+    ({"POLIS_JOBS_TRANSPORT": "plain"}, None, f"{WORKER}.POLIS_JOBS_TRANSPORT"),
+    ({"POLIS_JOBS_CA_FILE": "/c", "DELPHI_SHADOW_ENV": "prod"}, None, f"{WORKER}.POLIS_JOBS_ENV"),
+    ({"POLIS_JOBS_CA_FILE": "/c", "POLIS_JOBS_DERIVED_WORKER": "0"}, None, f"{WORKER}.POLIS_JOBS_DERIVED_WORKER"),
+    ({"POLIS_JOBS_CA_FILE": "/c"}, {"command": ["polis-jobs"]}, f"{WORKER}.command"),
+    ({"POLIS_JOBS_CA_FILE": "/c"}, {"volumes": [{"type": "volume", "source": "x", "target": "/var/lib/x"}]},
+     f"{WORKER}.volumes"),
+])
+def test_the_deploy_hooks_worker_read_back_passes_this_file_and_names_what_cannot_work(extra, changes, named):
+    env = {**PRODUCTION_LIKE, "POLIS_JOBS_DERIVED_WORKER": "1", **extra}
+    document = _worker_composed(env, changes)
+    proc = subprocess.run(["jq", "-r", _worker_program()], input=json.dumps(document), text=True, capture_output=True)
+    assert proc.returncode == 0, proc.stderr
+    assert proc.stdout == named + "\n"
+    assert "db.internal" not in proc.stdout
+
+
+@requires_checkout
+@pytest.mark.skipif(shutil.which("jq") is None, reason="runs the hook's jq program with the real jq")
+def test_the_worker_read_back_refuses_nodes_login_in_the_worker():
+    env = dict(PRODUCTION_LIKE, POLIS_JOBS_DERIVED_WORKER="1", POLIS_JOBS_CA_FILE="/c")
+    document = _worker_composed(env)
+    document["services"][WORKER]["environment"]["DATABASE_URL"] = PRODUCTION_LIKE["DATABASE_URL"]
+    proc = subprocess.run(["jq", "-r", _worker_program()], input=json.dumps(document), text=True, capture_output=True)
+    assert (proc.returncode, proc.stdout) == (0, f"{WORKER}.DATABASE_URL\n")
+
+
+@requires_checkout
+def test_the_image_build_checks_both_derived_subcommands():
+    dockerfile = (CHECKOUT / "delphi/Dockerfile").read_text()
+    for sub in ("derived-worker", "shadow-scheduler"):
+        assert f'/polis-topic-map 2>&1 | grep -q "polis-topic-map {sub}"' in dockerfile
+    # The scheduler's exec finds polis-topic-map on PATH in the final image.
+    assert "COPY --from=polis-jobs /polis-topic-map /usr/local/bin/polis-topic-map" in dockerfile

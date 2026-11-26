@@ -21,6 +21,7 @@ inputs=(
   deploy/build-images.sh
   deploy/build-on-box.sh
   docker-compose.yml
+  docker-compose.derived.yml
   docker-compose.test.yml
   delphi/Dockerfile
   delphi/.dockerignore

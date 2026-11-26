@@ -1,0 +1,27 @@
+name: Topic map page
+permissions:
+  contents: read
+on:
+  pull_request:
+    paths:
+      - 'client-topic-map/**'
+      - 'client-topic-map-embed/**'
+      - 'client-report/src/util/clientErrorReporter.js'
+      - 'scripts/client-error-prelude.cjs'
+      - 'ci/local/**'
+      - 'Makefile'
+      - '.github/workflows/client-topic-map-embed.yml'
+  push:
+    branches: [edge]
+concurrency:
+  group: client-topic-map-embed-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: make check-client-topic-map-embed

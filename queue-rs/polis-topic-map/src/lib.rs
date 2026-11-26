@@ -6,12 +6,15 @@
 //! here depends only on the run, never on the size of the window or on the
 //! theme, which is why it is computed once.
 
+pub mod backfill;
 pub mod ciecam02;
+pub mod derived;
 pub mod from_run;
 pub mod layout;
 pub mod page;
 pub mod palette;
 pub mod stored;
+pub mod worker;
 
 use layout::P;
 use serde::{Deserialize, Serialize};
@@ -132,6 +135,18 @@ pub struct Points {
     /// One row per level: for each point, the index of its topic in `topics`, or -1.
     pub topic: Vec<Vec<i64>>,
     pub text: Vec<String>,
+    /// How many of the points, the last ones, are comments moderated out at
+    /// the time of the read. Always zero here, and then not written: a stored
+    /// document holds every comment the run laid out. The map route sets it
+    /// in the form it sends a reader who may not see moderated-out comments:
+    /// such a point keeps its position only (`id` null, `topic` -1 at every
+    /// level), and the points are ordered by position.
+    #[serde(rename = "moderatedOut", skip_serializing_if = "is_zero")]
+    pub moderated_out: usize,
+}
+
+fn is_zero(n: &usize) -> bool {
+    *n == 0
 }
 
 fn hex(c: [u8; 3]) -> String {
@@ -344,6 +359,7 @@ pub fn build(
             y: coords.iter().map(|c| round5(c[1])).collect(),
             topic: topic_rows,
             text,
+            moderated_out: 0,
         },
         provenance: None,
     })

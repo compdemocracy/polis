@@ -332,6 +332,10 @@ check-client-report: ## Run the client-report verification commands
 check-client-topic-map: ## Run the topic map package's tests
 	@bash ci/local/client-topic-map.sh
 
+.PHONY: check-client-topic-map-embed
+check-client-topic-map-embed: ## Run the topic map page's tests and build
+	@bash ci/local/client-topic-map-embed.sh
+
 .PHONY: check-lint
 check-lint: ## Run the lint verification commands
 	@bash ci/local/lint.sh

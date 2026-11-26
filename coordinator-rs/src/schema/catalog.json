@@ -3830,7 +3830,7 @@
         {
           "table": "delphi_jobs",
           "name": "delphi_jobs_kind_check",
-          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topics'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'math_rebuild'::text, 'legacy_import'::text, 'legacy_queue_record'::text])))"
+          "definition": "CHECK ((kind = ANY (ARRAY['full_pipeline'::text, 'embed'::text, 'snapshot'::text, 'umap'::text, 'cluster'::text, 'keywords'::text, 'topics'::text, 'topic_name'::text, 'narrative'::text, 'collective_statement'::text, 'visualize'::text, 'math_rebuild'::text, 'legacy_import'::text, 'legacy_queue_record'::text, 'derived'::text]))) NOT VALID"
         },
         {
           "table": "delphi_jobs",
@@ -9691,7 +9691,7 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_stage_check",
-          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_topics'::text, 'graph_narrative'::text])))"
+          "definition": "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_topics'::text, 'graph_narrative'::text, 'delphi_derived'::text]))) NOT VALID"
         },
         {
           "table": "polis_queue_jobs",
@@ -9706,7 +9706,12 @@
         {
           "table": "polis_queue_jobs",
           "name": "polis_queue_jobs_worker_class_check",
-          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text])))"
+          "definition": "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text, 'derived'::text]))) NOT VALID"
+        },
+        {
+          "table": "polis_queue_jobs",
+          "name": "pq_stage_derived",
+          "definition": "CHECK (((stage = 'delphi_derived'::text) = (worker_class = 'derived'::text))) NOT VALID"
         },
         {
           "table": "polis_queue_jobs",
@@ -12917,6 +12922,10 @@
     {
       "path": "server/postgres/migrations/000049_add_topic_map_document_family.sql",
       "sha256": "20c67720c765ba93b24d6b0e980e75db3d8d34b280b3c670d5386a3a9e6d7dc4"
+    },
+    {
+      "path": "server/postgres/migrations/000050_add_derived_jobs.sql",
+      "sha256": "928d74e15c3f6ff48296b5bc0afd2d6581eab381691d8a71447dd74b2ec5f9e5"
     }
   ]
 }

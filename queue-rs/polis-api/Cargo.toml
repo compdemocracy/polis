@@ -37,6 +37,9 @@ rand = "0.10"
 # document (delphi_topic_map.rs); pure Rust.
 miniz_oxide = "0.9"
 polis-auth = { path = "../polis-auth" }
+# The topic map generator's palette, to choose a reader's labels' colours
+# again from what that reader is sent (delphi_topic_map.rs, `recolor`).
+polis-topic-map = { path = "../polis-topic-map" }
 polis-queue-adapter = { path = ".." }
 postgres = "0.19"
 ryu-js = "1"
@@ -44,6 +47,7 @@ tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-threa
 
 [dev-dependencies]
 openssl = "0.10"
+polis-migrate = { path = "../polis-migrate" }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"
