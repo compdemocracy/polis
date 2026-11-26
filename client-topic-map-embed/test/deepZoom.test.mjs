@@ -10,7 +10,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { heldBack } from "../tools/held-back-fixture.mjs";
 import { withTooltipText } from "../src/points.js";
-import { allowedIds, numbersForMap, projectMath, readerData, wireMap } from "../src/deepZoom.js";
+import { allowedIds, numbersForMap, projectMath, readerData, readerDataFor, wireMap } from "../src/deepZoom.js";
+import v8 from "node:v8";
+import vm from "node:vm";
 
 const require = createRequire(import.meta.url);
 const here = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -460,3 +462,290 @@ test("sparse group ids: groups 0 and 2 read A and C in a card's readout", async 
   t.wired.destroy();
   t.map.destroy();
 });
+
+const clean = (roots) => {
+  const x = kept(roots);
+  assert.ok(!x.strings.some(s => s.includes("Quokka")), "hidden text retained");
+  assert.ok(!x.keys.some(k => String(k) === String(HELD)), "hidden id key retained");
+  for (const n of [HELD, ...HELD_COUNTS]) assert.ok(!x.numbers.includes(n), "hidden number retained: " + n);
+};
+const dispose = t => { t.wired.destroy(); t.map.destroy(); };
+for (const order of ["text", "math"]) for (const change of ["none", "run", "selection", "reader"]) {
+  test(`projection: ${order} first, ${change} replacement with old callback pending`, async () => {
+    const doc = publicMap(), srv = server(doc), pending = {};
+    const fetchFn = (url) => new Promise(resolve => { pending[new URL(url, "https://example.invalid").pathname] = () => srv.fetchFn(url).then(resolve); });
+    // Give location directly so only the two projected reads are pending.
+    const el = fakeHost(1600, 1000), data = withTooltipText(doc);
+    const map = new PolisTopicMap(el, { data, theme, drawing: "dense" });
+    const inputs = readerData(fetchFn, { reportId: REPORT, conversationId: CONVERSATION, modLevel: 0, ids: allowedIds(doc) });
+    const wired = wireMap({ map, element: el, data, inputs, drawing: "dense" });
+    const t = { el, data, map, inputs, wired };
+    await new Promise(r => setImmediate(r));
+    const first = order === "text" ? "/api/v3/comments" : "/api/v3/math/pca2";
+    const last = order === "text" ? "/api/v3/math/pca2" : "/api/v3/comments";
+    await pending[first]();
+    clean([await inputs[order]()]);
+    let replacement;
+    if (change !== "none") {
+      dispose(t);
+      // A new authorized document, as the component remounts on these props.
+      const newer = heldBack(doc, ALL_AGREE);
+      replacement = drawn(newer, srv);
+      await replacement.wired.joined;
+    }
+    await pending[last]();
+    await wired.joined;
+    clean([map, data, wired.overlay(), await inputs.text(), await inputs.math()]);
+    if (replacement) {
+      assert.equal(wired.overlay(), null);
+      assert.ok(!replacement.data.points.id.includes(ALL_AGREE));
+      clean([replacement.map, replacement.wired.overlay(), await replacement.inputs.text(), await replacement.inputs.math()]);
+      dispose(replacement);
+    } else dispose(t);
+  });
+}
+
+test("cards with counts but no comment text require grey", async () => {
+  const doc = publicMap(), t = drawn(doc, server(doc, { failComments: true }));
+  try {
+    await t.wired.joined;
+    zoomTo(t.map, 10);
+    const overlay = t.wired.overlay();
+    assert.ok(overlay.on);
+    overlay.select(t.data.points.id[10]);
+    assert.equal(overlay.card.style.display, "block");
+    assert.match(overlay.card.textContent, /agreed/);
+    assert.equal(t.map.grey, true, "votes must not appear on coloured topics without text");
+  } finally { dispose(t); }
+});
+
+test("leads without any standout require grey", async () => {
+  const doc = publicMap(), math = mathResult(doc);
+  for (const g of Object.values(math["group-votes"])) for (const id of Object.keys(g.votes)) g.votes[id] = { A: 0, D: 0, S: 0 };
+  const t = drawn(doc, server(doc, { math }));
+  try {
+    await t.wired.joined;
+    zoomTo(t.map, 10);
+    const overlay = t.wired.overlay();
+    assert.equal(overlay.ranking.length, 0);
+    assert.ok(overlay.leads.length > 0);
+    for (const l of overlay.leads) assert.notEqual(t.data.points.id[l.point], null);
+    assert.equal(t.map.grey, true, "leads must not appear on coloured topics without standouts");
+  } finally { dispose(t); }
+});
+
+test("topics-only mode cannot reopen a card via select or reveal", async () => {
+  const doc = publicMap(), t = drawn(doc, server(doc));
+  try {
+    await t.wired.joined;
+    const overlay = t.wired.overlay();
+    t.map.setGround("topics"); t.map.settle();
+    assert.equal(overlay.on, false);
+    overlay.select(ALL_AGREE);
+    assert.equal(overlay.card.style.display, "none", "select reopened card over coloured topics");
+    overlay.reveal(ALL_AGREE);
+    overlay.clear();
+    assert.equal(overlay.card.style.display, "none", "reveal reopened card over coloured topics");
+  } finally { dispose(t); }
+});
+
+test("projection rejects nested data in an allowed comment extremity", () => {
+  const doc = publicMap(), math = mathResult(doc);
+  math.pca["comment-extremity"][0] = { id: HELD, text: HELD_TEXT, A: HELD_COUNTS[0] };
+  clean([projectMath(math, new Set(allowedIds(doc)))]);
+});
+
+test("held-back point is never a target or lead; every label belongs to its own point", async () => {
+  const doc = publicMap(), t = drawn(doc, server(doc));
+  try {
+    await t.wired.joined;
+    for (const pi of [0,10,40,77]) {
+      zoomTo(t.map, pi, 2);
+      const ov = t.wired.overlay();
+      const dots = ov._dotsInView();
+      for (const d of dots) assert.notEqual(t.data.points.id[d.i], null);
+      for (const l of ov.leads) {
+        assert.notEqual(t.data.points.id[l.point], null);
+        assert.ok(t.data.points.text[l.point].startsWith(l.text.replace(/…$/, "")));
+      }
+      for (const l of ov.labels) assert.equal(l.id, t.data.points.id[l.point]);
+      for (const d of dots.slice(0,20)) {
+        // Label/lead boxes deliberately win; use the grid for nearest-dot oracle.
+        const oracle = [...dots].sort((a,b) => ((a.x-d.x)**2+(a.y-d.y)**2)-((b.x-d.x)**2+(b.y-d.y)**2) || a.i-b.i)[0];
+        assert.equal(Deep.nearestPoint(ov._index(),d.x,d.y,40),oracle.i);
+      }
+    }
+  } finally { dispose(t); }
+});
+
+// ---- The reader's lifetime: revoked when its map goes, whatever is pending.
+
+const TEXT_PATH = "/api/v3/comments";
+const MATH_PATH = "/api/v3/math/pca2";
+const turn = () => new Promise((r) => setImmediate(r));
+// A fetch that holds one path's answer until released, and ignores the abort
+// signal (nothing may rely on a fetch honouring it); it records the signal.
+function stalling(srv, path) {
+  const stalled = { signal: null, called: 0, release: null };
+  const held = new Promise((r) => (stalled.release = r));
+  const fetchFn = (url, init) => {
+    if (new URL(url, "https://example.invalid").pathname !== path) return srv.fetchFn(url, init);
+    stalled.called++;
+    stalled.signal = init && init.signal;
+    return held.then(() => srv.fetchFn(url, init));
+  };
+  return { fetchFn, stalled };
+}
+// A math result and a comment list that count every read of their contents,
+// to show that an answer arriving after revoke is neither read nor cut.
+function watchedAnswers(doc) {
+  const seen = { math: 0, text: 0 };
+  const math = mathResult(doc);
+  math["group-votes"] = new Proxy(math["group-votes"], {
+    ownKeys(t) { seen.math++; return Reflect.ownKeys(t); },
+  });
+  const comments = commentList(doc).map((row) => ({ tid: row.tid, get txt() { seen.text++; return row.txt; } }));
+  return { math, comments, seen };
+}
+
+test("lifetime: revoked before either read, nothing is asked and both reads are empty", { timeout: 20000 }, async () => {
+  const doc = publicMap(), srv = server(doc);
+  const inputs = readerData(srv.fetchFn, { reportId: REPORT, ids: allowedIds(doc) });
+  inputs.revoke();
+  assert.equal(inputs.revoked, true);
+  const [text, math] = await Promise.all([inputs.text(), inputs.math()]);
+  assert.equal(text.size, 0);
+  assert.equal(math, null);
+  assert.deepEqual(srv.asked, []);
+});
+
+test("lifetime: revoked with both reads pending, both settle empty at once and the late answers are not read", { timeout: 20000 }, async () => {
+  const doc = publicMap(), w = watchedAnswers(doc), srv = server(doc, { math: w.math, comments: w.comments });
+  const a = stalling(srv, TEXT_PATH);
+  const b = stalling({ fetchFn: a.fetchFn }, MATH_PATH);
+  const inputs = readerData(b.fetchFn, { reportId: REPORT, ids: allowedIds(doc) });
+  const text = inputs.text(), math = inputs.math();
+  for (let k = 0; k < 5; k++) await turn();
+  assert.equal(a.stalled.called, 1);
+  assert.equal(b.stalled.called, 1);
+  inputs.revoke();
+  assert.equal(a.stalled.signal.aborted, true, "the comment list read is aborted");
+  assert.equal(b.stalled.signal.aborted, true, "the math read is aborted");
+  // settled without either request finishing
+  assert.equal((await text).size, 0);
+  assert.equal(await math, null);
+  a.stalled.release();
+  b.stalled.release();
+  for (let k = 0; k < 10; k++) await turn();
+  assert.deepEqual(w.seen, { math: 0, text: 0 }, "a late answer is dropped unread, not cut");
+  assert.equal((await inputs.text()).size, 0);
+  assert.equal(await inputs.math(), null);
+});
+
+for (const first of ["text", "math"]) {
+  test(`lifetime: revoked between the two reads (${first} first), the cut is let go of and the late answer is not read`, { timeout: 20000 }, async () => {
+    const doc = publicMap(), w = watchedAnswers(doc), srv = server(doc, { math: w.math, comments: w.comments });
+    const s = stalling(srv, first === "text" ? MATH_PATH : TEXT_PATH);
+    const inputs = readerData(s.fetchFn, { reportId: REPORT, ids: allowedIds(doc) });
+    const later = first === "text" ? inputs.math() : inputs.text();
+    const got = await inputs[first]();
+    if (first === "text") assert.ok(got.has(ALL_AGREE));
+    else assert.ok(got["group-votes"][0].votes[ALL_AGREE]);
+    const before = { ...w.seen };
+    inputs.revoke();
+    assert.equal(s.stalled.signal.aborted, true);
+    const empty = await later;
+    assert.ok(first === "text" ? empty === null : empty.size === 0, "the other read settles empty at once");
+    // the lifetime hands out nothing it cut
+    const again = await inputs[first]();
+    assert.notEqual(again, got);
+    assert.ok(first === "text" ? again.size === 0 : again === null);
+    s.stalled.release();
+    for (let k = 0; k < 10; k++) await turn();
+    assert.deepEqual(w.seen, before, "the late answer is dropped unread");
+  });
+
+  test(`lifetime: a wiring destroyed between the two reads (${first} first) lets go at once and fills nothing`, { timeout: 20000 }, async () => {
+    const doc = publicMap(), srv = server(doc);
+    const s = stalling(srv, first === "text" ? MATH_PATH : TEXT_PATH);
+    const t = drawn(doc, { fetchFn: s.fetchFn });
+    await t.inputs[first]();
+    t.wired.destroy();
+    t.map.destroy();
+    await t.wired.joined; // resolves although the other read never finished
+    assert.equal(t.inputs.revoked, true);
+    assert.equal(s.stalled.signal.aborted, true);
+    assert.equal(t.wired.overlay(), null);
+    s.stalled.release();
+    for (let k = 0; k < 10; k++) await turn();
+    assert.ok(!t.data.points.text.some((x) => /^Comment \d+/.test(x)), "no text filled after destroy");
+    assert.equal(t.wired.overlay(), null);
+  });
+}
+
+test("lifetime: a destroyed wiring before either read resolves leaves the map's document as it was", { timeout: 20000 }, async () => {
+  const doc = publicMap(), srv = server(doc);
+  const a = stalling(srv, TEXT_PATH);
+  const b = stalling({ fetchFn: a.fetchFn }, MATH_PATH);
+  const t = drawn(doc, { fetchFn: b.fetchFn });
+  for (let k = 0; k < 5; k++) await turn();
+  t.wired.destroy();
+  t.map.destroy();
+  await t.wired.joined;
+  assert.equal(a.stalled.signal.aborted, true);
+  assert.equal(b.stalled.signal.aborted, true);
+  a.stalled.release();
+  b.stalled.release();
+  for (let k = 0; k < 10; k++) await turn();
+  assert.ok(!t.data.points.text.some((x) => /^Comment \d+/.test(x)));
+});
+
+test("lifetime: a reader's kept data that was revoked is read afresh", () => {
+  const doc = publicMap(), srv = server(doc);
+  const keeper = readerDataFor(srv.fetchFn);
+  const reader = { reportId: REPORT, ids: allowedIds(doc) };
+  const one = keeper(reader);
+  assert.equal(keeper(reader), one);
+  one.revoke();
+  const two = keeper(reader);
+  assert.notEqual(two, one);
+  assert.equal(two.revoked, false);
+});
+
+// Garbage collection: the old reader's cut is collectible while its other
+// read is still pending, after its map is destroyed and replaced by a reader
+// whose document holds that comment back. gc() is exposed at run time, so the
+// suite needs no flag.
+const gc = typeof globalThis.gc === "function" ? globalThis.gc : (v8.setFlagsFromString("--expose-gc"), vm.runInNewContext("gc"));
+async function collect() {
+  for (let k = 0; k < 8; k++) {
+    await turn();
+    gc();
+  }
+}
+async function abandonedReader(first) {
+  const doc = publicMap(), srv = server(doc);
+  const s = stalling(srv, first === "text" ? MATH_PATH : TEXT_PATH);
+  const t = drawn(doc, { fetchFn: s.fetchFn });
+  const value = await t.inputs[first]();
+  if (first === "text") assert.ok(value.has(ALL_AGREE));
+  else assert.ok(value["group-votes"][0].votes[ALL_AGREE]);
+  const refs = { cut: new WeakRef(value), data: new WeakRef(t.data) };
+  t.wired.destroy();
+  t.map.destroy();
+  return { refs, stalled: s.stalled };
+}
+for (const first of ["text", "math"]) {
+  test(`lifetime: a destroyed reader's ${first} is collectible while its other read is still pending`, { timeout: 20000 }, async () => {
+    const { refs, stalled } = await abandonedReader(first);
+    const docB = heldBack(publicMap(), ALL_AGREE), b = drawn(docB, server(docB));
+    await b.wired.joined;
+    assert.ok(!b.data.points.id.includes(ALL_AGREE));
+    await collect();
+    const alive = Object.keys(refs).filter((k) => refs[k].deref() !== undefined);
+    assert.deepEqual(alive, [], "kept alive by the pending read: " + alive.join(", "));
+    stalled.release(json(500, {}));
+    b.wired.destroy();
+    b.map.destroy();
+  });
+}

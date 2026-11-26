@@ -223,6 +223,9 @@ export default function TopicMap(props) {
   );
 
   onCleanup(() => {
+    // the wiring first: it revokes the reader's lifetime (deepZoom.js)
+    if (wiring) wiring.destroy();
+    wiring = null;
     if (map) map.destroy();
     map = null;
   });

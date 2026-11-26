@@ -37,7 +37,11 @@
  * kept. (They still reached the browser: the two routes are public.)
  * Nothing here throws, and nothing is kept beyond the one map and reader:
  * the reader's data (readerDataFor) is made afresh with every read of the
- * map, and the overlay goes with the map.
+ * map, and the overlay goes with the map. Each join has a lifetime that is
+ * revoked when its map goes (destroyed, or replaced for another document,
+ * run, selection or reader): its reads are aborted, everything it cut is let
+ * go of at once, and an answer arriving after it is dropped unread, so a
+ * request still pending keeps nothing of a reader that is gone.
  *
  * Counts: the math result's group-votes give, per opinion group and comment,
  * A (agrees), D (disagrees) and S (votes of any kind, passes included), as
@@ -139,44 +143,92 @@ export function projectMath(math, allowed) {
   const givenTids = Array.isArray(math.tids) ? math.tids : [];
   const givenExtremity = math.pca && Array.isArray(math.pca["comment-extremity"]) ? math.pca["comment-extremity"] : [];
   for (let i = 0; i < givenTids.length && i < givenExtremity.length; i++) {
-    if (!allowedTid(allowed, givenTids[i])) continue;
+    if (!allowedTid(allowed, givenTids[i]) || !isCount(givenExtremity[i])) continue;
     tids.push(givenTids[i]);
     extremity.push(givenExtremity[i]);
   }
   return { "group-votes": groups, tids, pca: { "comment-extremity": extremity } };
 }
 
-/* One reader's data for one drawn map: text() and math(), each asked for at
-   most once, sharing one report read (skipped when the host gives the
-   conversation id and moderation level), each cut to the reader's ids (those
-   of the map document it was drawn from: allowedIds) the moment it arrives.
-   text() resolves to a Map of text by comment id (empty when anything
-   fails), math() to the projected math result or null. Neither rejects.
-   Without ids nothing is kept. */
+/* One reader's data for one drawn map, for one lifetime: text() and math(),
+   each asked for at most once, sharing one report read (skipped when the
+   host gives the conversation id and moderation level), each cut to the
+   reader's ids (those of the map document it was drawn from: allowedIds) the
+   moment it arrives. text() resolves to a Map of text by comment id (empty
+   when anything fails), math() to the projected math result or null.
+   Neither rejects. Without ids nothing is kept.
+
+   revoke() ends the lifetime (wireMap's destroy calls it: the map is
+   destroyed or replaced, by another document, run, selection or reader). At
+   once, whether or not a read is still pending: the reads are aborted (where
+   the fetch honours an abort signal; nothing relies on it), every cut is let
+   go of, a read not yet settled settles empty, and an answer that arrives
+   later is dropped unread, neither cut nor kept. Every callback a pending
+   read holds reaches the lifetime's state only through `held`, which revoke
+   empties, so a stalled request keeps nothing of this reader alive. */
 export function readerData(fetchFn, { reportId, conversationId = null, modLevel = null, token = null, ids = [] }) {
-  const allowed = new Set(Array.isArray(ids) ? ids : []);
-  let report = null;
-  let text = null;
-  let math = null;
+  const controller = typeof AbortController === "function" ? new AbortController() : null;
+  const signal = controller ? controller.signal : null;
   const given = conversationId && Number.isInteger(modLevel) ? { conversationId, modLevel } : null;
-  const where = () => report || (report = given ? Promise.resolve(given) : readReport(fetchFn, reportId, { token }));
+  // All the lifetime keeps: the reader's ids, the report read, the two reads
+  // (each a promise of its cut) and how to settle them empty.
+  let held = { allowed: new Set(Array.isArray(ids) ? ids : []), report: null, reads: {}, settles: [] };
+  const where = () => {
+    if (!held) return Promise.resolve(null);
+    return held.report || (held.report = given ? Promise.resolve(given) : readReport(fetchFn, reportId, { token, signal }));
+  };
+  // One read: a promise that settles with its answer cut (project) when the
+  // answer arrives in a live lifetime, or empty at once when the lifetime is
+  // revoked first. The read's callbacks hold settle, never the cut.
+  const once = (name, empty, read, project) => {
+    if (!held) return Promise.resolve(empty());
+    if (held.reads[name]) return held.reads[name];
+    let settle;
+    const kept = new Promise((resolve) => {
+      settle = resolve;
+    });
+    held.reads[name] = kept;
+    held.settles.push(() => settle(empty()));
+    read()
+      .then((answer) => settle(held ? project(answer, held.allowed) : empty()))
+      .catch(() => settle(empty()));
+    return kept;
+  };
   return {
     text: () =>
-      text ||
-      (text = where()
-        .then((r) =>
-          r && r.modLevel !== null
-            ? readCommentText(fetchFn, reportId, { conversationId: r.conversationId, modLevel: r.modLevel, token })
-            : new Map(),
-        )
-        .then((byId) => projectText(byId, allowed))
-        .catch(() => new Map())),
+      once(
+        "text",
+        () => new Map(),
+        () =>
+          where().then((r) =>
+            r && r.modLevel !== null
+              ? readCommentText(fetchFn, reportId, { conversationId: r.conversationId, modLevel: r.modLevel, token, signal })
+              : null,
+          ),
+        projectText,
+      ),
     math: () =>
-      math ||
-      (math = (conversationId ? Promise.resolve({ conversationId }) : where())
-        .then((r) => (r ? readMath(fetchFn, r.conversationId, { token }) : null))
-        .then((answer) => projectMath(answer, allowed))
-        .catch(() => null)),
+      once(
+        "math",
+        () => null,
+        () =>
+          (conversationId ? Promise.resolve({ conversationId }) : where()).then((r) =>
+            r ? readMath(fetchFn, r.conversationId, { token, signal }) : null,
+          ),
+        projectMath,
+      ),
+    get revoked() {
+      return held === null;
+    },
+    revoke() {
+      const h = held;
+      if (!h) return;
+      held = null;
+      const settles = h.settles;
+      h.allowed = h.report = h.reads = h.settles = null;
+      for (const s of settles) s();
+      if (controller) controller.abort();
+    },
   };
 }
 
@@ -212,86 +264,135 @@ export function keepingView(map, fn) {
    map and reader, or null for no comment text and no math; drawing: the
    drawing it was made with. Returns { setDrawing(drawing), overlay(),
    joined, destroy() }; joined resolves when the dense drawing's join is
-   done (at once in the map's own drawing). */
+   done (at once in the map's own drawing), or when the wiring is destroyed.
+
+   The wiring owns its reader's lifetime: destroy() revokes the inputs and
+   lets go of the map, the document, the overlay and both reads' cuts at
+   once, even while a read is still pending. Every callback reaches that
+   state only through `own`, which destroy empties; nothing waits for the
+   other read (no Promise.all, whose pending aggregate would hold the read
+   that came first). */
 export function wireMap({ map, element, data, inputs, drawing, DeepZoom = PolisTopicMapDeepZoom }) {
-  let current = isDense(drawing) ? drawing : null;
-  let destroyed = false;
+  let own = {
+    map,
+    element,
+    data,
+    inputs,
+    DeepZoom,
+    current: isDense(drawing) ? drawing : null,
+    overlay: null,
+    text: null, // the cut text, between its arrival and the math result's
+    hasText: false,
+    math: null, // the cut math result, once the join has its answers
+    hasMath: false,
+    got: false,
+  };
   let asked = false;
   let joining = null;
-  let got = null; // { math } once the join has its answers
-  let overlay = null;
+  let finish = null;
+  const done = () => {
+    const f = finish;
+    finish = null;
+    if (f) f();
+  };
 
   const askText = () => {
-    if (asked) return;
+    if (asked || !own) return;
     asked = true;
-    element.removeEventListener("pointermove", askText);
-    if (!inputs) return;
-    inputs.text().then((byId) => {
-      if (!destroyed) fillText(data, byId);
+    own.element.removeEventListener("pointermove", askText);
+    if (!own.inputs) return;
+    own.inputs.text().then((byId) => {
+      if (own) fillText(own.data, byId);
     });
   };
 
   const attach = () => {
-    if (destroyed || overlay || !got || !current) return;
+    const o = own;
+    if (!o || o.overlay || !o.got || !o.current) return;
     try {
-      keepingView(map, () => {
-        if (got.math) {
-          overlay = new DeepZoom(map, {
-            math: got.math,
-            numbers: numbersForMap(got.math),
-            drawing: typeof current === "object" ? current : undefined,
+      keepingView(o.map, () => {
+        if (o.math) {
+          o.overlay = new o.DeepZoom(o.map, {
+            math: o.math,
+            numbers: numbersForMap(o.math),
+            drawing: typeof o.current === "object" ? o.current : undefined,
           });
         } else {
-          map.setDrawing(current);
+          o.map.setDrawing(o.current);
         }
       });
     } catch (e) {
-      overlay = null;
+      o.overlay = null;
     }
+  };
+
+  // Both answers in: the text onto the document, the overlay over the map.
+  const arrive = () => {
+    if (!own || !own.hasText || !own.hasMath) return;
+    fillText(own.data, own.text);
+    own.text = null;
+    own.got = true;
+    attach();
+    done();
   };
 
   const join = () => {
     if (joining) return joining;
     asked = true;
-    element.removeEventListener("pointermove", askText);
-    if (!inputs) return (joining = Promise.resolve());
-    joining = Promise.all([inputs.text(), inputs.math()]).then(([byId, math]) => {
-      if (destroyed) return;
-      fillText(data, byId);
-      got = { math };
-      attach();
+    if (!own) return (joining = Promise.resolve());
+    own.element.removeEventListener("pointermove", askText);
+    if (!own.inputs) return (joining = Promise.resolve());
+    joining = new Promise((resolve) => {
+      finish = resolve;
+    });
+    own.inputs.text().then((byId) => {
+      if (!own) return;
+      own.text = byId;
+      own.hasText = true;
+      arrive();
+    });
+    own.inputs.math().then((math) => {
+      if (!own) return;
+      own.math = math;
+      own.hasMath = true;
+      arrive();
     });
     return joining;
   };
 
-  if (current) join();
-  else element.addEventListener("pointermove", askText);
+  if (own.current) join();
+  else own.element.addEventListener("pointermove", askText);
 
   return {
     get joined() {
       return joining || Promise.resolve();
     },
-    overlay: () => overlay,
+    overlay: () => (own ? own.overlay : null),
     setDrawing(next) {
+      const o = own;
+      if (!o) return;
       next = isDense(next) ? next : null;
-      if (next === current) return;
-      if (overlay) {
-        overlay.destroy();
-        overlay = null;
+      if (next === o.current) return;
+      if (o.overlay) {
+        o.overlay.destroy();
+        o.overlay = null;
       }
-      current = next;
-      map.setDrawing(next);
+      o.current = next;
+      o.map.setDrawing(next);
       if (next) {
         join();
         attach();
       }
     },
     destroy() {
-      destroyed = true;
-      element.removeEventListener("pointermove", askText);
-      if (overlay) overlay.destroy();
-      overlay = null;
-      got = null;
+      const o = own;
+      if (!o) return;
+      own = null;
+      o.element.removeEventListener("pointermove", askText);
+      if (o.overlay) o.overlay.destroy();
+      if (o.inputs && typeof o.inputs.revoke === "function") o.inputs.revoke();
+      for (const k of Object.keys(o)) o[k] = null;
+      done();
     },
   };
 }

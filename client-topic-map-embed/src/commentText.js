@@ -20,7 +20,8 @@ export function commentTextFor(read) {
     const reader = JSON.stringify([reportId, conversationId || null, modLevel ?? null, token || null, ids ?? null]);
     const asked = { reportId, conversationId, modLevel, token };
     if (ids !== undefined) asked.ids = ids;
-    if (!held || held.reader !== reader) held = { reader, text: read(asked) };
+    // a revoked read (its map went: deepZoom.js readerData) is read afresh
+    if (!held || held.reader !== reader || (held.text && held.text.revoked === true)) held = { reader, text: read(asked) };
     return held.text;
   };
 }

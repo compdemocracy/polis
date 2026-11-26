@@ -847,10 +847,17 @@ document carries (`deepZoom.js`: `allowedIds`, `projectText`, `projectMath`):
 text for those ids only; from the math result only `group-votes` (each group's
 `n-members` and, per allowed comment, its `A`, `D` and `S`), `tids` and
 `pca["comment-extremity"]`, kept aligned. Only the cut is kept, cached, or
-handed to this package; nothing keeps the answers themselves, and a wiring
-that is destroyed lets go of its cut too. A test walks every object the page
-and the overlay keep after a join and finds no text, id or count of a
-held-back comment.
+handed to this package; nothing keeps the answers themselves. Each join
+belongs to a reader lifetime that ends when its map goes (destroyed, or
+replaced for another document, run, comment rule or reader): its two reads
+are aborted (where the fetch honours an abort signal; nothing relies on it),
+everything it cut is let go of at once, without waiting for the other read
+to finish, and an answer that arrives afterwards is dropped unread. A test
+walks every object the page and the overlay keep after a join and finds no
+text, id or count of a held-back comment; others revoke a lifetime before
+either read, between them in both orders, and with both pending, and check
+by garbage collection that a destroyed reader's cut and document are
+collectible while its other read is still stalled.
 
 What this does not protect: the answers still crossed the network, whole, to
 the reader's browser, where anyone can read them in the browser's network

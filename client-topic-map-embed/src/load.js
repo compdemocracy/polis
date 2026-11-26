@@ -141,27 +141,34 @@ export function answerToState(status, body, jobId) {
   return { kind: "refused", text: TEXT.failed };
 }
 
-function init(token) {
+function init(token, signal) {
   const headers = { Accept: "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  return { method: "GET", credentials: "omit", headers };
+  const out = { method: "GET", credentials: "omit", headers };
+  // An abort signal, when the read belongs to a lifetime that can be revoked
+  // (deepZoom.js readerData); the request itself is the same.
+  if (signal) out.signal = signal;
+  return out;
 }
 
 /* One GET; { status, body } with body null when it is not JSON, or null when
-   the request itself failed. Never throws. */
-export async function getJson(fetchFn, url, token) {
+   the request itself failed (or was aborted). Never throws. */
+export async function getJson(fetchFn, url, token, signal = null) {
   let response;
   try {
-    response = await fetchFn(url, init(token));
+    response = await fetchFn(url, init(token, signal));
   } catch (e) {
     return null;
   }
+  // A read of a revoked lifetime: its answer is dropped unread.
+  if (signal && signal.aborted) return null;
   let body = null;
   try {
     body = await response.json();
   } catch (e) {
     body = null;
   }
+  if (signal && signal.aborted) return null;
   return { status: response.status, body };
 }
 
@@ -223,19 +230,19 @@ export async function readJobList(fetchFn, reportId, { origin = "", token = null
 export async function readCommentText(
   fetchFn,
   reportId,
-  { conversationId = null, modLevel = null, origin = "", token = null } = {},
+  { conversationId = null, modLevel = null, origin = "", token = null, signal = null } = {},
 ) {
   const text = new Map();
   let conversation = conversationId;
   let level = modLevelOrNull(modLevel);
   if (!conversation || level === null) {
-    const report = await getJson(fetchFn, reportUrl(reportId, origin), token);
+    const report = await getJson(fetchFn, reportUrl(reportId, origin), token, signal);
     const row = report && report.status === 200 && Array.isArray(report.body) ? report.body[0] : null;
     conversation = row && typeof row.conversation_id === "string" ? row.conversation_id : null;
     level = row ? modLevelOrNull(row.mod_level) : null;
     if (!conversation || level === null) return text;
   }
-  const comments = await getJson(fetchFn, commentsUrl(conversation, reportId, level, origin), token);
+  const comments = await getJson(fetchFn, commentsUrl(conversation, reportId, level, origin), token, signal);
   if (!comments || comments.status !== 200 || !Array.isArray(comments.body)) return text;
   for (const c of comments.body) {
     if (c && Number.isInteger(c.tid) && typeof c.txt === "string") text.set(c.tid, c.txt);
@@ -247,8 +254,8 @@ export async function readCommentText(
    them: { conversationId, modLevel } (modLevel null when the report gives
    none), or null when the report does not answer with a conversation. Never
    throws. */
-export async function readReport(fetchFn, reportId, { origin = "", token = null } = {}) {
-  const report = await getJson(fetchFn, reportUrl(reportId, origin), token);
+export async function readReport(fetchFn, reportId, { origin = "", token = null, signal = null } = {}) {
+  const report = await getJson(fetchFn, reportUrl(reportId, origin), token, signal);
   const row = report && report.status === 200 && Array.isArray(report.body) ? report.body[0] : null;
   const conversationId = row && typeof row.conversation_id === "string" ? row.conversation_id : null;
   if (!conversationId) return null;
@@ -268,8 +275,8 @@ export function answerToMath(status, body) {
 }
 
 /* Asks for the math result once; the result or null. Never throws. */
-export async function readMath(fetchFn, conversationId, { origin = "", token = null } = {}) {
-  const answer = await getJson(fetchFn, mathUrl(conversationId, origin), token);
+export async function readMath(fetchFn, conversationId, { origin = "", token = null, signal = null } = {}) {
+  const answer = await getJson(fetchFn, mathUrl(conversationId, origin), token, signal);
   return answer ? answerToMath(answer.status, answer.body) : null;
 }
 
