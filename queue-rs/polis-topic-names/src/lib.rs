@@ -243,7 +243,10 @@ fn decide_and_call(
     let Some(key) = key.filter(|k| !k.is_empty()) else {
         return Run::failed(Outcome::NoKey, format!("{KEY_ENV} is not set"));
     };
-    let call = client::call(settings, key, body);
+    // An unsuccessful attempt may still have been billed. Reserve the same
+    // estimate for both attempts before permitting a second request.
+    let allow_retry = matches!(cap, RunCap::Usd(max) if worst <= max / 2.0);
+    let call = client::call_with_retry(settings, key, body, allow_retry);
     let mut run = match call.ended {
         client::Ended::Answered(bytes) => judge_reply(h, &bytes),
         client::Ended::Oversize => Run::failed(

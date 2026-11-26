@@ -2498,9 +2498,12 @@ mod input_bundle {
             .unwrap();
         let dsn = url_for(&name, "postgres");
         let release = polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+        // The chain provisions cluster-wide roles: one migrating database at a time.
+        let serial = super::TEMPLATE.lock().unwrap_or_else(|e| e.into_inner());
         let mut runner = polis_migrate::connect(&format!("{dsn}?sslmode=disable")).unwrap();
         polis_migrate::apply(&mut runner, &release).unwrap();
         drop(runner);
+        drop(serial);
 
         let conversation: contract::Conversation = decode("conversation.json");
         let comments: Vec<contract::Comment> = decode("comments.json");
@@ -2631,5 +2634,498 @@ mod input_bundle {
                 .batch_execute(&format!("DROP DATABASE {name}"))
                 .unwrap();
         }
+    }
+}
+
+/// The stored embeddings a full-pipeline run may reuse, read from real
+/// Postgres carrying the full release chain. The fixture rows are written
+/// with triggers off (`session_replication_role = replica`), so the foreign
+/// keys to the run and attempt tables need no queue history; every CHECK
+/// constraint still holds. The ids are made up.
+mod embedding_reuse {
+    use super::{admin_url, root, url_for};
+    use polis_queue_adapter::jobs::config::TransportKind;
+    use polis_queue_adapter::jobs::embedding::{self, MAX_SPOOL_BYTES, MODEL_MINILM};
+    use polis_queue_adapter::jobs::{inputs, reuse};
+    use postgres::{Client, NoTls};
+    use sha2::{Digest, Sha256};
+    use uuid::Uuid;
+
+    const ENV: &str = "shadow-a";
+    const ZID: i64 = 101;
+
+    fn vector(tid: i32, tag: f32) -> Vec<f32> {
+        (0..384)
+            .map(|i| tid as f32 + i as f32 / 1024.0 + tag)
+            .collect()
+    }
+
+    fn text_sha(tid: i32, tag: &str) -> Vec<u8> {
+        Sha256::digest(format!("comment {tid} {tag}")).to_vec()
+    }
+
+    struct Db {
+        name: String,
+        dsn: String,
+    }
+
+    impl Drop for Db {
+        fn drop(&mut self) {
+            if let Ok(mut admin) = Client::connect(&admin_url(), NoTls) {
+                let _ = admin.batch_execute(&format!(
+                    "DROP DATABASE IF EXISTS {} WITH (FORCE)",
+                    self.name
+                ));
+            }
+        }
+    }
+
+    /// A database at the release head, two conversations, and stored rows:
+    /// closed sets, an unclosed attempt, another env, another conversation
+    /// and another model.
+    fn seeded() -> Db {
+        let name = format!("reuse_{}", Uuid::new_v4().simple());
+        Client::connect(&admin_url(), NoTls)
+            .unwrap()
+            .batch_execute(&format!("CREATE DATABASE {name}"))
+            .unwrap();
+        let db = Db {
+            dsn: url_for(&name, "postgres"),
+            name,
+        };
+        let release = polis_migrate::load(&root().join("../server/postgres/migrations")).unwrap();
+        // The chain provisions cluster-wide roles: one migrating database at a time.
+        let serial = super::TEMPLATE.lock().unwrap_or_else(|e| e.into_inner());
+        let mut runner = polis_migrate::connect(&format!("{}?sslmode=disable", db.dsn)).unwrap();
+        polis_migrate::apply(&mut runner, &release).unwrap();
+        drop(runner);
+        drop(serial);
+        let mut c = Client::connect(&db.dsn, NoTls).unwrap();
+        c.batch_execute(
+            "INSERT INTO users(uid,hname) VALUES(900,'generated owner');
+             INSERT INTO conversations(zid,owner,topic) VALUES(101,900,'reuse'),(102,900,'other');
+             SET session_replication_role = replica;",
+        )
+        .unwrap();
+        // (env, batch, model, zid, seq_mark): closed sets.
+        let sets = [
+            (ENV, 'a', 2i16, 101i32, 3i64),
+            (ENV, 'c', 2, 101, 5),
+            ("shadow-b", 'd', 2, 101, 7),
+            (ENV, 'e', 2, 102, 8),
+            (ENV, 'f', 1, 101, 9),
+        ];
+        for (env, batch, model, zid, mark) in sets {
+            c.execute(
+                "INSERT INTO delphi_embedding_sets(env,batch_id,model_id,zid,seq_mark,row_count,max_tid,content_sha) \
+                 VALUES($1,$2,$3,$4,$5,1,0,repeat('0',64))",
+                &[&env, &batch_id(batch), &model, &zid, &mark],
+            )
+            .unwrap();
+        }
+        // (env, zid, model, tid, seq, batch, tag). Batch b never closed; tid 4
+        // lies above its set's mark.
+        let rows = [
+            (ENV, 101i32, 2i16, 0i32, 1i64, 'a', "kept"),
+            (ENV, 101, 2, 1, 2, 'a', "kept"),
+            (ENV, 101, 2, 2, 3, 'a', "kept"),
+            (ENV, 101, 2, 3, 4, 'b', "unclosed"),
+            (ENV, 101, 2, 5, 5, 'c', "kept"),
+            (ENV, 101, 2, 4, 6, 'c', "above"),
+            ("shadow-b", 101, 2, 0, 7, 'd', "env"),
+            (ENV, 102, 2, 0, 8, 'e', "conversation"),
+            (ENV, 101, 1, 6, 9, 'f', "model"),
+        ];
+        for (env, zid, model, tid, seq, batch, tag) in rows {
+            c.execute(
+                "INSERT INTO delphi_comment_embeddings(env,zid,model_id,tid,seq,text_sha,embedding,batch_id) \
+                 OVERRIDING SYSTEM VALUE VALUES($1,$2,$3,$4,$5,$6,$7,$8)",
+                &[&env, &zid, &model, &tid, &seq, &text_sha(tid, tag), &vector(tid, tag_value(tag)), &batch_id(batch)],
+            )
+            .unwrap();
+        }
+        db
+    }
+
+    fn batch_id(letter: char) -> Uuid {
+        Uuid::parse_str(&format!("00000000-0000-4000-8000-00000000000{letter}")).unwrap()
+    }
+
+    fn tag_value(tag: &str) -> f32 {
+        match tag {
+            "kept" => 0.0,
+            "unclosed" => 10.0,
+            "above" => 20.0,
+            "env" => 30.0,
+            "conversation" => 40.0,
+            _ => 50.0,
+        }
+    }
+
+    /// The shipped model's stored name, which pins its revision.
+    fn granite() -> &'static str {
+        polis_queue_adapter::shadow::graph::default_model().unwrap()
+    }
+
+    fn request(model: Option<&str>, max_bytes: usize) -> reuse::Request {
+        reuse::Request {
+            env: ENV.into(),
+            model: model.map(str::to_owned),
+            max_bytes,
+        }
+    }
+
+    fn scratch() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!("reuse-{}", Uuid::new_v4()))
+    }
+
+    #[test]
+    fn the_file_holds_exactly_the_closed_set_rows_of_this_env_conversation_and_model() {
+        let db = seeded();
+        let mut c = Client::connect(&db.dsn, NoTls).unwrap();
+        let dir = scratch();
+        let value = reuse::prepare(
+            &mut c,
+            &dir,
+            ZID,
+            &request(Some(granite()), MAX_SPOOL_BYTES),
+        );
+        assert_eq!(value["reason"], serde_json::Value::Null, "{value}");
+        assert_eq!(value["file"], reuse::FILE);
+        assert_eq!(
+            (value["rows"].as_u64(), value["dims"].as_u64()),
+            (Some(4), Some(384))
+        );
+        assert_eq!(
+            (value["model"].as_str(), value["model_id"].as_i64()),
+            (Some(granite()), Some(2))
+        );
+        assert_eq!(
+            (value["env"].as_str(), value["zid"].as_i64()),
+            (Some(ENV), Some(ZID))
+        );
+        let bytes = std::fs::read(dir.join(reuse::FILE)).unwrap();
+        assert_eq!(value["sha256"], super::sha_hex(&bytes));
+        let (model, dims, rows) = embedding::read_spool(&bytes).unwrap();
+        assert_eq!((model.as_str(), dims), (granite(), 384));
+        let tids: Vec<i32> = rows.iter().map(|r| r.tid).collect();
+        assert_eq!(
+            tids,
+            [0, 1, 2, 5],
+            "closed, under the mark, this env, conversation and model"
+        );
+        for r in &rows {
+            assert_eq!(r.text_sha.to_vec(), text_sha(r.tid, "kept"));
+            assert_eq!(r.vector, vector(r.tid, 0.0), "exact f32 bytes");
+        }
+        // The other model (all-MiniLM-L6-v2) has a closed set of its own, but its
+        // stored name pins no revision: it is never offered, and no file is written.
+        let other = scratch();
+        let value = reuse::prepare(
+            &mut c,
+            &other,
+            ZID,
+            &request(Some(MODEL_MINILM), MAX_SPOOL_BYTES),
+        );
+        assert_eq!(value["reason"], "unpinned", "{value}");
+        assert!(!other.join(reuse::FILE).exists());
+        std::fs::remove_dir_all(&dir).unwrap();
+        let _ = std::fs::remove_dir_all(&other);
+        // The primary keys serve the read: no sequential scan in its plan.
+        c.batch_execute("ANALYZE; SET enable_seqscan = off")
+            .unwrap();
+        let plan: Vec<String> = c
+            .query(
+                &format!("EXPLAIN {}", reuse::ROWS),
+                &[&ENV, &(ZID as i32), &2i16, &10i64],
+            )
+            .unwrap()
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
+        let plan = plan.join("\n");
+        assert!(!plan.contains("Seq Scan"), "{plan}");
+        // Either key of the rows table leads with (env, zid, model_id).
+        assert!(
+            plan.contains("delphi_comment_embeddings_pkey")
+                || plan.contains("delphi_comment_embeddings_env_zid_model_id_seq_key"),
+            "{plan}"
+        );
+        assert!(plan.contains("delphi_embedding_sets_pkey"), "{plan}");
+        println!("{plan}");
+    }
+
+    /// A transport that stalls after the connection is up (a proxy that holds
+    /// the transaction's first message, as a network that stops answering
+    /// would): the run goes on without the file at the deadline, and the driver
+    /// has closed the socket by then, before the client is even dropped.
+    #[test]
+    fn a_stalled_transport_ends_at_the_deadline_without_the_file_and_closes_its_socket() {
+        use std::io::{Read, Write};
+        use std::net::{Shutdown, TcpListener, TcpStream};
+        use std::sync::mpsc;
+        use std::time::{Duration, Instant};
+        let db = seeded();
+        let target = url_for(&db.name, "postgres");
+        let server = target
+            .split_once('@')
+            .unwrap()
+            .1
+            .split('/')
+            .next()
+            .unwrap()
+            .to_owned();
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let local = listener.local_addr().unwrap();
+        let (held_tx, held_rx) = mpsc::channel();
+        let (closed_tx, closed_rx) = mpsc::channel();
+        let proxy = std::thread::spawn(move || {
+            let (mut front, _) = listener.accept().unwrap();
+            let mut back = TcpStream::connect(&server).unwrap();
+            let mut from_client = front.try_clone().unwrap();
+            let mut to_server = back.try_clone().unwrap();
+            let replies = std::thread::spawn(move || {
+                let _ = std::io::copy(&mut back, &mut front);
+            });
+            let mut buf = [0u8; 65536];
+            let mut holding = false;
+            let has = |chunk: &[u8], word: &[u8]| chunk.windows(word.len()).any(|w| w == word);
+            loop {
+                match from_client.read(&mut buf) {
+                    Ok(0) | Err(_) => {
+                        let _ = closed_tx.send(Instant::now());
+                        break;
+                    }
+                    Ok(n) => {
+                        let chunk = &buf[..n];
+                        if !holding && (has(chunk, b"START TRANSACTION") || has(chunk, b"BEGIN")) {
+                            holding = true;
+                            let _ = held_tx.send(());
+                        }
+                        if !holding && to_server.write_all(chunk).is_err() {
+                            break;
+                        }
+                    }
+                }
+            }
+            let _ = to_server.shutdown(Shutdown::Both);
+            let _ = replies.join();
+        });
+        let mut c =
+            Client::connect(&format!("postgresql://postgres@{local}/{}", db.name), NoTls).unwrap();
+        let dir = scratch();
+        let bound = Duration::from_secs(2);
+        let started = Instant::now();
+        let value = reuse::prepare_by(
+            &mut c,
+            &dir,
+            ZID,
+            &request(Some(granite()), MAX_SPOOL_BYTES),
+            started + bound,
+        );
+        let took = started.elapsed();
+        held_rx
+            .try_recv()
+            .expect("the transport stalled inside the reuse transaction");
+        assert_eq!(value["reason"], "timeout", "{value}");
+        assert!(value["file"].is_null() && !dir.join(reuse::FILE).exists());
+        assert!(
+            took >= bound && took < bound + Duration::from_secs(2),
+            "{took:?}"
+        );
+        // The driver closed the socket at the deadline; the client still exists.
+        let closed = closed_rx
+            .recv_timeout(Duration::from_secs(2))
+            .expect("the socket is closed at the deadline, not held open");
+        assert!(closed.duration_since(started) < bound + Duration::from_secs(2));
+        drop(c);
+        proxy.join().unwrap();
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn off_means_no_file_and_the_bundle_value_is_unchanged() {
+        let db = seeded();
+        let dsn = format!("{}?sslmode=disable", db.dsn);
+        let (off, on) = (scratch(), scratch());
+        let (bundle_off, embeddings_off) = inputs::prepare(
+            &dsn,
+            &TransportKind::Loopback,
+            &off,
+            ZID,
+            "prod",
+            false,
+            None,
+        )
+        .unwrap();
+        assert!(embeddings_off.is_none());
+        assert!(!off.join(reuse::FILE).exists());
+        let req = request(Some(granite()), MAX_SPOOL_BYTES);
+        let (bundle_on, embeddings_on) = inputs::prepare(
+            &dsn,
+            &TransportKind::Loopback,
+            &on,
+            ZID,
+            "prod",
+            false,
+            Some(&req),
+        )
+        .unwrap();
+        assert_eq!(
+            bundle_on, bundle_off,
+            "the bundle and its frame value do not move"
+        );
+        for file in [
+            "manifest.json",
+            "comments.json",
+            "conversation.json",
+            "report_comment_selections.json",
+        ] {
+            assert_eq!(
+                std::fs::read(off.join("inputs").join(file)).unwrap(),
+                std::fs::read(on.join("inputs").join(file)).unwrap()
+            );
+        }
+        assert_eq!(embeddings_on.unwrap()["rows"], 4);
+        assert!(on.join(reuse::FILE).exists());
+        std::fs::remove_dir_all(&off).unwrap();
+        std::fs::remove_dir_all(&on).unwrap();
+    }
+
+    #[test]
+    fn each_failure_goes_on_without_the_file_and_says_why() {
+        let db = seeded();
+        let mut c = Client::connect(&db.dsn, NoTls).unwrap();
+        let reason = |c: &mut Client, req: &reuse::Request, zid: i64| {
+            let dir = scratch();
+            let value = reuse::prepare(c, &dir, zid, req);
+            assert!(!dir.join(reuse::FILE).exists(), "{value}");
+            assert!(
+                value["file"].is_null() && value["sha256"].is_null() && value["rows"].is_null()
+            );
+            let _ = std::fs::remove_dir_all(&dir);
+            value["reason"].as_str().unwrap().to_owned()
+        };
+        assert_eq!(
+            reason(&mut c, &request(None, MAX_SPOOL_BYTES), ZID),
+            "model"
+        );
+        assert_eq!(
+            reason(
+                &mut c,
+                &request(
+                    Some("unknown/model@0123456789abcdef0123456789abcdef01234567:384"),
+                    MAX_SPOOL_BYTES
+                ),
+                ZID
+            ),
+            "model"
+        );
+        // A name that does not pin a revision is refused before any read.
+        assert_eq!(
+            reason(
+                &mut c,
+                &request(Some("unknown/model@0:384"), MAX_SPOOL_BYTES),
+                ZID
+            ),
+            "unpinned"
+        );
+        // A conversation, or an env, with no closed set.
+        assert_eq!(
+            reason(&mut c, &request(Some(granite()), MAX_SPOOL_BYTES), 999),
+            "empty"
+        );
+        let mut elsewhere = request(Some(granite()), MAX_SPOOL_BYTES);
+        elsewhere.env = "shadow-z".into();
+        assert_eq!(reason(&mut c, &elsewhere, ZID), "empty");
+        // The bound: room for three of the four rows.
+        let three = 16 + granite().len() + 3 * (36 + 4 * 384);
+        assert_eq!(
+            reason(&mut c, &request(Some(granite()), three), ZID),
+            "bound"
+        );
+        assert_eq!(
+            reason(
+                &mut c,
+                &request(Some(granite()), three + 36 + 4 * 384 - 1),
+                ZID
+            ),
+            "bound"
+        );
+        // Exactly four rows' room is enough.
+        let dir = scratch();
+        let value = reuse::prepare(
+            &mut c,
+            &dir,
+            ZID,
+            &request(Some(granite()), three + 36 + 4 * 384),
+        );
+        assert_eq!(value["rows"], 4, "{value}");
+        std::fs::remove_dir_all(&dir).unwrap();
+        // The attempt directory cannot hold the file.
+        let blocked = scratch();
+        std::fs::write(&blocked, b"a file, not a directory").unwrap();
+        let value = reuse::prepare(
+            &mut c,
+            &blocked,
+            ZID,
+            &request(Some(granite()), MAX_SPOOL_BYTES),
+        );
+        assert_eq!(value["reason"], "unwritable");
+        std::fs::remove_file(&blocked).unwrap();
+        // A lock that ACCESS SHARE waits on: the lock timeout ends the wait.
+        let mut holder = Client::connect(&db.dsn, NoTls).unwrap();
+        let mut held = holder.transaction().unwrap();
+        held.batch_execute("LOCK TABLE delphi_comment_embeddings IN ACCESS EXCLUSIVE MODE")
+            .unwrap();
+        let started = std::time::Instant::now();
+        assert_eq!(
+            reason(&mut c, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
+            "timeout"
+        );
+        assert!(started.elapsed() < std::time::Duration::from_secs(15));
+        held.rollback().unwrap();
+        // The same connection reads again after a timeout.
+        let dir = scratch();
+        assert_eq!(
+            reuse::prepare(
+                &mut c,
+                &dir,
+                ZID,
+                &request(Some(granite()), MAX_SPOOL_BYTES)
+            )["rows"],
+            4
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+        // A login without SELECT on the tables.
+        let role = format!("reuse_{}", Uuid::new_v4().simple());
+        c.batch_execute(&format!("CREATE ROLE {role} LOGIN"))
+            .unwrap();
+        let mut nobody = Client::connect(&url_for(&db.name, &role), NoTls).unwrap();
+        assert_eq!(
+            reason(&mut nobody, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
+            "denied"
+        );
+        drop(nobody);
+        // A database without the tables.
+        let bare = format!("reuse_bare_{}", Uuid::new_v4().simple());
+        let mut admin = Client::connect(&admin_url(), NoTls).unwrap();
+        admin
+            .batch_execute(&format!("CREATE DATABASE {bare}"))
+            .unwrap();
+        let mut empty = Client::connect(&url_for(&bare, "postgres"), NoTls).unwrap();
+        assert_eq!(
+            reason(&mut empty, &request(Some(granite()), MAX_SPOOL_BYTES), ZID),
+            "absent"
+        );
+        drop(empty);
+        admin
+            .batch_execute(&format!("DROP DATABASE {bare} WITH (FORCE)"))
+            .unwrap();
+        c.batch_execute(&format!("DROP OWNED BY {role}; DROP ROLE {role}"))
+            .ok();
+        drop(c);
+        drop(db);
+        let _ = admin.batch_execute(&format!("DROP ROLE IF EXISTS {role}"));
     }
 }

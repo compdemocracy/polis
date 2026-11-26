@@ -349,8 +349,17 @@ fn store_topic_map(
     database: &Database,
     points: usize,
 ) -> crate::delphi_topic_map::tests::database_tests::Stored {
-    use crate::delphi_topic_map::tests::{database_tests as t, document};
-    let map = t::stored(document(points, "load"));
+    use crate::delphi_topic_map::tests::document;
+    store_topic_map_document(database, document(points, "load"))
+}
+
+/// [`store_topic_map`] of a given document.
+fn store_topic_map_document(
+    database: &Database,
+    document: String,
+) -> crate::delphi_topic_map::tests::database_tests::Stored {
+    use crate::delphi_topic_map::tests::database_tests as t;
+    let map = t::stored(document);
     let mut c = database.connect();
     t::stand_ins(&mut c, false);
     c.batch_execute("INSERT INTO reports(report_id, zid) VALUES('r1', 1)")
@@ -608,8 +617,9 @@ fn connection_bounds_warm_topic_map_answers_leave_participation_clear() {
 /// the votes-path reads (the next comment, the comments, the votes) keep
 /// their latency while the report topic map is saturated. Each read is
 /// sampled sequentially, first with the route idle (the control), then while
-/// sixteen clients ask for a stored map of about a megabyte as fast as the
-/// route answers them (the route at its places, shedding the rest). Each
+/// sixteen clients ask for a stored map of about a megabyte (one client in
+/// four for the list of the report's runs, `list=jobs`, instead) as fast as
+/// the route answers them (the route at its places, shedding the rest). Each
 /// phase takes at least forty rounds and lasts at least two seconds (twenty
 /// periods of the kernel's CPU quota), and the loaded phase takes at least as
 /// many rounds as the control. Run it from a release build under the
@@ -684,19 +694,24 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         let (control, control_window) = sample(&app, &reads, ROUNDS, WINDOW).await;
         let control_rounds = control[0].len();
         let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let lists = Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let clients: Vec<_> = (0..16)
             .map(|n| {
-                let (app, stop) = (app.clone(), stop.clone());
+                let (app, stop, lists) = (app.clone(), stop.clone(), lists.clone());
                 tokio::spawn(async move {
                     let mut answers = std::collections::BTreeMap::<u16, usize>::new();
                     let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    // One client in four asks for the list of runs instead.
+                    let target = if n % 4 == 1 {
+                        "/api/v3/delphi/topicMap?report_id=r1&list=jobs"
+                    } else {
+                        "/api/v3/delphi/topicMap?report_id=r1"
+                    };
                     while !stop.load(Ordering::SeqCst) {
-                        let out = crate::dispatch(
-                            app.clone(),
-                            None,
-                            forwarded("/api/v3/delphi/topicMap?report_id=r1", &[("accept-encoding", coding)]),
-                        )
-                        .await;
+                        let out = crate::dispatch(app.clone(), None, forwarded(target, &[("accept-encoding", coding)])).await;
+                        if n % 4 == 1 && out.status == 200 {
+                            lists.fetch_add(1, Ordering::SeqCst);
+                        }
                         *answers.entry(out.status).or_insert(0) += 1;
                         if out.status == 503 {
                             tokio::task::yield_now().await;
@@ -725,8 +740,9 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         }
         let cgroup = std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into());
         let mut lines = vec![format!(
-            "topic map saturation: cpu.max={} control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} busy={} max_in_flight={} max_held_bytes={}",
+            "topic map saturation: cpu.max={} control rounds={control_rounds} in {control_window:?}; loaded rounds={loaded_rounds} in {loaded_window:?}; maps={maps:?} lists_answered={} busy={} max_in_flight={} max_held_bytes={}",
             cgroup.trim(),
+            lists.load(Ordering::SeqCst),
             state.busy(),
             state.max_in_flight(),
             state.max_held()
@@ -752,6 +768,7 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
         let report = lines.join("\n") + "\n";
         std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
         assert!(maps.get(&200).copied().unwrap_or(0) > 0, "maps were served: {maps:?}");
+        assert!(lists.load(Ordering::SeqCst) > 0, "lists of runs were answered: {maps:?}");
         assert!(maps.get(&503).copied().unwrap_or(0) > 0, "the route was saturated: {maps:?}");
         assert!(maps.keys().all(|s| *s == 200 || *s == 503), "{maps:?}");
         for (i, (path, _)) in reads.iter().enumerate() {
@@ -780,6 +797,441 @@ fn connection_bounds_topic_map_saturation_keeps_participation_latency() {
                 l95 <= c95 * 2 + Duration::from_millis(25),
                 "{path} lost its latency under a saturated topic map: control p95 {c95:?}, loaded p95 {l95:?}"
             );
+        }
+    });
+}
+
+/// The load test of the reader's form, at the proxy's bound: sixteen clients
+/// ask for report topic maps from readers who are not moderators at 200
+/// requests a second in all (the nginx rate of this route), while a vote is
+/// written, a comment is written, and the next comment, the comments and the
+/// votes are read, round after round, as when the route is idle. Each map
+/// asked for needs the reader's form: a stored map of 30,000 comments, of
+/// which the conversation holds some back (inflate, rewrite, colours chosen
+/// again, deflate).
+///
+/// - One hot map ([`connection_bounds_rewritten_topic_map_keeps_participation_latency`]):
+///   every request is for the same map with the same held-back set.
+/// - Many maps ([`connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency`]):
+///   the requests cycle through more conversations than the route keeps
+///   readers' forms for, each with a map and comments held back. This offers
+///   distinct keys but does not by itself let forms go: only rewrites that
+///   are admitted and finish are kept, and some requests are hits (the
+///   layered case below is the one that lets forms go and makes them again).
+///
+/// The rules are the saturation test's, applied to the two writes as well as
+/// the three reads: every read isolated (no wait for a slot of its own pool),
+/// the vote writer never waiting for a slot, the loaded share of answers
+/// other than 200 at most the control's plus two in forty, and each one's
+/// 95th percentile within twice the control's plus 25 ms. The comment is
+/// written by the comment writer on a database of its own on the same
+/// server. The figures, the process's CPU (the cgroup's `cpu.stat`, under a
+/// quota when there is one) in each phase, and the route's counters are
+/// printed whatever the outcome. Run it from a release build under the
+/// service's own budget (half a CPU, 512 MiB) for the figure that matters.
+///
+/// Each case samples twice under load: from the moment the flood starts (a
+/// cold process, every client asking at once: the burst), and once the flood
+/// is a second old (steady). The rules hold in both. The rewrites' time
+/// stays within their budget across the flood. The third case's maps are
+/// the layered shape (four levels of 300, 100, 30 and 10 topics over 4,000
+/// comments, 1,500 held back in each, every level kept in the reader's
+/// form) and three times more of them than the test lets the route keep: it
+/// samples until forms have been let go and made again.
+///
+/// Over TCP, every request from outside the server's CPU quota: run the
+/// same test in two processes, the server with
+/// `POLIS_API_SATURATION_SERVE=<ip:port>` (it only serves, and reports its
+/// counters on a control listener at the next port) and the clients with
+/// `POLIS_API_SATURATION_TARGET=<host:port>`: the participation sampler and
+/// an open-loop flood, in a process of their own, which hold every rule
+/// ([`saturation_over_tcp::rewrite_clients`]).
+#[test]
+fn connection_bounds_rewritten_topic_map_keeps_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_load", 0, false);
+}
+
+/// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
+#[test]
+fn connection_bounds_rewritten_topic_maps_past_the_cache_keep_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_many", 72, false);
+}
+
+/// See [`connection_bounds_rewritten_topic_map_keeps_participation_latency`].
+#[test]
+fn connection_bounds_layered_topic_maps_evicted_and_remade_keep_participation_latency() {
+    rewritten_topic_map_load("topic_map_rewrite_layered", LAYERED_MAPS, true);
+}
+
+/// The layered case's conversations, each with its own reader's form, and
+/// the forms its route keeps (a bound the test sets, smaller than the
+/// process's own): three times as many forms as are kept, so the flood lets
+/// forms go and makes them again after a handful of rewrites, in a debug
+/// build within the rewrites' budget as in a release one.
+const LAYERED_MAPS: usize = 12;
+const LAYERED_FORMS_KEPT: usize = 4;
+
+/// The cgroup's CPU used and throttled, in microseconds, if there is one.
+fn cgroup_cpu() -> Option<(u64, u64)> {
+    let stat = std::fs::read_to_string("/sys/fs/cgroup/cpu.stat").ok()?;
+    let field = |name: &str| {
+        stat.lines()
+            .find_map(|l| l.strip_prefix(name)?.trim().parse::<u64>().ok())
+    };
+    Some((field("usage_usec ")?, field("throttled_usec ").unwrap_or(0)))
+}
+
+/// The route's `/health` counters, on one line.
+fn topic_map_health(state: &crate::delphi_topic_map::State) -> String {
+    let health = state.health();
+    let Some(obj) = health.as_obj() else {
+        return String::new();
+    };
+    obj.iter()
+        .map(|(k, v)| format!("{k}={}", v.to_js_string()))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+/// `many`: besides report `r1`, that many more conversations with a map and
+/// held-back comments each, the flood cycling through them; zero, every
+/// request for `r1`.
+fn rewritten_topic_map_load(name: &str, many: usize, layered: bool) {
+    use crate::post_comments::tests::database as comments_db;
+    let all_reports: Vec<String> = if many == 0 {
+        vec!["r1".to_owned()]
+    } else {
+        (2..=many + 1).map(|z| format!("r{z}")).collect()
+    };
+    // The clients of the split run (participation and the flood, outside
+    // the server's quota): no database.
+    if let Ok(target) = std::env::var("POLIS_API_SATURATION_TARGET") {
+        return saturation_over_tcp::rewrite_clients(&target, all_reports, many, layered);
+    }
+    let serve_at = std::env::var("POLIS_API_SATURATION_SERVE").ok();
+    const ROUNDS: usize = 40;
+    const EXTRA_MISSES: usize = 2;
+    const WINDOW: Duration = Duration::from_secs(2);
+    // The proxy's rate for this route (`delphiTopicMap-rate.conf.template`).
+    const RATE: u64 = 200;
+    const CLIENTS: u64 = 16;
+    let database = Database::new(name);
+    let (mut app, vote) = setup(&database);
+    // The layered shape is four levels of 300, 100, 30 and 10 topics over
+    // 4,000 comments (every topic recoloured for a reader), so that a debug
+    // build makes enough forms within the rewrites' budget to let some go;
+    // the costliest map's charge is the budget's own test
+    // (`a_rewrite_costlier_than_the_burst_is_charged_in_full`). The other,
+    // 30,000 comments in one topic.
+    let points = if layered { 4_000 } else { 30_000 };
+    let map = if layered {
+        store_topic_map_document(
+            &database,
+            crate::delphi_topic_map::tests::layered_document(points, "load", 0),
+        )
+    } else {
+        store_topic_map(&database, points)
+    };
+    // Held back: from comment 1,000 on, every other one, moderated out,
+    // inactive or muted in turn.
+    database
+        .connect()
+        .batch_execute(&format!(
+            "ALTER TABLE comments DISABLE TRIGGER USER;
+             INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
+               SELECT 1, n, 0, 1, 'held back ' || n,
+                 CASE WHEN n % 6 = 0 THEN -1 ELSE 1 END, n % 6 <> 2, CASE WHEN n % 6 = 4 THEN 0 ELSE 1 END
+               FROM generate_series(1000, {}, 2) n
+             ON CONFLICT DO NOTHING;
+             ALTER TABLE comments ENABLE TRIGGER USER;",
+            points - 1
+        ))
+        .unwrap();
+    // The other conversations: the same stored map under each one's own
+    // report, and 2,000 comments of each held back (their own set, so their
+    // own reader's form). Rows only the route reads, so no constraint is
+    // checked.
+    let reports: Vec<String> = if many == 0 {
+        vec!["r1".to_owned()]
+    } else {
+        let mut c = database.connect();
+        c.batch_execute(&format!(
+            "ALTER TABLE comments DISABLE TRIGGER ALL;
+             ALTER TABLE reports DISABLE TRIGGER ALL;
+             INSERT INTO reports(report_id, zid) SELECT 'r' || z, z FROM generate_series(2, {last}) z;
+             INSERT INTO comments(zid, tid, pid, uid, txt, mod, active, velocity)
+               SELECT z, n, 0, 1, 'held back ' || n, -1, true, 1
+               FROM generate_series(2, {last}) z, generate_series(1000, {held}, 2) n
+             ON CONFLICT DO NOTHING;
+             ALTER TABLE comments ENABLE TRIGGER ALL;
+             ALTER TABLE reports ENABLE TRIGGER ALL;",
+            last = many + 1,
+            held = if layered { points - 1 } else { 4999 }
+        ))
+        .unwrap();
+        use crate::delphi_topic_map::tests::database_tests as t;
+        for z in 2..=(many as i32 + 1) {
+            let family = t::map_family(z, &map);
+            t::served(
+                &mut c,
+                "test",
+                z,
+                "delphi",
+                "participant_visible/1",
+                Some(&family),
+            );
+        }
+        all_reports
+    };
+    let comments = comments_db::Database::new(&format!("{name}_comments"));
+    let (writer, key) = comments_db::writer(&comments, vec![]);
+    let author = comments_db::bearer(&key, &comments_db::member());
+    Arc::get_mut(&mut app).unwrap().post_comments = Some(writer);
+    let again = |r: &Request| Request {
+        method: r.method.clone(),
+        target: r.target.clone(),
+        headers: r.headers.clone(),
+        body: r.body.clone(),
+    };
+    let comment = |n: usize| {
+        Request {
+        method: "POST".into(),
+        target: crate::post_comments::PATH.into(),
+        headers: Headers::from_raw(vec![
+            ("host", "localhost"),
+            ("x-forwarded-proto", "https"),
+            ("content-type", "application/json"),
+            ("authorization", author.as_str()),
+        ]),
+        body: json!({"conversation_id": "2p027generated", "txt": format!("Generated load comment {n}")})
+            .to_string()
+            .into_bytes(),
+    }
+    };
+    let rt = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .enable_all()
+        .build()
+        .unwrap();
+    rt.block_on(async {
+        let healthy = |limits| db::Pool::new(Connector::Plain(Box::new(database.config.clone())), limits);
+        topic_map_beside_participation(&database, &mut app, healthy(crate::delphi_topic_map::pool_limits())).await;
+        warm_pool(app.delphi_topic_map_db.as_ref().unwrap(), 2).await;
+        // The split run: this process only serves, inside its quota; every
+        // request and every acceptance rule is the clients'.
+        if let Some(address) = &serve_at {
+            if layered {
+                app.delphi_topic_map.keep_at_most(LAYERED_FORMS_KEPT, crate::delphi_topic_map::READER_FORM_BYTES_KEPT);
+            }
+            return saturation_over_tcp::serve_rewrites(app.clone(), address, &vote, &author).await;
+        }
+        let reads = participation_reads(&app);
+        let writer = app.post_votes.as_ref().unwrap();
+        type Sample = (u16, Duration);
+        let mut written = 0usize;
+        // Rounds of the vote, the comment and the three reads until at least
+        // `min_rounds` rounds and `floor` have passed: samples per call, in
+        // the order vote, comment, reads; and the cgroup's CPU across them.
+        let mut sample = async |min_rounds: usize, floor: Duration, more: &dyn Fn() -> bool| -> (Vec<Vec<Sample>>, String) {
+            let mut out = vec![Vec::new(); 2 + reads.len()];
+            let (started, cpu) = (std::time::Instant::now(), cgroup_cpu());
+            let mut rounds = 0;
+            while rounds < min_rounds || started.elapsed() < floor || more() {
+                let start = std::time::Instant::now();
+                let voted = crate::dispatch(app.clone(), None, again(&vote)).await;
+                out[0].push((voted.status, start.elapsed()));
+                written += 1;
+                let start = std::time::Instant::now();
+                let commented = crate::dispatch(app.clone(), None, comment(written)).await;
+                out[1].push((commented.status, start.elapsed()));
+                for (i, (path, pool)) in reads.iter().enumerate() {
+                    let (status, took, delta) = participation_read(app.clone(), path, pool).await;
+                    participation_isolated(path, status, delta);
+                    out[2 + i].push((status, took));
+                }
+                rounds += 1;
+            }
+            let window = started.elapsed();
+            let cpu = match (cpu, cgroup_cpu()) {
+                (Some((u0, t0)), Some((u1, t1))) => format!(
+                    "cpu {:.3} s/s, throttled {:.3} s/s over {window:?}",
+                    (u1 - u0) as f64 / 1e6 / window.as_secs_f64(),
+                    (t1 - t0) as f64 / 1e6 / window.as_secs_f64()
+                ),
+                _ => format!("cpu unknown (no cgroup) over {window:?}"),
+            };
+            (out, cpu)
+        };
+        let no = || false;
+        let _ = sample(ROUNDS / 4, Duration::ZERO, &no).await;
+        let writer_before = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let (control, control_cpu) = sample(ROUNDS, WINDOW, &no).await;
+        let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let asked = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+        let reports = Arc::new(reports);
+        let (gzip_len, plain_len) = (map.gzip.len(), map.document.len());
+        let state = app.delphi_topic_map.clone();
+        if layered {
+            state.keep_at_most(LAYERED_FORMS_KEPT, crate::delphi_topic_map::READER_FORM_BYTES_KEPT);
+        }
+        let flood_started = std::time::Instant::now();
+        let clients: Vec<_> = (0..CLIENTS)
+            .map(|n| {
+                let (app, stop, asked, reports) = (app.clone(), stop.clone(), asked.clone(), reports.clone());
+                tokio::spawn(async move {
+                    // (status, whether a 200 was the reader's form)
+                    let mut answers = std::collections::BTreeMap::<(u16, bool), usize>::new();
+                    let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                    // Each client its share of the rate, never catching up.
+                    let mut pace = tokio::time::interval(Duration::from_micros(1_000_000 * CLIENTS / RATE));
+                    pace.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
+                    while !stop.load(Ordering::SeqCst) {
+                        pace.tick().await;
+                        let k = asked.fetch_add(1, Ordering::SeqCst);
+                        let target = format!("/api/v3/delphi/topicMap?report_id={}", reports[k % reports.len()]);
+                        let out = crate::dispatch(app.clone(), None, forwarded(&target, &[("accept-encoding", coding)])).await;
+                        let rewritten = match &out.body {
+                            crate::http::Body::Fixed(b) => b.len() != gzip_len && b.len() != plain_len,
+                            _ => false,
+                        };
+                        *answers.entry((out.status, out.status == 200 && rewritten)).or_insert(0) += 1;
+                    }
+                    answers
+                })
+            })
+            .collect();
+        // The burst: sampled from the flood's first moment, cold.
+        let (burst, burst_cpu) = sample(control[0].len(), WINDOW, &no).await;
+        // The flood is under way (a second of it) before the steady sample.
+        wait_for("the topic map flood under way", || asked.load(Ordering::SeqCst) >= RATE as usize).await;
+        // The costly maps past the cache: on until forms have been let go and
+        // made again (a map asked for after its form was let go), within two
+        // minutes.
+        let past_cache = || {
+            layered
+                && (state.forms_evicted() == 0 || state.rewrites() <= many as u64)
+                && flood_started.elapsed() < Duration::from_secs(120)
+        };
+        let (loaded, loaded_cpu) = sample(control[0].len(), WINDOW, &past_cache).await;
+        let flood_time = flood_started.elapsed();
+        stop.store(true, Ordering::SeqCst);
+        let mut maps = std::collections::BTreeMap::<(u16, bool), usize>::new();
+        for client in clients {
+            for (k, n) in client.await.unwrap() {
+                *maps.entry(k).or_insert(0) += n;
+            }
+        }
+        let writer_after = [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()];
+        let names = ["POST /api/v3/votes", "POST /api/v3/comments"]
+            .into_iter()
+            .chain(reads.iter().map(|(path, _)| *path))
+            .collect::<Vec<_>>();
+        fn quantile(samples: &[(u16, Duration)], q: f64) -> Duration {
+            let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+            d.sort();
+            d[((d.len() - 1) as f64 * q).round() as usize]
+        }
+        let mut lines = vec![
+            format!(
+                "rewritten topic map load ({}): cpu.max={}; {RATE}/s from {CLIENTS} clients, asked {}; control rounds={} loaded rounds={}; maps (status, rewritten)={maps:?}",
+                if many == 0 { "one hot map".to_owned() } else { format!("{many} maps") },
+                std::fs::read_to_string("/sys/fs/cgroup/cpu.max").unwrap_or_else(|_| "none".into()).trim(),
+                asked.load(Ordering::SeqCst),
+                control[0].len(),
+                loaded[0].len(),
+            ),
+            format!("  process control: {control_cpu}"),
+            format!("  process burst: {burst_cpu}"),
+            format!("  process loaded: {loaded_cpu}"),
+            format!("  route: {}", topic_map_health(&state)),
+            format!(
+                "  rewrites: {} made, {} forms let go; rewrite time {:.3} s ({:.3} s beyond charges) over a flood of {flood_time:?}, budget {:.3} s",
+                state.rewrites(),
+                state.forms_evicted(),
+                state.rewrite_time().0,
+                state.rewrite_time().1,
+                state.rewrite_bound(flood_time.as_secs_f64())
+            ),
+        ];
+        for (i, name) in names.iter().enumerate() {
+            let statuses = |v: &[(u16, Duration)]| {
+                let mut s = std::collections::BTreeMap::<u16, usize>::new();
+                for (status, _) in v {
+                    *s.entry(*status).or_insert(0) += 1;
+                }
+                s
+            };
+            lines.push(format!(
+                "  {name}: control {:?} p50={:?} p95={:?} max={:?}; burst {:?} p50={:?} p95={:?} max={:?}; loaded {:?} p50={:?} p95={:?} max={:?}",
+                statuses(&control[i]),
+                quantile(&control[i], 0.5),
+                quantile(&control[i], 0.95),
+                quantile(&control[i], 1.0),
+                statuses(&burst[i]),
+                quantile(&burst[i], 0.5),
+                quantile(&burst[i], 0.95),
+                quantile(&burst[i], 1.0),
+                statuses(&loaded[i]),
+                quantile(&loaded[i], 0.5),
+                quantile(&loaded[i], 0.95),
+                quantile(&loaded[i], 1.0),
+            ));
+        }
+        let report = lines.join("\n") + "\n";
+        std::io::Write::write_all(&mut std::io::stdout(), report.as_bytes()).unwrap();
+        assert!(maps.get(&(200, true)).copied().unwrap_or(0) > 0, "readers' forms were served: {maps:?}");
+        assert_eq!(maps.get(&(200, false)), None, "no reader received the stored bytes: {maps:?}");
+        assert!(maps.keys().all(|(s, _)| *s == 200 || *s == 503), "{maps:?}");
+        assert!(state.rewrites() > 0, "readers' forms were made");
+        // The rewrites' time within the budget across the flood, beyond it
+        // by no more than what they took past their charges.
+        // (Rewrites may still start while the clients finish: the window is
+        // the flood's start until this reading.)
+        // The first term is the larger of the burst and the costliest
+        // estimate charged: a costly rewrite is charged in full.
+        let (charged, _) = state.rewrite_time();
+        let budget = state.rewrite_bound(flood_started.elapsed().as_secs_f64());
+        assert!(charged <= budget + 1e-6, "rewrite time {charged:.3} s, bound {budget:.3} s");
+        if layered {
+            assert!(
+                state.forms_evicted() > 0 && state.rewrites() > many as u64,
+                "forms were let go and made again: {} let go, {} made for {many} maps",
+                state.forms_evicted(),
+                state.rewrites()
+            );
+        }
+        // Never more rewrites at once than the bound; for one hot map, the
+        // form is made once (again only if the flood outran a first attempt).
+        assert!(state.max_rewriting() <= crate::delphi_topic_map::MAX_REWRITES);
+        if many == 0 {
+            assert!(state.rewrites() <= 2, "one map, one form: {} rewrites", state.rewrites());
+        }
+        for (before, after) in writer_before.iter().zip(&writer_after) {
+            assert_eq!((after[1] - before[1], after[2] - before[2]), (0, 0), "the vote writer waited for a slot");
+        }
+        for ((i, name), (phase, loaded)) in names
+            .iter()
+            .enumerate()
+            .flat_map(|n| [(n, ("burst", &burst)), (n, ("steady", &loaded))])
+        {
+            let missed = |v: &[(u16, Duration)]| v.iter().filter(|(status, _)| *status != 200).count();
+            let (c_missed, l_missed) = (missed(&control[i]), missed(&loaded[i]));
+            let (n_c, n_l) = (control[i].len(), loaded[i].len());
+            assert!(
+                l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
+                "{name} answered other than 200 more under the rewritten topic map ({phase}): control {c_missed} of {n_c}, loaded {l_missed} of {n_l}"
+            );
+            let (c95, l95) = (quantile(&control[i], 0.95), quantile(&loaded[i], 0.95));
+            assert!(
+                l95 <= c95 * 2 + Duration::from_millis(25),
+                "{name} lost its latency under the rewritten topic map ({phase}): control p95 {c95:?}, loaded p95 {l95:?}"
+            );
+        }
+        // The writes were the participation path's own, answered.
+        assert_eq!(missed_all(&control[0]) + missed_all(&burst[0]) + missed_all(&loaded[0]), 0, "every vote was written");
+        assert_eq!(missed_all(&control[1]) + missed_all(&burst[1]) + missed_all(&loaded[1]), 0, "every comment was written");
+        fn missed_all(v: &[(u16, Duration)]) -> usize {
+            v.iter().filter(|(status, _)| *status != 200).count()
         }
     });
 }
@@ -1067,20 +1519,36 @@ mod saturation_over_tcp {
         }
         /// A GET as nginx forwards it; the answer is read whole. Its status.
         async fn get(&mut self, target: &str, coding: Option<&str>) -> std::io::Result<u16> {
-            if self.stream.is_none() {
-                self.opened += 1;
-                let s = TcpStream::connect(&self.address).await?;
-                s.set_nodelay(true)?;
-                self.stream = Some(BufReader::new(s));
-            }
             let mut request =
                 format!("GET {target} HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-Proto: https\r\n");
             if let Some(coding) = coding {
                 request += &format!("Accept-Encoding: {coding}\r\n");
             }
             request += "\r\n";
+            self.send(&request).await
+        }
+        /// A JSON POST as nginx forwards it, with its authorization. Its status.
+        async fn post(
+            &mut self,
+            target: &str,
+            authorization: &str,
+            body: &str,
+        ) -> std::io::Result<u16> {
+            let request = format!(
+                "POST {target} HTTP/1.1\r\nHost: localhost\r\nX-Forwarded-Proto: https\r\nContent-Type: application/json\r\nAuthorization: {authorization}\r\nContent-Length: {}\r\n\r\n{body}",
+                body.len()
+            );
+            self.send(&request).await
+        }
+        async fn send(&mut self, request: &str) -> std::io::Result<u16> {
+            if self.stream.is_none() {
+                self.opened += 1;
+                let s = TcpStream::connect(&self.address).await?;
+                s.set_nodelay(true)?;
+                self.stream = Some(BufReader::new(s));
+            }
             let s = self.stream.as_mut().unwrap();
-            match exchange(s, &request, &mut self.body).await {
+            match exchange(s, request, &mut self.body).await {
                 Ok((status, keep)) => {
                     if !keep {
                         self.stream = None;
@@ -1315,6 +1783,502 @@ mod saturation_over_tcp {
             errors + deadlines >= failed || path.starts_with("/api/v3/votes?"),
             "502 without own-route failure evidence: {path} {delta:?}, {failed} answered 502"
         );
+    }
+
+    /// The server of the split rewritten topic map test: it serves the app
+    /// over HTTP inside its quota and sends no request of its own. On its
+    /// control listener (the next port) it answers `requests` (the vote and
+    /// the comment author the clients send, so that they write as the
+    /// in-process test does), `flood` (the flood has started: the rewrites'
+    /// budget runs from now), `mark` (its counters, once the participation
+    /// reads' work has finished) and `stop`.
+    pub(super) async fn serve_rewrites(app: Arc<App>, address: &str, vote: &Request, author: &str) {
+        let address: std::net::SocketAddr = address.parse().unwrap();
+        let control_address = std::net::SocketAddr::new(address.ip(), address.port() + 1);
+        let listener = tokio::net::TcpListener::bind(address).await.unwrap();
+        let control = tokio::net::TcpListener::bind(control_address)
+            .await
+            .unwrap();
+        let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+        let served = app.clone();
+        let handler = Arc::new(move |req: Request| crate::dispatch(served.clone(), None, req));
+        let server = tokio::spawn(crate::http::serve_until(
+            listener,
+            handler,
+            crate::http::Listener::Main,
+            async move {
+                let _ = stopped.await;
+            },
+        ));
+        say(format!(
+            "rewritten topic map server ready on {address} (control {control_address}) cpu.max={} memory.max={}",
+            cgroup("cpu.max"),
+            cgroup("memory.max")
+        ));
+        let state = app.delphi_topic_map.clone();
+        let reads = participation_reads(&app);
+        for ((path, _), expected) in reads.iter().zip(READS) {
+            assert_eq!(*path, expected);
+        }
+        let writer = app.post_votes.as_ref().unwrap();
+        let mut flood_started: Option<std::time::Instant> = None;
+        let (socket, _) = control.accept().await.unwrap();
+        let (r, mut w) = socket.into_split();
+        let mut lines = BufReader::new(r).lines();
+        while let Some(line) = lines.next_line().await.unwrap() {
+            let reply = match line.as_str() {
+                "stop" => {
+                    w.write_all(b"{}\n").await.unwrap();
+                    break;
+                }
+                "requests" => json!({
+                    "vote": {
+                        "target": vote.target,
+                        "authorization": vote.headers.get("authorization"),
+                        "body": String::from_utf8_lossy(&vote.body),
+                    },
+                    "comment": {"authorization": author},
+                }),
+                "flood" => {
+                    flood_started = Some(std::time::Instant::now());
+                    json!({})
+                }
+                _ => {
+                    // Once every operation the participation reads acquired
+                    // has finished (at most two seconds).
+                    let started = std::time::Instant::now();
+                    let settled = loop {
+                        let settled = reads.iter().all(|(_, pool)| {
+                            let s = pool.evidence.snapshot();
+                            s[0] == s[3]
+                        });
+                        if settled || started.elapsed() > Duration::from_secs(2) {
+                            break settled;
+                        }
+                        tokio::time::sleep(Duration::from_millis(5)).await;
+                    };
+                    let cpu: BTreeMap<String, u64> = cgroup("cpu.stat")
+                        .split_whitespace()
+                        .collect::<Vec<_>>()
+                        .chunks(2)
+                        .filter_map(|kv| Some((kv[0].to_string(), kv.get(1)?.parse().ok()?)))
+                        .collect();
+                    let (charged, overrun) = state.rewrite_time();
+                    json!({
+                        "settled": settled,
+                        "reads": reads.iter().map(|(_, pool)| pool.evidence.snapshot()).collect::<Vec<_>>(),
+                        "writer": [writer.pool.evidence.snapshot(), writer.reads.evidence.snapshot()],
+                        "cpu": cpu,
+                        "sent": state.sent(),
+                        "rewrites": state.rewrites(),
+                        "evicted": state.forms_evicted(),
+                        "max_rewriting": state.max_rewriting(),
+                        "charged": charged,
+                        "overrun": overrun,
+                        "bound": flood_started.map(|t| state.rewrite_bound(t.elapsed().as_secs_f64())),
+                        "route": topic_map_health(&state),
+                    })
+                }
+            };
+            w.write_all(format!("{reply}\n").as_bytes()).await.unwrap();
+        }
+        let _ = stop.send(());
+        let _ = tokio::time::timeout(Duration::from_secs(10), server).await;
+        say("rewritten topic map server stopped".into());
+    }
+
+    /// One participation call as an independent client saw it: its status
+    /// (FAILED when the attempt failed) and its time.
+    type Call = (u16, Duration);
+
+    /// The five participation calls of the split rewritten topic map test,
+    /// in the order vote, comment, the three reads.
+    const CALLS: [&str; 5] = [
+        "POST /api/v3/votes",
+        "POST /api/v3/comments",
+        READS[0],
+        READS[1],
+        READS[2],
+    ];
+
+    /// The participation sampler's schedule: a round of the five calls every
+    /// 50 ms, whatever the answers. A round whose time passed while the one
+    /// before it waited starts at once, and its vote is timed from its
+    /// scheduled time, not from when it could be sent, so a stalled server
+    /// shows as time and not as fewer samples.
+    const PERIOD: Duration = Duration::from_millis(50);
+
+    struct Asks {
+        vote_target: String,
+        vote_authorization: String,
+        vote_body: String,
+        comment_authorization: String,
+    }
+
+    /// Rounds on the sampler's schedule until `rounds` rounds and `floor`
+    /// have passed, appended to `out` per call.
+    async fn participation_rounds(
+        conn: &mut Conn,
+        asks: &Asks,
+        written: &mut usize,
+        rounds: usize,
+        floor: Duration,
+        out: &mut [Vec<Call>; 5],
+    ) {
+        let started = tokio::time::Instant::now();
+        let mut slot = started;
+        let mut done = 0;
+        while done < rounds || started.elapsed() < floor {
+            tokio::time::sleep_until(slot).await;
+            let scheduled = slot;
+            slot += PERIOD;
+            let voted = conn
+                .post(&asks.vote_target, &asks.vote_authorization, &asks.vote_body)
+                .await
+                .unwrap_or(FAILED);
+            out[0].push((voted, scheduled.elapsed()));
+            *written += 1;
+            let body = json!({"conversation_id": "2p027generated", "txt": format!("Generated load comment {written}")})
+                .to_string();
+            let start = std::time::Instant::now();
+            let commented = conn
+                .post(
+                    crate::post_comments::PATH,
+                    &asks.comment_authorization,
+                    &body,
+                )
+                .await
+                .unwrap_or(FAILED);
+            out[1].push((commented, start.elapsed()));
+            for (i, path) in READS.iter().enumerate() {
+                let start = std::time::Instant::now();
+                let status = conn.get(path, None).await.unwrap_or(FAILED);
+                out[2 + i].push((status, start.elapsed()));
+            }
+            done += 1;
+        }
+    }
+
+    /// What an open-loop flood offered and what came back.
+    #[derive(Default, Debug)]
+    struct Flood {
+        /// Requests the schedule called for.
+        offered: usize,
+        /// Sent more than one interval after their scheduled time.
+        late: usize,
+        /// Not sent at all: every connection allowed was waiting.
+        unsent: usize,
+        /// Attempts that failed (no whole answer).
+        failed: usize,
+        answers: BTreeMap<u16, usize>,
+    }
+
+    /// The flood's limit on requests waiting at once (each on a connection
+    /// of its own): past it a slot is not sent and counts as fallen behind.
+    const MAX_WAITING: usize = 1024;
+
+    /// The proxy's rate for the route, offered on a fixed schedule (one
+    /// request every 5 ms) whatever the answers: each slot's request goes on
+    /// an idle connection, or a new one, without waiting for any answer. So
+    /// the offered load cannot fall behind unseen: a slot sent late or not at
+    /// all is counted.
+    async fn open_loop_flood(
+        target: String,
+        reports: Arc<Vec<String>>,
+        stop: Arc<std::sync::atomic::AtomicBool>,
+    ) -> Flood {
+        const RATE: f64 = 200.0;
+        let every = Duration::from_secs_f64(1.0 / RATE);
+        let idle = Arc::new(std::sync::Mutex::new(Vec::<Conn>::new()));
+        let flood = Arc::new(std::sync::Mutex::new(Flood::default()));
+        let waiting = Arc::new(AtomicUsize::new(0));
+        let mut slot = tokio::time::Instant::now();
+        let mut k = 0usize;
+        while !stop.load(Ordering::SeqCst) {
+            tokio::time::sleep_until(slot).await;
+            let late = tokio::time::Instant::now() > slot + every;
+            slot += every;
+            {
+                let mut f = flood.lock().unwrap();
+                f.offered += 1;
+                f.late += usize::from(late);
+                if waiting.load(Ordering::SeqCst) >= MAX_WAITING {
+                    f.unsent += 1;
+                    continue;
+                }
+            }
+            waiting.fetch_add(1, Ordering::SeqCst);
+            let path = format!(
+                "/api/v3/delphi/topicMap?report_id={}",
+                reports[k % reports.len()]
+            );
+            let coding = if k % 4 == 3 { "identity" } else { "gzip" };
+            k += 1;
+            let mut conn = idle
+                .lock()
+                .unwrap()
+                .pop()
+                .unwrap_or_else(|| Conn::new(&target));
+            let (idle, flood, waiting) = (idle.clone(), flood.clone(), waiting.clone());
+            tokio::spawn(async move {
+                let answer =
+                    tokio::time::timeout(Duration::from_secs(10), conn.get(&path, Some(coding)))
+                        .await;
+                {
+                    let mut f = flood.lock().unwrap();
+                    match answer {
+                        Ok(Ok(status)) => *f.answers.entry(status).or_insert(0) += 1,
+                        _ => {
+                            f.failed += 1;
+                            conn.stream = None;
+                        }
+                    }
+                }
+                if conn.stream.is_some() {
+                    idle.lock().unwrap().push(conn);
+                }
+                waiting.fetch_sub(1, Ordering::SeqCst);
+            });
+        }
+        let ending = std::time::Instant::now();
+        while waiting.load(Ordering::SeqCst) > 0 && ending.elapsed() < Duration::from_secs(15) {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        std::mem::take(&mut *flood.lock().unwrap())
+    }
+
+    /// The clients of the split rewritten topic map test, every one outside
+    /// the server's quota and in a process of their own: the participation
+    /// sampler (the vote, the comment and the three reads, on its own
+    /// connection, its own thread and its own runtime, on its fixed
+    /// schedule) and the map flood (the proxy's burst of 200 at once, each
+    /// on a connection of its own, then the proxy's rate open-loop, on
+    /// another runtime), started together, so the burst sample begins with
+    /// the flood's first request.
+    ///
+    /// The acceptance rule, all checked here: in the burst and in the steady
+    /// phase, against the control phase before the flood, each of the five
+    /// calls answers other than 200 at most the control's share plus two in
+    /// forty, and its 95th percentile is within twice the control's plus
+    /// 25 ms; every vote and every comment is written (200) in every phase;
+    /// no participation read and no vote write waited for a slot of its own
+    /// pool (the server's pool evidence across the phases); the flood fell
+    /// behind (late, unsent or failed) on at most one request in a hundred
+    /// it offered, and got only 200 and 503; and the server's rewrites stayed
+    /// within their budget, at most `MAX_REWRITES` at once, and, for the
+    /// layered maps, let forms go and made them again.
+    pub(super) fn rewrite_clients(target: &str, reports: Vec<String>, many: usize, layered: bool) {
+        let (host, port) = target.rsplit_once(':').expect("host:port");
+        let control_address = format!("{host}:{}", port.parse::<u16>().unwrap() + 1);
+        let flood_rt = tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(4)
+            .enable_all()
+            .build()
+            .unwrap();
+        let flood_handle = flood_rt.handle().clone();
+        let sampler_rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        let target = target.to_string();
+        sampler_rt.block_on(async move {
+            let mut control = Control::connect(&control_address).await;
+            // The server's counters, and when the client asked for them.
+            let mark = async |control: &mut Control| -> (serde_json::Value, std::time::Instant) {
+                let at = std::time::Instant::now();
+                (serde_json::from_str(&control.send("mark").await).unwrap(), at)
+            };
+            let asked: serde_json::Value = serde_json::from_str(&control.send("requests").await).unwrap();
+            let text = |v: &serde_json::Value| v.as_str().unwrap().to_owned();
+            let asks = Asks {
+                vote_target: text(&asked["vote"]["target"]),
+                vote_authorization: text(&asked["vote"]["authorization"]),
+                vote_body: text(&asked["vote"]["body"]),
+                comment_authorization: text(&asked["comment"]["authorization"]),
+            };
+            let mut conn = Conn::new(&target);
+            let mut written = 0usize;
+            let mut phases: [[Vec<Call>; 5]; 4] = Default::default();
+            let [warm, control_phase, burst, steady] = &mut phases;
+            participation_rounds(&mut conn, &asks, &mut written, ROUNDS / 4, Duration::ZERO, warm).await;
+            let m0 = mark(&mut control).await;
+            participation_rounds(&mut conn, &asks, &mut written, ROUNDS, WINDOW, control_phase).await;
+            let m1 = mark(&mut control).await;
+            // The flood and the burst sample start together.
+            control.send("flood").await;
+            let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let flood_started = std::time::Instant::now();
+            let reports = Arc::new(reports);
+            let burst_answers: Vec<_> = (0..200usize)
+                .map(|n| {
+                    let (target, path) = (
+                        target.clone(),
+                        format!("/api/v3/delphi/topicMap?report_id={}", reports[n % reports.len()]),
+                    );
+                    flood_handle.spawn(async move {
+                        let coding = if n % 4 == 3 { "identity" } else { "gzip" };
+                        let mut conn = Conn::new(&target);
+                        tokio::time::timeout(Duration::from_secs(10), conn.get(&path, Some(coding)))
+                            .await
+                            .ok()
+                            .and_then(Result::ok)
+                    })
+                })
+                .collect();
+            let flood = flood_handle.spawn(open_loop_flood(target.clone(), reports.clone(), stop.clone()));
+            participation_rounds(&mut conn, &asks, &mut written, ROUNDS, WINDOW, burst).await;
+            let m2 = mark(&mut control).await;
+            // Steady: the flood a second old, then on until (for the layered
+            // maps) forms have been let go and made again, within two minutes.
+            tokio::time::sleep(Duration::from_secs(1).saturating_sub(flood_started.elapsed())).await;
+            let m2s = mark(&mut control).await;
+            participation_rounds(&mut conn, &asks, &mut written, ROUNDS, WINDOW, steady).await;
+            let mut m3 = mark(&mut control).await;
+            while layered
+                && (m3.0["evicted"].as_u64() == Some(0) || m3.0["rewrites"].as_u64().unwrap() <= many as u64)
+                && flood_started.elapsed() < Duration::from_secs(120)
+            {
+                participation_rounds(&mut conn, &asks, &mut written, ROUNDS / 4, Duration::ZERO, steady).await;
+                m3 = mark(&mut control).await;
+            }
+            let flood_time = flood_started.elapsed();
+            stop.store(true, Ordering::SeqCst);
+            let flood = flood.await.unwrap();
+            let mut burst_by = BTreeMap::<Option<u16>, usize>::new();
+            for b in burst_answers {
+                *burst_by.entry(b.await.unwrap()).or_insert(0) += 1;
+            }
+            let (end, _) = mark(&mut control).await;
+            control.send("stop").await;
+
+            // The server's CPU between two marks, per second of wall time.
+            let cpu = |(a, at): &(serde_json::Value, std::time::Instant), (b, bt): &(serde_json::Value, std::time::Instant)| {
+                let secs = bt.duration_since(*at).as_secs_f64();
+                let d = |k: &str| b["cpu"][k].as_u64().unwrap_or(0) as f64 - a["cpu"][k].as_u64().unwrap_or(0) as f64;
+                format!("cpu {:.3} s/s, throttled {:.3} s/s over {secs:.2} s", d("usage_usec") / 1e6 / secs, d("throttled_usec") / 1e6 / secs)
+            };
+            fn quantile(samples: &[Call], q: f64) -> Duration {
+                let mut d: Vec<Duration> = samples.iter().map(|s| s.1).collect();
+                d.sort();
+                d[((d.len() - 1) as f64 * q).round() as usize]
+            }
+            fn statuses(v: &[Call]) -> BTreeMap<u16, usize> {
+                let mut s = BTreeMap::new();
+                for (status, _) in v {
+                    *s.entry(*status).or_insert(0) += 1;
+                }
+                s
+            }
+            let behind = flood.late + flood.unsent + flood.failed;
+            let mut lines = vec![
+                format!(
+                    "rewritten topic map clients over tcp ({}): clients cpu.max={}; server {}; control rounds={} burst rounds={} steady rounds={}",
+                    if many == 0 { "one hot map".to_owned() } else { format!("{many} maps") },
+                    cgroup("cpu.max"),
+                    target,
+                    control_phase[0].len(),
+                    burst[0].len(),
+                    steady[0].len()
+                ),
+                format!("  process control: {}", cpu(&m0, &m1)),
+                format!("  process burst: {}", cpu(&m1, &m2)),
+                format!("  process steady: {}", cpu(&m2s, &m3)),
+                format!(
+                    "  flood: burst of 200 {burst_by:?}; open loop at 200/s over {flood_time:?}: offered {}, late {}, unsent {}, failed {}, answered {:?}; fell behind {behind}",
+                    flood.offered, flood.late, flood.unsent, flood.failed, flood.answers
+                ),
+                format!("  route: {}", end["route"].as_str().unwrap_or("")),
+                format!(
+                    "  rewrites: {} maps sent, {} forms made, {} let go, at most {} at once; rewrite time {:.3} s ({:.3} s beyond charges), budget {:.3} s",
+                    end["sent"],
+                    end["rewrites"], end["evicted"], end["max_rewriting"], end["charged"].as_f64().unwrap(), end["overrun"].as_f64().unwrap(), end["bound"].as_f64().unwrap()
+                ),
+            ];
+            for (i, name) in CALLS.iter().enumerate() {
+                lines.push(format!(
+                    "  {name}: control {:?} p50={:?} p95={:?} max={:?}; burst {:?} p50={:?} p95={:?} max={:?}; steady {:?} p50={:?} p95={:?} max={:?}",
+                    statuses(&control_phase[i]), quantile(&control_phase[i], 0.5), quantile(&control_phase[i], 0.95), quantile(&control_phase[i], 1.0),
+                    statuses(&burst[i]), quantile(&burst[i], 0.5), quantile(&burst[i], 0.95), quantile(&burst[i], 1.0),
+                    statuses(&steady[i]), quantile(&steady[i], 0.5), quantile(&steady[i], 0.95), quantile(&steady[i], 1.0),
+                ));
+            }
+            say(lines.join("\n"));
+
+            // The flood: offered on its schedule, answered 200 or 503.
+            assert!(
+                behind * 100 <= flood.offered,
+                "the flood fell behind its schedule on {behind} of {} requests (late {}, unsent {}, failed {}); at most one in a hundred",
+                flood.offered, flood.late, flood.unsent, flood.failed
+            );
+            assert!(flood.offered as f64 >= 200.0 * (flood_time.as_secs_f64() - 1.0), "the flood offered {} over {flood_time:?}", flood.offered);
+            assert!(flood.answers.keys().all(|s| *s == 200 || *s == 503), "{:?}", flood.answers);
+            assert!(flood.answers.get(&200).copied().unwrap_or(0) > 0, "maps were served: {:?}", flood.answers);
+            // The server's rewrites.
+            let rewrites = end["rewrites"].as_u64().unwrap();
+            assert!(rewrites > 0, "readers' forms were made");
+            let (charged, bound) = (end["charged"].as_f64().unwrap(), end["bound"].as_f64().unwrap());
+            assert!(charged <= bound + 1e-6, "rewrite time {charged:.3} s, bound {bound:.3} s");
+            assert!(end["max_rewriting"].as_u64().unwrap() as usize <= crate::delphi_topic_map::MAX_REWRITES);
+            if layered {
+                let evicted = end["evicted"].as_u64().unwrap();
+                assert!(evicted > 0 && rewrites > many as u64, "forms were let go and made again: {evicted} let go, {rewrites} made for {many} maps");
+            }
+            if many == 0 {
+                assert!(rewrites <= 2, "one map, one form: {rewrites} rewrites");
+            }
+            // No participation read and no vote write waited for a slot.
+            // From the control phase's start to the end: the server's pool
+            // evidence (acquired, waits, timeouts, completed, errors,
+            // deadlines) for each participation read and the vote writer.
+            let start = &m0.0;
+            assert!(start["settled"].as_bool().unwrap() && end["settled"].as_bool().unwrap(), "the server's participation work had not finished");
+            let delta = |side: &str, i: usize| -> [u64; 6] {
+                std::array::from_fn(|k| end[side][i][k].as_u64().unwrap() - start[side][i][k].as_u64().unwrap())
+            };
+            let mut read_failures = [0u64; 3];
+            for (i, path) in READS.iter().enumerate() {
+                let [acquired, waits, timeouts, completed, errors, deadlines] = delta("reads", i);
+                assert_eq!((waits, timeouts), (0, 0), "participation must not wait on a pool slot: {path}");
+                assert_eq!(completed, acquired, "all acquired participation work must finish: {path}");
+                read_failures[i] = errors + deadlines;
+            }
+            for w in 0..2 {
+                let [_, waits, timeouts, ..] = delta("writer", w);
+                assert_eq!((waits, timeouts), (0, 0), "the vote writer waited for a slot");
+            }
+            // Participation answers as when idle.
+            let missed = |v: &[Call]| v.iter().filter(|(status, _)| *status != 200).count();
+            for (i, name) in CALLS.iter().enumerate() {
+                for (phase, loaded) in [("burst", &burst[i]), ("steady", &steady[i])] {
+                    let (c_missed, l_missed) = (missed(&control_phase[i]), missed(loaded));
+                    let (n_c, n_l) = (control_phase[i].len(), loaded.len());
+                    assert!(
+                        l_missed * ROUNDS * n_c <= c_missed * ROUNDS * n_l + EXTRA_MISSES * n_l * n_c,
+                        "{name} answered other than 200 more under the rewritten topic map ({phase}): control {c_missed} of {n_c}, loaded {l_missed} of {n_l}"
+                    );
+                    let (c95, l95) = (quantile(&control_phase[i], 0.95), quantile(loaded, 0.95));
+                    assert!(
+                        l95 <= c95 * 2 + Duration::from_millis(25),
+                        "{name} lost its latency under the rewritten topic map ({phase}): control p95 {c95:?}, loaded p95 {l95:?}"
+                    );
+                }
+            }
+            for (i, what) in [(0, "vote"), (1, "comment")] {
+                let all = control_phase[i].iter().chain(&burst[i]).chain(&steady[i]);
+                assert!(all.clone().all(|(s, _)| *s == 200), "every {what} was written: {:?}", statuses(&all.copied().collect::<Vec<_>>()));
+            }
+            // A read answers 200, or 502 only with its own pool's failure.
+            for (i, path) in READS.iter().enumerate() {
+                let all: Vec<Call> = control_phase[2 + i].iter().chain(&burst[2 + i]).chain(&steady[2 + i]).copied().collect();
+                assert!(all.iter().all(|(s, _)| *s == 200 || *s == 502), "{path}: {:?}", statuses(&all));
+                let failed = all.iter().filter(|(s, _)| *s == 502).count() as u64;
+                assert!(
+                    read_failures[i] >= failed || path.starts_with("/api/v3/votes?"),
+                    "502 without own-route failure evidence: {path}, {failed} answered 502"
+                );
+            }
+        });
+        flood_rt.shutdown_timeout(Duration::from_secs(5));
     }
 
     pub(super) fn clients(target: &str) {

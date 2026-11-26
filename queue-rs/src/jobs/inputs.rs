@@ -146,7 +146,11 @@ pub fn write(attempt_dir: &Path, bundle: &Bundle) -> Result<Value> {
     }))
 }
 
-/// Connect with the child's database setting, read, close, write.
+/// Connect with the child's database setting, read, write, close. With
+/// `reuse` (its switch on), the same connection then reads the stored
+/// embeddings the run may reuse and writes them beside the bundle
+/// (`jobs::reuse`); that never fails the bundle, and its frame value says
+/// whether there is a file and, if not, why.
 pub fn prepare(
     dsn: &str,
     transport: &TransportKind,
@@ -154,13 +158,14 @@ pub fn prepare(
     zid: i64,
     math_env: &str,
     selection: bool,
-) -> Result<Value> {
-    let bundle = {
-        let mut client =
-            Connector::from_parts(dsn, transport, None, "polis-jobs-inputs/1")?.connect()?;
-        read(&mut client, zid, math_env, selection)?
-    };
-    write(attempt_dir, &bundle)
+    reuse: Option<&super::reuse::Request>,
+) -> Result<(Value, Option<Value>)> {
+    let mut client =
+        Connector::from_parts(dsn, transport, None, "polis-jobs-inputs/1")?.connect()?;
+    let bundle = read(&mut client, zid, math_env, selection)?;
+    let frame = write(attempt_dir, &bundle)?;
+    let embeddings = reuse.map(|r| super::reuse::prepare(&mut client, attempt_dir, zid, r));
+    Ok((frame, embeddings))
 }
 
 /// The `math_env` the child's stages read: the frame's, else `MATH_ENV`, else

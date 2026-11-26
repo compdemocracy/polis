@@ -26,3 +26,12 @@ test('alpha installs inline prelude in head before all assets',()=>{
   assert.match(html,/clientErrorReporter\.js\?raw/);
   assert.ok(html.indexOf('set:html={clientErrorPrelude}')<html.indexOf('<link'));
 });
+test('the topic map page installs an inline prelude in head before its font and script',()=>{
+  const html=fs.readFileSync(path.join(root,'client-topic-map-embed/src/index.html'),'utf8');
+  const at=html.indexOf('{{CLIENT_ERRORS}}');
+  assert.ok(at>0); assert.ok(at<html.indexOf('@font-face')); assert.ok(at<html.indexOf('<script'));
+  const build=fs.readFileSync(path.join(root,'client-topic-map-embed/build.mjs'),'utf8');
+  assert.match(build,/client-error-prelude\.cjs/);
+  assert.match(build,/clientErrorReporter\.js/);
+  assert.match(build,/clientErrorPrelude\(\),\n\s*\);/);
+});

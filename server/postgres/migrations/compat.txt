@@ -49,3 +49,4 @@
 000047_extend_graph_embedding_and_labels.sql additive
 000048_create_delphi_entitlements.sql additive
 000049_add_topic_map_document_family.sql additive
+000050_add_derived_jobs.sql additive

@@ -14,12 +14,20 @@ use support::{Reply, Stub, hierarchy, message, namer, saved_topics, settings, to
 const VT_SONNET: &str = "replies/vtaiwan/sonnet-default-r1.json";
 
 fn run(h: &Hierarchy, replies: Vec<Reply>) -> (polis_topic_names::NamesFile, usize) {
+    run_with_cap(h, replies, 0.5)
+}
+
+fn run_with_cap(
+    h: &Hierarchy,
+    replies: Vec<Reply>,
+    cap: f64,
+) -> (polis_topic_names::NamesFile, usize) {
     let stub = Stub::start(replies);
     let file = name_topics(
         h,
         &namer("sonnet", "default"),
         Some("test-key"),
-        RunCap::Usd(0.5),
+        RunCap::Usd(cap),
         &settings(&stub.url),
     );
     (file, stub.finish().len())
@@ -51,7 +59,7 @@ fn a_refusal_is_refused() {
 fn a_429_then_200_is_one_retry() {
     let h = hierarchy("vtaiwan");
     let ok = support::fixture(VT_SONNET);
-    let (file, calls) = run(&h, vec![Reply::status(429, Some("0")), Reply::ok(ok)]);
+    let (file, calls) = run_with_cap(&h, vec![Reply::status(429, Some("0")), Reply::ok(ok)], 1.0);
     assert_eq!((file.outcome.as_str(), calls), ("named", 2));
     assert_eq!(file.record.attempts, 2);
 }
@@ -59,9 +67,10 @@ fn a_429_then_200_is_one_retry() {
 #[test]
 fn a_429_twice_is_http_429_after_one_retry() {
     let h = hierarchy("vtaiwan");
-    let (file, calls) = run(
+    let (file, calls) = run_with_cap(
         &h,
         vec![Reply::status(429, Some("0")), Reply::status(429, Some("0"))],
+        1.0,
     );
     assert_eq!((file.outcome.as_str(), calls), ("http_429", 2));
     assert_eq!(file.record.http_status, Some(429));
@@ -72,7 +81,11 @@ fn a_429_twice_is_http_429_after_one_retry() {
 #[test]
 fn a_529_then_503_is_http_503() {
     let h = hierarchy("vtaiwan");
-    let (file, calls) = run(&h, vec![Reply::status(529, None), Reply::status(503, None)]);
+    let (file, calls) = run_with_cap(
+        &h,
+        vec![Reply::status(529, None), Reply::status(503, None)],
+        1.0,
+    );
     assert_eq!((file.outcome.as_str(), calls), ("http_503", 2));
 }
 
