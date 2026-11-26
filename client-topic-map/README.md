@@ -33,7 +33,7 @@ No client uses it yet.
 | `theme-neutral.js` | the neutral theme | 5,754 |
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
-| `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 30,649 |
+| `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 32,422 |
 | `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; every other comment in view revealed on hover or focus, and selected on click with the poured form and the counts in words | |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
@@ -374,7 +374,11 @@ between them with the `form` setting:
   default), so that space is part of the picture rather than empty.
 
 Every rectangle `layout` returns is on whole CSS pixels, so its edges land on
-device pixels at a ratio of 1 or 2; the segments of a bar meet edge to edge and
+device pixels at any whole ratio (1, 2, 3) when the caller scales the canvas's
+backing store by `devicePixelRatio` and sets that transform; the lines between
+rows and down the middle stay 1 CSS px at every size. The poured liquid's
+curved side has a point every half CSS px of height, filled by the canvas with
+anti-aliasing at the backing store's resolution; the segments of a bar meet edge to edge and
 fill it exactly; nothing is stroked and there is no outline, frame or padding.
 Whole pixels are shared out by largest remainder, and any kind of vote that was
 cast gets at least one pixel. The poured form's paths start and end on the
@@ -396,7 +400,13 @@ as above), `separator` (1 px; 0 lets rows touch), `separatorAlpha` (0.5; 0
 shows the ground), `middle` and `middleAlpha` (true, 0.6), and `disagreeFill`
 (`"solid"`, or `"hatch"`: 1 px diagonal lines of disagree every `hatchPitch`,
 3, px over `hatchTint`); `gap`, `rowMax`, `letters` and `didNotVoteMax` apply
-to the rows only with `showNonVoters`. The poured form takes `pouredDots`. The default
+to the rows only with `showNonVoters`. The poured form takes `pouredDots`.
+`dotSize` is the side of a did-not-vote dot in whole px, its spacing
+`dotPitch` (`sawPitch`) times that; left `null`, it is 1 in the rows and, in
+the poured form, 1 px per 28 px of the box's height, at most a ninth of a
+column (`dotSizeFor(n, box, settings)` gives it; every layout carries it as
+`dotSize`): 1 px at 42×28, 2 px at 84×56, 3 px at 126×84, so a dot covers
+the same share of its space at every size. The default
 colours put a dark agree (`#004d40` on white) beside a light, strong red
 disagree (`#eb5b3f`), far apart in lightness so the cut between them shows at
 2 px rows; pass is a mid grey (`#8e949c`) and the did-not-vote tint

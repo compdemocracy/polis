@@ -506,3 +506,91 @@ test("poured by default: those who did not vote are dots in the space the liquid
   assert.equal(off.rects.filter((r) => r.beside === "liquid").length, 0);
   assert.deepEqual(off.paths, L.paths);
 });
+
+// ---------------------------------------------------------------------------
+// Medium sizes and screens of ratio 2 and 3: edges on device pixels, the
+// curves sampled finely, the dots growing with the box.
+
+const MEDIUM = [["rows", 34, 14], ["rows", 34, 15], ["rows", 68, 28], ["rows", 102, 42],
+  ["poured", 42, 28], ["poured", 84, 56], ["poured", 126, 84]];
+
+for (const [form, w, h] of MEDIUM) {
+  test(`${form} by default at ${w} by ${h}: every straight edge lands on a device pixel at ratio 1, 2 and 3`, () => {
+    for (const groups of [FOUR, groupsOf(4, w), groupsOf(3, h)]) {
+      const L = G.layout(groups, { x: 0, y: 0, width: w, height: h }, { form });
+      assert.equal(L.empty, false);
+      for (const r of L.rects) for (const dpr of [1, 2, 3]) {
+        for (const v of [r.x, r.y, r.x + r.w, r.y + r.h]) assert.ok(Number.isInteger(v * dpr), `${r.kind} edge ${v} at ${dpr}`);
+      }
+      for (const p of L.paths) {
+        const pts = p.points, n = pts.length;
+        // the liquid's left side, top and foot are whole pixels; only its right side is a curve
+        for (const pt of [pts[0], pts[1], pts[n - 2], pts[n - 1]]) assert.ok(Number.isInteger(pt[0]) && Number.isInteger(pt[1]));
+        assert.equal(pts[0][0], pts[n - 1][0], "the left side is one vertical line");
+        // the curve has a point every half CSS px of height at most: a device pixel at ratio 2
+        for (let i = 2; i < n - 1; i++) assert.ok(pts[i][1] - pts[i - 1][1] <= 0.5 + 1e-9, `step at ${pts[i][1]}`);
+      }
+    }
+  });
+}
+
+test("dotSizeFor: 1 px at label size, growing with the poured box, 1 in the rows, or as set", () => {
+  const at = (w, h, s) => G.dotSizeFor(4, { x: 0, y: 0, width: w, height: h }, s);
+  assert.equal(at(42, 28, { form: "poured" }), 1);
+  assert.equal(at(60, 55, { form: "poured" }), 1);
+  assert.equal(at(84, 56, { form: "poured" }), 2);
+  assert.equal(at(126, 84, { form: "poured" }), 3);
+  assert.equal(at(40, 84, { form: "poured" }), 1, "never more than a ninth of a column (columns of 9 px)");
+  assert.equal(at(102, 42, {}), 1);
+  assert.equal(at(102, 42, { showNonVoters: true }), 1);
+  assert.equal(at(42, 28, { form: "poured", dotSize: 2 }), 2);
+  assert.throws(() => at(42, 28, { form: "poured", dotSize: 1.5 }), /dotSize/);
+  assert.throws(() => at(42, 28, { form: "poured", dotSize: 0 }), /dotSize/);
+  for (const [w, h] of [[42, 28], [84, 56], [126, 84]]) {
+    assert.equal(G.layout(FOUR, { x: 0, y: 0, width: w, height: h }, { form: "poured" }).dotSize, at(w, h, { form: "poured" }));
+  }
+});
+
+for (const [w, h, u] of [[42, 28, 1], [84, 56, 2], [126, 84, 3]]) {
+  test(`poured at ${w} by ${h}: the dots are ${u} px squares every ${2 * u} px, whole, inside their space, clear of the liquid`, () => {
+    const box = { x: 0, y: 0, width: w, height: h };
+    const L = G.layout(FOUR, box, { form: "poured" });
+    const c = L.column, yL = c.upper, yS = c.upper + c.liquid;
+    const dots = L.rects.filter((r) => r.kind === "dot");
+    assert.ok(dots.length > 0);
+    for (const d of dots) {
+      assert.ok(d.w === u && d.h === u, JSON.stringify(d));
+      const bar = L.bars.find((b) => b.group === d.group && (d.beside ? b.part === "upper" : d.y >= b.y && d.y < b.y + b.h));
+      // across, on the box's grid; down, on the grid of the box (beside the liquid) or of the dotted part's own top
+      assert.ok(d.x % (2 * u) === 0 && (d.y - (d.beside ? 0 : bar.y)) % (2 * u) === 0, `on a grid of ${2 * u} px: ${JSON.stringify(d)}`);
+      assert.ok(d.x >= bar.x && d.x + d.w <= bar.x + bar.w, "inside its column");
+      if (!d.beside) {
+        const seg = bar.segments.find((s) => d.x >= s.x && d.x < s.x + s.w);
+        assert.ok(REST.includes(seg.kind) && d.x + d.w <= seg.x + seg.w && d.y + d.h <= seg.y + seg.h, "inside its remainder");
+      } else {
+        assert.ok(d.y >= yL && d.y + d.h <= yS);
+        const all = L.paths.find((p) => p.kind === "pass" && L.bars[p.bar].group === d.group);
+        const edge = Math.max(...all.points.filter((pt) => pt[1] <= d.y + d.h).map((pt) => pt[0]));
+        assert.ok(d.x >= edge - 1e-9, `dot at ${d.x},${d.y} inside the liquid`);
+      }
+    }
+    // about the same share of the dotted space is dot at every size: near one in four
+    const up = L.bars.find((b) => b.group === 0 && b.part === "upper");
+    const rest = up.segments.find((sg) => sg.kind === "didNotVote");
+    const inRest = dots.filter((d) => !d.beside && d.group === 0 && d.y < up.y + up.h);
+    const share = inRest.length * u * u / (rest.w * up.h);
+    assert.ok(share > 0.12 && share <= 0.3, `share of the dotted part that is dot: ${share}`);
+  });
+}
+
+test("rows by default at medium sizes: the lines stay 1 px and the rows fill the box", () => {
+  for (const [w, h] of [[68, 28], [102, 42]]) {
+    const L = G.layout(FOUR, { x: 0, y: 0, width: w, height: h }, {});
+    assert.equal(L.row.inset, 2);
+    assert.ok(L.rects.filter((r) => r.kind === "separator").every((r) => r.h === 1));
+    assert.ok(L.rects.filter((r) => r.kind === "middle").every((r) => r.w === 1 && r.h === h));
+    const last = L.row.tops.length - 1;
+    assert.equal(L.row.tops[0], 0);
+    assert.equal(L.row.tops[last] + L.row.heights[last], h);
+  }
+});
