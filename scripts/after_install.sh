@@ -307,6 +307,24 @@ if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && grep -qx 'DELPHI_SHADOW_GRAPH_ENABLED=1'
   DELPHI_SHADOW_GRAPH_SELECTED=1
 fi
 
+# Derived topic maps (docs/configuration.md, Derived Topic Maps). The worker
+# (delphi-derived-worker, profile-gated) is started on the Delphi box only on
+# the exact line POLIS_JOBS_DERIVED_WORKER=1; alone it runs only derived jobs
+# already asked for, so it does not need the shadow. The scheduler's backfill
+# is composed (docker-compose.derived.yml) only with the shadow and only on
+# the exact line DELPHI_SHADOW_DERIVED_BACKFILL=1. Otherwise this file starts
+# nothing of either and composes none of their settings. A worker container a
+# previous deploy started is removed on every Delphi deploy, as the shadow's
+# are, by the Delphi role's removal of the services it does not name.
+DELPHI_DERIVED_WORKER_SELECTED=0
+if [ "$SERVICE_FROM_FILE" == "delphi" ] && grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null; then
+  DELPHI_DERIVED_WORKER_SELECTED=1
+fi
+DELPHI_DERIVED_BACKFILL_SELECTED=0
+if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && grep -qx 'DELPHI_SHADOW_DERIVED_BACKFILL=1' .env 2>/dev/null; then
+  DELPHI_DERIVED_BACKFILL_SELECTED=1
+fi
+
 # Compose runs the pulled digests: this override sets each service's image, and
 # every `up` below passes --no-build, so nothing is built on this box.
 if [ -n "$ROLE_IMAGES" ]; then
@@ -318,6 +336,9 @@ if [ -n "$ROLE_IMAGES" ]; then
       for image in $SHADOW_IMAGES; do
         printf '  %s:\n    image: %s\n' "$image" "$(image_ref delphi)"
       done
+    fi
+    if [ "$DELPHI_DERIVED_WORKER_SELECTED" = 1 ]; then
+      printf '  delphi-derived-worker:\n    image: %s\n' "$(image_ref delphi)"
     fi
     # The shadow service runs the polis-api image pulled above. Its comment
     # observer's switch is written here and nowhere else, from the route
@@ -452,6 +473,20 @@ if [ "$DELPHI_SHADOW_SELECTED" = 1 ] && [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ];
     else
       echo "Error: the graph executor's composed settings are invalid (${DELPHI_SHADOW_GRAPH_WRONG:-unnamed}): not starting it, and the scheduler starts with DELPHI_SHADOW_GRAPH_CONVERSATIONS blank, so no conversation's graph is admitted until a deploy whose graph settings are valid (the full-pipeline shadow still starts)" >&2
     fi
+  fi
+fi
+
+# The derived worker must be the derived worker, able to log in to the job
+# queue, under the shadow's env (where the scheduler asks for its jobs), with
+# no other login and nothing on the box. jq prints the names of the settings
+# that are not so, never a value. Refused, it is not started; the deploy goes
+# on, as it does when its start fails. Never print config.
+if [ "$DELPHI_DERIVED_WORKER_SELECTED" = 1 ]; then
+  DELPHI_DERIVED_WORKER_WRONG=$(sudo /usr/local/bin/docker-compose -f docker-compose.yml -f docker-compose.images.yml --profile delphi-shadow --profile delphi-derived-worker config --format json | jq -r '.services as $s | ($s["delphi-derived-worker"] // {}) as $w | ($w.environment // {}) as $e | (($s["delphi-shadow-scheduler"].environment // {}).DELPHI_SHADOW_ENV // "") as $shadow | [(if ($w.command // []) == ["polis-topic-map", "derived-worker"] then empty else "delphi-derived-worker.command" end), (if ($e.POLIS_JOBS_DERIVED_WORKER // "") == "1" then empty else "delphi-derived-worker.POLIS_JOBS_DERIVED_WORKER" end), (if (($e.QUEUE_DATABASE_URL // "") | test("^[[:space:]]*$")) then "delphi-derived-worker.QUEUE_DATABASE_URL" else empty end), (if (($e.POLIS_JOBS_ENV // "") | test("^shadow-[a-z0-9_-]{1,57}$")) and ($e.POLIS_JOBS_ENV == $shadow) then empty else "delphi-derived-worker.POLIS_JOBS_ENV" end), (if ($e.POLIS_JOBS_TRANSPORT // "tls") == "tls" then (if ($e.POLIS_JOBS_CA_FILE // "") == "" then "delphi-derived-worker.POLIS_JOBS_CA_FILE" else empty end) elif ($e.POLIS_JOBS_TRANSPORT == "local" or $e.POLIS_JOBS_TRANSPORT == "loopback") then empty else "delphi-derived-worker.POLIS_JOBS_TRANSPORT" end), (if ($e.POLIS_JOBS_TRANSPORT // "tls") == "tls" and (($e.POLIS_JOBS_HOST_ALLOWLIST // "" | gsub("[,[:space:]]"; "")) == "") then "delphi-derived-worker.POLIS_JOBS_HOST_ALLOWLIST" else empty end), (if ($e | has("DATABASE_URL")) then "delphi-derived-worker.DATABASE_URL" else empty end), (if (($w.volumes // []) | length) == 0 then empty else "delphi-derived-worker.volumes" end)] | join(" ")') \
+    || DELPHI_DERIVED_WORKER_WRONG="unreadable"
+  if [ -n "$DELPHI_DERIVED_WORKER_WRONG" ]; then
+    echo "The derived topic map worker's composed settings cannot work ($DELPHI_DERIVED_WORKER_WRONG); not starting it" >&2
+    DELPHI_DERIVED_WORKER_SELECTED=0
   fi
 fi
 
@@ -723,6 +758,28 @@ fi
 # (DELPHI_SHADOW_SELECTED is already 0 on every other box) so that the checks
 # that read this file by role (file-server/nginx/production_upstreams.py
 # among them) see a Delphi-only block, not a start on the web boxes.
+# The derived topic map worker, likewise optional and Delphi-only, starts
+# before the scheduler, so a map job asked for is one a worker runs.
+if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_DERIVED_WORKER_SELECTED" = 1 ]; then
+  echo "POLIS_JOBS_DERIVED_WORKER=1: starting the derived topic map worker (delphi-derived-worker)"
+  if ! "${COMPOSE[@]}" up -d delphi-derived-worker --no-build --force-recreate; then
+    echo "The derived topic map worker did not start; the deploy continues without it" >&2
+    DELPHI_DERIVED_WORKER_SELECTED=0
+  fi
+fi
+# The scheduler asks for derived map jobs only when a worker will run them:
+# with the backfill on and no worker started on this deploy (its line off, or
+# refused above), one more Compose file composes the scheduler's admission
+# switch 0, so the backfill reads and asks for nothing, and one line says so.
+if [ "$DELPHI_DERIVED_BACKFILL_SELECTED" = 1 ]; then
+  DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived.yml)
+  if [ "$DELPHI_DERIVED_WORKER_SELECTED" != 1 ]; then
+    printf 'services:\n  delphi-shadow-scheduler:\n    environment:\n      - POLIS_JOBS_DERIVED_ADMISSION=0\n' | sudo tee docker-compose.derived-admission-off.yml > /dev/null
+    DELPHI_SHADOW_COMPOSE+=(-f docker-compose.derived-admission-off.yml)
+    echo "DELPHI_SHADOW_DERIVED_BACKFILL=1 with no derived topic map worker started: the scheduler starts with POLIS_JOBS_DERIVED_ADMISSION=0, so it asks for no map job that nothing would run" >&2
+  fi
+fi
+
 if [ "$SERVICE_FROM_FILE" == "delphi" ] && [ "$DELPHI_SHADOW_SELECTED" = 1 ]; then
   echo "DELPHI_SHADOW_ENABLED=1: starting the free-only Delphi shadow (delphi-shadow, delphi-shadow-scheduler)"
   if [ "$DELPHI_SHADOW_GRAPH_SELECTED" = 1 ]; then

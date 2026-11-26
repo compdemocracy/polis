@@ -251,6 +251,24 @@ pub fn store(run: &RunIdentity, wires: &Wires) -> Result<Stored, String> {
 /// [`store`] with another row limit, for the tests of the limit.
 #[doc(hidden)]
 pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Result<Stored, String> {
+    store_inner(run, wires, limit, &run.job_id)
+}
+
+/// [`store`] for a map made by another job than the run it is drawn from (a
+/// derived job): the document, its gzip and its SHA-256 are exactly the bytes
+/// [`store`] makes for `run` (the document names `run`, its source), and only
+/// the outer rows' `job_id` names `owner`, the job whose batch stores them, so
+/// a reader can tell whose batch the family belongs to.
+pub fn store_owned(run: &RunIdentity, wires: &Wires, owner: &str) -> Result<Stored, String> {
+    store_inner(run, wires, ROW_LIMIT, owner)
+}
+
+fn store_inner(
+    run: &RunIdentity,
+    wires: &Wires,
+    limit: usize,
+    owner: &str,
+) -> Result<Stored, String> {
     let conversation = run.conversation_id.to_string();
     let positions = Codec::read(wires.positions, POSITIONS)?;
     let assignments = Codec::read(wires.assignments, ASSIGNMENTS)?;
@@ -263,7 +281,7 @@ pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Resul
     let mut execution_row = Item::new();
     execution_row.s("conversation_id", &conversation);
     execution_row.s("part", part::EXECUTION);
-    execution_row.s("job_id", &run.job_id);
+    execution_row.s("job_id", owner);
     execution_row.s("body", &execution);
     let execution_line = execution_row.line();
     if execution_line.len() > limit {
@@ -297,7 +315,7 @@ pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Resul
             version: env!("CARGO_PKG_VERSION"),
         },
     };
-    let no_map = |reason| Stored::no_map(run, reason, None, &execution_line);
+    let no_map = |reason| Stored::no_map(run, owner, reason, None, &execution_line);
     if nodes.is_empty() {
         return Ok(no_map(NoMap::NoPositions));
     }
@@ -355,7 +373,7 @@ pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Resul
         let mut item = Item::new();
         item.s("conversation_id", &conversation);
         item.s("part", name);
-        item.s("job_id", &run.job_id);
+        item.s("job_id", owner);
         item
     };
     let mut doc_row = base(part::DOCUMENT);
@@ -371,6 +389,7 @@ pub fn store_with_limit(run: &RunIdentity, wires: &Wires, limit: usize) -> Resul
     if lines.iter().any(|l| l.len() > limit) {
         return Ok(Stored::no_map(
             run,
+            owner,
             NoMap::TooLarge,
             Some(document.len()),
             &execution_line,
@@ -407,6 +426,7 @@ pub fn stored_execution(wire: &str) -> Result<Option<Value>, String> {
 impl Stored {
     fn no_map(
         run: &RunIdentity,
+        owner: &str,
         reason: NoMap,
         document: Option<usize>,
         execution_line: &str,
@@ -415,7 +435,7 @@ impl Stored {
         let mut item = Item::new();
         item.s("conversation_id", &conversation);
         item.s("part", part::NO_MAP);
-        item.s("job_id", &run.job_id);
+        item.s("job_id", owner);
         item.s("reason", reason.as_str());
         if let Some(bytes) = document {
             item.n("bytes", bytes);

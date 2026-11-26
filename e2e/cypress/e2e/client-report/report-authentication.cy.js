@@ -351,8 +351,8 @@ describe('Reports - Authentication & Access Control', () => {
 
       // Should load some content (not error page)
       cy.get('body').then(($body) => {
-        // Wait for report content to appear instead of arbitrary wait
-        cy.contains('visualization', { timeout: 10000 }).should('exist')
+        // The topic map page: the map, or its quiet message while no map is stored
+        cy.get('.polis-topic-map', { timeout: 10000 }).should('exist')
 
         // Should not show server errors
         expect($body.text()).to.not.include('Cannot GET')

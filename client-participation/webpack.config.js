@@ -224,10 +224,6 @@ module.exports = (env, options) => {
             }
           },
           {
-            from: "node_modules/font-awesome/fonts/**/*",
-            to: "./fonts/[name][ext]"
-          },
-          {
             from: "node_modules/jwt-decode/build/jwt-decode.js",
             to: jwtDecodeScript,
             info: { minimized: true }

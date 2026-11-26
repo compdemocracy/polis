@@ -21,6 +21,7 @@
 //! limit only when one is set (by default there is none) (`storage`).
 //!
 //! What it touches, and what it never touches: see `db`.
+pub mod backfill;
 pub mod config;
 pub mod daemon;
 pub mod db;

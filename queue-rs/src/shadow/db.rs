@@ -209,6 +209,13 @@ impl<'a> Db<'a> {
         self.read(storage::shadow_jobs)
     }
 
+    /// The bytes this env's terminal derived jobs have stored, for their own
+    /// budget (`storage::derived_total`): one read-only statement, on the
+    /// scheduler's own read connection, with its statement and lock timeouts.
+    pub fn derived_total(&self, day_start_ms: i64) -> Result<storage::DerivedTotal> {
+        self.read(|tx| storage::derived_total(tx, &self.cfg.env, day_start_ms))
+    }
+
     pub fn assignments(&self, zid: i32) -> Result<BTreeMap<i64, Vec<i64>>> {
         let mut client = self.connect_queue()?;
         assignments(&mut client, &self.cfg.env, zid)

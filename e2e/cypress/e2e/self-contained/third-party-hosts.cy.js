@@ -21,13 +21,13 @@ const DELIBERATE_HOSTS = [
 // (donation form) and /home2 (a hosted topic-map demo).
 
 // The standard report plus every topic, narrative and collective statement
-// view the server routes to the report client.
+// view the server routes to the report client. /topicsVizReport is the topic
+// map page, not the report client: topic-map-page.cy.js checks it.
 const REPORT_ROUTES = [
   'report',
   'narrativeReport',
   'commentsReport',
   'topicReport',
-  'topicsVizReport',
   'topicHierarchy',
   'topicMapNarrativeReport',
   'topicStats',

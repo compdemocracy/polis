@@ -267,6 +267,7 @@ impl App {
                 delphi_topic_map_env,
                 delphi_topic_map_scope,
                 delphi_topic_map_shadow_env,
+                delphi_topic_map_derived,
                 delphi_topic_map_served,
                 delphi_topic_map_fallback,
                 delphi_topic_map,

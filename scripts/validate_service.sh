@@ -113,8 +113,14 @@ polis_api_ready() {
             ...(selected.includes("testConnection") ? ["POLIS_API_CONNECTION_READS"] : []),
             ...(selected.includes("version") ? ["POLIS_API_VERSION_READS"] : []),
             ...(selected.includes("comments") ? ["POLIS_API_COMMENT_READS"] : []),
-            ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : [])
+            ...(selected.includes("postVotes") ? ["POLIS_API_POST_VOTES"] : []),
+            ...(selected.includes("delphiTopicMap") ? ["POLIS_API_DELPHI_TOPIC_MAP_READS"] : [])
           ].sort().join(",");
+          // Derived reads modify the selected topic map handler; they do not
+          // select another route and are optional when that handler is selected.
+          const enabledSwitches = (h.routing?.enabledSwitches ?? ["!"]).filter(key =>
+            !(selected.includes("delphiTopicMap") &&
+              key === "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS"));
           // The vote writer reports itself enabled, with its counters, exactly
           // when its route is selected.
           const writer = h.postVotes;
@@ -126,7 +132,7 @@ polis_api_ready() {
             writer?.enabled !== true;
           if (r.status !== 200 || h.status !== "ok" || h.mathEnv !== "python" ||
               routes(h.routing?.configuredRoutes ?? "!") !== routes(expected) ||
-              routes((h.routing?.enabledSwitches ?? ["!"]).join(",")) !==
+              routes(enabledSwitches.join(",")) !==
                 expectedSwitches || !writerReady ||
               !p?.readOnly || !p.reachable || p.limit !== 8 ||
               p.acquireTimeoutMs !== 2000 || p.statementTimeoutMs !== 3000 ||
@@ -281,6 +287,37 @@ ready() {
     *) echo "Unknown service type: $role" >&2; return 1 ;;
   esac
 }
+# A selected derived worker is optional. When switched off, even a stopped
+# container must be absent: an older release cannot remove this service.
+# Silence on a successful off check; fail if absence cannot be established.
+derived_worker_report() {
+  [ "$role" = delphi ] || return 0
+  if ! grep -qx 'POLIS_JOBS_DERIVED_WORKER=1' .env 2>/dev/null; then
+    local ids try
+    # Retry inventory errors only; a successful inventory is final, including
+    # a leftover container. At most two 2-second waits on the Delphi box.
+    for try in 1 2 3; do
+      if ids=$(compose ps -a -q delphi-derived-worker); then
+        break
+      fi
+      if [ "$try" = 3 ]; then
+        echo "Cannot verify delphi-derived-worker removal; do not deploy an older release" >&2
+        return 1
+      fi
+      sleep 2
+    done
+    if [ -n "$ids" ]; then
+      echo "delphi-derived-worker still exists with its switch off; remove it using a release that knows the service before deploying an older release" >&2
+      return 1
+    fi
+    return 0
+  fi
+  if containers_ready delphi-derived-worker; then
+    echo "delphi-derived-worker running (POLIS_JOBS_DERIVED_WORKER=1)"
+  else
+    echo "delphi-derived-worker is not running although POLIS_JOBS_DERIVED_WORKER=1 (optional work, so the deploy is not failed; the deploy log says why)" >&2
+  fi
+}
 # Require consecutive successes so a restarting process cannot pass on one poll.
 successes=0
 attempts=60
@@ -290,6 +327,7 @@ for attempt in $(seq 1 "$attempts"); do
   if ready; then
     successes=$((successes + 1))
     if [ "$successes" -ge 3 ]; then
+      derived_worker_report
       echo "ValidateService passed for $role"
       exit 0
     fi

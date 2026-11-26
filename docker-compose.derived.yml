@@ -1,0 +1,24 @@
+# The derived topic map backfill's settings for the shadow's scheduler
+# (docs/configuration.md, Derived Topic Maps). Kept out of docker-compose.yml
+# so that, with the backfill off, the scheduler's composed configuration is
+# exactly what it is without derived jobs: the deploy hook adds this file
+# only on the exact line DELPHI_SHADOW_DERIVED_BACKFILL=1, and without it the
+# scheduler reads none of these keys and the backfill is off. To try it on a
+# local stack, add `-f docker-compose.derived.yml` after docker-compose.yml.
+#
+# With the backfill on, polis-delphi-shadow replaces itself with
+# `polis-topic-map shadow-scheduler` (the same image), which asks for a
+# derived map job for each stored run without one, a few at a time, through
+# the derived jobs' admission: that admission does anything only with
+# POLIS_JOBS_DERIVED_ADMISSION=1, and the deploy hook composes it 0 unless the
+# derived worker is started on the same deploy, so nothing is asked that no
+# worker would run.
+services:
+  delphi-shadow-scheduler:
+    environment:
+      - DELPHI_SHADOW_DERIVED_BACKFILL=${DELPHI_SHADOW_DERIVED_BACKFILL:-0}
+      - DELPHI_SHADOW_DERIVED_PER_CYCLE=${DELPHI_SHADOW_DERIVED_PER_CYCLE:-2}
+      - DELPHI_SHADOW_DERIVED_DAILY=${DELPHI_SHADOW_DERIVED_DAILY:-100}
+      - DELPHI_SHADOW_DERIVED_EVERY_SECONDS=${DELPHI_SHADOW_DERIVED_EVERY_SECONDS:-3600}
+      - DELPHI_SHADOW_DERIVED_STORAGE_BYTES=${DELPHI_SHADOW_DERIVED_STORAGE_BYTES:-1073741824}
+      - POLIS_JOBS_DERIVED_ADMISSION=${POLIS_JOBS_DERIVED_ADMISSION:-0}
