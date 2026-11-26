@@ -59,7 +59,7 @@ for pkg in meta["packages"]:
         path = d.get("path")
         if (d["name"] == "polis-routing-equation" or d.get("rename") == "polis-routing-equation"
                 or (path and os.path.realpath(path) == crate_dir)):
-            bad.append(f"{pkg['name']} depends on it")
+            bad.append(pkg["name"] + " depends on it")
 if bad:
     print("\n".join(bad)); sys.exit(1)
 ' "$CHECK_ROOT/$CRATE" || fail 'the dependency rule failed'
