@@ -32,8 +32,10 @@ RECEIPT_FIELDS = ("rule", "function", "source_commit", "priority_metric_source_s
 
 
 def fixtures_dir() -> Path:
-    candidates = [Path("/app/routing-equation-fixtures"),
-                  Path(__file__).resolve().parents[2] / "queue-rs/polis-routing-equation/tests/fixtures"]
+    candidates = [Path("/app/routing-equation-fixtures")]
+    here = Path(__file__).resolve()
+    if len(here.parents) > 2:
+        candidates.append(here.parents[2] / "queue-rs/polis-routing-equation/tests/fixtures")
     for c in candidates:
         if (c / "CURRENT_PYTHON_RULE").is_file():
             return c
