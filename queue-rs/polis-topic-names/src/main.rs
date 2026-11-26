@@ -5,8 +5,9 @@
 //! checked, or `names.json` cannot be written (nothing written).
 
 use polis_topic_names::{
-    Access, Hierarchy, KEY_ENV, Namer, Provider, REGION_ENV, RUN_MAX_ENV, RunCap, client,
-    name_topics_with,
+    Access, BEDROCK_INPUT_PRICE_ENV, BEDROCK_OUTPUT_PRICE_ENV, BEDROCK_PRICE_SOURCE_ENV,
+    GivenPrice, Hierarchy, KEY_ENV, Namer, NoPrice, PriceSetting, Provider, REGION_ENV,
+    RUN_MAX_ENV, RunCap, client, name_topics_with,
 };
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
@@ -15,7 +16,9 @@ const USAGE: &str = "usage: polis-topic-names name --in <hierarchy.json> --out <
   The key is read from DELPHI_NAMING_ANTHROPIC_API_KEY and the per-run cap (dollars) from\n\
   DELPHI_NAMING_RUN_MAX_USD (0.50 when unset). --api-base <url> is for tests only.\n\
   With \"provider\":\"bedrock\" in the namer, the call goes to Amazon Bedrock in AWS_REGION,\n\
-  signed with credentials from the default AWS credential chain; no key is read.";
+  signed with credentials from the default AWS credential chain; no key is read. No Bedrock\n\
+  call is made unless DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK, DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK\n\
+  and DELPHI_NAMING_BEDROCK_PRICE_SOURCE give the model's price and where it was read.";
 
 struct Args {
     input: PathBuf,
@@ -122,12 +125,23 @@ fn main() -> ExitCode {
     if let Some(base) = args.api_base {
         settings.api_base = base;
     }
+    // Bedrock has no built-in price: the price is read only for Bedrock, and
+    // without it no call is made.
+    let price: PriceSetting = match args.namer.provider {
+        Provider::Anthropic => Err(NoPrice(String::new())),
+        Provider::Bedrock => GivenPrice::from_settings(
+            std::env::var(BEDROCK_INPUT_PRICE_ENV).ok().as_deref(),
+            std::env::var(BEDROCK_OUTPUT_PRICE_ENV).ok().as_deref(),
+            std::env::var(BEDROCK_PRICE_SOURCE_ENV).ok().as_deref(),
+        ),
+    };
     let chain = client::AwsCredentials::DefaultChain;
     let access = match args.namer.provider {
         Provider::Anthropic => Access::Key(key.as_deref()),
         Provider::Bedrock => Access::Bedrock {
             region: region.as_deref(),
             credentials: &chain,
+            price: &price,
         },
     };
     let file = name_topics_with(&hierarchy, &args.namer, access, cap, &settings);

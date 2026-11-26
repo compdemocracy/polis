@@ -1,7 +1,7 @@
 //! The namer: which model names the topics, with which prompt version and
 //! thinking setting, and what each model costs.
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::fmt;
 
 /// The prompt version this crate builds.
@@ -80,7 +80,7 @@ impl Model {
     /// writes at 1.25 times input, cache reads at a tenth of input for Haiku
     /// and $0.10 a million for Sonnet).
     pub fn dollars(self, usage: &Usage) -> f64 {
-        dollars(Provider::Anthropic, self, usage)
+        dollars(self.price(), self, false, usage)
     }
 }
 
@@ -110,43 +110,89 @@ impl Provider {
             (Self::Bedrock, Model::Sonnet) => "anthropic.claude-sonnet-5-5",
         }
     }
+}
 
-    /// The price row of a model through this provider.
-    ///
-    /// Bedrock: Amazon Bedrock prices Claude separately from the Claude API,
-    /// and AWS's pricing page showed no figure for these two models when this
-    /// was written. Anthropic's Bedrock page says a regional endpoint costs 10
-    /// percent more than the global one, and AWS's endpoint page says
-    /// `bedrock-mantle` does not route across regions, so a call to one
-    /// region's `bedrock-mantle` is taken to be regional. The Bedrock rows are
-    /// therefore an ESTIMATE, not a confirmed price: the Claude API's prices
-    /// plus 10 percent. Replace them when the Bedrock price has been read.
-    pub fn price(self, model: Model) -> Price {
-        match (self, model) {
-            (Self::Anthropic, m) => m.price(),
-            (Self::Bedrock, Model::Haiku) => Price {
-                input: 0.11e-6,
-                output: 0.55e-6,
-                input_long: 0.55e-6,
-                output_long: 2.75e-6,
-            },
-            (Self::Bedrock, Model::Sonnet) => Price {
-                input: 2.20e-6,
-                output: 11.00e-6,
-                input_long: 2.20e-6,
-                output_long: 11.00e-6,
-            },
+/// The highest given Bedrock price accepted, in US dollars per million tokens,
+/// for input or for output. The Claude API's own rows are $2 and $10 for
+/// Sonnet 5.5; a figure over this is taken to be a typing error (for example a
+/// price per thousand tokens, or a missing decimal point) and makes no call.
+pub const MAX_GIVEN_USD_PER_MTOK: f64 = 100.0;
+/// The longest stated price source accepted, in characters. It is recorded
+/// verbatim, so it is refused, not shortened, when longer.
+pub const MAX_PRICE_SOURCE_CHARS: usize = 500;
+
+/// A price per token given to the program for a Bedrock call, and where the
+/// person who gave it read it. Bedrock has no built-in price: without one of
+/// these, no Bedrock call is made.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct GivenPrice {
+    pub input_usd_per_mtok: f64,
+    pub output_usd_per_mtok: f64,
+    /// Where and when the figures were read, exactly as given.
+    pub source: String,
+}
+
+/// Why no given price is usable: the reason `no_price` records.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NoPrice(pub String);
+
+/// A Bedrock price as the settings gave it.
+pub type PriceSetting = Result<GivenPrice, NoPrice>;
+
+impl GivenPrice {
+    /// Reads the three settings. Each must be present and not blank; each
+    /// figure a finite number above zero and at most
+    /// [`MAX_GIVEN_USD_PER_MTOK`]; the source at most
+    /// [`MAX_PRICE_SOURCE_CHARS`] characters.
+    pub fn from_settings(
+        input: Option<&str>,
+        output: Option<&str>,
+        source: Option<&str>,
+    ) -> PriceSetting {
+        let figure = |name: &str, value: Option<&str>| -> Result<f64, NoPrice> {
+            let Some(v) = value.map(str::trim).filter(|v| !v.is_empty()) else {
+                return Err(NoPrice(format!("{name} is not set")));
+            };
+            match v.parse::<f64>() {
+                Ok(x) if x.is_finite() && x > 0.0 && x <= MAX_GIVEN_USD_PER_MTOK => Ok(x),
+                Ok(x) if x.is_finite() && x > MAX_GIVEN_USD_PER_MTOK => Err(NoPrice(format!(
+                    "{name} is over ${MAX_GIVEN_USD_PER_MTOK} per million tokens"
+                ))),
+                _ => Err(NoPrice(format!(
+                    "{name} is not a number of dollars above zero"
+                ))),
+            }
+        };
+        let input_usd_per_mtok = figure(crate::BEDROCK_INPUT_PRICE_ENV, input)?;
+        let output_usd_per_mtok = figure(crate::BEDROCK_OUTPUT_PRICE_ENV, output)?;
+        let Some(source) = source.map(str::trim).filter(|s| !s.is_empty()) else {
+            return Err(NoPrice(format!(
+                "{} is not set",
+                crate::BEDROCK_PRICE_SOURCE_ENV
+            )));
+        };
+        if source.chars().count() > MAX_PRICE_SOURCE_CHARS {
+            return Err(NoPrice(format!(
+                "{} is over {MAX_PRICE_SOURCE_CHARS} characters",
+                crate::BEDROCK_PRICE_SOURCE_ENV
+            )));
         }
+        Ok(Self {
+            input_usd_per_mtok,
+            output_usd_per_mtok,
+            source: source.to_string(),
+        })
     }
 
-    /// Dollars per cache-read token: a tenth of the input price for Haiku;
-    /// for Sonnet $0.10 a million on the Claude API and, the same estimate as
-    /// above, $0.11 through Bedrock.
-    fn cache_read(self, model: Model, input_price: f64) -> f64 {
-        match (self, model) {
-            (_, Model::Haiku) => 0.1 * input_price,
-            (Self::Anthropic, Model::Sonnet) => 0.10e-6,
-            (Self::Bedrock, Model::Sonnet) => 0.11e-6,
+    /// The price as a row: one rate at every prompt length.
+    fn row(&self) -> Price {
+        let input = self.input_usd_per_mtok * 1e-6;
+        let output = self.output_usd_per_mtok * 1e-6;
+        Price {
+            input,
+            output,
+            input_long: input,
+            output_long: output,
         }
     }
 }
@@ -161,8 +207,10 @@ fn worst_case(p: Price, counted_input_tokens: u64, max_tokens: u64) -> f64 {
     counted_input_tokens as f64 * pin + max_tokens as f64 * pout
 }
 
-fn dollars(provider: Provider, model: Model, usage: &Usage) -> f64 {
-    let p = provider.price(model);
+/// Dollars of an answered call at `p`. At the Claude API's row, cache reads
+/// are a tenth of input for Haiku and $0.10 a million for Sonnet; at a given
+/// price, which states no cache rate, they are counted at the input rate.
+fn dollars(p: Price, model: Model, given: bool, usage: &Usage) -> f64 {
     let prompt =
         usage.input_tokens + usage.cache_creation_input_tokens + usage.cache_read_input_tokens;
     let long = model == Model::Haiku && prompt > LONG_PROMPT_TOKENS;
@@ -171,7 +219,11 @@ fn dollars(provider: Provider, model: Model, usage: &Usage) -> f64 {
     } else {
         (p.input, p.output)
     };
-    let read = provider.cache_read(model, pin);
+    let read = match (given, model) {
+        (true, _) => pin,
+        (false, Model::Haiku) => 0.1 * pin,
+        (false, Model::Sonnet) => 0.10e-6,
+    };
     usage.input_tokens as f64 * pin
         + usage.cache_creation_input_tokens as f64 * 1.25 * pin
         + usage.cache_read_input_tokens as f64 * read
@@ -294,18 +346,32 @@ impl Namer {
         self.provider.model_id(self.model)
     }
 
-    /// Worst-case dollars of one call at this provider's price row.
-    pub fn worst_case_usd(&self, counted_input_tokens: u64, max_tokens: u64) -> f64 {
-        worst_case(
-            self.provider.price(self.model),
-            counted_input_tokens,
-            max_tokens,
-        )
+    /// The row this call is checked and recorded at: the Claude API's own
+    /// row, or, through Bedrock, only the given price (none without one).
+    pub fn price_row(&self, given: Option<&GivenPrice>) -> Option<Price> {
+        match self.provider {
+            Provider::Anthropic => Some(self.model.price()),
+            Provider::Bedrock => given.map(GivenPrice::row),
+        }
     }
 
-    /// Dollars of an answered call at this provider's price row.
-    pub fn dollars(&self, usage: &Usage) -> f64 {
-        dollars(self.provider, self.model, usage)
+    /// Worst-case dollars of one call at [`Namer::price_row`]; `None` through
+    /// Bedrock without a given price.
+    pub fn worst_case_usd(
+        &self,
+        given: Option<&GivenPrice>,
+        counted_input_tokens: u64,
+        max_tokens: u64,
+    ) -> Option<f64> {
+        self.price_row(given)
+            .map(|p| worst_case(p, counted_input_tokens, max_tokens))
+    }
+
+    /// Dollars of an answered call at [`Namer::price_row`].
+    pub fn dollars(&self, given: Option<&GivenPrice>, usage: &Usage) -> Option<f64> {
+        let given_used = self.provider == Provider::Bedrock;
+        self.price_row(given)
+            .map(|p| dollars(p, self.model, given_used, usage))
     }
 }
 
@@ -399,39 +465,70 @@ mod tests {
         }
     }
 
+    fn price(input: &str, output: &str, source: &str) -> PriceSetting {
+        GivenPrice::from_settings(Some(input), Some(output), Some(source))
+    }
+
     #[test]
-    fn bedrock_rows_are_the_claude_api_rows_plus_ten_percent() {
-        for m in [Model::Haiku, Model::Sonnet] {
-            let a = Provider::Anthropic.price(m);
-            let b = Provider::Bedrock.price(m);
-            for (x, y) in [
-                (a.input, b.input),
-                (a.output, b.output),
-                (a.input_long, b.input_long),
-                (a.output_long, b.output_long),
-            ] {
-                assert!((y - 1.1 * x).abs() < 1e-15, "{m:?} {x} {y}");
-            }
-        }
+    fn bedrock_has_no_price_unless_one_is_given() {
         let sonnet = |provider| Namer {
             model: Model::Sonnet,
             thinking: Thinking::Default,
             provider,
         };
-        // Bowling Green's 70,540-byte body: $0.4611 on the Claude API,
-        // $0.5072 through Bedrock, which is over the $0.50 default cap.
-        let a = sonnet(Provider::Anthropic).worst_case_usd(70_540, 32_000);
-        let b = sonnet(Provider::Bedrock).worst_case_usd(70_540, 32_000);
-        assert!((a - 0.46108).abs() < 1e-9, "{a}");
-        assert!((b - 0.507188).abs() < 1e-9, "{b}");
+        let a = sonnet(Provider::Anthropic);
+        let b = sonnet(Provider::Bedrock);
+        assert_eq!(b.price_row(None), None);
+        assert_eq!(b.worst_case_usd(None, 70_540, 32_000), None);
+        // The Claude API's row ignores any given price.
+        let g = price("3", "15", "read from the console").unwrap();
+        assert_eq!(a.price_row(Some(&g)), Some(Model::Sonnet.price()));
+        // Bowling Green's 70,540-byte body at $3 in and $15 out per million.
+        let w = b.worst_case_usd(Some(&g), 70_540, 32_000).unwrap();
+        assert!(
+            (w - (70_540.0 * 3e-6 + 32_000.0 * 15e-6)).abs() < 1e-12,
+            "{w}"
+        );
         let u = Usage {
             input_tokens: 25_445,
             output_tokens: 8_217,
             cache_read_input_tokens: 1_000,
             ..Usage::default()
         };
-        let da = sonnet(Provider::Anthropic).dollars(&u);
-        assert!((da - Model::Sonnet.dollars(&u)).abs() < 1e-15);
-        assert!((sonnet(Provider::Bedrock).dollars(&u) - 1.1 * da).abs() < 1e-12);
+        assert_eq!(a.dollars(Some(&g), &u), Some(Model::Sonnet.dollars(&u)));
+        let d = b.dollars(Some(&g), &u).unwrap();
+        assert!(
+            (d - (26_445.0 * 3e-6 + 8_217.0 * 15e-6)).abs() < 1e-12,
+            "{d}"
+        );
+        assert_eq!(b.dollars(None, &u), None);
+    }
+
+    #[test]
+    fn a_given_price_must_be_present_positive_sane_and_sourced() {
+        let ok = price(" 2.5 ", "12", "  AWS console, Bedrock pricing, 2026-11-26 ").unwrap();
+        assert_eq!(ok.input_usd_per_mtok, 2.5);
+        assert_eq!(ok.output_usd_per_mtok, 12.0);
+        assert_eq!(ok.source, "AWS console, Bedrock pricing, 2026-11-26");
+        assert!(price("100", "100", "s").is_ok());
+        for (i, o) in [
+            ("", "10"),
+            ("2", " "),
+            ("two", "10"),
+            ("2", "0"),
+            ("-2", "10"),
+            ("NaN", "10"),
+            ("inf", "10"),
+            ("2", "100.01"),
+            ("2000", "10"),
+        ] {
+            assert!(price(i, o, "s").is_err(), "{i:?} {o:?}");
+        }
+        assert!(GivenPrice::from_settings(None, Some("10"), Some("s")).is_err());
+        assert!(GivenPrice::from_settings(Some("2"), None, Some("s")).is_err());
+        assert!(GivenPrice::from_settings(Some("2"), Some("10"), None).is_err());
+        assert!(price("2", "10", "   ").is_err());
+        assert!(price("2", "10", &"x".repeat(MAX_PRICE_SOURCE_CHARS)).is_ok());
+        assert!(price("2", "10", &"x".repeat(MAX_PRICE_SOURCE_CHARS + 1)).is_err());
     }
 }

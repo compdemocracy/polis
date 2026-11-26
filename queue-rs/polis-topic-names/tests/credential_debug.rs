@@ -1,7 +1,7 @@
 //! Formatting authentication for diagnostics must not disclose credentials.
 #![allow(clippy::unwrap_used)]
 use polis_topic_names::{
-    Access,
+    Access, NoPrice,
     client::{Auth, AwsCredentials},
 };
 
@@ -49,7 +49,8 @@ fn access_debug_redacts_keys_and_aws_credentials() {
         "{:?}",
         Access::Bedrock {
             region: Some("us-east-1"),
-            credentials: &credentials
+            credentials: &credentials,
+            price: &Err(NoPrice(String::new())),
         }
     ));
 }

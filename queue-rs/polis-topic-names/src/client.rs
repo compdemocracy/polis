@@ -131,6 +131,10 @@ pub enum Ended {
     Answered(Vec<u8>),
     /// HTTP 200 with a body longer than [`MAX_REPLY_BYTES`].
     Oversize,
+    /// HTTP 403, with the response's own error type when it names one (the
+    /// `x-amzn-ErrorType` header, or the body's `error.type`), reduced to a
+    /// bare identifier. No other part of the response is kept.
+    Forbidden(Option<String>),
     /// Any other HTTP status.
     Status(u16),
     /// An attempt passed its timeout.
@@ -406,6 +410,9 @@ async fn attempt(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.trim().parse::<u64>().ok())
         .map(Duration::from_secs);
+    if status == 403 {
+        return Attempt::Done(Ended::Forbidden(forbidden_type(resp).await), Some(403));
+    }
     if status != 200 {
         if RETRY_STATUSES.contains(&status) {
             return Attempt::Retry(Ended::Status(status), Some(status), after);
@@ -443,4 +450,44 @@ fn transport_failure(e: &reqwest::Error) -> Attempt {
     } else {
         Attempt::Done(Ended::Connect, None)
     }
+}
+
+/// The most of a 403 body read to find its error type.
+const MAX_ERROR_BODY_BYTES: usize = 16 * 1024;
+
+/// A 403 response's error type: the `x-amzn-ErrorType` header's name part,
+/// else the JSON body's `error.type` or `__type`, kept only when it is an
+/// identifier of at most 64 letters, digits and underscores. The body's text
+/// (which may say anything) is never kept.
+async fn forbidden_type(mut resp: reqwest::Response) -> Option<String> {
+    fn identifier(raw: &str) -> Option<String> {
+        // `AccessDeniedException:http://...` or `namespace#AccessDeniedException`.
+        let name = raw.split(':').next()?.rsplit('#').next()?.trim();
+        let ok = !name.is_empty()
+            && name.len() <= 64
+            && name.bytes().all(|b| b.is_ascii_alphanumeric() || b == b'_');
+        ok.then(|| name.to_string())
+    }
+    if let Some(t) = resp
+        .headers()
+        .get("x-amzn-errortype")
+        .and_then(|v| v.to_str().ok())
+        .and_then(identifier)
+    {
+        return Some(t);
+    }
+    let mut body = Vec::new();
+    while let Ok(Some(chunk)) = resp.chunk().await {
+        if body.len() + chunk.len() > MAX_ERROR_BODY_BYTES {
+            return None;
+        }
+        body.extend_from_slice(&chunk);
+    }
+    let v: serde_json::Value = serde_json::from_slice(&body).ok()?;
+    let t = v
+        .get("error")
+        .and_then(|e| e.get("type"))
+        .or_else(|| v.get("__type"))
+        .and_then(|t| t.as_str())?;
+    identifier(t)
 }

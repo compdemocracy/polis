@@ -14,7 +14,10 @@ pub mod namer;
 pub mod prompt;
 
 pub use hierarchy::{Hierarchy, HierarchyError, Topic};
-pub use namer::{Model, Namer, NamerError, PROMPT_VERSION, Provider, Thinking, Usage};
+pub use namer::{
+    GivenPrice, Model, Namer, NamerError, NoPrice, PROMPT_VERSION, PriceSetting, Provider,
+    Thinking, Usage,
+};
 
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -25,6 +28,13 @@ pub const NAMES_SCHEMA: &str = "polis-topic-names.names/1";
 pub const KEY_ENV: &str = "DELPHI_NAMING_ANTHROPIC_API_KEY";
 /// The environment variable the Bedrock region is read from.
 pub const REGION_ENV: &str = "AWS_REGION";
+/// Bedrock: the price, in US dollars per million input tokens, of the model
+/// being asked. Bedrock has no built-in price; without it no call is made.
+pub const BEDROCK_INPUT_PRICE_ENV: &str = "DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK";
+/// Bedrock: the price, in US dollars per million output tokens.
+pub const BEDROCK_OUTPUT_PRICE_ENV: &str = "DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK";
+/// Bedrock: where and when the two prices were read, recorded verbatim.
+pub const BEDROCK_PRICE_SOURCE_ENV: &str = "DELPHI_NAMING_BEDROCK_PRICE_SOURCE";
 /// The environment variable the per-run cap is read from.
 pub const RUN_MAX_ENV: &str = "DELPHI_NAMING_RUN_MAX_USD";
 /// The per-run cap when none is set.
@@ -43,6 +53,8 @@ pub enum Outcome {
     NoCredentials,
     /// Bedrock: `AWS_REGION` unset or not a region name.
     NoRegion,
+    /// Bedrock: no usable price was given, so the cost cannot be bounded.
+    NoPrice,
     OverRunCap,
     TooLarge,
     Http(u16),
@@ -64,6 +76,7 @@ impl Outcome {
             Self::NoKey => "no_key".into(),
             Self::NoCredentials => "no_credentials".into(),
             Self::NoRegion => "no_region".into(),
+            Self::NoPrice => "no_price".into(),
             Self::OverRunCap => "over_run_cap".into(),
             Self::TooLarge => "too_large".into(),
             Self::Http(s) => format!("http_{s}"),
@@ -120,8 +133,22 @@ pub struct Record {
     pub attempts: u32,
     pub http_status: Option<u16>,
     pub stop_reason: Option<String>,
+    /// Not a number (written as `null`) only when there was no price.
+    #[serde(serialize_with = "finite_or_null")]
     pub worst_case_usd: f64,
     pub run_max_usd: Option<f64>,
+    /// Bedrock only: the given price the cap was checked at and `dollars`
+    /// computed at, with its stated source, as given.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub price: Option<GivenPrice>,
+}
+
+fn finite_or_null<S: serde::Serializer>(x: &f64, s: S) -> Result<S::Ok, S::Error> {
+    if x.is_finite() {
+        s.serialize_f64(*x)
+    } else {
+        s.serialize_none()
+    }
 }
 
 /// `names.json`.
@@ -172,10 +199,12 @@ impl Run {
 pub enum Access<'a> {
     /// The Claude API key, when one is set.
     Key(Option<&'a str>),
-    /// Amazon Bedrock: the region (when set) and where credentials come from.
+    /// Amazon Bedrock: the region (when set), where credentials come from,
+    /// and the price given for the model being asked.
     Bedrock {
         region: Option<&'a str>,
         credentials: &'a client::AwsCredentials,
+        price: &'a PriceSetting,
     },
 }
 
@@ -212,19 +241,14 @@ pub fn name_topics_with(
 ) -> NamesFile {
     let body = prompt::body_v1(h, namer);
     let counted = body.len() as u64;
-    let worst = namer.worst_case_usd(counted, prompt::MAX_TOKENS);
-    let run = decide_and_call(
-        h,
-        namer.provider,
-        access,
-        cap,
-        settings,
-        &body,
-        counted,
-        worst,
-    );
+    let given = match access {
+        Access::Bedrock { price: Ok(p), .. } => Some(p),
+        _ => None,
+    };
+    let worst = namer.worst_case_usd(given, counted, prompt::MAX_TOKENS);
+    let run = decide_and_call(h, namer, access, cap, settings, &body, counted, worst);
     let outcome = run.outcome.word();
-    let dollars = run.usage.map(|u| namer.dollars(&u));
+    let dollars = run.usage.and_then(|u| namer.dollars(given, &u));
     NamesFile {
         schema: NAMES_SCHEMA,
         outcome: outcome.clone(),
@@ -251,10 +275,14 @@ pub fn name_topics_with(
             attempts: run.attempts,
             http_status: run.http_status,
             stop_reason: run.stop_reason,
-            worst_case_usd: worst,
+            worst_case_usd: worst.unwrap_or(f64::NAN),
             run_max_usd: match cap {
                 RunCap::Usd(x) => Some(x),
                 RunCap::Unreadable => None,
+            },
+            price: match namer.provider {
+                Provider::Anthropic => None,
+                Provider::Bedrock => given.cloned(),
             },
         },
     }
@@ -263,14 +291,15 @@ pub fn name_topics_with(
 #[allow(clippy::too_many_arguments)]
 fn decide_and_call(
     h: &Hierarchy,
-    provider: Provider,
+    namer: &Namer,
     access: Access<'_>,
     cap: RunCap,
     settings: &client::Settings,
     body: &str,
     counted: u64,
-    worst: f64,
+    worst: Option<f64>,
 ) -> Run {
+    let provider = namer.provider;
     if h.len() > MAX_TOPICS {
         return Run::failed(
             Outcome::TooLarge,
@@ -286,6 +315,37 @@ fn decide_and_call(
             format!("{counted} counted input tokens; at most {MAX_COUNTED_INPUT}"),
         );
     }
+    // Bedrock has no built-in price: without a usable given price the cost
+    // cannot be bounded, so no credential is read and no call is made.
+    if provider == Provider::Bedrock {
+        match access {
+            Access::Key(_) => {
+                return Run::failed(
+                    Outcome::NoCredentials,
+                    "a Bedrock namer needs AWS credentials, not a key",
+                );
+            }
+            Access::Bedrock {
+                price: Err(NoPrice(why)),
+                ..
+            } => return Run::failed(Outcome::NoPrice, why.clone()),
+            Access::Bedrock { price: Ok(_), .. }
+                if namer.model == Model::Haiku && counted > namer::LONG_PROMPT_TOKENS =>
+            {
+                return Run::failed(
+                    Outcome::NoPrice,
+                    format!(
+                        "{counted} counted input tokens is over {}, where Haiku has a long-prompt rate, and the given price is one rate",
+                        namer::LONG_PROMPT_TOKENS
+                    ),
+                );
+            }
+            Access::Bedrock { price: Ok(_), .. } => {}
+        }
+    }
+    let Some(worst) = worst else {
+        return Run::failed(Outcome::NoPrice, "no price for this call");
+    };
     match cap {
         RunCap::Unreadable => {
             return Run::failed(
@@ -319,6 +379,7 @@ fn decide_and_call(
             Access::Bedrock {
                 region,
                 credentials,
+                ..
             },
         ) => {
             let Some(region) = region.map(str::trim).filter(|r| !r.is_empty()) else {
@@ -352,9 +413,16 @@ fn decide_and_call(
             Outcome::BadJson,
             format!("the reply body is over {} bytes", client::MAX_REPLY_BYTES),
         ),
-        client::Ended::Status(403) if provider == Provider::Bedrock => Run::failed(
+        client::Ended::Forbidden(error_type) if provider == Provider::Bedrock => Run::failed(
             Outcome::Http(403),
-            "Amazon Bedrock answered HTTP 403: model access not granted, or the role may not call bedrock-mantle:CreateInference",
+            match error_type {
+                Some(t) => format!("Amazon Bedrock answered HTTP 403, error type {t}"),
+                None => "Amazon Bedrock answered HTTP 403, with no error type".to_string(),
+            },
+        ),
+        client::Ended::Forbidden(_) => Run::failed(
+            Outcome::Http(403),
+            "the provider answered HTTP 403".to_string(),
         ),
         client::Ended::Status(s) => {
             Run::failed(Outcome::Http(s), format!("the provider answered HTTP {s}"))

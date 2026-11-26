@@ -45,11 +45,38 @@ written. On 1 or 2 nothing is written.
 With `"provider": "bedrock"` the call goes to the Messages API of Claude in
 Amazon Bedrock, `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages`.
 
+**The program will not spend money on Bedrock unless someone has told it the
+price.** It has no price of its own for Bedrock; it is given one, with a note of
+where it was read, and it checks every call against that price before sending
+anything.
+
 - **Settings it reads** (names only): `AWS_REGION` (the region, for example
   `us-east-1`; unset, or not a region name, is the outcome `no_region`), the
-  per-run cap `DELPHI_NAMING_RUN_MAX_USD`, and whatever the default AWS
-  credential chain reads. No key: `DELPHI_NAMING_ANTHROPIC_API_KEY` is not
-  read.
+  three price settings below, the per-run cap `DELPHI_NAMING_RUN_MAX_USD`, and
+  whatever the default AWS credential chain reads. No key:
+  `DELPHI_NAMING_ANTHROPIC_API_KEY` is not read.
+- **The price, given explicitly.** For the model being asked:
+  - `DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK`: US dollars per million input
+    tokens;
+  - `DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK`: US dollars per million output
+    tokens;
+  - `DELPHI_NAMING_BEDROCK_PRICE_SOURCE`: where and when the two figures were
+    read (free text, at most 500 characters), recorded verbatim.
+
+  Each figure must be a number above zero and at most $100 per million (a
+  higher figure is taken to be a typing error, such as a price per thousand
+  tokens). If any of the three is absent, empty, not a number, zero, negative or
+  over $100, the outcome is `no_price`: no credential is read, no request is
+  sent, and the run keeps its keyword names. The given price is one rate at
+  every prompt length, so a Haiku prompt over 100,000 counted tokens (where the
+  Claude API charges a long-prompt rate) is also `no_price`.
+- **The cost check** is the Claude API's, at the given price: the worst case
+  (every counted input token at the input price plus `max_tokens` at the output
+  price) must fit the per-run cap, or the outcome is `over_run_cap` with no
+  request. `names.json` records the price used and its stated source
+  (`record.price`), the worst case (`record.worst_case_usd`, `null` under
+  `no_price`) and the cap. `record.dollars` of an answered call is computed at
+  the given price, with cache reads counted at the input rate.
 - **Credentials** come from the default AWS credential chain when the call is
   made: the environment, the shared profile files, the container's
   credentials, then the instance role through the instance metadata service.
@@ -66,19 +93,22 @@ Amazon Bedrock, `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages`.
 - **Where the text goes.** The comment text of the sample comments (the
   comments participants are shown) leaves the box to Amazon Bedrock in that
   region, over TLS. Nothing goes to the Claude API.
-- **Price.** AWS's pricing page showed no price for these models when this was
-  written. Anthropic's page says a regional endpoint costs 10 percent more
-  than the global one, and AWS's says `bedrock-mantle` does not route across
-  regions, so the cost check uses the Claude API's prices plus 10 percent as
-  an estimate (Sonnet 5.5 $2.20 in, $11 out per million; Haiku 5.5 $0.11 in,
-  $0.55 out, $0.55 and $2.75 above 100,000 prompt tokens). Bowling Green's
-  Sonnet worst case is then over the $0.50 default cap, so a Bedrock Sonnet run
-  of a conversation that size needs a higher cap.
-- **Outcomes** are the Claude API's, plus `no_region` and `no_credentials` (the
-  chain gave none within 30 s, or they could not sign the request), both with
-  no call made. HTTP 403 (model access not granted, or the role may not call
-  `bedrock-mantle:CreateInference`) is `http_403`, not retried; 429, the
-  timeout, a refusal and every reply check end as they do for the Claude API.
+- **Outcomes** are the Claude API's, plus `no_price`, `no_region` and
+  `no_credentials` (the chain gave none within 30 s, or they could not sign the
+  request), each with no call made. HTTP 403 is `http_403`, not retried; its
+  reason says only that Bedrock answered 403 and, when the response names one,
+  its error type (the `x-amzn-ErrorType` header or the body's `error.type`, as
+  a bare identifier). The response's message is never kept. A 403 can mean
+  model access not granted, a role that may not call
+  `bedrock-mantle:CreateInference`, expired credentials or a clock out of step;
+  the program does not guess which. 429, the timeout, a refusal and every reply
+  check end as they do for the Claude API.
+- **Two attempts are possible.** When the first attempt fails with a retried
+  status or connection error and twice the worst case fits the cap, one more
+  attempt is made, and both may be billed. That is the program's whole retry:
+  it keeps no record between runs, so if its caller runs it again (after a
+  restart, say), that is a new run with its own attempts. Making sure a
+  conversation is named at most once across restarts is the caller's job.
 
 ## What it reads: `hierarchy.json`
 
@@ -232,9 +262,18 @@ fixtures are described in `tests/fixtures/README.md`.
   (credential scope `<date>/<region>/bedrock-mantle/aws4_request`, signed
   headers, the body's hash) and equals the one sent; no `x-api-key`; 403, 429
   with and without the retry, the timeout, a refusal, a bad cover, no region,
-  credentials that cannot sign, and the cap at the Bedrock price.
+  credentials that cannot sign, and the cap at the given price; the 403
+  reason with and without an error type (the message never kept); no price
+  or a bad one (absent, empty, not a number, zero, negative, over $100, no
+  source) is `no_price` with no attempt; a price whose worst case is over the
+  cap is `over_run_cap` with no attempt; a good price is one signed call whose
+  record shows the price and its source.
 - `program_bedrock`: the program with credentials from the environment
   through the default chain, with none (the profile files absent and the
-  instance metadata service switched off), and with no region.
+  instance metadata service switched off), and with no region; and with no
+  price, a bad price, and a price over the cap: each writes its outcome,
+  sends no request and exits 0.
+- `credential_debug`: formatting the credential and access types for
+  diagnostics shows no key, secret or token.
 
 Run them with `make check-polis-topic-names` (format, clippy, tests).

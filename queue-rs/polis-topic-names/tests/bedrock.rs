@@ -12,7 +12,9 @@ mod support;
 use hmac::{Hmac, Mac};
 use polis_topic_names::client::{AwsCredentials, Settings};
 use polis_topic_names::prompt::{self, LANGUAGE_SENTENCE};
-use polis_topic_names::{Access, Hierarchy, Namer, NamesFile, RunCap, name_topics_with};
+use polis_topic_names::{
+    Access, GivenPrice, Hierarchy, Model, Namer, NamesFile, PriceSetting, RunCap, name_topics_with,
+};
 use sha2::{Digest, Sha256};
 use std::time::Duration;
 use support::{Received, Reply, Stub, fixture, hierarchy, message, saved_topics, topics_text};
@@ -38,6 +40,18 @@ fn given() -> AwsCredentials {
     }
 }
 
+/// A made-up test price per million tokens, the Claude API's row plus a
+/// tenth, so these tests' arithmetic is easy to follow.
+const TEST_SOURCE: &str = "made-up test price";
+
+fn test_price(n: &Namer) -> PriceSetting {
+    let (input, output) = match n.model {
+        Model::Haiku => ("0.11", "0.55"),
+        Model::Sonnet => ("2.2", "11"),
+    };
+    GivenPrice::from_settings(Some(input), Some(output), Some(TEST_SOURCE))
+}
+
 /// Settings pointing at the stub, at the Bedrock path.
 fn stub_settings(stub: &Stub) -> Settings {
     let mut s = support::settings(&stub.url);
@@ -53,6 +67,18 @@ fn run(
     replies: Vec<Reply>,
     cap: f64,
 ) -> (NamesFile, Vec<Received>) {
+    run_priced(h, n, region, creds, replies, cap, &test_price(n))
+}
+
+fn run_priced(
+    h: &Hierarchy,
+    n: &Namer,
+    region: Option<&str>,
+    creds: &AwsCredentials,
+    replies: Vec<Reply>,
+    cap: f64,
+    price: &PriceSetting,
+) -> (NamesFile, Vec<Received>) {
     let stub = Stub::start(replies);
     let s = stub_settings(&stub);
     let file = name_topics_with(
@@ -61,6 +87,7 @@ fn run(
         Access::Bedrock {
             region,
             credentials: creds,
+            price,
         },
         RunCap::Usd(cap),
         &s,
@@ -195,7 +222,7 @@ fn the_body_is_the_saved_study_body_with_only_the_model_id_mapped() {
     assert_eq!(prompt::body_v1(&h, &n), expected);
 
     // And that is what reaches the wire, signed. Bowling Green's worst case
-    // through Bedrock is $0.5072, so this run raises the cap to $1.
+    // at the test price is $0.5072, so this run raises the cap to $1.
     let reply = fixture("replies/bg2050/sonnet-off-r1.json");
     let (file, got) = run(&h, &n, Some(REGION), &given(), vec![Reply::ok(reply)], 1.0);
     assert_eq!(file.outcome, "named", "{:?}", file.reason);
@@ -285,13 +312,57 @@ fn http_403_is_an_outcome_with_its_reason_and_no_retry() {
     );
     assert_eq!((file.outcome.as_str(), got.len()), ("http_403", 1));
     assert_eq!(file.record.http_status, Some(403));
+    // The body carries no error type, only a message, which is never kept;
+    // the reason claims no cause it cannot know.
     let reason = file.reason.unwrap();
-    assert!(
-        reason.contains("403") && reason.contains("access"),
-        "{reason}"
+    assert_eq!(
+        reason,
+        "Amazon Bedrock answered HTTP 403, with no error type"
     );
-    assert!(!reason.contains("PLANTED"));
     assert!(file.names.is_empty());
+}
+
+#[test]
+fn a_403_reason_names_the_response_error_type_and_nothing_else() {
+    let h = hierarchy("vtaiwan");
+    let n = bedrock("sonnet", "default");
+    let header = Reply::Http {
+        status: 403,
+        headers: vec![(
+            "x-amzn-ErrorType".into(),
+            "AccessDeniedException:http://internal.example/PLANTED-MARKER".into(),
+        )],
+        body: br#"{"message":"PLANTED-MARKER"}"#.to_vec(),
+    };
+    let (file, got) = run(&h, &n, Some(REGION), &given(), vec![header], 5.0);
+    assert_eq!((file.outcome.as_str(), got.len()), ("http_403", 1));
+    assert_eq!(
+        file.reason.as_deref(),
+        Some("Amazon Bedrock answered HTTP 403, error type AccessDeniedException")
+    );
+    let body = Reply::Http {
+        status: 403,
+        headers: vec![],
+        body: br#"{"type":"error","error":{"type":"permission_error","message":"PLANTED-MARKER"}}"#
+            .to_vec(),
+    };
+    let (file, _) = run(&h, &n, Some(REGION), &given(), vec![body], 5.0);
+    assert_eq!(
+        file.reason.as_deref(),
+        Some("Amazon Bedrock answered HTTP 403, error type permission_error")
+    );
+    // A type that is not a bare identifier is dropped, not quoted.
+    let odd = Reply::Http {
+        status: 403,
+        headers: vec![],
+        body: br#"{"error":{"type":"PLANTED MARKER with spaces"}}"#.to_vec(),
+    };
+    let (file, _) = run(&h, &n, Some(REGION), &given(), vec![odd], 5.0);
+    assert_eq!(
+        file.reason.as_deref(),
+        Some("Amazon Bedrock answered HTTP 403, with no error type")
+    );
+    assert!(!file.to_json().contains("PLANTED"));
 }
 
 #[test]
@@ -351,12 +422,14 @@ fn a_reply_that_never_comes_is_timeout() {
     let mut s = stub_settings(&stub);
     s.timeout = Duration::from_millis(300);
     let creds = given();
+    let n = bedrock("sonnet", "default");
     let file = name_topics_with(
         &h,
-        &bedrock("sonnet", "default"),
+        &n,
         Access::Bedrock {
             region: Some(REGION),
             credentials: &creds,
+            price: &test_price(&n),
         },
         RunCap::Usd(5.0),
         &s,
@@ -443,14 +516,16 @@ fn credentials_that_cannot_sign_are_no_credentials_with_no_call() {
 }
 
 #[test]
-fn the_cap_is_checked_at_the_bedrock_price_before_any_credential_is_read() {
+fn the_cap_is_checked_at_the_given_price_before_any_credential_is_read() {
     // Bowling Green's version 1 body: a worst case under $0.50 on the Claude
-    // API and over it through Bedrock. At the $0.50 default only the Claude
+    // API and over it at the test price. At the $0.50 default only the Claude
     // API run is affordable. The chain is never read: no credential exists.
     let h = hierarchy("bg2050");
     let n = bedrock("sonnet", "default");
     let counted = prompt::body_v1(&h, &n).len() as u64;
-    let claude_api = support::namer("sonnet", "default").worst_case_usd(counted, 32_000);
+    let claude_api = support::namer("sonnet", "default")
+        .model
+        .worst_case_usd(counted, 32_000);
     assert!(claude_api < 0.5, "{claude_api}");
     let (file, got) = run(
         &h,
@@ -463,6 +538,125 @@ fn the_cap_is_checked_at_the_bedrock_price_before_any_credential_is_read() {
     assert_eq!((file.outcome.as_str(), got.len()), ("over_run_cap", 0));
     let w = file.record.worst_case_usd;
     assert!(w > 0.5 && (w - 1.1 * claude_api).abs() < 1e-9, "{w}");
+    // The record shows the price the refusal was computed from.
+    let price = file.record.price.unwrap();
+    assert_eq!(
+        (price.input_usd_per_mtok, price.output_usd_per_mtok),
+        (2.2, 11.0)
+    );
+    assert_eq!(price.source, TEST_SOURCE);
+}
+
+/// No usable price: `no_price`, no credential read (the chain has none, and
+/// the outcome would otherwise be `no_credentials`), no request, keyword
+/// names kept.
+///
+/// Here and below the stub serves nothing, so a request would end
+/// `connect_error` with an attempt counted; `no_price` with zero attempts is
+/// the proof that none was sent.
+#[test]
+fn without_a_usable_price_it_is_no_price_with_no_call() {
+    let h = hierarchy("vtaiwan");
+    let n = bedrock("sonnet", "default");
+    let cases: [(Option<&str>, Option<&str>, Option<&str>); 12] = [
+        (None, None, None),
+        (None, Some("11"), Some("s")),
+        (Some("2.2"), None, Some("s")),
+        (Some("2.2"), Some("11"), None),
+        (Some(""), Some("11"), Some("s")),
+        (Some("2.2"), Some("11"), Some("  ")),
+        (Some("two"), Some("11"), Some("s")),
+        (Some("0"), Some("11"), Some("s")),
+        (Some("2.2"), Some("-11"), Some("s")),
+        (Some("NaN"), Some("11"), Some("s")),
+        (Some("2.2"), Some("1100"), Some("s")),
+        (Some("2200"), Some("11"), Some("s")),
+    ];
+    for (i, o, src) in cases {
+        let price = GivenPrice::from_settings(i, o, src);
+        let (file, got) = run_priced(
+            &h,
+            &n,
+            Some(REGION),
+            &AwsCredentials::DefaultChain,
+            vec![],
+            5.0,
+            &price,
+        );
+        let case = format!("{i:?} {o:?} {src:?}");
+        assert_eq!(file.outcome, "no_price", "{case}");
+        assert_eq!(got.len(), 0, "{case}");
+        assert_eq!(file.record.attempts, 0, "{case}");
+        assert!(file.names.is_empty(), "{case}");
+        assert!(
+            file.reason
+                .as_deref()
+                .is_some_and(|r| r.contains("DELPHI_NAMING_BEDROCK_"))
+        );
+        assert_eq!(file.record.price, None);
+        assert!(file.record.dollars.is_none());
+        let v: serde_json::Value = serde_json::from_str(&file.to_json()).unwrap();
+        assert!(v["record"]["worst_case_usd"].is_null(), "{case}");
+        assert!(v["record"].get("price").is_none(), "{case}");
+    }
+}
+
+#[test]
+fn a_good_price_is_one_signed_call_recorded_with_its_price_and_source() {
+    let h = hierarchy("vtaiwan");
+    let n = bedrock("sonnet", "default");
+    let source = "Bedrock pricing page, us-east-1, read 2026-11-26 (a made-up test source)";
+    let price = GivenPrice::from_settings(Some("3"), Some("15"), Some(source));
+    let (file, got) = run_priced(
+        &h,
+        &n,
+        Some(REGION),
+        &given(),
+        vec![Reply::ok(fixture(VT_SONNET))],
+        5.0,
+        &price,
+    );
+    assert_eq!(file.outcome, "named", "{:?}", file.reason);
+    assert_eq!(got.len(), 1);
+    assert_signed(&got[0], REGION);
+    let counted = got[0].body.len() as f64;
+    let w = file.record.worst_case_usd;
+    assert!(
+        (w - (counted * 3e-6 + 32_000.0 * 15e-6)).abs() < 1e-12,
+        "{w}"
+    );
+    let v: serde_json::Value = serde_json::from_str(&file.to_json()).unwrap();
+    assert_eq!(v["record"]["price"]["input_usd_per_mtok"], 3.0);
+    assert_eq!(v["record"]["price"]["output_usd_per_mtok"], 15.0);
+    assert_eq!(v["record"]["price"]["source"], source);
+    let u = (
+        v["record"]["tokens_in"].as_f64().unwrap(),
+        v["record"]["tokens_out"].as_f64().unwrap(),
+    );
+    let d = file.record.dollars.unwrap();
+    assert!(d >= u.0 * 3e-6 + u.1 * 15e-6 - 1e-12, "{d}");
+}
+
+#[test]
+fn a_given_price_that_puts_the_worst_case_over_the_cap_makes_no_call() {
+    let h = hierarchy("vtaiwan");
+    let n = bedrock("sonnet", "default");
+    // $40 per million output tokens: 32,000 output tokens alone are $1.28.
+    let price = GivenPrice::from_settings(Some("8"), Some("40"), Some("s"));
+    let (file, got) = run_priced(
+        &h,
+        &n,
+        Some(REGION),
+        &AwsCredentials::DefaultChain,
+        vec![],
+        0.5,
+        &price,
+    );
+    assert_eq!((file.outcome.as_str(), got.len()), ("over_run_cap", 0));
+    assert_eq!(file.record.attempts, 0);
+    assert!(file.names.is_empty());
+    assert!(file.record.worst_case_usd > 1.28);
+    assert_eq!(file.record.price.unwrap().output_usd_per_mtok, 40.0);
 }
 
 #[test]
@@ -478,12 +672,14 @@ fn a_provider_and_the_wrong_kind_of_access_make_no_call() {
     );
     assert_eq!(file.outcome, "no_credentials");
     let creds = given();
+    let n = support::namer("sonnet", "default");
     let file = name_topics_with(
         &h,
-        &support::namer("sonnet", "default"),
+        &n,
         Access::Bedrock {
             region: Some(REGION),
             credentials: &creds,
+            price: &test_price(&n),
         },
         RunCap::Usd(0.5),
         &s,
