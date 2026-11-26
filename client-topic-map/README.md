@@ -28,9 +28,10 @@ No client uses it yet.
 
 | File | What it is | Bytes |
 | --- | --- | ---: |
-| `topic-map.js` | the map | 44,142 |
+| `topic-map.js` | the map | 53,516 |
 | `topic-list.js` | the list | 7,976 |
 | `theme-neutral.js` | the neutral theme | 5,754 |
+| `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 28,596 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -77,6 +78,7 @@ Options:
 | `selected` | a topic id to select at once (needs `data`); this dispatches a `topicselect` with origin `"api"` while the map is built | none |
 | `projection` | `"web-mercator"`, as datamapplot's maps are drawn, or `"linear"`, the UMAP positions with no stretch | `"web-mercator"` |
 | `collision` | which names show where names compete: `"as-drawn"`, as datamapplot's maps show them today, or `"by-weight"`, the rule datamapplot asks for (larger topics first) | `"as-drawn"` |
+| `drawing` | `null` for the map as described here, or `"dense"` (or an object of settings) for the dense drawing: see [The dense drawing](#the-dense-drawing-the-drawing-option) | `null` |
 
 Methods:
 
@@ -88,6 +90,7 @@ Methods:
 | `select(id, origin)` | selects a topic, or clears the selection with `null`; dispatches `topicselect` if the selection changed. Throws for an unknown id |
 | `hover(id, origin)` | marks a topic as hovered, or none with `null`; dispatches `topichover` if it changed. Throws for an unknown id |
 | `setCollision(mode)` | `"as-drawn"` or `"by-weight"`, as the option |
+| `setDrawing(settings)` | `null`, `"dense"` or the dense drawing's settings, as the `drawing` option; draws at once |
 | `settle()` | finishes at once any work on which names show and draws the result |
 | `redraw()` | draws again at the next frame |
 | `destroy()` | removes the canvas, the tooltip and every listener |
@@ -106,6 +109,40 @@ hovers that topic. A click on a comment or a name selects its topic; a click on
 the selected topic again, or on empty ground, clears the selection. Selecting a
 topic dims the other comments and enlarges its own, and its name always shows.
 There is no keyboard control.
+
+### The dense drawing: the `drawing` option
+
+With `drawing: "dense"` (or `setDrawing("dense")`) the map draws the dense
+map, by the rules in `dense.js` (load it before `topic-map.js`): the ground;
+each zone (the coarsest level) as a tint and an outline, zone by zone; each
+district (the level below) as a dashed outline; every comment as a grey dot,
+held-back comments included; then the names of the zones, the districts and
+the finest level together, each with its halo, placed so that none overlaps
+another, shrunk to fit or left out.
+
+An object instead of `"dense"` is merged over `PolisTopicMapDense.PRESET_DENSE`
+key by key: `{ wrap: { zone: 18 } }` changes only that key. The names are
+measured and drawn in `fontSans` and `fontMono` (the zone names), which default
+to the theme's `font.family`.
+
+What differs from the default drawing while it is selected:
+
+- the positions are drawn linearly (y up), fitted to the extent of every point
+  with a pad of 3% of the smaller side; `projection`, `level`, `collision`, the
+  theme's colours and the document's colours do not apply;
+- names are placed again only when the element's size has stopped changing for
+  120 ms, and when a face finishes loading;
+- there is no hover, click or zoom: the pointer does nothing. The settings
+  `hover`, `click` and `zoom` are refused for now;
+- each placement dispatches `densestats`, whose `caption` is a line of counts a
+  page can show ("Drawn now at 1408 by 803 px: 69 topic names (…).").
+
+`setDrawing(null)` returns to the default drawing, drawn exactly as before.
+
+```js
+var map = new PolisTopicMap(element, { data: doc, theme: theme, drawing: "dense" });
+element.addEventListener("densestats", function (e) { caption.textContent = e.detail.caption; });
+```
 
 ### The list: PolisTopicList(element, options)
 
@@ -137,6 +174,7 @@ when something changed.
 | `topicselect` | map, list | `{ topic, previous, origin }`: `topic` is the selected topic's id, or `null` when the selection was cleared; `previous` is the one before |
 | `topichover` | map, list | `{ topic, previous, origin }`: `topic` is the hovered topic's id, or `null` |
 | `levelchange` | map | `{ level, previous, origin }`: a level number, or `"all"` |
+| `densestats` | map, dense drawing only | `{ caption, width, height, placed, byLayer, dropped, layerTotals, zoneCount, shrunk, shiftMedian, shiftP90 }`: what the dense drawing placed, dispatched each time it places the names (at the first draw, after a resize has settled, when a face loads) |
 
 `origin` says where the change came from: `"map"` when a person did it on the
 map, `"list"` when a person did it in the list, and `"api"` when the host called
@@ -238,6 +276,79 @@ Load the style sheet on any page that shows the map; the map measures again when
 a face finishes loading. The face is named `Roboto` on that page, so any other
 style on the page that lists Roboto in its font stack gets this face too.
 
+## The dense drawing's rules: `dense.js`
+
+**PolisTopicMapDense** (`window.PolisTopicMapDense`, or `module.exports`) holds
+the rules of the dense drawing of the map: several layers named at once, the
+coarsest as tinted and outlined zones, the next as dashed districts, every
+comment a grey dot. They are pure functions: no page, no canvas. The map draws
+them when its `drawing` option is `"dense"`.
+
+```js
+var D = PolisTopicMapDense;
+var model = D.prepare(doc, D.PRESET_DENSE);            // what does not depend on size
+var frame = D.layout(model, { width: 1408, height: 803, measure: measure });
+var shapes = D.zoneShapes(model, frame);               // zone tints and outlines, district outlines
+D.caption(frame);                                      // "Drawn now at 1408 by 803 px: 69 topic names (…)."
+```
+
+`measure(text, font)` is the caller's: it returns the width in px of one line
+of text, where `font` is `{ weight, size, family, letterSpacing, font }` and
+`font.font` is the CSS font string (`"606 25px …"`). In a browser it sets a
+canvas's `font` and `letterSpacing` and calls `measureText`.
+
+The settings are one plain object, merged over `DEFAULTS` key by key.
+`PRESET_DENSE` is the drawing as approved. Layers are named by role, so the
+preset does not depend on how many levels a document has: `"zone"` is the
+coarsest level, `"district"` the level below it and `"finest"` level 0 (on a
+four-level document, levels 3, 2 and 0). A layer may also be given by number.
+`resolveSettings(settings, levels)` gives the settings by number. Documents of
+fewer than three levels put two roles on one level; which drawing such
+documents should get is not settled.
+
+The names are set in two families, both settings: `fontMono` for the layers in
+`monoLayers` (the zone names, in capitals) and `fontSans` for the others (the
+district names in capitals, the finest names as written). Each is a CSS
+font-family list. Both default to `DEFAULT_FACE`, the face the package already
+draws its labels in (`Roboto, sans-serif`, the neutral theme's `font.family`);
+the package has no monospace face, so the mono treatment uses the same face
+until a setting names another. Sizes, weights, capitals, letter spacing,
+wrapping, priority, placement and shrinking do not depend on the family; the
+widths it measures do, so another face places a different set of names.
+
+| Rule | Function |
+| --- | --- |
+| a topic's spread: the 75th-percentile distance of its points from its anchor, rounded to 3 decimals | `topicSpread(doc)` |
+| the centre (mean of every point) and the extent of every point | `prepare` (`model.centre`, `model.extent`) |
+| the first view: fit the extent with a pad of `pad × min(W, H)` | `fitView(extent, W, H, pad)` |
+| zone hues: zones ordered by their angle around the centre, zone k of n at `25 + k × 360 / n` | `prepare` (`model.zoneHue`) |
+| every topic's hue: its zone by parents, else the nearest zone; turned by `0.12 ×` its angle from the zone | `prepare` (`model.zoneOf`, `model.zoneBy`, `model.hueOf`) |
+| a name's size by layer and count, `lo + (hi − lo) × √(count / layer max)` | `prepare` (`model.baseFont`) |
+| weight `round(clamp(300 + (f − 7) × 17, 300, 760))` | `weightFor(f)` |
+| the prefix `L_C: ` the naming stage stores, removed | `stripNamePrefix(name)` |
+| wrapping by character count | `wrapText(text, n)` |
+| priority: `level × 100000 + count`, descending | `prepare` (`model.order`) |
+| placement on rings of 16 directions, shrink by 0.88, drop below the minimum size | `layout(model, opts)` |
+| the order names are drawn in | `drawOrder(placed)` |
+| colours, strokes and the halo | `palette(scheme)` |
+| the density grid and its three box blurs; marching squares | `densityGrid`, `contourSegs`, `gridScale`, `zoneAlpha`, `zoneShapes` |
+| the dots' radius | `dotRadius(model, frame)` |
+| the line of counts under the map | `caption(frame)` |
+
+The arithmetic is kept in the order the rules were first written in, so the
+same document, spreads and widths give the same values to the last bit
+(`test/dense.test.js`). The zone tint is a colour string (`oklch(…)`); the code
+that draws it resolves it to sRGB with a canvas.
+
+The recorded drawing computed spreads around anchors before rounding those
+anchors for its document. `prepare` normally computes spreads from the anchors
+it receives. Reproducing that recording exactly therefore also requires its
+spreads: pass `{ spread: { topicId: radius } }` as the third argument. On the
+reference document, 28 of 143 labelled topics differ by 0.001 when spreads are
+recomputed; none changes placement there. Such a difference can add or remove
+a spiral ring and change placement on another document. It is not a general
+placement tolerance.
+
 ## Taking it into a client
 
 Code is shared between the clients today in two ways. Build tooling lives in the
@@ -299,6 +410,21 @@ node --test client-topic-map/test/*.test.js
 - `test/api.test.js`: the methods and events above, on the public fixture
   document, with the least of a page the components need to be built (nothing
   is drawn).
+- `test/drawing.test.js`: the map's `drawing` option, on a canvas that records
+  its calls: the default drawing's calls are the ones it made before the option
+  existed; the dense drawing draws a tint and an outline per zone, a dashed
+  outline per district, one dot per point (held-back points included) and one
+  text draw per placed line, and, measuring with the reference's widths, places
+  the reference's names; a document of two levels draws too.
+- `test/dense.test.js`: the dense drawing's rules against one drawing made in
+  a browser at 1408 by 803 px (`fixtures/dense-reference.json`): given that
+  drawing's document, its recorded spreads and its measured widths,
+  every placed name (its lines, size, weight, position, box, and whether and
+  how far it was shrunk), every dropped name, the counts, the caption, the
+  zone and district colours and the density grid of one zone (every Float32
+  cell, every outline segment) are equal to the recorded values exactly. The
+  fixture is a cut of a public conversation's stored map, with names written
+  by a language model.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.

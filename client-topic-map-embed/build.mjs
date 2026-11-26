@@ -50,7 +50,8 @@ const banner = (where) =>
   `@solidjs/signals (MIT, Copyright (c) 2023-2025 Ryan Carniato) and client-topic-map, which carries work of datamapplot, ` +
   `deck.gl and mjolnir.js (MIT) and Python's textwrap (PSF License), with the Roboto font (SIL OFL 1.1). Full notices: ${where} */`;
 
-async function bundle(where) {
+// The page's script, as both builds carry it.
+export async function bundle(where) {
   const result = await build({
     entryPoints: [join(here, "src", "page.js")],
     bundle: true,

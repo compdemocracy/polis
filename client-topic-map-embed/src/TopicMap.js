@@ -11,6 +11,11 @@
  *   theme          "light" or "dark" (themes.js), or a theme object
  *   document       optional: a polis-topic-map/1 document to draw instead of
  *                  asking the route (a page that already holds one)
+ *   drawing        optional: "dense" for the map's dense drawing
+ *                  (client-topic-map's drawing option, or an object of its
+ *                  settings); the level and name-rule buttons, which do
+ *                  nothing in it, are then left out. None, null or "default":
+ *                  the map as drawn without it.
  *   controls       false to leave out the row of buttons above the map
  *   onTopicSelect, onTopicHover, onLevelChange
  *                  optional: called with the map's event detail
@@ -45,8 +50,9 @@
  */
 import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import h from "@solidjs/h";
+import PolisTopicMapDense from "../../client-topic-map/dense.js";
 import PolisTopicMap from "../../client-topic-map/topic-map.js";
-import { mapRequest, readCommentText, readTopicMap, TEXT } from "./load.js";
+import { isDense, mapRequest, readCommentText, readTopicMap, TEXT } from "./load.js";
 import { commentTextFor } from "./commentText.js";
 import { countLine, fillText, withTooltipText } from "./points.js";
 import { chromeProperties, themeFor } from "./themes.js";
@@ -56,7 +62,12 @@ const RULES = [
   ["by-weight", "Largest topic first"],
 ];
 
+// The dense drawing's rules, where the map looks for them (dense.js sets them
+// there itself when it runs; naming them here keeps them in every build).
+if (!globalThis.PolisTopicMapDense) globalThis.PolisTopicMapDense = PolisTopicMapDense;
+
 const count = (n) => n.toLocaleString("en-US");
+
 
 function resolveTheme(theme) {
   return theme && typeof theme === "object" ? theme : themeFor(theme);
@@ -74,6 +85,7 @@ export default function TopicMap(props) {
   const [collision, setCollision] = createSignal("as-drawn");
   let mapElement;
   let map = null;
+  let drawnWith = null; // the drawing the map was last given (null: its own)
 
   const fetchFn = () => untrack(() => props.fetch) || globalThis.fetch.bind(globalThis);
   // This component's comment text, for one reader at a time (commentText.js),
@@ -115,12 +127,15 @@ export default function TopicMap(props) {
       // The map reads each point's text when it shows its tooltip, so the
       // text can arrive after it is drawn.
       const data = withTooltipText(s.doc);
+      const drawing = untrack(() => props.drawing);
       try {
         map = new PolisTopicMap(mapElement, {
           data,
           theme: resolveTheme(untrack(() => props.theme)),
           level: 0,
+          ...(isDense(drawing) ? { drawing } : {}),
         });
+        drawnWith = isDense(drawing) ? drawing : null;
       } catch (e) {
         map = null;
         setState({ kind: "refused", text: TEXT.undrawable });
@@ -175,6 +190,16 @@ export default function TopicMap(props) {
     () => resolveTheme(props.theme),
     (theme) => {
       if (map) map.setTheme(theme);
+    },
+  );
+
+  // Another drawing for a map already drawn.
+  createEffect(
+    () => (isDense(props.drawing) ? props.drawing : null),
+    (drawing) => {
+      if (!map || drawing === drawnWith) return;
+      drawnWith = drawing;
+      map.setDrawing(drawing);
     },
   );
 
@@ -235,7 +260,7 @@ export default function TopicMap(props) {
     },
     () => props.header,
     () =>
-      showsMap() && props.controls !== false
+      showsMap() && props.controls !== false && !isDense(props.drawing)
         ? h("div", { class: "polis-topic-map-controls" }, [
             h("div", { class: "polis-topic-map-levels", role: "group", "aria-label": "Level of the topics shown" }, levelButtons),
             h("div", { class: "polis-topic-map-rules", role: "group", "aria-label": "Which topic names show" }, ruleButtons),

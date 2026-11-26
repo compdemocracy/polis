@@ -236,7 +236,8 @@ export async function readCommentText(
 }
 
 /* The page's address:
-   /topicsVizReport/<report id>?job_id=<id>&selection=<rule>&theme=light|dark&chooser=0 */
+   /topicsVizReport/<report id>?job_id=<id>&selection=<rule>&theme=light|dark&chooser=0
+   (drawing=dense is read by drawingFromAddress) */
 export function fromAddress(pathname, search) {
   const m = /^\/topicsVizReport\/(r?[0-9][0-9A-Za-z]+)/.exec(pathname || "");
   const q = new URLSearchParams(search || "");
@@ -248,6 +249,17 @@ export function fromAddress(pathname, search) {
     chooser: q.get("chooser") !== "0",
   };
 }
+
+/* The drawing the address asks for: "dense" for ?drawing=dense (the map's
+   dense drawing), null for any other value or none (the map as drawn without
+   it). Read beside fromAddress, with any of its parameters. */
+export function drawingFromAddress(search) {
+  return new URLSearchParams(search || "").get("drawing") === "dense" ? "dense" : null;
+}
+
+/* A drawing other than the map's own: the dense drawing, by name or by its
+   settings. None, null and "default" are the map's own drawing. */
+export const isDense = (drawing) => Boolean(drawing) && drawing !== "default";
 
 /* The address after a run is chosen: job_id set (or removed for the current
    map), selection removed (a named run has its own), everything else kept. */

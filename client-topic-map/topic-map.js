@@ -207,6 +207,12 @@
     this._pointers = new Map();
     this._labelHits = [];
     this._measure = null;
+    /* The drawing: null for the default one, or the dense drawing's settings
+       (see setDrawing). */
+    this.drawing = null;
+    this._dense = null;
+    this._denseTimer = 0;
+    this._denseRGB = {};
 
     if (getComputedStyle(host).position === "static") host.style.position = "relative";
     this.canvas = document.createElement("canvas");
@@ -219,14 +225,16 @@
     this.ctx = this.canvas.getContext("2d");
 
     var self = this;
+    /* The dense drawing has no hover, click or zoom yet: a person's pointer
+       does nothing while it is drawn. */
     this._on = {
-      pointerdown: function (e) { self._pointerDown(e); },
-      pointermove: function (e) { self._pointerMove(e); },
-      pointerup: function (e) { self._pointerUp(e); },
-      pointercancel: function (e) { self._pointerUp(e); },
-      pointerleave: function () { self._setHoverFromMap(-1, null); },
-      wheel: function (e) { self._wheel(e); },
-      dblclick: function (e) { self._doubleClick(e); }
+      pointerdown: function (e) { if (!self.drawing) self._pointerDown(e); },
+      pointermove: function (e) { if (!self.drawing) self._pointerMove(e); },
+      pointerup: function (e) { if (!self.drawing) self._pointerUp(e); },
+      pointercancel: function (e) { if (!self.drawing) self._pointerUp(e); },
+      pointerleave: function () { if (!self.drawing) self._setHoverFromMap(-1, null); },
+      wheel: function (e) { if (!self.drawing) self._wheel(e); },
+      dblclick: function (e) { if (!self.drawing) self._doubleClick(e); }
     };
     Object.keys(this._on).forEach(function (name) {
       self.canvas.addEventListener(name, self._on[name], name === "wheel" ? { passive: false } : undefined);
@@ -241,6 +249,7 @@
       document.fonts.load(this.theme.label.weight + " 16px " + this.theme.font.family).then(this._fontsLoaded, function () {});
     }
 
+    if (options.drawing) this._useDrawing(options.drawing);
     if (options.data) this.setData(options.data);
     if (options.selected) this.select(options.selected, "api");
   }
@@ -302,6 +311,7 @@
     this.hovered = null;
     this._view = null;
     this._measure = null;
+    this._dense = null;
     this.canvas.setAttribute("aria-label", "Topic map of " + data.title + ": " + n + " comments in " + data.topics.length + " topics");
     this._resize();
   };
@@ -309,6 +319,7 @@
   PolisTopicMap.prototype.setTheme = function (theme) {
     this.theme = theme;
     this._measure = null;
+    this._dense = null;
     this.redraw();
   };
 
@@ -317,6 +328,33 @@
   PolisTopicMap.prototype.setCollision = function (mode) {
     this.collision = mode === "by-weight" ? "by-weight" : "as-drawn";
     this.redraw();
+  };
+
+  /* The drawing. null (or "default") is the map as it has always been drawn.
+     "dense", or an object of the dense drawing's settings (dense.js; merged
+     over its PRESET_DENSE), draws the dense map: tinted and outlined zones,
+     dashed districts, every comment a grey dot, several layers of names at
+     once, placed by dense.js. Its families default to the theme's face. */
+  PolisTopicMap.prototype.setDrawing = function (settings) {
+    this._useDrawing(settings);
+    this._resize();
+  };
+
+  PolisTopicMap.prototype._useDrawing = function (settings) {
+    var drawing = null;
+    if (settings && settings !== "default") {
+      var given = settings === "dense" ? {} : settings;
+      if (typeof given !== "object") throw new Error("PolisTopicMap: drawing is null, \"default\", \"dense\" or the dense drawing's settings");
+      ["hover", "click", "zoom"].forEach(function (key) {
+        if (given[key]) throw new Error("PolisTopicMap: " + key + " is not available in the dense drawing yet");
+      });
+      drawing = Object.assign({}, denseRules().PRESET_DENSE, given);
+    }
+    this.drawing = drawing;
+    this._dense = null;
+    clearTimeout(this._denseTimer);
+    this._denseTimer = 0;
+    this.canvas.style.cursor = drawing ? "default" : "grab";
   };
 
   PolisTopicMap.prototype.setLevel = function (level, origin) {
@@ -356,6 +394,7 @@
     this._resizeObserver.disconnect();
     if (document.fonts) document.fonts.removeEventListener("loadingdone", this._fontsLoaded);
     cancelAnimationFrame(this._frame);
+    clearTimeout(this._denseTimer);
     this._job = null;
     if (this._jobChannel) this._jobChannel.port1.close();
     this.canvas.remove();
@@ -371,6 +410,19 @@
   PolisTopicMap.prototype._resize = function () {
     var w = this.host.clientWidth, h = this.host.clientHeight;
     if (!w || !h) return;
+    if (this.drawing && this._dense && this._dense.frame && !this._denseSettled) {
+      /* The dense drawing places its names again only once the size has
+         stopped changing, as it was first drawn. */
+      var self = this;
+      clearTimeout(this._denseTimer);
+      this._denseTimer = setTimeout(function () {
+        self._denseTimer = 0;
+        self._denseSettled = true;
+        self._resize();
+        self._denseSettled = false;
+      }, DENSE_SETTLE_MS);
+      return;
+    }
     var dpr = root.devicePixelRatio || 1;
     this._w = w;
     this._h = h;
@@ -900,6 +952,7 @@
 
   PolisTopicMap.prototype._draw = function () {
     if (!this.data || !this._view || !this._w) return;
+    if (this.drawing) return this._drawDense();
     var started = this.onTiming ? performance.now() : 0;
     var ctx = this.ctx, theme = this.theme, data = this.data, topics = data.topics;
     var w = this._w, h = this._h, hw = w / 2, hh = h / 2;
@@ -997,6 +1050,168 @@
       if (shown[i] > 0.5) this._labelHits.push({ id: topics[m.t].id, x: items[i].x, y: items[i].y, hw: m.w / 2, hh: m.h / 2 });
     }
     ctx.globalAlpha = 1;
+    if (this.onTiming) this.onTiming("draw", performance.now() - started);
+  };
+
+  /* ------------------------------------------------------- dense drawing */
+
+  var DENSE_SETTLE_MS = 120;
+
+  function denseRules() {
+    var D = root.PolisTopicMapDense;
+    if (!D && typeof module !== "undefined" && module.exports && typeof require === "function") D = require("./dense.js");
+    if (!D) throw new Error("PolisTopicMap: the dense drawing needs dense.js loaded before it");
+    return D;
+  }
+
+  /* The sRGB of a CSS colour, read back from a 1 by 1 canvas (the zone tint
+     is an oklch colour, and pixels are written as sRGB). */
+  PolisTopicMap.prototype._rgbOf = function (colour) {
+    if (this._denseRGB[colour]) return this._denseRGB[colour];
+    if (!this._probe) this._probe = document.createElement("canvas").getContext("2d", { willReadFrequently: true });
+    var c = this._probe;
+    c.fillStyle = colour;
+    c.clearRect(0, 0, 1, 1);
+    c.fillRect(0, 0, 1, 1);
+    var d = c.getImageData(0, 0, 1, 1).data;
+    return (this._denseRGB[colour] = [d[0], d[1], d[2]]);
+  };
+
+  /* The dense picture for this document, these settings and this size:
+     prepared once per document, laid out again when the size changes or a
+     face finishes loading. Names are measured on the map's canvas. */
+  PolisTopicMap.prototype._denseFrame = function () {
+    var D = denseRules(), dense = this._dense;
+    if (!dense) {
+      var settings = Object.assign({}, this.drawing);
+      if (settings.fontSans == null) settings.fontSans = this.theme.font.family;
+      if (settings.fontMono == null) settings.fontMono = this.theme.font.family;
+      dense = this._dense = { model: D.prepare(this.data, settings), frame: null, shapes: null, w: 0, h: 0 };
+    }
+    if (!dense.frame || dense.w !== this._w || dense.h !== this._h || this._remeasure) {
+      this._remeasure = false;
+      var ctx = this.ctx;
+      ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+      var measure = function (text, font) {
+        ctx.font = font.font;
+        ctx.letterSpacing = font.letterSpacing;
+        return ctx.measureText(text).width;
+      };
+      dense.frame = D.layout(dense.model, { width: this._w, height: this._h, measure: measure });
+      ctx.letterSpacing = "0px";
+      dense.shapes = D.zoneShapes(dense.model, dense.frame);
+      dense.w = this._w;
+      dense.h = this._h;
+      var f = dense.frame, st = f.stats;
+      this._emit("densestats", {
+        caption: D.caption(f), width: f.W, height: f.H,
+        placed: f.placed.length, byLayer: Object.assign({}, st.byLayer), dropped: Object.assign({}, st.dropped),
+        layerTotals: Object.assign({}, f.layerTotals), zoneCount: f.zoneCount, shrunk: st.shrunk,
+        shiftMedian: st.shiftMedian, shiftP90: st.shiftP90
+      });
+    }
+    return dense;
+  };
+
+  /* Paints as the dense map was first drawn: the ground; each zone's tint
+     (its density grid as an image, scaled up by the cell with smoothing) and
+     outline, zone by zone; every district's dashed outline; every point as a
+     dot; then the names, coarse first, each with its halo. */
+  PolisTopicMap.prototype._drawDense = function () {
+    var started = this.onTiming ? performance.now() : 0;
+    var D = denseRules(), dense = this._denseFrame();
+    var model = dense.model, frame = dense.frame, shapes = dense.shapes, cfg = model.settings;
+    var pal = D.palette(cfg.scheme), ctx = this.ctx, w = this._w, h = this._h;
+    var i, j, k, segs;
+
+    ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = pal.ground;
+    ctx.fillRect(0, 0, w, h);
+
+    for (i = 0; i < shapes.zones.length; i++) {
+      var z = shapes.zones[i], G = z.grid;
+      if (z.alpha) {
+        var rgb = this._rgbOf(z.tint);
+        var oc = document.createElement("canvas");
+        oc.width = G.gw;
+        oc.height = G.gh;
+        var octx = oc.getContext("2d");
+        var img = octx.createImageData(G.gw, G.gh);
+        for (k = 0; k < z.alpha.length; k++) {
+          img.data[k * 4] = rgb[0];
+          img.data[k * 4 + 1] = rgb[1];
+          img.data[k * 4 + 2] = rgb[2];
+          img.data[k * 4 + 3] = z.alpha[k];
+        }
+        octx.putImageData(img, 0, 0);
+        ctx.imageSmoothingEnabled = true;
+        ctx.drawImage(oc, 0, 0, G.gw * G.cell, G.gh * G.cell);
+      }
+      if (z.outline) {
+        ctx.strokeStyle = z.outline;
+        ctx.lineWidth = z.outlineWidth;
+        ctx.beginPath();
+        for (segs = z.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
+        ctx.stroke();
+      }
+    }
+    if (shapes.districts.length) {
+      ctx.lineWidth = shapes.districts[0].width;
+      ctx.setLineDash(shapes.districts[0].dash);
+      for (i = 0; i < shapes.districts.length; i++) {
+        var d = shapes.districts[i];
+        ctx.strokeStyle = d.stroke;
+        ctx.beginPath();
+        for (segs = d.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
+        ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+
+    /* Every point, held back or not, in grey (or by its topic's or zone's hue
+       when the settings say so), in one path per colour. */
+    var r = D.dotRadius(model, frame), v = frame.view, X = this.data.points.x, Y = this.data.points.y;
+    var buckets = new Map(), W = frame.W, H = frame.H;
+    for (i = 0; i < X.length; i++) {
+      var col = pal.grey;
+      if (cfg.dots === "colour" && model.pointTopic[i] >= 0) col = pal.dotInk(model.hueOf[model.pointTopic[i]]);
+      else if (cfg.dots === "tint" && model.pointZone[i] >= 0) col = pal.dotInk(model.hueOf[model.pointZone[i]]);
+      if (!buckets.has(col)) buckets.set(col, []);
+      buckets.get(col).push(i);
+    }
+    buckets.forEach(function (list, colour) {
+      ctx.fillStyle = colour;
+      ctx.globalAlpha = pal.dotAlpha(colour);
+      ctx.beginPath();
+      for (var q = 0; q < list.length; q++) {
+        var x = X[list[q]] * v.s + v.tx, y = -Y[list[q]] * v.s + v.ty;
+        if (x < -3 || y < -3 || x > W + 3 || y > H + 3) continue;
+        ctx.moveTo(x + r, y);
+        ctx.arc(x, y, r, 0, 6.2832);
+      }
+      ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.lineJoin = "round";
+    var order = D.drawOrder(frame.placed);
+    for (i = 0; i < order.length; i++) {
+      var p = order[i], y0 = p.y - p.h / 2 + p.lh / 2;
+      ctx.font = p.weight + " " + p.f + "px " + p.fam;
+      ctx.letterSpacing = p.letterSpacing;
+      ctx.globalAlpha = p.alpha;
+      ctx.strokeStyle = pal.halo;
+      ctx.lineWidth = p.haloWidth;
+      for (j = 0; j < p.lines.length; j++) ctx.strokeText(p.lines[j], p.x, y0 + j * p.lh);
+      ctx.fillStyle = p.ink;
+      for (j = 0; j < p.lines.length; j++) ctx.fillText(p.lines[j], p.x, y0 + j * p.lh);
+    }
+    ctx.globalAlpha = 1;
+    ctx.letterSpacing = "0px";
+    this._labelHits = [];
     if (this.onTiming) this.onTiming("draw", performance.now() - started);
   };
 

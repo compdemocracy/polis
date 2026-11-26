@@ -6,8 +6,14 @@
  *                       comment rule (load.js SELECTIONS)
  *   ?theme=light|dark   the theme (themes.js names the default)
  *   ?chooser=0          no chooser of runs (and no list asked for)
+ *   ?drawing=dense      the dense drawing of the map (client-topic-map's
+ *                       drawing option), without the level and name-rule
+ *                       buttons, which do nothing in it; any other value, or
+ *                       none, draws the map as without the parameter
+ * The parameters combine, e.g.
+ *   /topicsVizReport/r0examplereportid0000?job_id=<id>&drawing=dense
  * Choosing a run draws it and puts its job_id in the address, so the view can
- * be linked to. The list of runs is asked for beside the map, never before
+ * be linked to; the other parameters (drawing among them) stay. The list of runs is asked for beside the map, never before
  * it: when the list does not answer, there is no chooser and the map draws.
  * A page built with a document inlined (build.mjs --standalone) draws that
  * document, or answers from the runs inlined, and asks no host.
@@ -17,12 +23,13 @@ import h from "@solidjs/h";
 import { createSignal } from "solid-js";
 import TopicMap from "./TopicMap.js";
 import JobChooser from "./JobChooser.js";
-import { addressWithJob, fromAddress, readJobList } from "./load.js";
+import { addressWithJob, drawingFromAddress, fromAddress, readJobList } from "./load.js";
 import { offlineFetch } from "./offline.js";
 import { themeFor, themeName } from "./themes.js";
 
 const address = fromAddress(window.location.pathname, window.location.search);
 const theme = themeName(address.theme);
+const drawing = drawingFromAddress(window.location.search);
 const inlined = window.POLIS_TOPIC_MAP_DOCUMENT || null;
 const offline = window.POLIS_TOPIC_MAP_OFFLINE || null;
 const fetchFn = offline ? offlineFetch(offline) : globalThis.fetch.bind(globalThis);
@@ -59,6 +66,7 @@ render(
       jobId: () => jobId(),
       selection: () => selection(),
       theme,
+      drawing,
       document: inlined,
       fetch: (url, init) => fetchFn(url, init),
       commentText: !offline,
