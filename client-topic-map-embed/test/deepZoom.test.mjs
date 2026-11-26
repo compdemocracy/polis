@@ -280,3 +280,64 @@ test("the page's sources: the component wires every map through deepZoom.js and 
   assert.deepEqual(asks.sort(), ["deepZoom.js", "load.js"]);
   assert.ok(Deep.DEFAULTS, "the package's deepest zoom is the one used");
 });
+
+test("another run or comment state: the old overlay goes with its map, and a comment the new map does not carry leaves no trace", async () => {
+  // Run A shows comment GONE; run B (another run, or another comment state)
+  // does not carry it, though the comment list and the math result still do.
+  const GONE = 1010;
+  const GONE_TEXT = "Pelican harmonium: a comment only the first map carries";
+  const GONE_COUNTS = [6543, 5436, 4365, 3654];
+  const docA = publicMap();
+  const at = docA.points.id.indexOf(GONE);
+  assert.ok(at >= 0);
+  const docB = JSON.parse(JSON.stringify(docA));
+  for (const key of ["id", "x", "y"]) docB.points[key].splice(at, 1);
+  for (const row of docB.points.topic) row.splice(at, 1);
+  const math = mathResult(docA);
+  GONE_COUNTS.forEach((a, g) => (math["group-votes"][g].votes[GONE] = { A: a, D: 0, S: a + 3 }));
+  const comments = commentList(docA).map((c) => (c.tid === GONE ? { tid: GONE, txt: GONE_TEXT } : c));
+  const srv = server(docA, { math, comments });
+
+  // The same element, as the component keeps it: map A drawn, joined, zoomed
+  // onto GONE, hovered and selected.
+  const el = fakeHost(1600, 1000);
+  const make = (doc) => {
+    const data = withTooltipText(doc);
+    const map = new PolisTopicMap(el, { data, theme, level: 0, drawing: "dense" });
+    const wired = wireMap({ map, element: el, data, inputs: readerData(srv.fetchFn, { reportId: REPORT }), drawing: "dense" });
+    return { el, data, map, wired };
+  };
+  const a = make(docA);
+  await a.wired.joined;
+  zoomTo(a.map, at);
+  a.wired.overlay().select(GONE);
+  assert.match(seenIn(el), /Pelican harmonium/, "map A shows it");
+  assert.match(a.wired.overlay().card.textContent, /6543 agreed/);
+
+  // The component's cleanup for a new read: the wiring (and its overlay),
+  // then the map; then the new map with a fresh reader's data.
+  a.wired.destroy();
+  a.map.destroy();
+  const b = make(docB);
+  await b.wired.joined;
+  const overlay = b.wired.overlay();
+  assert.ok(overlay && overlay !== a.wired.overlay());
+  for (const r of overlay.ranking.slice(0, 8)) {
+    zoomTo(b.map, r.index);
+    pointEverywhere(b);
+  }
+  overlay.select(GONE);
+  assert.equal(overlay.selected, null, "no point of map B answers to that id");
+  const placed = b.map.denseLayout().comments.map((c) => [c.id, c.text, c.lines]);
+  const everything = [seenIn(el), JSON.stringify(placed), JSON.stringify(overlay.ranking.map((r) => r.id))].join("\n");
+  assert.ok(!everything.includes("Pelican"), "its text");
+  for (const n of [...GONE_COUNTS, GONE]) assert.ok(!everything.includes(String(n)), `the number ${n}`);
+  assert.ok(!b.data.points.text.some((s) => s.includes("Pelican")));
+});
+
+test("the component destroys a map's wiring with the map, and reads afresh for every new map", () => {
+  const src = readFileSync(join(here, "src", "TopicMap.js"), "utf8");
+  assert.match(src, /return \(\) => \{\n\s*wired\.destroy\(\);[\s\S]*?made\.destroy\(\);/);
+  assert.match(src, /\(\[reportId, jobId, selection, doc, token\]\) => \{\n\s*dataFor = freshData\(\);/);
+  assert.doesNotMatch(src, /setData\(/, "a new document is a new map, never setData under an old overlay");
+});
