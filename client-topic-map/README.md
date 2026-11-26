@@ -639,7 +639,9 @@ changes), the dense drawing names one layer at a time, set by
 `zoom.steps` (multiples of the fit, preset `[1.5, 3, 6]`): below the first
 step every layer is placed as at rest; from `steps[i]` the next finer layer
 is the focus; past the finest layer, comment labels are (only when the
-document has text and the points in view pass `comments.maxPoints` and
+document has text, or the drawing has a list of comments to bring forward,
+`comments.only`, as the deepest zoom's overlay gives it even when none of
+them stands out or has text, and the points in view pass `comments.maxPoints` and
 `comments.minSpacing`; otherwise the finest layer stays the focus). Zoomed in,
 no name is shrunk to fit, so none is drawn smaller than at rest; the focus
 layer and those above it are drawn at least `zoom.focusSize` (`[13, 17]` px,
@@ -714,8 +716,10 @@ votes are on the map, the votes are the only colour: the zones' tints, the
 zone and district borders, every name (waypoints included) and any coloured
 dots turn to neutral greys, and the comments written out turn near-black.
 
-- **When:** the grey ground is on exactly while the settled view shows
-  comments: `densecomments.detail.on` with a document that has comment text,
+- **When:** the grey ground is on exactly while the view shows comments,
+  or comment text is still fading out: `densecomments.detail.on` (a document
+  that has comment text, or the deepest zoom's overlay, whose first words and
+  count-only cards need no standout),
   that is the comments written out at the whole-map view of a map with room,
   the deepest step of any map (its comments, their first words, a hovered or
   selected comment's card, which show only there), and comment labels zoomed
@@ -735,7 +739,9 @@ dots turn to neutral greys, and the comments written out turn near-black.
 - **A clean plate:** on the grey ground each comment written out (its text,
   gap and graphic) has a rectangle of the ground's own colour under it, no
   border or shadow, drawn before the dots, so it never sits on a tint.
-- **The change** turns over 360 ms, eased; at once at the first draw, after
+- **The change** reaches grey before comments appear and stays grey until
+  departing comment text has faded away. It returns to colour over 360 ms,
+  eased; at once at the first draw, after
   `settle()` or `resetView()`, and for a reader who asks for less motion.
 - **The option `ground`:** `"comments"` (the default) is the rule above;
   `"topics"`, the orienting state, writes no comment out (its zoom has no

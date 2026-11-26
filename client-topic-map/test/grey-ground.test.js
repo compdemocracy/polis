@@ -225,17 +225,82 @@ test("a dense map at rest is in colour; at its deepest step it is grey; back at 
   assert.ok(settleFresh(m).some((c) => chroma(c) >= 0.08));
 });
 
-test("the change of ground fades, and cuts for a reader who asks for less motion", () => {
+test("the ground is grey before comments appear, then fades back, cutting for reduced motion", () => {
   const m = makeMap(denseDoc(), 800, 500, { zoom: { steps: false } });
   m.map.settle();
   m.map._grey = { from: 0, to: 0, t0: 0, ms: 0 };
   const first = m.map._greyNow(true);
-  assert.ok(first >= 0 && first < 1, "starts from colour: " + first);
+  assert.equal(first, 1, "grey before any comment is drawn");
+  assert.equal(m.map._grey.ms, 0);
+  const leaving = m.map._greyNow(false);
+  assert.ok(leaving > 0 && leaving <= 1);
   assert.equal(m.map._grey.ms, 360);
   m.map._grey.t0 -= 1000;
-  assert.equal(m.map._greyNow(true), 1);
+  assert.equal(m.map._greyNow(false), 0);
   globalThis.matchMedia = () => ({ matches: true });
   try {
     assert.equal(m.map._greyNow(false), 0);
   } finally { delete globalThis.matchMedia; }
+});
+
+function realStep(m, inward) {
+  fire(m.map, "dblclick", { clientX: m.map._w / 2, clientY: m.map._h / 2, shiftKey: !inward });
+  const a = m.map._anim;
+  m.map._step(a.t0 + a.ms + 1);
+  m.map._dense.settleNow = true;
+  m.map._draw();
+}
+test("every frame drawing comments is fully grey, entering and leaving", () => {
+  const m = makeMap(denseDoc(), 1408, 803, overlaySettings(denseDoc()));
+  try {
+    let found = false;
+    for (let i = 0; i < 6; i++) {
+      realStep(m, true);
+      if (m.map.denseLayout().commentLevel.on) {
+        found = true;
+        // the frame that first draws comments is drawn fully grey, not
+        // fading toward it
+        assert.equal(m.map.grey, true);
+        assert.equal(m.map._grey.from, 1, "comments appear before ground is grey");
+        assert.equal(m.map._grey.to, 1);
+        break;
+      }
+    }
+    assert.ok(found);
+    // End the entry label fade so departing text has positive opacity.
+    if (m.map._denseFade) m.map._denseFade.t0 -= 1000;
+    m.map._draw();
+    for (let i = 0; i < 6; i++) {
+      realStep(m, false);
+      if (!m.map.denseLayout().commentLevel.on) {
+        const outgoing = m.map._denseDrawnLabels.filter(l => l.p.point != null && l.alpha > 0);
+        assert.ok(outgoing.length > 0, "the departure really has comment text fading out");
+        assert.equal(m.map.grey, true, "outgoing comment text must keep the ground grey");
+        assert.equal(m.map._grey.from, 1);
+        assert.equal(m.map._grey.to, 1);
+        break;
+      }
+    }
+  } finally { m.map.destroy(); }
+});
+
+test("the dense drawing without text and without a list of comments keeps its finest names at the deepest step, in colour", () => {
+  const withText = makeMap(denseDoc(), 1408, 803, "dense");
+  const bare = denseDoc();
+  bare.points = Object.assign({}, bare.points, { text: [] });
+  const without = makeMap(bare, 1408, 803, "dense");
+  try {
+    let on = false, deepest = null;
+    for (let i = 0; i < 6; i++) {
+      realStep(withText, true);
+      realStep(without, true);
+      on = on || withText.map.denseLayout().commentLevel.on;
+      assert.equal(without.map.denseLayout().commentLevel.on, false);
+      assert.equal(without.map.grey, false);
+      deepest = without.map._dense.frame.stats;
+    }
+    assert.ok(on, "the same zoom opens the comment stage when the comments have text");
+    assert.notEqual(deepest.focus, "comments");
+    assert.ok(deepest.focus != null, "a layer of names is the focus at the deepest step");
+  } finally { withText.map.destroy(); without.map.destroy(); }
 });

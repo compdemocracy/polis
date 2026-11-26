@@ -480,6 +480,8 @@
   P._hideCard = function () { this.card.style.display = "none"; };
 
   P._showCard = function (i, selected) {
+    // Programmatic selection obeys the same stage and view as pointer input.
+    if (!this.on || !this._inView(i)) { this._hideCard(); return; }
     var o = this.options, doc = document, card = this.card, id = this.doc.points.id[i];
     var text = this.doc.points.text && this.doc.points.text[i];
     var groups = this._groups(id), r = this.rank[String(id)];
