@@ -724,7 +724,7 @@ dots turn to neutral greys, and the comments written out turn near-black.
 - **The greys** (`PolisTopicMapDense.GREY_GROUND`, OKLCH lightness, chroma 0;
   on the light ground): tints 0.90 (at the tint's alpha, from about `#fafafa`
   to `#f0f0f0` over white), zone borders 0.76, district borders 0.82, names
-  0.64 (with their white halo; waypoints keep their 0.62 alpha), coloured
+  0.64 at 14 px and under to 0.76 at 28 px and over, lighter the larger (with their white halo; waypoints keep their 0.62 alpha), coloured
   dots 0.78; grey dots stay `#b4b9c1`; the comments' ink `#1f2329`. Each
   topic colour keeps its hue number and loses its chroma (`towardGrey`).
   `palette(scheme, share)` is the palette at a share of grey; with no share

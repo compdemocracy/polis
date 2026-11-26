@@ -1489,7 +1489,7 @@
       /* A comment label set with align "left" is drawn from its text's left edge. */
       if (p.align === "left") { ctx.textAlign = "left"; px -= p.w / 2; }
       for (j = 0; j < p.lines.length; j++) ctx.strokeText(p.lines[j], px, y0 + j * p.lh);
-      ctx.fillStyle = g ? (p.point != null ? pal.commentInk : pal.nameInk(p.ink)) : p.ink;
+      ctx.fillStyle = g ? (p.point != null ? pal.commentInk : pal.nameInk(p.ink, p.f)) : p.ink;
       for (j = 0; j < p.lines.length; j++) ctx.fillText(p.lines[j], px, y0 + j * p.lh);
       if (p.align === "left") ctx.textAlign = "center";
     }

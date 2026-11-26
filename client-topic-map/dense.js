@@ -342,10 +342,13 @@
   // the topics step back to grey so that the votes are the only colour. Each
   // of the topics' colours keeps its hue number but loses its chroma and
   // moves to the lightness here (OKLCH L, chroma 0: neutral greys); the
-  // written-out comments' ink moves to near-black.
+  // written-out comments' ink moves to near-black. A name's grey is lighter
+  // the larger it is (name at 14 px and under, nameLarge at 28 px and over),
+  // so that a large name stays a guidepost and does not pull the eye from the
+  // comments.
   var GREY_GROUND = {
-    light: { tint: 0.9, outline: 0.76, district: 0.82, name: 0.64, dot: 0.78, commentInk: "#1f2329" },
-    dark: { tint: 0.34, outline: 0.5, district: 0.44, name: 0.7, dot: 0.52, commentInk: "#e6e8eb" }
+    light: { tint: 0.9, outline: 0.76, district: 0.82, name: 0.64, nameLarge: 0.76, dot: 0.78, commentInk: "#1f2329" },
+    dark: { tint: 0.34, outline: 0.5, district: 0.44, name: 0.7, nameLarge: 0.56, dot: 0.52, commentInk: "#e6e8eb" }
   };
 
   function round4(v) { return Math.round(v * 10000) / 10000; }
@@ -377,7 +380,10 @@
     var g = Math.min(1, grey), G = GREY_GROUND[scheme === "dark" ? "dark" : "light"], p = Object.assign({}, base);
     p.greyShare = g;
     p.labelInk = function (h) { return towardGrey(base.labelInk(h), g, G.name); };
-    p.nameInk = function (ink) { return towardGrey(ink, g, G.name); };
+    p.nameInk = function (ink, size) {
+      var u = size > 14 ? Math.min(1, (size - 14) / 14) : 0;
+      return towardGrey(ink, g, G.name + (G.nameLarge - G.name) * u);
+    };
     p.dotInk = function (h) { return towardGrey(base.dotInk(h), g, G.dot); };
     p.zoneTint = function (h) { return towardGrey(base.zoneTint(h), g, G.tint); };
     p.zoneTintZoomed = function (h) { return towardGrey(base.zoneTintZoomed(h), g, G.tint); };
