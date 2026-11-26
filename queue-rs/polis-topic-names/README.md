@@ -65,7 +65,7 @@ anything.
 
   Each figure must be a number above zero and at most $100 per million (a
   higher figure is taken to be a typing error, such as a price per thousand
-  tokens). If any of the three is absent, empty, not a number, zero, negative or
+  tokens). It must remain positive when converted to dollars per token. If any of the three is absent, empty, not a number, zero, negative or
   over $100, the outcome is `no_price`: no credential is read, no request is
   sent, and the run keeps its keyword names. The given price is one rate at
   every prompt length, so a Haiku prompt over 100,000 counted tokens (where the
@@ -74,8 +74,9 @@ anything.
   (every counted input token at the input price plus `max_tokens` at the output
   price) must fit the per-run cap, or the outcome is `over_run_cap` with no
   request. `names.json` records the price used and its stated source
-  (`record.price`), the worst case (`record.worst_case_usd`, `null` under
-  `no_price`) and the cap. `record.dollars` of an answered call is computed at
+  (`record.price`), the worst case (`record.worst_case_usd`, `null` when no
+  usable price was supplied) and the cap. A Haiku long-prompt refusal retains
+  the supplied price and its computed worst case even though no call is made. `record.dollars` of an answered call is computed at
   the given price, with cache reads counted at the input rate.
 - **Credentials** come from the default AWS credential chain when the call is
   made: the environment, the shared profile files, the container's

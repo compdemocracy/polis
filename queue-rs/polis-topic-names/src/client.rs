@@ -362,7 +362,15 @@ async fn call_async(settings: &Settings, auth: Auth<'_>, body: &str, allow_retry
             };
         };
         attempts += 1;
-        match attempt(&client, &url, headers, body).await {
+        match attempt(
+            &client,
+            &url,
+            headers,
+            body,
+            matches!(signer, Signer::Bedrock { .. }),
+        )
+        .await
+        {
             Attempt::Done(ended, http_status) => {
                 return Call {
                     ended,
@@ -392,6 +400,7 @@ async fn attempt(
     url: &str,
     headers: reqwest::header::HeaderMap,
     body: &str,
+    inspect_forbidden: bool,
 ) -> Attempt {
     let sent = client
         .post(url)
@@ -410,7 +419,7 @@ async fn attempt(
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.trim().parse::<u64>().ok())
         .map(Duration::from_secs);
-    if status == 403 {
+    if status == 403 && inspect_forbidden {
         return Attempt::Done(Ended::Forbidden(forbidden_type(resp).await), Some(403));
     }
     if status != 200 {

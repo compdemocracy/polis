@@ -177,11 +177,38 @@ impl GivenPrice {
                 crate::BEDROCK_PRICE_SOURCE_ENV
             )));
         }
-        Ok(Self {
+        let price = Self {
             input_usd_per_mtok,
             output_usd_per_mtok,
             source: source.to_string(),
-        })
+        };
+        price.validate()?;
+        Ok(price)
+    }
+
+    // Public fields may also be supplied by a library caller. Validate at the
+    // call boundary as well as when parsing settings, including conversion to
+    // per-token rates: a positive setting must never become a free call.
+    pub(crate) fn validate(&self) -> Result<(), NoPrice> {
+        for (name, rate) in [
+            (crate::BEDROCK_INPUT_PRICE_ENV, self.input_usd_per_mtok),
+            (crate::BEDROCK_OUTPUT_PRICE_ENV, self.output_usd_per_mtok),
+        ] {
+            if !rate.is_finite() || rate <= 0.0 || rate > MAX_GIVEN_USD_PER_MTOK {
+                return Err(NoPrice(format!("{name} is not a usable price")));
+            }
+            if rate * 1e-6 == 0.0 {
+                return Err(NoPrice(format!("{name} is too small to price a token")));
+            }
+        }
+        let source = self.source.trim();
+        if source.is_empty() || source.chars().count() > MAX_PRICE_SOURCE_CHARS {
+            return Err(NoPrice(format!(
+                "{} is not a usable source",
+                crate::BEDROCK_PRICE_SOURCE_ENV
+            )));
+        }
+        Ok(())
     }
 
     /// The price as a row: one rate at every prompt length.

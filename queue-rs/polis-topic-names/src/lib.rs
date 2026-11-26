@@ -242,7 +242,7 @@ pub fn name_topics_with(
     let body = prompt::body_v1(h, namer);
     let counted = body.len() as u64;
     let given = match access {
-        Access::Bedrock { price: Ok(p), .. } => Some(p),
+        Access::Bedrock { price: Ok(p), .. } if p.validate().is_ok() => Some(p),
         _ => None,
     };
     let worst = namer.worst_case_usd(given, counted, prompt::MAX_TOKENS);
@@ -329,6 +329,9 @@ fn decide_and_call(
                 price: Err(NoPrice(why)),
                 ..
             } => return Run::failed(Outcome::NoPrice, why.clone()),
+            Access::Bedrock { price: Ok(p), .. } if p.validate().is_err() => {
+                return Run::failed(Outcome::NoPrice, "the given price or source is not usable");
+            }
             Access::Bedrock { price: Ok(_), .. }
                 if namer.model == Model::Haiku && counted > namer::LONG_PROMPT_TOKENS =>
             {
