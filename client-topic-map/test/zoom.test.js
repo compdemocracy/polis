@@ -84,6 +84,8 @@ function served(doc) {
 }
 const refDoc = served(ref.document);
 const faces = { fontSans: ref.families[0], fontMono: ref.families[1] };
+// The first zoom's placement (every layer, comments whenever the points allow).
+const FIRST_ZOOM = Object.assign({ zoom: { steps: false } }, faces);
 
 // Canvases made for the zone tints are numbered as they are made; the digest
 // reads them as one name, so that two draws of the same picture compare equal.
@@ -137,8 +139,8 @@ test("dense at rest: the calls are the ones it made before zoom existed", () => 
   assert.equal(digest(denseMap(data, 800, 600, "dense").log), REST_DIGESTS.biodiversity);
 });
 
-test("a double-click zooms about the pointer; the names are placed again for the new view", () => {
-  const { map, stats } = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+test("(the first zoom's rule, steps off) a double-click zooms about the pointer; the names are placed again for the new view", () => {
+  const { map, stats } = denseMap(refDoc, ref.canvas.W, ref.canvas.H, FIRST_ZOOM);
   const rest = map.denseLayout();
   const zone = rest.names.find((n) => n.L === 3);
   const [px, py] = [zone.x0, zone.y0];
@@ -167,8 +169,8 @@ test("a double-click zooms about the pointer; the names are placed again for the
   assert.ok(map._dense.shapes.zones.length >= 1);
 });
 
-test("a name's size in pixels is the same at two zooms", () => {
-  const { map, log } = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+test("(the first zoom's rule, steps off) a name's size in pixels is the same at two zooms", () => {
+  const { map, log } = denseMap(refDoc, ref.canvas.W, ref.canvas.H, FIRST_ZOOM);
   const rest = new Map(map.denseLayout().names.filter((n) => !n.shrunk).map((n) => [n.ti, n.f]));
   zoomIn(map, ref.canvas.W / 2, ref.canvas.H / 2, 1);
   const both = map.denseLayout().names.filter((n) => !n.shrunk && rest.has(n.ti));
@@ -236,12 +238,12 @@ test("comments are labelled only when few enough points are in view and far enou
   // the comments are drawn after the names, in their own ink
   assert.ok(comments.at(-1).comments.length === lay.comments.length);
   // with the threshold lowered, the whole map is already close enough
-  const loose = denseMap(data, 800, 600, { zoom: { comments: { maxPoints: 1000, minSpacing: 0 } } }).map;
+  const loose = denseMap(data, 800, 600, { zoom: { steps: false, comments: { maxPoints: 1000, minSpacing: 0 } } }).map;
   assert.ok(loose.denseLayout().comments.length > 0);
 });
 
 test("a comment label shows more of its words the further in it is", () => {
-  const { map } = denseMap(data, 800, 600, { zoom: { comments: { maxPoints: 1000, minSpacing: 0 } } });
+  const { map } = denseMap(data, 800, 600, { zoom: { steps: false, comments: { maxPoints: 1000, minSpacing: 0 } } });
   const words = (lay) => new Map(lay.comments.map((c) => [c.point, c.text.replace(/…$/, "").split(" ").length]));
   const a = words(map.denseLayout());
   zoomIn(map, 400, 300, 2);
@@ -262,7 +264,7 @@ test("no text, no comment labels; held-back points never get one; the most-voted
   const held = new Set();
   for (let i = 0; i < doc.points.x.length; i += 3) { doc.points.id[i] = null; for (const row of doc.points.topic) row[i] = -1; held.add(i); }
   doc.points.votes = doc.points.x.map((_, i) => (i * 37) % 101);
-  const { map } = denseMap(doc, 800, 600, { zoom: { comments: { maxPoints: 1000, minSpacing: 0 } } });
+  const { map } = denseMap(doc, 800, 600, { zoom: { steps: false, comments: { maxPoints: 1000, minSpacing: 0 } } });
   const lay = map.denseLayout();
   assert.ok(lay.comments.length > 0);
   for (const c of lay.comments) assert.ok(!held.has(c.point));
@@ -272,7 +274,7 @@ test("no text, no comment labels; held-back points never get one; the most-voted
 
 test("a box can be reserved beside each comment label; it is reported and nothing is drawn in it", () => {
   const slot = { w: 40, h: 16, gap: 4 };
-  const { map, comments, log } = denseMap(data, 800, 600, { zoom: { slot, comments: { maxPoints: 1000, minSpacing: 0 } } });
+  const { map, comments, log } = denseMap(data, 800, 600, { zoom: { steps: false, slot, comments: { maxPoints: 1000, minSpacing: 0 } } });
   const lay = map.denseLayout();
   assert.ok(lay.comments.length > 0);
   for (const c of lay.comments) {
@@ -348,4 +350,131 @@ test("what placing again costs on the reference document (reported, not tested)"
   }
   t.diagnostic(`settle (placement, zone shapes and paint) at zoom 2, 4, 8, 16: ${times.map((x) => x.toFixed(1)).join(", ")} ms`);
   assert.ok(times.every(Number.isFinite));
+});
+
+/* ------------------------------------------- the steps (names stay waypoints) */
+
+const Z = Dense.PRESET_ZOOM;
+const frameOf = (map) => map._dense.frame;
+const within = (b, W, H) => b[0] >= 0 && b[1] >= 0 && b[2] <= W && b[3] <= H;
+// Every view of a walk in: N double-clicks about (px, py), with the layout at each.
+function walk(doc, W, H, drawing, px, py, n) {
+  const m = denseMap(doc, W, H, drawing);
+  const out = [{ lay: m.map.denseLayout(), frame: frameOf(m.map) }];
+  for (let i = 0; i < n; i++) { zoomIn(m.map, px, py, 1); out.push({ lay: m.map.denseLayout(), frame: frameOf(m.map) }); }
+  return { m, views: out };
+}
+
+test("zoomed in, no name is drawn smaller than at rest, none is shrunk, and from the first step none is under the floor", () => {
+  for (const [px, py] of [[ref.canvas.W / 2, ref.canvas.H / 2], [40, 40], [ref.canvas.W - 30, ref.canvas.H / 3]]) {
+    const { views } = walk(refDoc, ref.canvas.W, ref.canvas.H, faces, px, py, 5);
+    const rest = new Map(views[0].lay.names.map((n) => [n.ti, n.f]));
+    let largest = new Map(rest);
+    for (const { lay, frame } of views.slice(1)) {
+      for (const n of lay.names) {
+        assert.equal(n.shrunk, false, n.lines.join(" "));
+        if (largest.has(n.ti)) assert.ok(n.f >= largest.get(n.ti) - 1e-9, `${n.lines.join(" ")} ${n.f} < ${largest.get(n.ti)}`);
+        if (frame.stats.stage >= 1) assert.ok(n.f >= Z.floor, `${n.lines.join(" ")} at ${n.f} px`);
+        largest.set(n.ti, Math.max(largest.get(n.ti) || 0, n.f));
+      }
+    }
+  }
+});
+
+test("each zoom step brings the next finer layer of the area zoomed into, and the coarser names step back to waypoints", () => {
+  const model = (m) => m.map._dense.model;
+  const probe = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces);
+  const T = model(probe).topics;
+  const district = T.map((t, i) => i).filter((i) => T[i].level === 2).sort((a, b) => T[b].count - T[a].count)[0];
+  const [px, py] = screenOf(probe.map, T[district].x, T[district].y);
+  const { views } = walk(refDoc, ref.canvas.W, ref.canvas.H, faces, px, py, 3);
+  const [, two, four, eight] = views;
+  assert.equal(two.frame.stats.stage, 1);
+  assert.equal(two.frame.stats.focus, 2, "at x2 the districts are the focus");
+  assert.equal(four.frame.stats.focus, 0, "at x4 the finest topics are");
+  assert.equal(eight.frame.stats.focus, 0, "no text: past the last step the finest stay the focus");
+  for (const v of [two, four, eight]) {
+    const focus = v.lay.names.filter((n) => n.role === "focus"), way = v.lay.names.filter((n) => n.role === "waypoint");
+    assert.ok(focus.length >= 1 && focus.every((n) => n.L === v.frame.stats.focus));
+    assert.ok(focus.length <= (v.frame.stats.focus === 2 ? Z.budget.district : Z.budget.finest));
+    assert.ok(way.length >= 1 && way.length <= Z.budget.waypoints);
+    assert.ok(way.every((n) => n.L > v.frame.stats.focus && n.alpha === Z.waypointAlpha));
+    assert.ok(way.some((n) => within(n.box, v.lay.width, v.lay.height)), "a coarser name for where you are is in view");
+  }
+  // at x4 the fine names are of the district zoomed into
+  const under = (ti) => { let t = T[ti]; while (t && t.level < 2 && t.parent) t = T[T.findIndex((u) => u.id === t.parent)]; return t && T.indexOf(t) === district; };
+  const fineHere = four.lay.names.filter((n) => n.role === "focus");
+  assert.ok(fineHere.some((n) => under(n.ti)), JSON.stringify({ district: T[district].id, fine: fineHere.map((n) => [T[n.ti].id, T[n.ti].parent]), way: four.lay.names.filter((n) => n.role === "waypoint").map((n) => T[n.ti].id) }));
+});
+
+test("a waypoint whose anchor has left the view is held at the view's edge", () => {
+  // the comment furthest left: zoomed in on it, its zone's anchor leaves the view
+  const probe = denseMap(refDoc, ref.canvas.W, ref.canvas.H, faces).map;
+  const xs = refDoc.points.x, left = xs.indexOf(Math.min(...xs));
+  const [px, py] = screenOf(probe, xs[left], refDoc.points.y[left]);
+  const { views } = walk(refDoc, ref.canvas.W, ref.canvas.H, faces, px, py, 5);
+  const last = views.at(-1);
+  const way = last.lay.names.filter((n) => n.role === "waypoint");
+  assert.ok(way.length >= 1);
+  assert.ok(way.every((n) => within(n.box, last.lay.width, last.lay.height)));
+  assert.ok(views.slice(1).some((v) => v.lay.names.some((n) => n.held)), "at least one is held at the edge on the way in");
+});
+
+test("few things at once: names and comment labels stay within the budget, and comments come only at the last step", () => {
+  const loose = { zoom: { comments: { maxPoints: 1000, minSpacing: 0 } } };
+  const { views } = walk(data, 800, 600, loose, 400, 300, 4);
+  assert.equal(views[0].lay.comments.length, 0, "no comment labels at rest");
+  for (const v of views.slice(1)) {
+    const cap = Z.budget.waypoints + Math.max(Z.budget.district, Z.budget.finest);
+    if (v.frame.stats.stage >= 1) assert.ok(v.lay.names.length <= cap, `${v.lay.names.length} names`);
+    assert.ok(v.lay.comments.length <= Z.budget.comments);
+    if (v.lay.comments.length) assert.equal(v.frame.stats.focus, "comments");
+  }
+  assert.ok(views.some((v) => v.lay.comments.length > 0), "the comments come in at the last step");
+  // the reference conversation at every step
+  for (const v of walk(refDoc, ref.canvas.W, ref.canvas.H, faces, ref.canvas.W / 2, ref.canvas.H / 2, 5).views.slice(2))
+    assert.ok(v.lay.names.length <= Z.budget.waypoints + Z.budget.finest);
+});
+
+// OKLCH to 8-bit sRGB, and a tint at alpha a composited over a ground.
+function oklchRgb(L, C, h) {
+  const a = C * Math.cos(h * Math.PI / 180), b = C * Math.sin(h * Math.PI / 180);
+  const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3, m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3, s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
+  const lin = [4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s, -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s, -0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s];
+  return lin.map((c) => { c = Math.min(1, Math.max(0, c)); return 255 * (c <= 0.0031308 ? 12.92 * c : 1.055 * c ** (1 / 2.4) - 0.055); });
+}
+const parseOklch = (s) => /oklch\(([\d.]+) ([\d.]+) ([\d.]+)\)/.exec(s).slice(1).map(Number);
+const over = (rgb, a, ground) => rgb.map((c, i) => ground[i] * (1 - a) + c * a);
+// cream, ivory, beige, warm off-white: light, red over green over blue
+const warmOffWhite = ([r, g, b]) => Math.min(r, g, b) >= 200 && r >= g && g >= b && r - b >= 3;
+
+test("zoomed in, no zone's tint reads cream, ivory, beige or warm off-white, light or dark", () => {
+  for (const scheme of ["light", "dark"]) {
+    const pal = Dense.palette(scheme), ground = scheme === "dark" ? [17, 18, 20] : [255, 255, 255], a = scheme === "dark" ? 0.16 : 0.2;
+    for (let h = 0; h < 360; h += 1) {
+      const c = over(oklchRgb(...parseOklch(pal.zoneTintZoomed(h))), a, ground);
+      assert.ok(!warmOffWhite(c), `${scheme} hue ${h}: ${c.map(Math.round)}`);
+      // and a tint that fills the view at its strongest is no warmer
+      assert.ok(!warmOffWhite(over(oklchRgb(...parseOklch(pal.zoneTintZoomed(h))), 1, ground)) || scheme === "dark");
+    }
+  }
+  // the zones of both conversations, zoomed in on each
+  for (const [doc, W, H, d] of [[refDoc, ref.canvas.W, ref.canvas.H, faces], [data, 800, 600, "dense"]]) {
+    const m = denseMap(doc, W, H, d);
+    for (const t of m.map._dense.model.zoneIdx) {
+      m.map.resetView();
+      const [px, py] = screenOf(m.map, m.map._dense.model.topics[t].x, m.map._dense.model.topics[t].y);
+      zoomIn(m.map, px, py, 3);
+      for (const z of m.map._dense.shapes.zones) {
+        const c = over(oklchRgb(...parseOklch(z.tint)), 0.2, [255, 255, 255]);
+        assert.ok(!warmOffWhite(c), `zone ${z.id} hue ${z.hue}: ${c.map(Math.round)}`);
+      }
+    }
+  }
+});
+
+test("(reported, not tested) the at-rest tints that read warm off-white", (t) => {
+  const pal = Dense.palette("light"), warm = [];
+  for (let h = 0; h < 360; h++) if (warmOffWhite(over(oklchRgb(...parseOklch(pal.zoneTint(h))), 0.2, [255, 255, 255]))) warm.push(h);
+  t.diagnostic(`at rest, light: hues ${warm.length ? warm[0] + " to " + warm.at(-1) : "none"} (${warm.length} of 360) read warm off-white`);
 });

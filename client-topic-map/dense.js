@@ -90,23 +90,116 @@
   // and words and wrap (in characters) added per doubling of the zoom. slot,
   // when set to { w, h, gap }, reserves a box that size beside each comment
   // label, gap px to the right of its text; nothing is drawn in it.
+  //
+  // Zoomed in (any view closer than the fit), the names follow steps: the
+  // zoom, as a multiple of the fit, at which each next finer layer becomes
+  // the focus. With layers from coarse to fine, below steps[0] every layer is
+  // placed as at rest; from steps[i] the (i+1)-th layer is the focus; from
+  // the step after the finest layer, the comments are (when the document has
+  // text and the points in view pass maxPoints and minSpacing; otherwise the
+  // finest layer stays the focus). A layer past the preset's steps doubles
+  // the last. Zoomed in, a name is never shrunk to fit (it is placed at its
+  // size or not at all), so no name gets smaller than it was at rest; the
+  // focus layer and the layers above it are drawn at least focusSize (by
+  // count in the layer, as the at-rest sizes) and never under floor px. The
+  // coarser layers step back to waypoints: the topics that hold the most
+  // points in view, nearest layer first, at most budget.waypoints, drawn
+  // first at waypointAlpha, and held inside the view at its edge when their
+  // anchor has left it, so the reader always has a name for where they are.
+  // The focus layer names at most budget[role] topics, those with the most
+  // points in view; comment labels at most budget.comments. steps: false
+  // places names and comments as the first zoom did (every layer, comments
+  // whenever the points in view allow, no budget).
   var PRESET_ZOOM = {
     min: 0.8,
     max: 40,
     settleMs: 120,
     hitRadiusMin: 3,
     comments: { maxPoints: 150, minSpacing: 24, font: 10, words: 5, wordsPerDoubling: 2.5, wrap: 22, wrapPerDoubling: 6 },
-    slot: null
+    slot: null,
+    steps: [1.5, 3, 6],
+    floor: 11,
+    focusSize: [13, 17],
+    waypointAlpha: 0.62,
+    budget: { district: 5, finest: 6, comments: 5, waypoints: 2 }
   };
 
-  // The zoom settings: given keys over PRESET_ZOOM, and given comment keys
-  // over its comments. comments: false turns comment labels off.
+  // The zoom settings: given keys over PRESET_ZOOM, and given comment and
+  // budget keys over its own. comments: false turns comment labels off.
   function resolveZoom(given) {
     given = given && typeof given === "object" ? given : {};
     var out = Object.assign({}, PRESET_ZOOM, given);
     out.comments = given.comments === false ? null : Object.assign({}, PRESET_ZOOM.comments, given.comments || {});
     out.slot = given.slot ? { w: Number(given.slot.w) || 0, h: Number(given.slot.h) || 0, gap: given.slot.gap == null ? 4 : Number(given.slot.gap) } : null;
+    out.steps = given.steps === false ? null : (Array.isArray(given.steps) && given.steps.length ? given.steps.map(Number) : PRESET_ZOOM.steps.slice());
+    out.budget = Object.assign({}, PRESET_ZOOM.budget, given.budget || {});
+    out.focusSize = (given.focusSize || PRESET_ZOOM.focusSize).slice();
     return out;
+  }
+
+  // Where a view stands in the steps (PRESET_ZOOM): null at the fit, zoomed
+  // out, or with steps off; else the zoom, the stage (0 below the first
+  // step, i past steps[i - 1]), the layers from coarse to fine, and how many
+  // points in view each topic holds at its own layer (by topic index).
+  function zoomStage(model, view, fit, W, H) {
+    var cfg = model.settings, Z = cfg.zoom;
+    if (!Z || !Z.steps || !Z.steps.length) return null;
+    var by = view.s / fit.s;
+    if (!(by > 1 + 1e-9)) return null;
+    var coarse = cfg.layers.slice().sort(function (a, b) { return b - a; }), k = coarse.length;
+    var step = function (i) { var n = Z.steps.length; return i < n ? Z.steps[i] : Z.steps[n - 1] * Math.pow(2, i - n + 1); };
+    var stage = 0;
+    for (var i = 0; i < k; i++) if (by >= step(i)) stage = i + 1;
+    var X = model.points.x, Y = model.points.y, P = model.points.topic, inView = new Float64Array(model.topics.length);
+    for (i = 0; i < model.points.n; i++) {
+      var x = X[i] * view.s + view.tx, y = -Y[i] * view.s + view.ty;
+      if (x < 0 || y < 0 || x > W || y > H) continue;
+      for (var c = 0; c < k; c++) { var row = P[coarse[c]]; var v = row ? row[i] : -1; if (v >= 0) inView[v]++; }
+    }
+    return { zoom: by, stage: stage, k: k, coarse: coarse, inView: inView };
+  }
+
+  // The names to place zoomed in, in order: { ti, pin, alpha, font, role }.
+  function zoomedNames(model, zl, focusLevel, wayLayers, W, H) {
+    var cfg = model.settings, Z = cfg.zoom, T = model.topics, inView = zl.inView;
+    var roles = rolesOf(cfg.layers), budgetOf = {};
+    Object.keys(Z.budget).forEach(function (r) { if (r in roles) budgetOf[roles[r]] = Z.budget[r]; });
+    var countMax = {};
+    T.forEach(function (t) { countMax[t.level] = Math.max(countMax[t.level] || 1, t.count); });
+    var sized = function (ti) {
+      var base = model.baseFont[ti]; if (base == null) base = 0;
+      if (zl.stage === 0) return base;
+      var fs = Z.focusSize, g = Math.sqrt(T[ti].count / countMax[T[ti].level]);
+      return Math.max(base, Z.floor, fs[0] + (fs[1] - fs[0]) * g);
+    };
+    var byCount = function (L) {
+      var out = [];
+      model.order.forEach(function (ti) { if (T[ti].level === L && inView[ti] > 0) out.push(ti); });
+      return out.sort(function (a, b) { return inView[b] - inView[a]; });
+    };
+    var seq = [], taken = {};
+    // waypoints: nearest layer first, then round again, up to the budget
+    var lists = wayLayers.map(byCount), nWay = zl.stage === 0 ? 1 : Z.budget.waypoints;
+    for (var round = 0; seq.length < nWay && lists.some(function (l) { return l.length > round; }); round++) {
+      for (var j = 0; j < lists.length && seq.length < nWay; j++) {
+        var ti = lists[j][round];
+        if (ti == null) continue;
+        taken[ti] = true;
+        seq.push({ ti: ti, pin: true, alpha: zl.stage === 0 ? 1 : Z.waypointAlpha, font: sized(ti), role: "waypoint" });
+      }
+    }
+    if (zl.stage === 0) {
+      model.order.forEach(function (t) { if (!taken[t]) seq.push({ ti: t, font: sized(t), role: "overview" }); });
+    } else if (focusLevel != null) {
+      var n = budgetOf[focusLevel] == null ? 6 : budgetOf[focusLevel];
+      // the finer topics of where you are (the nearest waypoint) come first
+      var home = seq.length ? seq[0].ti : -1, homeL = home >= 0 ? T[home].level : null;
+      var mine = function (t) { return home >= 0 && model.ancestorAt(t, homeL) === home ? 0 : 1; };
+      var cand = byCount(focusLevel).map(function (t, i) { return [mine(t), i, t]; });
+      cand.sort(function (a, b) { return a[0] - b[0] || a[1] - b[1]; });
+      cand.map(function (c) { return c[2]; }).forEach(function (t) { if (!taken[t]) seq.push({ ti: t, font: sized(t), role: "focus", budget: n }); });
+    }
+    return seq;
   }
 
   // The roles a layer can be named by, read from the levels a document has:
@@ -170,6 +263,11 @@
 
   /* ----------------------------------------------------------------- colours */
 
+  // The OKLCH hues whose pale tint reads warm off-white on a light ground,
+  // and the cool neutral drawn for them zoomed in (palette zoneTintZoomed).
+  var WARM_TINT = [15, 130];
+  var NEUTRAL_TINT = "oklch(0.80 0.02 250)";
+
   function palette(scheme) {
     var dark = scheme === "dark";
     var INK = dark ? "#d6d9de" : "#2b3038";
@@ -184,6 +282,16 @@
       // The zone tint is resolved to sRGB by whoever draws it (the renderer
       // filled a 1 by 1 canvas with this colour and read the pixel back).
       zoneTint: function (h) { return dark ? "oklch(0.55 0.11 " + h + ")" : "oklch(0.80 0.10 " + h + ")"; },
+      // Zoomed in, a zone's tint can fill the view. A pale tint of a hue from
+      // red-orange to yellow-green over white reads as cream, ivory or
+      // beige, so on the light ground those zones are tinted a cool neutral
+      // instead (their outline and names keep the hue); every other hue, and
+      // the dark ground, keep the tint.
+      zoneTintZoomed: function (h) {
+        if (dark || h == null) return dark ? "oklch(0.55 0.11 " + (h == null ? 220 : h) + ")" : "oklch(0.80 0.10 220)";
+        var hh = ((h % 360) + 360) % 360;
+        return hh >= WARM_TINT[0] && hh <= WARM_TINT[1] ? NEUTRAL_TINT : "oklch(0.80 0.10 " + h + ")";
+      },
       zoneOutline: function (h) { return dark ? "oklch(0.70 0.12 " + h + ")" : "oklch(0.55 0.13 " + h + ")"; },
       zoneOutlineWidth: 1.4,
       districtStroke: function (h) { return h == null ? GREY : (dark ? "oklch(0.6 0.08 " + h + ")" : "oklch(0.62 0.09 " + h + ")"); },
@@ -388,23 +496,43 @@
         }
     };
     var stats = { byLayer: {}, dropped: {}, shrunk: 0, shift: [], skippedOffMap: 0 };
-    for (var c = 0; c < model.order.length; c++) {
-      var ti = model.order[c];
-      var t = T[ti], L = t.level, text = t.name, alpha = 1;
+    // zoomed in, the stage decides what is named (zoomStage, zoomedNames)
+    var Z = cfg.zoom, zl = zoomStage(model, view, fit, W, H);
+    var commentLevel = { on: false, inView: 0, spacing: null }, commentsOn = false, focusLevel = null, wayLayers = [];
+    if (zl) {
+      if (Z.comments && zl.stage === zl.k && model.commentOrder.length) {
+        commentLevel = commentsInView(model, view, W, H, Z.comments);
+        commentsOn = commentLevel.on;
+      }
+      if (zl.stage === 0) wayLayers = [zl.coarse[0]];
+      else {
+        var fi = commentsOn ? zl.k : Math.min(zl.stage, zl.k - 1);
+        focusLevel = fi < zl.k ? zl.coarse[fi] : null;
+        wayLayers = zl.coarse.slice(0, fi).reverse();
+      }
+      stats.stage = zl.stage; stats.focus = commentsOn ? "comments" : focusLevel;
+    }
+    var seq = zl ? zoomedNames(model, zl, focusLevel, wayLayers, W, H) : model.order.map(function (ti) { return { ti: ti }; });
+    var focusPlaced = 0;
+    for (var c = 0; c < seq.length; c++) {
+      var e = seq[c], ti = e.ti;
+      if (e.role === "focus" && focusPlaced >= e.budget) break;
+      var t = T[ti], L = t.level, text = t.name, alpha = e.alpha == null ? 1 : e.alpha;
       var x0 = sx(t.x), y0 = sy(t.y), rScreen = t.r * view.s;
-      if (x0 < -50 || y0 < -50 || x0 > W + 50 || y0 > H + 50) {
+      if (!e.pin && (x0 < -50 || y0 < -50 || x0 > W + 50 || y0 > H + 50)) {
         stats.skippedOffMap++;
         dropped.push({ ti: ti, reason: "anchor more than 50 px outside the map", x0: x0, y0: y0, ink: pal.labelInk(model.hueOf[ti]) });
         continue;
       }
-      var font = model.baseFont[ti];
+      var font = e.font != null ? e.font : model.baseFont[ti];
       if (cfg.dynamic && cfg.fadeCoarse && L > 0) {
         var fill = rScreen / (0.42 * Math.min(W, H)); alpha = Math.max(0, Math.min(1, 1.5 - fill));
         if (alpha < 0.12) continue;
       }
       var caps = cfg.caps[L] || 0; if (caps) text = text.toUpperCase();
       var hue = model.hueOf[ti], wrapN = cfg.wrap[L] || 13;
-      var minF = cfg.minFont;
+      // zoomed in a name is placed at its size or not at all
+      var minF = zl ? font : cfg.minFont;
       var done = false, f = font, tried = [];
       while (!done && f >= minF - 0.01) {
         var weight = weightFor(f); tried.push({ f: f, weight: weight });
@@ -414,6 +542,12 @@
         var w = 0, lw = [];
         for (var li = 0; li < lines.length; li++) { var mw = measure(lines[li], fontSpec); lw.push(mw); w = Math.max(w, mw); }
         var h = lines.length * lh; var m = 1.5;
+        // a waypoint whose anchor has left the view is held at its edge
+        var held = false;
+        if (e.pin) {
+          var hx = Math.max(w / 2 + m + 4, Math.min(W - w / 2 - m - 4, x0)), hy = Math.max(h / 2 + m + 4, Math.min(H - h / 2 - m - 4, y0));
+          held = hx !== x0 || hy !== y0; x0 = hx; y0 = hy;
+        }
         var reach = cfg.maxShift * Math.max(f, Math.min(rScreen, 4 * f));
         var step = Math.max(2, f * 0.4);
         var tries = [[0, 0]];
@@ -430,6 +564,8 @@
             box: b, rScreen: rScreen, reach: reach, step: step, positions: tries.length, hue: hue,
             ink: pal.labelInk(hue), alpha: alpha, haloWidth: pal.haloWidth(f),
             shrunk: f < font - 0.01, shrinkSteps: tried.length - 1 });
+          if (zl) { placed[placed.length - 1].role = e.role; placed[placed.length - 1].held = held; }
+          if (e.role === "focus") focusPlaced++;
           done = true;
           stats.byLayer[L] = (stats.byLayer[L] || 0) + 1; stats.shift.push(Math.hypot(dx, dy) / f); if (f < font - 0.01) stats.shrunk++;
           break;
@@ -444,11 +580,11 @@
     }
     // then, when the settings have zoom and the view is close enough, the
     // comments, by the same rule, after every name
-    var comments = [], commentLevel = { on: false, inView: 0, spacing: null };
-    var Z = cfg.zoom;
-    if (Z && Z.comments) {
-      commentLevel = commentsInView(model, view, W, H, Z.comments);
-      if (commentLevel.on) {
+    // (zoomed in with steps, only at the comments' stage and within budget)
+    var comments = [], cap = zl ? Z.budget.comments : Infinity;
+    if (Z && Z.comments && (zl || !Z.steps)) {
+      if (!zl) commentLevel = commentsInView(model, view, W, H, Z.comments);
+      if (zl ? commentsOn : commentLevel.on) {
         var C = Z.comments, lg = Math.log2(Math.max(1, view.s / fit.s)), slot = Z.slot;
         var nWords = Math.round(C.words + C.wordsPerDoubling * lg), cWrap = C.wrap + C.wrapPerDoubling * lg;
         var cf = C.font, cw = weightFor(cf), cfam = cfg.fontSans;
@@ -457,7 +593,7 @@
         var ctries = [[0, 0]];
         for (var cr = cstep; cr <= creach; cr += cstep) for (var ca = 0; ca < 16; ca++) { var cth = ca * Math.PI / 8; ctries.push([cr * Math.cos(cth), cr * Math.sin(cth) * 0.75]); }
         var PX = model.points;
-        for (var ci = 0; ci < model.commentOrder.length; ci++) {
+        for (var ci = 0; ci < model.commentOrder.length && comments.length < cap; ci++) {
           var pi = model.commentOrder[ci], px0 = sx(PX.x[pi]), py0 = sy(PX.y[pi]);
           if (px0 < 0 || py0 < 0 || px0 > W || py0 > H) continue;
           var words = PX.text[pi].trim().split(/\s+/), nw = Math.min(words.length, nWords);
@@ -633,6 +769,8 @@
   function zoneShapes(model, frame) {
     var cfg = model.settings, pal = palette(cfg.scheme), T = model.topics, topic = model.points.topic;
     var sc = gridScale(frame);
+    var zoomedIn = !!cfg.zoom && frame.view.s / frame.fit.s > 1 + 1e-9;
+    var tintOf = zoomedIn ? pal.zoneTintZoomed : pal.zoneTint;
     var zones = [], districts = [];
     if (!(cfg.zones === "none" && cfg.subOutline == null)) {
       var list = cfg.zones === "none" ? [] : model.zoneIdx;
@@ -644,7 +782,7 @@
         var hasFill = cfg.zones === "halo" || cfg.zones === "tint";
         var hasLine = cfg.zones === "outline" || cfg.zones === "tint";
         zones.push({ ti: zi, id: T[zi].id, hue: h, grid: G, threshold: thr,
-          tint: hasFill ? pal.zoneTint(h) : null, alpha: hasFill ? zoneAlpha(G, cfg.zones, cfg.scheme) : null,
+          tint: hasFill ? tintOf(h) : null, alpha: hasFill ? zoneAlpha(G, cfg.zones, cfg.scheme) : null,
           outline: hasLine ? pal.zoneOutline(h) : null, outlineWidth: pal.zoneOutlineWidth,
           segs: hasLine ? contourSegs(G, thr) : [] });
       });
@@ -662,7 +800,7 @@
 
   var PolisTopicMapDense = {
     DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, PRESET_ZOOM: PRESET_ZOOM, DEFAULT_FACE: DEFAULT_FACE,
-    resolveZoom: resolveZoom, commentsInView: commentsInView,
+    resolveZoom: resolveZoom, commentsInView: commentsInView, zoomStage: zoomStage, WARM_TINT: WARM_TINT, NEUTRAL_TINT: NEUTRAL_TINT,
     rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
     weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
     fitView: fitView, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,

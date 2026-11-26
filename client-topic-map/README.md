@@ -434,6 +434,31 @@ What each client's build does with it, as tried on each one's own build:
   `client-report/Dockerfile` and `client-admin/Dockerfile` (where it is at
   `/app/<client>`).
 
+### Zoom steps: names stay waypoints
+
+Zoomed in (any view closer than the fit; at the fit and zoomed out nothing
+changes), the dense drawing names one layer at a time, set by
+`zoom.steps` (multiples of the fit, preset `[1.5, 3, 6]`): below the first
+step every layer is placed as at rest; from `steps[i]` the next finer layer
+is the focus; past the finest layer, comment labels are (only when the
+document has text and the points in view pass `comments.maxPoints` and
+`comments.minSpacing`; otherwise the finest layer stays the focus). Zoomed in,
+no name is shrunk to fit, so none is drawn smaller than at rest; the focus
+layer and those above it are drawn at least `zoom.focusSize` (`[13, 17]` px,
+by count) and never under `zoom.floor` (11 px). The coarser layers step back
+to waypoints: the topics holding the most points in view, nearest layer
+first, drawn first at `zoom.waypointAlpha` (0.62) and held at the view's edge
+when their anchor has left it (`held: true` on the name). The focus names
+the finer topics of the nearest waypoint first. Budgets (`zoom.budget`, by
+role): `district` 5, `finest` 6, `comments` 5, `waypoints` 2; so a view shows
+at most 2 waypoints and 6 focus names, or 2 waypoints and 5 comment labels.
+Names placed zoomed in carry `role` (`waypoint`, `focus`, `overview`);
+`densestats` carries `stage` and `focus`. `zoom.steps: false` places names
+and comments as before the steps (every layer, comments whenever the points
+in view allow, no budget). Zoomed in on the light ground, a zone whose hue is
+between 15 and 130 (OKLCH), whose pale tint reads cream or beige, is tinted a
+cool neutral (`oklch(0.80 0.02 250)`); its outline and names keep the hue.
+
 ## Tests
 
 ```sh
