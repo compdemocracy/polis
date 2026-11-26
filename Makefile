@@ -376,6 +376,10 @@ check-polis-migrate: ## Run polis-migrate checks
 check-polis-topic-map: ## Run the topic map generator's checks
 	@bash ci/local/polis-topic-map.sh
 
+.PHONY: check-polis-routing-equation
+check-polis-routing-equation: ## Run the routing equation crate's checks
+	@bash ci/local/polis-routing-equation.sh
+
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks
 	@bash ci/local/job-graphs.sh

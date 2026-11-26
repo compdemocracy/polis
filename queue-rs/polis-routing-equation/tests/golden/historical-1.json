@@ -1,0 +1,12 @@
+{
+  "rule": "historical/1",
+  "note": "Constructed cases at the defaults. The expected weights are the Python formula's (the grid's values for the same counts); 5.0625, 20.25 and 49 are exact by hand.",
+  "cases": [
+    {"name": "first tick, extremity 0", "agreed": 0, "disagreed": 0, "passed": 0, "extremity": 0.0, "meta": false, "weight": 5.0625},
+    {"name": "first tick, extremity 1", "agreed": 0, "disagreed": 0, "passed": 0, "extremity": 1.0, "meta": false, "weight": 20.25},
+    {"name": "one agree is larger than no votes", "agreed": 1, "disagreed": 0, "passed": 0, "extremity": 0.0, "meta": false, "weight": 12.529726250088045},
+    {"name": "three agrees, the largest with no disagrees or passes", "agreed": 3, "disagreed": 0, "passed": 0, "extremity": 0.0, "meta": false, "weight": 16.143843865255583},
+    {"name": "a meta comment", "agreed": 4, "disagreed": 9, "passed": 2, "extremity": 3.7, "meta": true, "weight": 49.0}
+  ],
+  "unscored": {"note": "a comment in only one frame gets no weight, and draws at 1", "counts_only": 1, "extremity_only": 2}
+}

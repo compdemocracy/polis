@@ -1,0 +1,4 @@
+{
+  "historical/1": "{\"rule\":\"historical/1\",\"params\":{\"agree_prior\":1.0,\"pass_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0},\"terms\":[]}",
+  "stored-weights/1": "{\"rule\":\"stored-weights/1\",\"params\":{},\"terms\":[]}"
+}
