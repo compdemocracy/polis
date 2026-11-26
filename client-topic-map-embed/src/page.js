@@ -6,8 +6,17 @@
  *                       comment rule (load.js SELECTIONS)
  *   ?theme=light|dark   the theme (themes.js names the default)
  *   ?chooser=0          no chooser of runs (and no list asked for)
+ *   ?drawing=dense      the dense drawing of the map (client-topic-map's
+ *                       drawing option), without the level and name-rule
+ *                       buttons, which do nothing in it; any other value, or
+ *                       none, draws the map as without the parameter
+ * The parameters combine, e.g.
+ *   /topicsVizReport/r0examplereportid0000?job_id=<id>&drawing=dense
+ * The first two buttons above the map choose the drawing: a press redraws the
+ * map in place and adds or drops drawing=dense in the address, as a new
+ * history entry, so back returns to the drawing before.
  * Choosing a run draws it and puts its job_id in the address, so the view can
- * be linked to. The list of runs is asked for beside the map, never before
+ * be linked to; the other parameters (drawing among them) stay. The list of runs is asked for beside the map, never before
  * it: when the list does not answer, there is no chooser and the map draws.
  * A page built with a document inlined (build.mjs --standalone) draws that
  * document, or answers from the runs inlined, and asks no host.
@@ -17,7 +26,7 @@ import h from "@solidjs/h";
 import { createSignal } from "solid-js";
 import TopicMap from "./TopicMap.js";
 import JobChooser from "./JobChooser.js";
-import { addressWithJob, fromAddress, readJobList } from "./load.js";
+import { addressWithDrawing, addressWithJob, drawingFromAddress, fromAddress, readJobList } from "./load.js";
 import { offlineFetch } from "./offline.js";
 import { themeFor, themeName } from "./themes.js";
 
@@ -34,6 +43,7 @@ document.body.style.background = themeFor(theme).ground;
 
 const [jobId, setJobId] = createSignal(address.jobId);
 const [selection, setSelection] = createSignal(address.selection);
+const [drawing, setDrawing] = createSignal(drawingFromAddress(window.location.search));
 const [list, setList] = createSignal(null);
 
 if (address.chooser && reportId && !inlined) {
@@ -51,6 +61,26 @@ function choose(value) {
   }
 }
 
+function chooseDrawing(value) {
+  const next = value === "dense" ? "dense" : null;
+  if (next === drawing()) return;
+  setDrawing(next);
+  const address = window.location.pathname + addressWithDrawing(window.location.search, next) + window.location.hash;
+  try {
+    window.history.pushState(null, "", address);
+  } catch (e) {
+    // A page opened from disk may not be allowed to change its address.
+  }
+}
+
+// Back and forward: the drawing, run and rule the address now names.
+window.addEventListener("popstate", () => {
+  const now = fromAddress(window.location.pathname, window.location.search);
+  setDrawing(drawingFromAddress(window.location.search));
+  setJobId(now.jobId);
+  setSelection(now.selection);
+});
+
 const root = document.getElementById("topic-map");
 render(
   () =>
@@ -59,6 +89,8 @@ render(
       jobId: () => jobId(),
       selection: () => selection(),
       theme,
+      drawing: () => drawing(),
+      onDrawingChange: (value) => chooseDrawing(value),
       document: inlined,
       fetch: (url, init) => fetchFn(url, init),
       commentText: !offline,

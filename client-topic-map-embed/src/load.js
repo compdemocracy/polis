@@ -236,7 +236,8 @@ export async function readCommentText(
 }
 
 /* The page's address:
-   /topicsVizReport/<report id>?job_id=<id>&selection=<rule>&theme=light|dark&chooser=0 */
+   /topicsVizReport/<report id>?job_id=<id>&selection=<rule>&theme=light|dark&chooser=0
+   (drawing=dense is read by drawingFromAddress) */
 export function fromAddress(pathname, search) {
   const m = /^\/topicsVizReport\/(r?[0-9][0-9A-Za-z]+)/.exec(pathname || "");
   const q = new URLSearchParams(search || "");
@@ -247,6 +248,27 @@ export function fromAddress(pathname, search) {
     theme: q.get("theme"),
     chooser: q.get("chooser") !== "0",
   };
+}
+
+/* The drawing the address asks for: "dense" for ?drawing=dense (the map's
+   dense drawing), null for any other value or none (the map as drawn without
+   it). Read beside fromAddress, with any of its parameters. */
+export function drawingFromAddress(search) {
+  return new URLSearchParams(search || "").get("drawing") === "dense" ? "dense" : null;
+}
+
+/* A drawing other than the map's own: the dense drawing, by name or by its
+   settings. None, null and "default" are the map's own drawing. */
+export const isDense = (drawing) => Boolean(drawing) && drawing !== "default";
+
+/* The address after a drawing is chosen: drawing=dense for the dense drawing,
+   no drawing parameter for the map's own; everything else kept. */
+export function addressWithDrawing(search, drawing) {
+  const q = new URLSearchParams(search || "");
+  if (isDense(drawing)) q.set("drawing", "dense");
+  else q.delete("drawing");
+  const s = q.toString();
+  return s ? `?${s}` : "";
 }
 
 /* The address after a run is chosen: job_id set (or removed for the current

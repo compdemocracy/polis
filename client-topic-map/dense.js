@@ -1,0 +1,568 @@
+/*
+ * PolisTopicMapDense: the rules of the dense drawing of the topic map, as pure
+ * functions. A document and a settings object in; hues, sizes, wrapped and
+ * placed names, density grids and outline segments out. Nothing here touches
+ * a page or a canvas: text is measured by a function the caller passes, so the
+ * same rules run in a browser (measuring with a canvas) and in Node tests
+ * (measuring with recorded widths).
+ *
+ *   var model = PolisTopicMapDense.prepare(doc, PolisTopicMapDense.PRESET_DENSE);
+ *   var frame = PolisTopicMapDense.layout(model, { width: 1408, height: 803, measure: measure });
+ *   var shapes = PolisTopicMapDense.zoneShapes(model, frame);
+ *   // measure(text, { weight, size, family, letterSpacing, font }) returns the width in px
+ *
+ * The rules are those of the dense map as it was drawn and approved: one
+ * renderer told everything by a settings object. Its arithmetic is kept here
+ * in the order it was written, so that the same document and the same widths
+ * give the same values to the last bit; do not reorder it.
+ *
+ * Geometry is linear, with y flipped: screen x = x * s + tx, screen y =
+ * -y * s + ty. The first view fits the extent of every point.
+ */
+(function (root) {
+  "use strict";
+
+  /* ---------------------------------------------------------------- settings */
+
+  // The face the package already draws its labels in (the neutral theme's
+  // font.family). Both families of the dense drawing default to it; the
+  // package has no monospace face, so the mono treatment (the zone names)
+  // falls back to the same face. Either can be swapped by a setting.
+  var DEFAULT_FACE = "Roboto, sans-serif";
+
+  // The renderer's defaults, as written. A settings object replaces any of
+  // these keys whole (a shallow merge), as the renderer did.
+  var DEFAULTS = {
+    scheme: "light",
+    layers: [3, 2, 1, 0],
+    size: "layer+count",            // "layer+count" | "count" | "layer"
+    sizes: { 3: [22, 34], 2: [13, 19], 1: [10, 14], 0: [8, 11] },
+    countRange: [8, 30],            // for size "count"
+    minFont: 7,
+    caps: {},                       // {layer: letter spacing in em}: capitals with that spacing
+    wrap: { 3: 13, 2: 13, 1: 13, 0: 12 },
+    colour: "zone",                 // "zone" | "zoneNearest" | "angle" | "mono"
+    zoneLayer: 3,
+    zones: "halo",                  // "halo" | "outline" | "tint" | "none"
+    subOutline: null,               // the layer whose topics get a dashed outline too
+    dots: "grey",                   // "grey" | "tint" | "colour"
+    dotRadius: 1.5,
+    dynamic: false,
+    maxShift: 1.6,                  // how far a name may move, in multiples of max(font, topic radius on screen)
+    leader: false,
+    comments: false,
+    commentFont: 8,
+    pad: 0.03,
+    fadeCoarse: false,
+    nameSwitch: false,
+    fontSans: DEFAULT_FACE,         // the family of names not in monoLayers (CSS font-family list)
+    fontMono: DEFAULT_FACE          // the family of names in monoLayers
+  };
+
+  // The dense map as approved: three labelled layers (zones, districts and
+  // the finest topics), the zones tinted and outlined, the districts dashed,
+  // the zone names in mono capitals. Layers are named by role; on a document
+  // of four levels the roles are levels 3, 2 and 0.
+  var PRESET_DENSE = {
+    scheme: "light",
+    layers: ["zone", "district", "finest"],
+    size: "layer+count",
+    sizes: { zone: [17, 25], district: [12, 16], finest: [8, 10.5] },
+    minFont: 7,
+    caps: { zone: 0.04, district: 0.03 },
+    monoLayers: ["zone"],
+    wrap: { zone: 15, district: 14, finest: 12 },
+    colour: "zoneNearest",
+    zoneLayer: "zone",
+    zones: "tint",
+    subOutline: "district",
+    dots: "grey"
+  };
+
+  // The roles a layer can be named by, read from the levels a document has:
+  // the zone is the coarsest level, the district the one below it, the finest
+  // level 0. For documents of fewer than three levels the roles fall on the
+  // same level; which reading those documents should get is not settled.
+  function rolesOf(levels) {
+    var top = Math.max.apply(null, levels), low = Math.min.apply(null, levels);
+    return { zone: top, district: Math.max(low, top - 1), finest: low };
+  }
+  function levelOf(v, roles) {
+    if (v == null || typeof v === "number") return v;
+    if (/^\d+$/.test(String(v))) return Number(v);
+    if (!(v in roles)) throw new Error("unknown layer role " + JSON.stringify(v));
+    return roles[v];
+  }
+  function resolveSettings(settings, levels) {
+    var cfg = Object.assign({}, DEFAULTS, settings || {});
+    var roles = rolesOf(levels);
+    var list = function (a) {
+      var out = [];
+      (a || []).forEach(function (v) { var L = levelOf(v, roles); if (out.indexOf(L) < 0) out.push(L); });
+      return out;
+    };
+    var byLayer = function (o) {
+      var out = {};
+      Object.keys(o || {}).forEach(function (k) { out[levelOf(k, roles)] = o[k]; });
+      return out;
+    };
+    cfg.layers = list(cfg.layers);
+    if (cfg.monoLayers) cfg.monoLayers = list(cfg.monoLayers);
+    cfg.sizes = byLayer(cfg.sizes);
+    cfg.caps = byLayer(cfg.caps);
+    cfg.wrap = byLayer(cfg.wrap);
+    cfg.zoneLayer = levelOf(cfg.zoneLayer, roles);
+    cfg.subOutline = levelOf(cfg.subOutline, roles);
+    return cfg;
+  }
+
+  /* ------------------------------------------------------------------- names */
+
+  // The naming stage stores a name as "<level>_<cluster>: name"; the prefix
+  // is removed before the name is measured.
+  function stripNamePrefix(name) {
+    return String(name == null ? "" : name).replace(/^\d+_\d+:\s*/, "");
+  }
+
+  // Greedy wrap by character count, spaces included: a word starts a new line
+  // when the line, a space and the word would be longer than n.
+  function wrapText(s, n) {
+    var words = s.split(/\s+/); var out = []; var line = "";
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (line && (line + " " + w).length > n) { out.push(line); line = w; } else line = line ? line + " " + w : w;
+    }
+    if (line) out.push(line);
+    return out;
+  }
+
+  function weightFor(f) { return Math.round(Math.max(300, Math.min(760, 300 + (f - 7) * 17))); }
+
+  /* ----------------------------------------------------------------- colours */
+
+  function palette(scheme) {
+    var dark = scheme === "dark";
+    var INK = dark ? "#d6d9de" : "#2b3038";
+    var GREY = dark ? "#5a5e66" : "#b4b9c1";
+    return {
+      ground: dark ? "#111214" : "#ffffff",
+      ink: INK,
+      grey: GREY,
+      labelInk: function (h) { return h == null ? INK : (dark ? "oklch(0.84 0.11 " + h + ")" : "oklch(0.40 0.14 " + h + ")"); },
+      dotInk: function (h) { return h == null ? GREY : (dark ? "oklch(0.62 0.12 " + h + ")" : "oklch(0.70 0.13 " + h + ")"); },
+      dotAlpha: function (col) { return col === GREY ? (dark ? 0.9 : 0.85) : 0.8; },
+      // The zone tint is resolved to sRGB by whoever draws it (the renderer
+      // filled a 1 by 1 canvas with this colour and read the pixel back).
+      zoneTint: function (h) { return dark ? "oklch(0.55 0.11 " + h + ")" : "oklch(0.80 0.10 " + h + ")"; },
+      zoneOutline: function (h) { return dark ? "oklch(0.70 0.12 " + h + ")" : "oklch(0.55 0.13 " + h + ")"; },
+      zoneOutlineWidth: 1.4,
+      districtStroke: function (h) { return h == null ? GREY : (dark ? "oklch(0.6 0.08 " + h + ")" : "oklch(0.62 0.09 " + h + ")"); },
+      districtWidth: 0.8,
+      districtDash: [2, 2],
+      halo: dark ? "rgba(17,18,20,0.85)" : "rgba(255,255,255,0.85)",
+      haloWidth: function (f) { return Math.max(2, f * 0.22); }
+    };
+  }
+
+  /* ------------------------------------------------------------------ spread */
+
+  // The spread of a topic: the 75th-percentile distance of its points from
+  // its anchor, in data units, rounded to 3 decimals.
+  function topicSpread(doc) {
+    var X = doc.points.x, Y = doc.points.y, levels = doc.points.topic;
+    return doc.topics.map(function (t, gi) {
+      var lv = levels[t.level] || [];
+      var d = [];
+      for (var i = 0; i < lv.length; i++) if (lv[i] === gi) d.push(Math.hypot(X[i] - t.x, Y[i] - t.y));
+      if (!d.length) return 0;
+      d.sort(function (a, b) { return a - b; });
+      var distance = d[Math.floor(0.75 * (d.length - 1))];
+      var rounded = distance.toFixed(3);
+      // The data builder rounds half ties to even; toFixed rounds them up.
+      // A binary float can be an exact half-thousandth only when it is an
+      // odd multiple of 1/16 (the factor 125 in 2000 must cancel). Check
+      // that exact power-of-two scaling, not distance * 1000, which can
+      // itself round a neighbouring value onto a tie.
+      if (distance * 16 % 2 === 1 && Number(rounded.slice(-1)) % 2 === 1) {
+        rounded = rounded.slice(0, -1) + (Number(rounded.slice(-1)) - 1);
+      }
+      return Number(rounded);
+    });
+  }
+
+  /* -------------------------------------------- everything that has no size */
+
+  // prepare(doc, settings, { spread }) : what does not depend on the size of
+  // the map: the settings by layer number, the centre and extent of the
+  // points, every topic's zone and hue, the base size of every name and the
+  // order names are placed in. spread, if given, maps topic id to spread.
+  function prepare(doc, settings, opts) {
+    opts = opts || {};
+    var cfg = resolveSettings(settings, doc.levels.map(function (l) { return l.level; }));
+    var P = doc.points, X = P.x, Y = P.y, N = X.length;
+    var computed = opts.spread ? null : topicSpread(doc);
+    var T = doc.topics.map(function (t, i) {
+      return { id: t.id, level: t.level, parent: t.parent, count: t.count, x: t.x, y: t.y,
+        r: opts.spread ? opts.spread[t.id] : computed[i], name: stripNamePrefix(t.name) };
+    });
+    var byId = {};
+    T.forEach(function (t, i) { byId[t.id] = i; });
+
+    var cx = 0, cy = 0;
+    for (var i = 0; i < N; i++) { cx += X[i]; cy += Y[i]; }
+    cx /= N; cy /= N;
+    var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    for (i = 0; i < N; i++) {
+      minX = Math.min(minX, X[i]); maxX = Math.max(maxX, X[i]);
+      minY = Math.min(minY, Y[i]); maxY = Math.max(maxY, Y[i]);
+    }
+
+    var ancestorAt = function (ti, L) {
+      var t = T[ti];
+      while (t && t.level < L && t.parent) t = T[byId[t.parent]];
+      return t && t.level === L ? byId[t.id] : -1;
+    };
+    var angleOf = function (x, y) { return (Math.atan2(y - cy, x - cx) * 180 / Math.PI + 360) % 360; };
+    var zoneIdx = T.map(function (t, i) { return t.level === cfg.zoneLayer ? i : -1; }).filter(function (i) { return i >= 0; });
+    var zoneOrder = zoneIdx.slice().sort(function (a, b) { return angleOf(T[a].x, T[a].y) - angleOf(T[b].x, T[b].y); });
+    var zoneHue = {};
+    zoneOrder.forEach(function (zi, k) { zoneHue[zi] = (25 + k * 360 / zoneOrder.length) % 360; });
+    var zoneBy = [];
+    var zoneOf = T.map(function (t, i) {
+      var z = ancestorAt(i, cfg.zoneLayer);
+      zoneBy[i] = z >= 0 ? "ancestor" : null;
+      if (z >= 0 || cfg.colour !== "zoneNearest" || t.level > cfg.zoneLayer) return z;
+      var best = -1, bd = Infinity;
+      for (var j = 0; j < zoneIdx.length; j++) {
+        var zi = zoneIdx[j]; var d = Math.hypot(T[zi].x - t.x, T[zi].y - t.y);
+        if (d < bd) { bd = d; best = zi; }
+      }
+      if (best >= 0) zoneBy[i] = "nearest";
+      return best;
+    });
+    var hueOf = T.map(function (t, i) {
+      if (cfg.colour === "angle") return (angleOf(t.x, t.y) + 25) % 360;
+      if (cfg.colour === "mono") return null;
+      var z = zoneOf[i];
+      if (z < 0) return null;
+      if (z === i) return zoneHue[z];
+      // a child keeps its zone's hue, turned a little by where it sits inside the zone
+      var da = ((angleOf(t.x, t.y) - angleOf(T[z].x, T[z].y) + 540) % 360) - 180;
+      return (zoneHue[z] + da * 0.12 + 360) % 360;
+    });
+
+    // per point: the finest topic it belongs to, and its zone (for tinted dots)
+    var pointTopic = new Int32Array(N).fill(-1);
+    var pointZone = new Int32Array(N).fill(-1);
+    for (i = 0; i < N; i++) {
+      for (var L = 0; L < P.topic.length; L++) { var v = P.topic[L][i]; if (v >= 0) { pointTopic[i] = v; break; } }
+      var zl = P.topic[cfg.zoneLayer]; pointZone[i] = zl ? zl[i] : -1;
+    }
+
+    var countMaxByLayer = {}, countMax = 1;
+    T.forEach(function (t) {
+      countMaxByLayer[t.level] = Math.max(countMaxByLayer[t.level] || 1, t.count); countMax = Math.max(countMax, t.count);
+    });
+    var baseFont = T.map(function (t) {
+      if (cfg.size === "count") { var f = Math.sqrt(t.count / countMax); return cfg.countRange[0] + (cfg.countRange[1] - cfg.countRange[0]) * f; }
+      var r = cfg.sizes[t.level];
+      if (!r) return null;
+      if (cfg.size === "layer") return r[1];
+      var g = Math.sqrt(t.count / countMaxByLayer[t.level]);
+      return r[0] + (r[1] - r[0]) * g;
+    });
+
+    // priority: coarse layers first, then by count (a stable sort keeps
+    // topic order among equals)
+    var order = [];
+    for (i = 0; i < T.length; i++) if (cfg.layers.indexOf(T[i].level) >= 0) order.push(i);
+    var pri = function (ti) { return cfg.size === "count" ? T[ti].count : (T[ti].level * 1e5 + T[ti].count); };
+    order.sort(function (a, b) { return pri(b) - pri(a); });
+
+    var districtIdx = cfg.subOutline == null ? [] :
+      T.map(function (t, i) { return t.level === cfg.subOutline ? i : -1; }).filter(function (i) { return i >= 0; });
+
+    return {
+      settings: cfg, topics: T, points: { x: X, y: Y, topic: P.topic, n: N },
+      centre: { cx: cx, cy: cy }, extent: { minX: minX, maxX: maxX, minY: minY, maxY: maxY },
+      zoneIdx: zoneIdx, zoneOrder: zoneOrder, zoneHue: zoneHue, zoneOf: zoneOf, zoneBy: zoneBy, hueOf: hueOf,
+      districtIdx: districtIdx, pointTopic: pointTopic, pointZone: pointZone,
+      baseFont: baseFont, order: order, ancestorAt: ancestorAt, angleOf: angleOf
+    };
+  }
+
+  /* ------------------------------------------------------------ size and fit */
+
+  function canvasSize(width, height) {
+    return { W: Math.max(200, Math.floor(width)), H: Math.max(200, Math.floor(height)) };
+  }
+  function fitView(extent, W, H, pad) {
+    // A run may contain just one position, or several identical positions.
+    // Keep the ordinary fit arithmetic unchanged; centre the degenerate
+    // case at a finite scale instead of sending Infinity/NaN to the canvas.
+    if (!Number.isFinite(extent.minX) || !Number.isFinite(extent.maxX) ||
+        !Number.isFinite(extent.minY) || !Number.isFinite(extent.maxY)) {
+      return { s: 1, tx: W / 2, ty: H / 2 };
+    }
+    if (extent.minX === extent.maxX && extent.minY === extent.maxY) {
+      return { s: 1, tx: W / 2 - extent.minX, ty: H / 2 + extent.minY };
+    }
+    var p = pad * Math.min(W, H);
+    var s = Math.min((W - 2 * p) / (extent.maxX - extent.minX), (H - 2 * p) / (extent.maxY - extent.minY));
+    return { s: s, tx: W / 2 - s * (extent.minX + extent.maxX) / 2, ty: H / 2 + s * (extent.minY + extent.maxY) / 2 };
+  }
+
+  /* --------------------------------------------------------------- placement */
+
+  // layout(model, { width, height, measure, view }) : the names placed at one
+  // size of the map. Greedy, in priority order: the name's box (its text and
+  // 1.5 px) is tried at the anchor, then on rings of 16 directions out to its
+  // reach; if no position is free the size is multiplied by 0.88 and every
+  // step is tried again; below the minimum size the name is dropped.
+  function layout(model, opts) {
+    var cfg = model.settings, T = model.topics, pal = palette(cfg.scheme);
+    var size = canvasSize(opts.width, opts.height), W = size.W, H = size.H;
+    var fit = fitView(model.extent, W, H, cfg.pad);
+    var view = opts.view ? Object.assign({}, opts.view) : Object.assign({}, fit);
+    var measure = opts.measure;
+    var famOf = function (L) { return (cfg.monoLayers || []).indexOf(L) >= 0 ? cfg.fontMono : cfg.fontSans; };
+    var sx = function (x) { return x * view.s + view.tx; };
+    var sy = function (y) { return -y * view.s + view.ty; };
+
+    var placed = [], dropped = []; var grid = new Map(); var CELL = 48;
+    var key = function (x, y) { return x + "," + y; };
+    var hits = function (b) {
+      for (var gx = Math.floor(b[0] / CELL); gx <= Math.floor(b[2] / CELL); gx++)
+        for (var gy = Math.floor(b[1] / CELL); gy <= Math.floor(b[3] / CELL); gy++) {
+          var arr = grid.get(key(gx, gy)); if (!arr) continue;
+          for (var q = 0; q < arr.length; q++) { var o = arr[q]; if (b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]) return true; }
+        }
+      return false;
+    };
+    var add = function (b) {
+      for (var gx = Math.floor(b[0] / CELL); gx <= Math.floor(b[2] / CELL); gx++)
+        for (var gy = Math.floor(b[1] / CELL); gy <= Math.floor(b[3] / CELL); gy++) {
+          var k = key(gx, gy); if (!grid.has(k)) grid.set(k, []); grid.get(k).push(b);
+        }
+    };
+    var stats = { byLayer: {}, dropped: {}, shrunk: 0, shift: [], skippedOffMap: 0 };
+    for (var c = 0; c < model.order.length; c++) {
+      var ti = model.order[c];
+      var t = T[ti], L = t.level, text = t.name, alpha = 1;
+      var x0 = sx(t.x), y0 = sy(t.y), rScreen = t.r * view.s;
+      if (x0 < -50 || y0 < -50 || x0 > W + 50 || y0 > H + 50) {
+        stats.skippedOffMap++;
+        dropped.push({ ti: ti, reason: "anchor more than 50 px outside the map", x0: x0, y0: y0, ink: pal.labelInk(model.hueOf[ti]) });
+        continue;
+      }
+      var font = model.baseFont[ti];
+      if (cfg.dynamic && cfg.fadeCoarse && L > 0) {
+        var fill = rScreen / (0.42 * Math.min(W, H)); alpha = Math.max(0, Math.min(1, 1.5 - fill));
+        if (alpha < 0.12) continue;
+      }
+      var caps = cfg.caps[L] || 0; if (caps) text = text.toUpperCase();
+      var hue = model.hueOf[ti], wrapN = cfg.wrap[L] || 13;
+      var minF = cfg.minFont;
+      var done = false, f = font, tried = [];
+      while (!done && f >= minF - 0.01) {
+        var weight = weightFor(f); tried.push({ f: f, weight: weight });
+        var fam = famOf(L), spacing = caps ? (caps * f).toFixed(2) + "px" : "0px";
+        var fontSpec = { weight: weight, size: f, family: fam, letterSpacing: spacing, font: weight + " " + f + "px " + fam };
+        var lines = wrapText(text, wrapN); var lh = f * (caps ? 1.08 : 1.12);
+        var w = 0, lw = [];
+        for (var li = 0; li < lines.length; li++) { var mw = measure(lines[li], fontSpec); lw.push(mw); w = Math.max(w, mw); }
+        var h = lines.length * lh; var m = 1.5;
+        var reach = cfg.maxShift * Math.max(f, Math.min(rScreen, 4 * f));
+        var step = Math.max(2, f * 0.4);
+        var tries = [[0, 0]];
+        for (var rr = step; rr <= reach; rr += step) for (var a = 0; a < 16; a++) { var th = a * Math.PI / 8; tries.push([rr * Math.cos(th), rr * Math.sin(th) * 0.75]); }
+        for (var j = 0; j < tries.length; j++) {
+          var dx = tries[j][0], dy = tries[j][1];
+          var cxl = x0 + dx, cyl = y0 + dy;
+          var b = [cxl - w / 2 - m, cyl - h / 2 - m, cxl + w / 2 + m, cyl + h / 2 + m];
+          if (b[0] < 2 || b[1] < 2 || b[2] > W - 2 || b[3] > H - 2) continue;
+          if (hits(b)) continue;
+          var blocking = alpha >= 0.5; if (blocking) add(b);
+          placed.push({ ti: ti, L: L, lines: lines, f: f, baseFont: font, weight: weight, fam: fam, caps: caps,
+            letterSpacing: spacing, lh: lh, lineWidths: lw, w: w, h: h, x: cxl, y: cyl, x0: x0, y0: y0, dx: dx, dy: dy,
+            box: b, rScreen: rScreen, reach: reach, step: step, positions: tries.length, hue: hue,
+            ink: pal.labelInk(hue), alpha: alpha, haloWidth: pal.haloWidth(f),
+            shrunk: f < font - 0.01, shrinkSteps: tried.length - 1 });
+          done = true;
+          stats.byLayer[L] = (stats.byLayer[L] || 0) + 1; stats.shift.push(Math.hypot(dx, dy) / f); if (f < font - 0.01) stats.shrunk++;
+          break;
+        }
+        if (!done) f *= 0.88;
+      }
+      if (!done) {
+        stats.dropped[L] = (stats.dropped[L] || 0) + 1;
+        dropped.push({ ti: ti, reason: "no free position at any size down to minFont", baseFont: font, tried: tried,
+          x0: x0, y0: y0, rScreen: rScreen, ink: pal.labelInk(hue) });
+      }
+    }
+    var sh = stats.shift.slice().sort(function (p, q) { return p - q; });
+    stats.shiftMedian = sh.length ? sh[Math.floor(sh.length / 2)] : 0;
+    stats.shiftP90 = sh.length ? sh[Math.floor(sh.length * 0.9)] : 0;
+    return { W: W, H: H, fit: fit, view: view, settings: cfg, placed: placed, dropped: dropped, stats: stats,
+      zoneCount: model.zoneIdx.length, layerTotals: layerTotals(model) };
+  }
+
+  function layerTotals(model) {
+    var out = {};
+    model.topics.forEach(function (t) { out[t.level] = (out[t.level] || 0) + 1; });
+    return out;
+  }
+
+  // The order names are drawn in: faint first, then coarse before fine, so
+  // finer names sit on top. A name's first line is centred at y - h/2 + lh/2.
+  function drawOrder(placed) {
+    return placed.slice().sort(function (a, b) { return (a.alpha - b.alpha) || (b.L - a.L); });
+  }
+
+  // The line under the map, without its timing sentence.
+  function caption(frame) {
+    var cfg = frame.settings, st = frame.stats;
+    var lv = cfg.layers.map(function (L) {
+      var name = L === cfg.zoneLayer ? "layer " + L + " (" + frame.zoneCount + " zones)" : "layer " + L;
+      return name + ": " + (st.byLayer[L] || 0) + " of " + (frame.layerTotals[L] || 0);
+    }).join("; ");
+    var placedN = Object.keys(st.byLayer).reduce(function (a, k) { return a + st.byLayer[k]; }, 0);
+    var zoom = frame.view.s / frame.fit.s;
+    return "Drawn now at " + frame.W + " by " + frame.H + " px" + (cfg.dynamic ? ", zoom ×" + zoom.toFixed(1) : "") + ": " +
+      placedN + " topic names (" + lv + "). Shrunk to fit: " + st.shrunk + ". Moved off their centroid: median " +
+      st.shiftMedian.toFixed(1) + ", 90th percentile " + st.shiftP90.toFixed(1) + " font heights.";
+  }
+
+  function dotRadius(model, frame) {
+    return model.settings.dotRadius * Math.min(2.2, Math.max(1, Math.sqrt(frame.view.s / frame.fit.s) * 0.9));
+  }
+
+  /* ------------------------------------------- density grids and outlines */
+
+  // The grid's cell in px and the blur's sigma in px at this view.
+  function gridScale(frame) {
+    var W = frame.W, H = frame.H, zoom = frame.view.s / frame.fit.s;
+    return {
+      cell: Math.max(3, Math.round(Math.min(W, H) / 260 * Math.min(4, Math.sqrt(zoom)))),
+      sigma: 0.022 * Math.min(W, H) * zoom
+    };
+  }
+  function blurRadius(sigmaPx, cell) { return Math.max(1, Math.round(sigmaPx / cell)); }
+  function gridSize(frame, cell) { return { gw: Math.ceil(frame.W / cell) + 2, gh: Math.ceil(frame.H / cell) + 2 }; }
+
+  function binInto(model, frame, filter, cell, gw, gh, g) {
+    var v = frame.view, X = model.points.x, Y = model.points.y;
+    for (var i = 0; i < model.points.n; i++) {
+      if (!filter(i)) continue;
+      var gx = Math.floor((X[i] * v.s + v.tx) / cell), gy = Math.floor((-Y[i] * v.s + v.ty) / cell);
+      if (gx < 0 || gy < 0 || gx >= gw || gy >= gh) continue;
+      g(gy * gw + gx);
+    }
+  }
+  // The points counted into each cell before blurring, by cell index.
+  function binnedCounts(model, frame, filter, cell) {
+    var s = gridSize(frame, cell), out = {};
+    binInto(model, frame, filter, cell, s.gw, s.gh, function (k) { out[k] = (out[k] || 0) + 1; });
+    return out;
+  }
+  // The points that pass filter, counted on a grid of cell px and blurred by
+  // three passes of a separable box blur (a near-Gaussian of sigma px).
+  function densityGrid(model, frame, filter, cell, sigmaPx) {
+    var s = gridSize(frame, cell), gw = s.gw, gh = s.gh;
+    var g = new Float32Array(gw * gh);
+    binInto(model, frame, filter, cell, gw, gh, function (k) { g[k] += 1; });
+    var rad = blurRadius(sigmaPx, cell);
+    var tmp = new Float32Array(gw * gh);
+    var x, y, acc, add, sub;
+    for (var pass = 0; pass < 3; pass++) {
+      for (y = 0; y < gh; y++) { acc = 0; for (x = -rad; x < gw + rad; x++) {
+        add = x + rad < gw ? g[y * gw + x + rad] : 0; sub = x - rad - 1 >= 0 ? g[y * gw + x - rad - 1] : 0;
+        acc += add - sub; if (x >= 0 && x < gw) tmp[y * gw + x] = acc / (2 * rad + 1); } }
+      for (x = 0; x < gw; x++) { acc = 0; for (y = -rad; y < gh + rad; y++) {
+        add = y + rad < gh ? tmp[(y + rad) * gw + x] : 0; sub = y - rad - 1 >= 0 ? tmp[(y - rad - 1) * gw + x] : 0;
+        acc += add - sub; if (y >= 0 && y < gh) g[y * gw + x] = acc / (2 * rad + 1); } }
+    }
+    var mx = 0; for (var k = 0; k < g.length; k++) mx = Math.max(mx, g[k]);
+    return { g: g, gw: gw, gh: gh, cell: cell, mx: mx };
+  }
+
+  // Marching squares at thr, as separate segments [x1, y1, x2, y2] in px.
+  var EDGES = { 1: ["l", "t"], 2: ["t", "r"], 3: ["l", "r"], 4: ["r", "b"], 5: ["l", "t", "r", "b"], 6: ["t", "b"], 7: ["l", "b"],
+    8: ["b", "l"], 9: ["t", "b"], 10: ["t", "r", "b", "l"], 11: ["r", "b"], 12: ["r", "l"], 13: ["t", "r"], 14: ["l", "t"] };
+  function contourSegs(G, thr) {
+    var g = G.g, gw = G.gw, gh = G.gh, cell = G.cell; var segs = [];
+    var v = function (x, y) { return g[y * gw + x]; };
+    var lerp = function (a, b) { return (thr - a) / (b - a); };
+    for (var y = 0; y < gh - 1; y++) for (var x = 0; x < gw - 1; x++) {
+      var a = v(x, y), b = v(x + 1, y), c = v(x + 1, y + 1), d = v(x, y + 1);
+      var k = (a > thr) | ((b > thr) << 1) | ((c > thr) << 2) | ((d > thr) << 3);
+      if (k === 0 || k === 15) continue;
+      var P = { t: [x + lerp(a, b), y], r: [x + 1, y + lerp(b, c)], b: [x + lerp(d, c), y + 1], l: [x, y + lerp(a, d)] };
+      var E = EDGES[k];
+      for (var e = 0; e < E.length; e += 2) segs.push([P[E[e]][0] * cell, P[E[e]][1] * cell, P[E[e + 1]][0] * cell, P[E[e + 1]][1] * cell]);
+    }
+    return segs;
+  }
+
+  // The alpha (0 to 255) of every cell of a zone's tint image: a step of
+  // alpha for each fraction of the peak the cell exceeds.
+  function zoneAlpha(G, zones, scheme) {
+    var dark = scheme === "dark";
+    var steps = [0.05, 0.16, 0.38];
+    var st = zones === "tint" ? [steps[0]] : steps;
+    var al = zones === "tint" ? [dark ? 0.16 : 0.2] : (dark ? [0.10, 0.10, 0.12] : [0.13, 0.12, 0.14]);
+    var out = new Uint8ClampedArray(G.g.length);
+    for (var k = 0; k < G.g.length; k++) {
+      var v = G.g[k] / G.mx; var a = 0;
+      for (var s = 0; s < st.length; s++) if (v > st[s]) a += al[s];
+      out[k] = Math.round(a * 255);
+    }
+    return out;
+  }
+
+  // Every zone and district shape at this view, in the order they are drawn
+  // (zones in topic order, each tint then outline; then the districts). A
+  // zone or district whose grid is empty is left out. A zone's points are the
+  // points the zone level assigns to it, not those reached through parents.
+  function zoneShapes(model, frame) {
+    var cfg = model.settings, pal = palette(cfg.scheme), T = model.topics, topic = model.points.topic;
+    var sc = gridScale(frame);
+    var zones = [], districts = [];
+    if (!(cfg.zones === "none" && cfg.subOutline == null)) {
+      var list = cfg.zones === "none" ? [] : model.zoneIdx;
+      list.forEach(function (zi) {
+        var h = model.hueOf[zi] == null ? 220 : model.hueOf[zi];
+        var G = densityGrid(model, frame, function (i) { return topic[cfg.zoneLayer][i] === zi; }, sc.cell, sc.sigma);
+        if (G.mx <= 0) return;
+        var thr = G.mx * 0.05;
+        var hasFill = cfg.zones === "halo" || cfg.zones === "tint";
+        var hasLine = cfg.zones === "outline" || cfg.zones === "tint";
+        zones.push({ ti: zi, id: T[zi].id, hue: h, grid: G, threshold: thr,
+          tint: hasFill ? pal.zoneTint(h) : null, alpha: hasFill ? zoneAlpha(G, cfg.zones, cfg.scheme) : null,
+          outline: hasLine ? pal.zoneOutline(h) : null, outlineWidth: pal.zoneOutlineWidth,
+          segs: hasLine ? contourSegs(G, thr) : [] });
+      });
+      model.districtIdx.forEach(function (ti) {
+        var G = densityGrid(model, frame, function (i) { return topic[cfg.subOutline][i] === ti; }, sc.cell, sc.sigma * 0.7);
+        if (G.mx <= 0) return;
+        var thr = G.mx * 0.12;
+        districts.push({ ti: ti, id: T[ti].id, hue: model.hueOf[ti], grid: G, threshold: thr,
+          stroke: pal.districtStroke(model.hueOf[ti]), width: pal.districtWidth, dash: pal.districtDash.slice(),
+          segs: contourSegs(G, thr) });
+      });
+    }
+    return { cell: sc.cell, sigma: sc.sigma, zones: zones, districts: districts };
+  }
+
+  var PolisTopicMapDense = {
+    DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, DEFAULT_FACE: DEFAULT_FACE,
+    rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
+    weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
+    fitView: fitView, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,
+    gridScale: gridScale, blurRadius: blurRadius, binnedCounts: binnedCounts, densityGrid: densityGrid,
+    contourSegs: contourSegs, zoneAlpha: zoneAlpha, zoneShapes: zoneShapes
+  };
+
+  root.PolisTopicMapDense = PolisTopicMapDense;
+  if (typeof module !== "undefined" && module.exports) module.exports = PolisTopicMapDense;
+})(typeof globalThis !== "undefined" ? globalThis : this);
