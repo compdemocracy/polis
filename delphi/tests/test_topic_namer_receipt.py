@@ -210,9 +210,10 @@ def test_a_run_whatever_its_record_completes_and_records_what_was_stored(delphi_
     assert "Pipeline completed successfully" in done.stdout
 
 
+@pytest.mark.parametrize("setup_failure", [False, True])
 @pytest.mark.parametrize("step_log_on", [False, True])
 def test_a_hand_run_stopped_with_sigterm_stops_its_pipeline_and_leaves_no_scratch(
-        delphi_app, tmp_path, monkeypatch, step_log_on):
+        delphi_app, tmp_path, monkeypatch, step_log_on, setup_failure):
     # Only run_delphi.py is sent SIGTERM; the stand-in pipeline would, a
     # second later, make the scratch directory again.
     if step_log_on:
@@ -224,11 +225,20 @@ def test_a_hand_run_stopped_with_sigterm_stops_its_pipeline_and_leaves_no_scratc
         "\nimport time\ntime.sleep(1)\nos.makedirs(d, exist_ok=True)\n"
         "open(os.path.join(d, 'hierarchy.json'), 'w').write('{}')\n"
         "open(os.environ['PIPELINE_ARGV'] + '.again', 'w').write('late')\ntime.sleep(30)\n"))
-    child = subprocess.Popen([sys.executable, str(delphi_app / "run_delphi.py"), "--zid=7",
-                              "--include_moderation=False", "--exclude_comment_selections=False",
-                              "--selection=participant_visible/1", f"--namer={HAIKU_ARG}"],
-                             cwd=delphi_app, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                             start_new_session=True)
+    command = [sys.executable, str(delphi_app / "run_delphi.py"), "--zid=7",
+               "--include_moderation=False", "--exclude_comment_selections=False",
+               "--selection=participant_visible/1", f"--namer={HAIKU_ARG}"]
+    if setup_failure:
+        inject = """import sys, runpy
+from umap_narrative import topic_namer
+def broken(): raise OSError("injected setup failure")
+topic_namer.socket.socketpair = broken
+sys.argv = sys.argv[1:]
+runpy.run_path(sys.argv[0], run_name="__main__")
+"""
+        command = [sys.executable, "-c", inject, *command[1:]]
+    child = subprocess.Popen(command, cwd=delphi_app, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
     scratch = None
     try:
         marker = tmp_path / "argv.log.dir"
@@ -292,3 +302,154 @@ def test_a_pipeline_stopped_with_sigterm_stops_the_naming_program_first(tmp_path
         except ProcessLookupError:
             pass
         child.wait(timeout=10)
+
+
+def test_retry_does_not_acknowledge_the_interrupted_model_record(pipeline, stub, monkeypatch, tmp_path):
+    import select
+
+    exchange = topic_namer.RecordExchange()
+    real = os.write
+    sends = 0
+    def write(fd, data):
+        nonlocal sends
+        if fd != exchange.child_fd:
+            return real(fd, data)
+        sends += 1
+        if sends == 1:
+            # Real short write: all JSON, but not its trailing newline.
+            return real(fd, data[:-1])
+        if sends == 2:
+            raise OSError('injected error before the final newline')
+        if sends == 3:
+            # Split the resend immediately after its first newline. Give the
+            # receiving thread a turn before the new JSON is sent.
+            n = bytes(data).index(b'\n') + 1
+            sent = real(fd, data[:n])
+            select.select([fd], [], [], 0.25)
+            return sent
+        return real(fd, data)
+    monkeypatch.setattr(os, 'write', write)
+    storage = Names()
+    try:
+        _, _, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage, record_fd=exchange.child_fd)
+    finally:
+        record, reason = exchange.finish()
+    code, manifest = run_delphi.recorded_naming(topic_namer.exit_status(), record, reason, HAIKU)
+    print('retry:', json.dumps(dict(child_exit=topic_namer.exit_status(), parent_exit=code,
+          storage=sorted({r.model_name for r in storage.rows}), child=naming['outcome'],
+          parent=manifest['outcome'], reason=manifest.get('reason'))))
+    assert code == 0
+    assert {r.model_name for r in storage.rows} == {full_pipeline_models(manifest)['topic']}
+    assert manifest['reason'].startswith('record_unsent')
+
+
+
+@pytest.mark.parametrize("point", ["socket", "thread"])
+def test_exchange_setup_failure_completes_with_keywords(delphi_app, tmp_path, monkeypatch, point):
+    # Real parent, child launch and manifest writer; external data reads are
+    # stand-ins. These two setup faults used to exit before the child ran.
+    manifest = tmp_path / "manifest.json"
+    monkeypatch.setenv("DELPHI_OUTPUT_MANIFEST", str(manifest))
+    fault = ("topic_namer.socket.socketpair" if point == "socket"
+             else "topic_namer.threading.Thread.start")
+    kind = "OSError" if point == "socket" else "RuntimeError"
+    script = f'''import sys, time, run_delphi
+from umap_narrative import topic_namer
+from polismath import job_child
+from polismath.job_child import census
+def broken(*args, **kwargs): raise {kind}("injected setup failure")
+{fault} = broken
+job = job_child.JobContext(job_id="00000000-0000-4000-8000-000000000007",
+    run_id="00000000-0000-4000-8000-000000000008",
+    attempt_id="00000000-0000-4000-8000-000000000009", lease_epoch=1,
+    stage=job_child.STAGE_FULL_PIPELINE, phase=job_child.PHASE_RUN,
+    manifest_path={str(manifest)!r}, frame_path="unused", frame={{}}, started_monotonic=time.monotonic())
+run_delphi._start_daemon_job = lambda zid: job
+census.default_dynamodb = lambda region: None
+census.count_full_pipeline_outputs = lambda *a: []
+sys.argv = [{str(delphi_app / "run_delphi.py")!r}, "--zid=7", "--include_moderation=False",
+    "--exclude_comment_selections=False", "--selection=participant_visible/1", "--namer=" + {HAIKU_ARG!r}]
+run_delphi.main()
+'''
+    done = subprocess.run([sys.executable, "-c", script], cwd=delphi_app,
+                          capture_output=True, text=True, timeout=30)
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert "Topic naming recorded by keywords (record_exchange_unavailable)" in done.stdout
+    assert "Pipeline completed successfully" in done.stdout
+    [argv] = [json.loads(line) for line in Path(os.environ["PIPELINE_ARGV"]).read_text().splitlines()]
+    assert "--namer=" + HAIKU_ARG in argv
+    assert "--naming-keywords-only" in argv
+    assert not any(arg.startswith("--naming-record-fd=") for arg in argv)
+    saved = json.loads(manifest.read_text())
+    assert saved["outcome"] == "succeeded" and saved["models"]["topic"] == "keywords"
+    assert saved["cost"]["llm_tokens_in"] is None and saved["cost"]["llm_tokens_out"] is None
+    scratch = Path(Path(os.environ["PIPELINE_ARGV"] + ".dir").read_text())
+    assert not scratch.exists()
+
+
+def test_setup_fallback_stores_keywords_without_building_or_calling_a_namer(
+        pipeline, stub, monkeypatch, tmp_path):
+    def forbidden(*a, **kw):
+        pytest.fail("setup fallback must not prepare or call a model")
+
+    monkeypatch.setattr(topic_namer, "build_hierarchy", forbidden)
+    monkeypatch.setattr(pipeline, "_call_namer", forbidden)
+    storage = Names()
+    labels, notes, naming = run_naming(pipeline, monkeypatch, tmp_path, HAIKU, storage,
+                                       naming_keywords_only=True)
+    assert _models(storage) == {"keywords"}
+    assert labels[0]["0"] == "Keywords: water, land | Example: c0"
+    assert labels[1]["0"] == "Keywords: town | Example: c0"
+    assert naming["outcome"] == "namer_failed"
+    assert naming["reason"] == "record_exchange_unavailable"
+    assert all(note["model"] == "keywords" for note in notes)
+    assert naming == topic_namer.record_of(topic_namer.exchange_unavailable(HAIKU))
+    assert topic_namer.exit_status() == 0
+    assert not (stub / "argv.log").exists() and not (tmp_path / "naming").exists()
+
+
+@pytest.mark.parametrize("point", ["event", "thread", "start"])
+def test_exchange_setup_closes_both_sockets_on_failure(monkeypatch, point):
+    sockets = socket.socketpair()
+    monkeypatch.setattr(topic_namer.socket, "socketpair", lambda: sockets)
+
+    def broken(*a, **kw):
+        raise RuntimeError("injected setup failure")
+
+    if point == "event":
+        monkeypatch.setattr(topic_namer.threading, "Event", broken)
+    elif point == "thread":
+        monkeypatch.setattr(topic_namer.threading, "Thread", broken)
+    else:
+        monkeypatch.setattr(topic_namer.threading.Thread, "start", broken)
+    try:
+        with pytest.raises(RuntimeError, match="injected setup failure"):
+            topic_namer.RecordExchange()
+        assert [sock.fileno() for sock in sockets] == [-1, -1]
+    finally:
+        for sock in sockets:
+            sock.close()
+
+
+def test_pipeline_cli_carries_the_explicit_keyword_fallback(pipeline, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(pipeline, "setup_environment", lambda **kw: None)
+    monkeypatch.setattr(pipeline, "process_conversation", lambda *a, **kw: seen.update(kw) or True)
+    monkeypatch.setattr(sys, "argv", ["run_pipeline.py", "--zid=7", "--include_moderation=False",
+        "--exclude_comment_selections=False", "--selection=participant_visible/1",
+        "--namer=" + HAIKU_ARG, "--naming-keywords-only"])
+    with pytest.raises(SystemExit) as exited:
+        pipeline.main()
+    assert exited.value.code == 0
+    assert seen["namer"] == HAIKU and seen["naming_keywords_only"] is True
+    assert seen["naming_record_fd"] is None
+
+
+@pytest.mark.parametrize("args", [[], ["--namer=" + HAIKU_ARG, "--naming-record-fd=0"]])
+def test_keyword_fallback_cli_rejects_ambiguous_modes(pipeline, monkeypatch, args):
+    monkeypatch.setattr(sys, "argv", ["run_pipeline.py", "--zid=7", "--include_moderation=False",
+        "--exclude_comment_selections=False", "--selection=participant_visible/1",
+        "--naming-keywords-only", *args])
+    with pytest.raises(SystemExit) as exited:
+        pipeline.main()
+    assert exited.value.code == 2

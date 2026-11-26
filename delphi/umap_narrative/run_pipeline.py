@@ -837,6 +837,7 @@ def process_layers_and_create_visualizations(
     namer_dir=None,
     naming=None,
     naming_record_fd=None,
+    naming_keywords_only=False,
 ):
     """
     Process layers, store data, and create visualizations.
@@ -897,7 +898,7 @@ def process_layers_and_create_visualizations(
     if namer is not None:
         _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
                          comment_texts, output_dir, layer_data, dynamo_storage, job_id,
-                         record_fd=naming_record_fd)
+                         record_fd=naming_record_fd, keywords_only=naming_keywords_only)
     # If topic naming is requested, generate LLM topic labels.
     elif name_topics:
         provider_type = resolve_provider_type()
@@ -986,7 +987,7 @@ def process_layers_and_create_visualizations(
 
 
 def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cluster_layers,
-                     comment_texts, output_dir, layer_data, dynamo_storage, job_id, record_fd=None):
+                     comment_texts, output_dir, layer_data, dynamo_storage, job_id, record_fd=None, keywords_only=False):
     """Name every layer's topics in one call (umap_narrative/topic_namer.py),
     or keep the keyword labels. Whatever the program or its scratch files do,
     this returns: a naming failure never fails the run, and nothing here retries.
@@ -1007,20 +1008,24 @@ def _name_with_namer(namer, namer_dir, naming, conversation_id, document_map, cl
     # selection no longer keeps sends nothing (polismath/job_child/names_of.py).
     refused = naming.pop("source_refused", None) if naming is not None else None
     with step_log.step("topic_names_call") as facts:
-        try:
-            if refused is not None:
-                raise LookupError(refused)
-            hierarchy = topic_namer.build_hierarchy(layer_data, cluster_layers, comment_texts, document_map)
-        except LookupError:
-            logger.error(f"The topics are not sent to a model ({refused}); keeping keyword labels")
+        if keywords_only:
             hierarchy = None
-            result = topic_namer._result(namer, topic_namer.NAMER_FAILED, refused)
-        except Exception as e:  # noqa: BLE001 - naming must never fail the run.
-            logger.error(f"The topic hierarchy could not be built ({type(e).__name__}); keeping keyword labels")
-            hierarchy = None
-            result = topic_namer._result(namer, topic_namer.NAMER_FAILED, "hierarchy_unbuildable")
-        if hierarchy is not None:
-            result = _call_namer(topic_namer, namer, hierarchy, namer_dir)
+            result = topic_namer.exchange_unavailable(namer)
+        else:
+            try:
+                if refused is not None:
+                    raise LookupError(refused)
+                hierarchy = topic_namer.build_hierarchy(layer_data, cluster_layers, comment_texts, document_map)
+            except LookupError:
+                logger.error(f"The topics are not sent to a model ({refused}); keeping keyword labels")
+                hierarchy = None
+                result = topic_namer._result(namer, topic_namer.NAMER_FAILED, refused)
+            except Exception as e:  # noqa: BLE001 - naming must never fail the run.
+                logger.error(f"The topic hierarchy could not be built ({type(e).__name__}); keeping keyword labels")
+                hierarchy = None
+                result = topic_namer._result(namer, topic_namer.NAMER_FAILED, "hierarchy_unbuildable")
+            if hierarchy is not None:
+                result = _call_namer(topic_namer, namer, hierarchy, namer_dir)
         facts["topics"] = len(hierarchy["topics"]) if hierarchy is not None else None
         facts["outcome"] = result["outcome"]
 
@@ -1288,7 +1293,7 @@ def create_enhanced_multilayer_index(
 
 def process_conversation(
     zid, export_dynamo=True, name_topics=False, include_moderation=False, exclude_comment_selections=True,
-    selection=None, namer=None, namer_dir=None, naming_record_fd=None,
+    selection=None, namer=None, namer_dir=None, naming_record_fd=None, naming_keywords_only=False,
 ):
     """
     Main function to process a conversation and generate visualizations.
@@ -1332,7 +1337,8 @@ def process_conversation(
 
     with step_log.step("total") as total:
         extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir,
-                                          "naming_record_fd": naming_record_fd}
+                                          "naming_record_fd": naming_record_fd,
+                                          "naming_keywords_only": naming_keywords_only}
         ok = _process_conversation(zid, output_dir, export_dynamo, name_topics,
                                    include_moderation, exclude_comment_selections, total,
                                    selection=selection, **extra)
@@ -1548,7 +1554,7 @@ def _store_copy(export_dynamo, conversation_id, source, document_map, cluster_la
 
 def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_moderation,
                           exclude_comment_selections, total, selection=None, namer=None,
-                          namer_dir=None, naming_record_fd=None):
+                          namer_dir=None, naming_record_fd=None, naming_keywords_only=False):
     with step_log.step("inputs") as facts:
         if selection is None:
             comments, metadata = _read_inputs(zid, include_moderation, exclude_comment_selections, facts)
@@ -1621,7 +1627,8 @@ def _process_conversation(zid, output_dir, export_dynamo, name_topics, include_m
     # what it was.
     naming = None if namer is None else ({} if refused is None else {"source_refused": refused})
     extra = {} if namer is None else {"namer": namer, "namer_dir": namer_dir, "naming": naming,
-                                      "naming_record_fd": naming_record_fd}
+                                      "naming_record_fd": naming_record_fd,
+                                      "naming_keywords_only": naming_keywords_only}
     process_layers_and_create_visualizations(
         conversation_id,
         conversation_name,
@@ -1744,6 +1751,12 @@ def main():
              "on it before any label is written, for the run's manifest. Only with --namer.",
     )
 
+    parser.add_argument(
+        "--naming-keywords-only", action="store_true",
+        help="Keep keyword names without a model call when run_delphi.py cannot set up "
+             "the record exchange. Only with --namer, without --naming-record-fd.",
+    )
+
     args = parser.parse_args()
     if args.selection is not None and (args.include_moderation or args.exclude_comment_selections):
         parser.error("--selection is the whole rule: it takes --include_moderation=False "
@@ -1756,8 +1769,10 @@ def main():
             topic_namer.check_selection(namer, args.selection)
         except topic_namer.NamerRefused as e:
             parser.error(f"--namer refused: {e}")
-    elif args.namer_dir is not None or args.naming_record_fd is not None:
-        parser.error("--namer-dir and --naming-record-fd are only for a run with --namer")
+    elif args.namer_dir is not None or args.naming_record_fd is not None or args.naming_keywords_only:
+        parser.error("--namer-dir, --naming-record-fd and --naming-keywords-only require --namer")
+    if args.naming_keywords_only and args.naming_record_fd is not None:
+        parser.error("--naming-keywords-only cannot use --naming-record-fd")
     if args.naming_record_fd is not None:
         # Never handed on to a program this pipeline starts.
         os.set_inheritable(args.naming_record_fd, False)
@@ -1844,7 +1859,8 @@ def main():
         # Only a run that names a namer passes one: every other run's call
         # is what it was.
         extra = {} if namer is None else {"namer": namer, "namer_dir": args.namer_dir,
-                                          "naming_record_fd": args.naming_record_fd}
+                                          "naming_record_fd": args.naming_record_fd,
+                                          "naming_keywords_only": args.naming_keywords_only}
         ok = process_conversation(
             args.zid,
             export_dynamo=not args.no_dynamo,

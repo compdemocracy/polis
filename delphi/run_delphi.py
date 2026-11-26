@@ -320,21 +320,26 @@ def run(args):
     exchange = naming = None
     if namer is not None:
         from umap_narrative import topic_namer
-        # The naming's record (outcome, token counts) comes back over a socket
-        # pair, not a file, and is acknowledged on it before the pipeline
-        # writes the model's names: nothing the manifest needs lives in the
-        # scratch directory or anywhere else on the box. A socket pair that
-        # cannot be made fails the run before the pipeline starts (it is not
-        # a naming outcome).
-        exchange = topic_namer.RecordExchange()
+        # Keep the named path even when its exchange cannot be set up: the
+        # older provider path is not a keyword fallback.
         umap_command.append(f"--namer={topic_namer.namer_argument(namer)}")
         umap_command.append(f"--namer-dir={args.namer_dir}")
-        umap_command.append(f"--naming-record-fd={exchange.child_fd}")
+        try:
+            exchange = topic_namer.RecordExchange()
+        except Exception:  # Naming setup must not fail or retry the run.
+            naming = topic_namer.record_of(topic_namer.exchange_unavailable(namer))
+            umap_command.append("--naming-keywords-only")
+        else:
+            umap_command.append(f"--naming-record-fd={exchange.child_fd}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
-    if exchange is None:
+    if namer is None:
         pipeline_exit_code = step_log.run_child("pipeline", umap_command)
+    elif exchange is None:
+        pipeline_exit_code = step_log.run_child("pipeline", umap_command, stop_on_interrupt=True)
+        if pipeline_exit_code != 0:
+            naming = None
     else:
         try:
             # Stopped with this run (SIGTERM, then SIGKILL) if this run is
@@ -343,10 +348,10 @@ def run(args):
         finally:
             record, unreceived = exchange.finish()
         pipeline_exit_code, naming = recorded_naming(pipeline_exit_code, record, unreceived, namer)
-        if naming is not None:
-            from polismath import job_child
-            topic = job_child.full_pipeline_models(naming)["topic"]
-            print(f"Topic naming recorded by {topic}" + (f" ({naming['reason']})" if naming.get("reason") else ""))
+    if naming is not None:
+        from polismath import job_child
+        topic = job_child.full_pipeline_models(naming)["topic"]
+        print(f"Topic naming recorded by {topic}" + (f" ({naming['reason']})" if naming.get("reason") else ""))
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 

@@ -377,7 +377,9 @@ def send_record(fd: int, result: Dict[str, Any]) -> None:
     pipeline (``--naming-record-fd``): one JSON line, on a line of its own
     even after a write that failed part way. Raises OSError."""
     text = json.dumps(record_of(result), ensure_ascii=False, separators=(",", ":"))
-    line = memoryview(("\n" + text + "\n").encode())
+    # Invalidate any unfinished earlier JSON before starting the new line.
+    # A bare newline could complete it and acknowledge the wrong record.
+    line = memoryview(("\0\n" + text + "\n").encode())
     while line:
         line = line[os.write(fd, line):]
 
@@ -464,6 +466,11 @@ def exit_status() -> int:
     return UNACKNOWLEDGED_EXIT if _unacknowledged else 0
 
 
+def exchange_unavailable(namer):
+    """A known no-call result shared by both processes before naming starts."""
+    return _result(namer, NAMER_FAILED, "record_exchange_unavailable")
+
+
 class RecordExchange:
     """run_delphi.py's end of the naming's exchange with its pipeline: a Unix
     socket pair whose other end (``child_fd``) the pipeline is given as
@@ -475,13 +482,18 @@ class RecordExchange:
 
     def __init__(self):
         self._mine, self._theirs = socket.socketpair()
-        self.child_fd = self._theirs.fileno()
-        self._data = b""
-        self._record = None
-        self._reason = None
-        self._stop = threading.Event()
-        self._thread = threading.Thread(target=self._receive, name="naming-record", daemon=True)
-        self._thread.start()
+        try:
+            self.child_fd = self._theirs.fileno()
+            self._data = b""
+            self._record = None
+            self._reason = None
+            self._stop = threading.Event()
+            self._thread = threading.Thread(target=self._receive, name="naming-record", daemon=True)
+            self._thread.start()
+        except BaseException:
+            self._mine.close()
+            self._theirs.close()
+            raise
 
     def _receive(self) -> None:
         fd = self._mine.fileno()

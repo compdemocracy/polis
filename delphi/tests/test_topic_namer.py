@@ -292,7 +292,7 @@ CHARACTERISTICS = {0: {0: {"top_words": ["water", "land"], "sample_comments": ["
 DEFAULT_DIR = object()
 
 
-def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None, record_fd=None, namer_dir=DEFAULT_DIR):
+def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None, record_fd=None, namer_dir=DEFAULT_DIR, **extra):
     monkeypatch.setattr(pipeline, "process_layers_and_store_characteristics",
                         lambda *a, **kw: {l: {"characteristics": c, "numeric_topic_names": {}}
                                           for l, c in CHARACTERISTICS.items()})
@@ -304,7 +304,7 @@ def run_naming(pipeline, monkeypatch, tmp_path, namer, storage=None, record_fd=N
         "7", "c", np.zeros((60, 2)), LAYERS, [f"c{i}" for i in range(60)], str(out),
         name_topics=True, dynamo_storage=storage, job_id="job", namer=namer,
         namer_dir=str(tmp_path / "naming") if namer_dir is DEFAULT_DIR else namer_dir, naming=naming,
-        naming_record_fd=record_fd)
+        naming_record_fd=record_fd, **extra)
     labels = {layer: json.loads((out / f"7_comment_layer_{layer}_labels.json").read_text()) for layer in (0, 1)}
     notes = [e for e in step_log.recorded() if e.get("note") == "topic_names"]
     return labels, notes, naming
