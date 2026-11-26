@@ -23,7 +23,9 @@ fn load(name: &str) -> Value {
 }
 
 fn num(v: &Value, key: &str) -> f64 {
-    let x = v[key].as_f64().unwrap_or_else(|| panic!("{key} is not a number"));
+    let x = v[key]
+        .as_f64()
+        .unwrap_or_else(|| panic!("{key} is not a number"));
     assert!(x.is_finite(), "{key} is not finite");
     x
 }
@@ -44,8 +46,15 @@ fn weights(cells: &[Value], override_e: Option<(u32, f64)>) -> HistoricalWeights
     for c in cells {
         let tid = count(c, "tid");
         let id = CommentId::new(tid);
-        let (a, d, p) = (count(c, "agreed"), count(c, "disagreed"), count(c, "passed"));
-        assert_eq!(u64::from(a) + u64::from(d) + u64::from(p), c["seen"].as_u64().unwrap());
+        let (a, d, p) = (
+            count(c, "agreed"),
+            count(c, "disagreed"),
+            count(c, "passed"),
+        );
+        assert_eq!(
+            u64::from(a) + u64::from(d) + u64::from(p),
+            c["seen"].as_u64().unwrap()
+        );
         counts.push((id, Counts::new(a, d, p)));
         let e = match override_e {
             Some((t, e)) if t == tid => e,
@@ -91,7 +100,11 @@ fn compare(ticks: &[Value], t: &mut Tally) {
             t.cells += 1;
             t.meta += usize::from(c["meta"].as_bool().unwrap());
             if python == 0.0 {
-                assert_eq!(rust.to_bits(), python.to_bits(), "exact zero, comment {id:?}");
+                assert_eq!(
+                    rust.to_bits(),
+                    python.to_bits(),
+                    "exact zero, comment {id:?}"
+                );
                 t.exact_zeros += 1;
                 continue;
             }
@@ -113,7 +126,12 @@ fn recorded_replays_reproduce_through_historical_1() {
     for name in ["vw", "biodiversity"] {
         let f = load(name);
         assert_eq!(f["header"]["rule"], "historical/1");
-        assert!(f["header"]["proves"].as_str().unwrap().contains("does not prove"));
+        assert!(
+            f["header"]["proves"]
+                .as_str()
+                .unwrap()
+                .contains("does not prove")
+        );
         let ticks = f["ticks"].as_array().unwrap();
         assert_eq!(ticks.len(), 10, "{name}: ten prefixes");
         let mut t = Tally::default();
@@ -134,8 +152,13 @@ fn recorded_replays_reproduce_through_historical_1() {
         let got = wrong.get(CommentId::new(tid)).unwrap().weight().get();
         let recorded = num(&witness["cell"], "weight");
         let rel = ((got - recorded) / recorded).abs();
-        println!("{name}: wrong-on-purpose comment {tid}: relative difference {rel:e} (must be large)");
-        assert!(rel > 1e-3, "the served-centre extremity reproduced the priority");
+        println!(
+            "{name}: wrong-on-purpose comment {tid}: relative difference {rel:e} (must be large)"
+        );
+        assert!(
+            rel > 1e-3,
+            "the served-centre extremity reproduced the priority"
+        );
         total.ticks += t.ticks;
         total.cells += t.cells;
         total.bit_exact += t.bit_exact;

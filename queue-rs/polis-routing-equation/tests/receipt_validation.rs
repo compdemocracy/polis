@@ -268,7 +268,10 @@ fn impossible_mapped_totals_and_single_candidate_digests_are_refused() {
     let huge = serde_json::Number::from_f64(1e300).unwrap().to_string();
     let half_null = StoredWeights::new(
         src("math"),
-        [(ids[0], StoredWeight::Null), (ids[1], StoredWeight::Number(3.0))],
+        [
+            (ids[0], StoredWeight::Null),
+            (ids[1], StoredWeight::Number(3.0)),
+        ],
     )
     .unwrap();
     let mixed = stored_weights_1(
@@ -299,15 +302,11 @@ fn impossible_mapped_totals_and_single_candidate_digests_are_refused() {
         ),
         (
             "total above n times the ceiling",
-            one.replace(
-                r#""normaliser":3.0"#,
-                &format!(r#""normaliser":{huge}"#),
-            ),
+            one.replace(r#""normaliser":3.0"#, &format!(r#""normaliser":{huge}"#)),
         ),
         (
             "total below the mapped count",
-            mixed
-                .replace(r#""normaliser":4.0"#, r#""normaliser":0.5"#),
+            mixed.replace(r#""normaliser":4.0"#, r#""normaliser":0.5"#),
         ),
         (
             "one candidate, digest of another list",
