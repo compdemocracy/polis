@@ -14,9 +14,14 @@
  */
 export function commentTextFor(read) {
   let held = null;
-  return function textFor({ reportId, conversationId = null, modLevel = null, token = null }) {
-    const reader = JSON.stringify([reportId, conversationId || null, modLevel ?? null, token || null]);
-    if (!held || held.reader !== reader) held = { reader, text: read({ reportId, conversationId, modLevel, token }) };
+  return function textFor({ reportId, conversationId = null, modLevel = null, token = null, ids }) {
+    // ids, when given: the comment ids of the map the text is for (the read
+    // keeps nothing else), so another map's ids make another reader too.
+    const reader = JSON.stringify([reportId, conversationId || null, modLevel ?? null, token || null, ids ?? null]);
+    const asked = { reportId, conversationId, modLevel, token };
+    if (ids !== undefined) asked.ids = ids;
+    // a revoked read (its map went: deepZoom.js readerData) is read afresh
+    if (!held || held.reader !== reader || (held.text && held.text.revoked === true)) held = { reader, text: read(asked) };
     return held.text;
   };
 }
