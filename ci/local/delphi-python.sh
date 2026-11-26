@@ -208,6 +208,14 @@ endgroup
 group "copy the tests and their inputs into the delphi container"
 compose cp delphi/tests delphi:/app/tests
 compose cp delphi/real_data delphi:/app/real_data
+# The routing equation crate's recorded fixtures, for the Python drift test
+# (delphi/tests/test_routing_equation_parity.py): copied, made read-only and
+# checked against their SHA-256 list; a missing or changed fixture fails.
+compose cp queue-rs/polis-routing-equation/tests/fixtures delphi:/app/routing-equation-fixtures
+compose exec -T --user root delphi chmod -R a-w /app/routing-equation-fixtures \
+  || die "could not make the routing equation fixtures read-only"
+compose exec -T delphi sh -c 'cd /app/routing-equation-fixtures && sha256sum -c --quiet SHA256SUMS' \
+  || die "the routing equation fixtures are missing or do not match SHA256SUMS"
 compose cp delphi/generate_coverage_md.py delphi:/app/generate_coverage_md.py
 compose cp delphi/polismath/run_math_pipeline.py delphi:/app/run_math_pipeline.py
 compose cp delphi/umap_narrative delphi:/app/umap_narrative

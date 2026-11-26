@@ -74,7 +74,37 @@ if [ -z "$BASE" ]; then
   if [ -n "${GITHUB_BASE_REF:-}" ]; then BASE="origin/$GITHUB_BASE_REF"; else BASE=origin/edge; fi
 fi
 MERGE_BASE="$(git -C "$CHECK_ROOT" merge-base "$BASE" HEAD 2>/dev/null)" || fail "cannot find the base $BASE (fetch it; the check never skips)"
-CHANGED="$(git -C "$CHECK_ROOT" diff --name-status --diff-filter=MDR "$MERGE_BASE" -- "$CRATE/tests/golden" "$CRATE/tests/fixtures")"
+# Two files are exempt: the binding, which moves to a new rule version in the
+# change that adds that version's fixture, and the checksum list, which may
+# only grow (checked below).
+CHANGED="$(git -C "$CHECK_ROOT" diff --name-status --diff-filter=MDR "$MERGE_BASE" -- "$CRATE/tests/golden" "$CRATE/tests/fixtures" \
+  ":(exclude)$CRATE/tests/fixtures/SHA256SUMS" ":(exclude)$CRATE/tests/fixtures/CURRENT_PYTHON_RULE")"
 [ -z "$CHANGED" ] || fail "golden or fixture files changed against $BASE (add a new rule version instead):
 $CHANGED"
 echo "unchanged-fixture rule: nothing modified, deleted or renamed against $BASE"
+REMOVED="$(git -C "$CHECK_ROOT" diff --unified=0 "$MERGE_BASE" -- "$CRATE/tests/fixtures/SHA256SUMS" | grep -E '^-[^-]' || true)"
+[ -z "$REMOVED" ] || fail "tests/fixtures/SHA256SUMS lost or changed a line against $BASE (it may only grow):
+$REMOVED"
+FIXTURES="$CHECK_ROOT/$CRATE/tests/fixtures"
+python3 -I - "$FIXTURES" <<'PY2' || fail "the fixture checksums or the binding do not hold"
+import hashlib, os, sys
+root = sys.argv[1]
+listed = {}
+with open(os.path.join(root, "SHA256SUMS")) as f:
+    for line in f:
+        digest, name = line.rstrip("\n").split("  ", 1)
+        listed[name] = digest
+on_disk = set()
+for d, _, files in os.walk(root):
+    for n in files:
+        rel = os.path.relpath(os.path.join(d, n), root)
+        if rel not in ("SHA256SUMS", "CURRENT_PYTHON_RULE") and "__pycache__" not in rel:
+            on_disk.add(rel)
+assert on_disk == set(listed), f"files and SHA256SUMS differ: {sorted(on_disk ^ set(listed))}"
+for name, digest in listed.items():
+    with open(os.path.join(root, name), "rb") as f:
+        assert hashlib.sha256(f.read()).hexdigest() == digest, f"{name}: SHA-256 differs"
+rule, path, digest = open(os.path.join(root, "CURRENT_PYTHON_RULE")).read().split()
+assert digest == "sha256:" + listed[path], "the binding names a fixture by a digest it does not have"
+print(f"fixture checksums: {len(listed)} files match; binding {rule} -> {path}")
+PY2
