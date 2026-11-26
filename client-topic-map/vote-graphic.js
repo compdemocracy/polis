@@ -12,19 +12,31 @@
  *
  * Two forms from the same input into the same box, so a page can toggle:
  *
- *   "rows"    (the default) one row per group, A at the top. From the left:
+ *   "rows"    (the default) one row per group, A at the top, four rows filled
+ *             so they read as one solid block. Each row runs the full width
+ *             (inside a 1 px inset under 16 px tall, else 2 px); agree fills
+ *             it from the left to the group's share of agree, (agree + 1) /
+ *             (agree + disagree + 2), and disagree fills the rest to the right
+ *             end. Pass and those who did not vote are not drawn; their counts
+ *             are in `readout`. The box height is split into the rows and a
+ *             1 px lighter line between each two rows (the row above, half
+ *             strength), every edge on a whole pixel: row i runs from
+ *             round(i * (h + 1) / n) to round((i + 1) * (h + 1) / n) - 1. A
+ *             1 px line marks the middle (half agree), the full height. A group
+ *             with fewer than `few` agrees plus disagrees is drawn faint.
+ *             With `showNonVoters: true` the rows are the earlier drawing:
  *             agree, disagree, pass, as shares of those who voted; then those
- *             who did not vote, a light tint with dots, at the right end. The
- *             did-not-vote part takes its share of the group times
- *             `didNotVoteMax` (a quarter by default), so every row stays a
- *             nearly full bar and the four rows read as one whole form; with
- *             `didNotVoteMax: 1` the row's full length is every member (the
- *             first drawing). The exact numbers are in `readout`.
+ *             who did not vote, a light tint with dots, at the right end,
+ *             taking their share of the group times `didNotVoteMax` (a quarter
+ *             by default; `didNotVoteMax: 1` draws every member to scale).
  *   "poured"  one column per group, A at the left. The upper bar is every
  *             member (the votes from the left, the rest dotted); the votes
  *             pour down from the voted part of the upper bar and widen, in an
  *             S bend, to fill the lower bar, where agree, disagree and pass
- *             are shares of those who voted across its whole width.
+ *             are shares of those who voted across its whole width. The
+ *             did-not-vote dots carry on below the upper bar into the space
+ *             the liquid leaves at its upper right, behind the liquid
+ *             (`pouredDots`, on by default).
  *
  * Every rectangle is in CSS px on whole numbers, so at a device pixel ratio of
  * 1 or 2 each edge lands on a device pixel; segments of one bar share their
@@ -44,7 +56,9 @@
   // lightness so the cut between them shows at a few pixels; a mid grey pass;
   // a light tint with dots for those who did not vote, darker than the ground
   // so every row keeps its full length. Any of them is overridden with the
-  // `colors` setting ({ agree, disagree, pass, tint, dots, letter }).
+  // `colors` setting ({ agree, disagree, pass, tint, dots, letter, middle,
+  // hatchTint }). `middle` is the middle line's colour; `hatchTint` the ground
+  // under the disagree lines when disagree is drawn hatched.
   var SCHEMES = {
     light: {
       agree: "#004d40",
@@ -52,7 +66,9 @@
       pass: "#8e949c",
       tint: "#e6e9ed",
       dots: "#8f96a0",
-      letter: "#2b3038"
+      letter: "#2b3038",
+      middle: "#16191d",
+      hatchTint: "#f7d3ca"
     },
     dark: {
       agree: "#4fd1a5",
@@ -60,13 +76,15 @@
       pass: "#7d838c",
       tint: "#24272c",
       dots: "#6b717a",
-      letter: "#d6d9de"
+      letter: "#d6d9de",
+      middle: "#e8eaed",
+      hatchTint: "#4a2219"
     }
   };
 
   // The colours of the first drawing: the report's vote bars (client-report,
   // globals.js: agree, disagree, pass) with a lighter tint and dots. Kept so a
-  // page can still draw it: { colors: FIRST_SCHEMES.light, didNotVoteMax: 1 }.
+  // page can still draw it: { colors: FIRST_SCHEMES.light, didNotVoteMax: 1, showNonVoters: true }.
   var FIRST_SCHEMES = {
     light: {
       agree: "rgb(46, 204, 113)",
@@ -102,8 +120,17 @@
     mouthMin: 2,             // the voted part of the upper bar is never narrower than this, px, when anyone voted
     letters: false,          // draw the group letters (rows form only, and only when a row is 6 px or taller)
     face: DEFAULT_FACE,
-    didNotVoteMax: 0.25,     // rows: the did-not-vote part's length is its share of the group times this; 1 = every member to scale
-    colors: null             // { agree, disagree, pass, tint, dots, letter }: any of them over the scheme's
+    didNotVoteMax: 0.25,     // rows with showNonVoters: the did-not-vote part's length is its share of the group times this; 1 = every member to scale
+    colors: null,            // { agree, disagree, pass, tint, dots, letter, middle, hatchTint }: any of them over the scheme's
+    showNonVoters: false,    // rows: true draws pass and those who did not vote (the earlier drawing: gap, rowMax, letters, dots, didNotVoteMax)
+    inset: null,             // rows: px left empty at each end of a row; null = 1 when the box is under 16 px tall, else 2
+    separator: 1,            // rows: px of lighter line between two rows (whole px; 0 = rows touch)
+    separatorAlpha: 0.5,     // rows: the line's strength, the row above it at this alpha (0 = the ground shows)
+    middle: true,            // rows: a 1 px line down the middle, where agree is half
+    middleAlpha: 0.6,        // its strength
+    disagreeFill: "solid",   // rows: "solid", or "hatch" (diagonal 1 px lines of disagree over hatchTint)
+    hatchPitch: 3,           // rows: a hatch line every this many px, along the diagonal
+    pouredDots: true         // poured: the did-not-vote dots carry on into the space the liquid leaves at its upper right
   };
 
   function merge(settings) {
@@ -112,6 +139,23 @@
     if (settings) for (var j in settings) if (settings[j] !== undefined) s[j] = settings[j];
     if (s.form !== "rows" && s.form !== "poured") throw new Error("form must be \"rows\" or \"poured\": " + s.form);
     if (!SCHEMES[s.scheme]) throw new Error("scheme must be \"light\" or \"dark\": " + s.scheme);
+    if (s.disagreeFill !== "solid" && s.disagreeFill !== "hatch") throw new Error("disagreeFill must be \"solid\" or \"hatch\": " + s.disagreeFill);
+    var sep = Number(s.separator);
+    if (!(sep >= 0 && Math.floor(sep) === sep)) throw new Error("separator must be a whole number of px, 0 or more: " + s.separator);
+    s.separator = sep;
+    if (s.inset !== null) {
+      var ins = Number(s.inset);
+      if (!(ins >= 0 && Math.floor(ins) === ins)) throw new Error("inset must be null or a whole number of px, 0 or more: " + s.inset);
+      s.inset = ins;
+    }
+    ["separatorAlpha", "middleAlpha"].forEach(function (key) {
+      var a = Number(s[key]);
+      if (!(a >= 0 && a <= 1)) throw new Error(key + " must be from 0 to 1: " + s[key]);
+      s[key] = a;
+    });
+    var hp = Number(s.hatchPitch);
+    if (!(hp >= 2 && Math.floor(hp) === hp)) throw new Error("hatchPitch must be a whole number, 2 or more: " + s.hatchPitch);
+    s.hatchPitch = hp;
     var m = Number(s.didNotVoteMax);
     if (!(m > 0 && m <= 1)) throw new Error("didNotVoteMax must be above 0 and at most 1: " + s.didNotVoteMax);
     s.didNotVoteMax = m;
@@ -244,6 +288,9 @@
         }
       });
     });
+    (L.liquidDots || []).forEach(function (d) {
+      rects.push({ kind: "dot", x: d.x, y: d.y, w: 1, h: 1, fill: col.dots, alpha: 1, group: d.group, beside: "liquid" });
+    });
     L.paths.forEach(function (p) { p.fill = col[p.kind]; p.alpha = L.bars[p.bar].few ? s.fewAlpha : 1; });
     L.rects = rects;
     return L;
@@ -259,7 +306,7 @@
     if (barW < 4) return empty(box, s, cs, "the box is too narrow");
     var used = n * rowH + (n - 1) * g;
     var top = box.y + Math.floor((box.height - used) / 2);
-    var L = { form: "rows", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false,
+    var L = { form: "rows", drawing: "nonVoters", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false,
       row: { height: rowH, gap: g, top: top, x: barX, width: barW } };
     cs.forEach(function (c, i) {
       var y = top + i * (rowH + g);
@@ -268,6 +315,73 @@
       if (letters) L.texts.push({ text: c.label, x: box.x, y: y + rowH, font: "500 " + rowH + "px " + s.face, fill: palette(s).letter });
     });
     return finish(L, s);
+  }
+
+  /*
+   * rowBands(n, height, separator): the whole-pixel tops and heights of n rows
+   * filling `height` px with `separator` px between each two. Row i runs from
+   * round(i * p) to round((i + 1) * p) - separator, p = (height + separator) / n,
+   * so the rows and lines fill the height exactly and each row is within a
+   * pixel of its even share.
+   */
+  function rowBands(n, height, separator) {
+    var out = [], p = (height + separator) / n;
+    for (var i = 0; i < n; i++) {
+      var y0 = Math.round(i * p), y1 = Math.round((i + 1) * p) - separator;
+      out.push({ y: y0, h: y1 - y0 });
+    }
+    return out;
+  }
+
+  // The share of agree drawn for a group: agree of those who agreed or
+  // disagreed, with one of each added, so a group with no such votes sits at
+  // the middle (and is drawn faint).
+  function agreeShare(c) { return (c.agree + 1) / (c.agree + c.disagree + 2); }
+
+  // The default rows: four rows filled, the full width, agree then disagree.
+  function layoutRowsFilled(cs, box, s) {
+    var n = cs.length, sep = s.separator;
+    var bands = rowBands(n, box.height, sep);
+    if (bands.some(function (b) { return b.h < 1; })) return empty(box, s, cs, "the box is too short for " + n + " rows");
+    var inset = s.inset === null ? (box.height < 16 ? 1 : 2) : s.inset;
+    var x0 = box.x + inset, W = box.width - 2 * inset;
+    if (W < 2) return empty(box, s, cs, "the box is too narrow");
+    var col = palette(s);
+    var L = { form: "rows", drawing: "filled", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false,
+      row: { height: Math.max.apply(null, bands.map(function (b) { return b.h; })), gap: sep, top: box.y, x: x0, width: W, inset: inset,
+        tops: bands.map(function (b) { return box.y + b.y; }), heights: bands.map(function (b) { return b.h; }) } };
+    var rects = [];
+    cs.forEach(function (c, i) {
+      var y = box.y + bands[i].y, h = bands[i].h;
+      var share = agreeShare(c);
+      var aw = Math.max(0, Math.min(W, Math.round(share * W)));
+      var few = c.agree + c.disagree < s.few;
+      var alpha = few ? s.fewAlpha : 1;
+      var segsI = [];
+      if (aw > 0) segsI.push({ kind: "agree", x: x0, y: y, w: aw, h: h });
+      if (W - aw > 0) segsI.push({ kind: "disagree", x: x0 + aw, y: y, w: W - aw, h: h });
+      L.bars.push({ group: i, part: "row", x: x0, y: y, w: W, h: h, segments: segsI, few: few, share: share });
+      segsI.forEach(function (sg) {
+        var hatched = sg.kind === "disagree" && s.disagreeFill === "hatch";
+        rects.push({ kind: sg.kind, x: sg.x, y: sg.y, w: sg.w, h: sg.h, fill: hatched ? col.hatchTint : col[sg.kind], alpha: alpha, group: i });
+        if (hatched) {
+          for (var py = sg.y; py < sg.y + sg.h; py++) for (var px = sg.x; px < sg.x + sg.w; px++) {
+            if ((px - box.x + py - box.y) % s.hatchPitch === 0) rects.push({ kind: "hatch", x: px, y: py, w: 1, h: 1, fill: col.disagree, alpha: alpha, group: i });
+          }
+        }
+      });
+      // the lighter line under this row: the row again, at separatorAlpha
+      if (i < n - 1 && sep > 0 && s.separatorAlpha > 0) {
+        segsI.forEach(function (sg) {
+          rects.push({ kind: "separator", x: sg.x, y: y + h, w: sg.w, h: sep, fill: col[sg.kind], alpha: alpha * s.separatorAlpha, group: i });
+        });
+      }
+    });
+    if (s.middle && s.middleAlpha > 0) {
+      rects.push({ kind: "middle", x: x0 + Math.floor(W / 2), y: box.y, w: 1, h: box.height, fill: col.middle, alpha: s.middleAlpha, group: -1 });
+    }
+    L.rects = rects;
+    return L;
   }
 
   // The liquid's width between the bars, as the S bend of the experiment:
@@ -287,7 +401,7 @@
     var used = n * colW + (n - 1) * g;
     var left = box.x + Math.floor((box.width - used) / 2);
     var y0 = box.y, yL = y0 + hU, yS = yL + hL;
-    var L = { form: "poured", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false,
+    var L = { form: "poured", scheme: s.scheme, box: box, bars: [], paths: [], texts: [], groups: cs, empty: false, liquidDots: [],
       column: { width: colW, gap: g, left: left, upper: hU, liquid: hL, lower: hS } };
     cs.forEach(function (c, i) {
       var x = left + i * (colW + g);
@@ -322,6 +436,19 @@
         pts.push([x, yS]);
         L.paths.push({ kind: kinds[j], bar: L.bars.length - 1, points: pts });
       });
+      // Those who did not vote, as the upper bar's dots carried on down into
+      // the space the liquid leaves at its upper right, on the ground, behind
+      // the liquid (the liquid is painted over them).
+      if (s.pouredDots && c.didNotVote > 0) {
+        var a2 = edge(up.segments, 2), b2 = edge(lo.segments, 2);
+        for (var py = yL; py < yS; py++) {
+          if ((py - box.y) % s.dotPitch !== 0) continue;
+          var t2 = (py + 1 - yL) / hL, right = a2 + (b2 - a2) * bend(Math.min(1, t2));
+          for (var px = x; px < x + colW; px++) {
+            if ((px - box.x) % s.dotPitch === 0 && px >= Math.ceil(right)) L.liquidDots.push({ x: px, y: py, group: i });
+          }
+        }
+      }
     });
     return finish(L, s);
   }
@@ -346,7 +473,8 @@
     var b = snapBox(box || { x: 0, y: 0, width: 0, height: 0 });
     if (!cs.length) return empty(b, s, cs, "no groups");
     if (!b.width || !b.height) return empty(b, s, cs, "the box is empty");
-    return s.form === "poured" ? layoutPoured(cs, b, s) : layoutRows(cs, b, s);
+    if (s.form === "poured") return layoutPoured(cs, b, s);
+    return s.showNonVoters ? layoutRows(cs, b, s) : layoutRowsFilled(cs, b, s);
   }
 
   // draw(ctx, layoutResult): paints a layout on a 2D canvas context whose
@@ -384,6 +512,8 @@
   function caption(L) {
     var seen = !!(L && L.groups && L.groups.some(function (c) { return c.didNotSee !== null; }));
     var form = L && L.form === "poured" ? "poured" : "rows";
+    var filled = form === "rows" && !(L && (L.drawing === "nonVoters" || L.showNonVoters === true));
+    if (filled) return "Each row is a group, A at the top. Agree from the left, disagree to the right end, of those who agreed or disagreed; the line marks half.";
     var who = form === "poured" ? "Each column is a group, A at the left." : "Each row is a group, A at the top.";
     var dots = seen ? "Dotted: did not see it; sparse dots: saw it, did not vote." : "Dotted: did not vote.";
     return who + " Agree, disagree, pass: of those who voted. " + dots;
@@ -441,12 +571,14 @@
     if (x < b.x || y < b.y || x >= b.x + b.width || y >= b.y + b.height) return -1;
     var n = L.groups.length, i;
     if (L.form === "poured") i = Math.floor((x - L.column.left) / (L.column.width + L.column.gap));
+    else if (L.row.tops) { i = 0; while (i + 1 < n && L.row.tops[i + 1] <= y) i++; }
     else i = Math.floor((y - L.row.top) / (L.row.height + L.row.gap));
     return Math.max(0, Math.min(n - 1, i));
   }
 
   var PolisVoteGraphic = { DEFAULTS: DEFAULTS, SCHEMES: SCHEMES, FIRST_SCHEMES: FIRST_SCHEMES, DEFAULT_FACE: DEFAULT_FACE,
-    layout: layout, draw: draw, caption: caption, readout: readout, hit: hit, groupsFromMath: groupsFromMath, apportion: apportion };
+    layout: layout, draw: draw, caption: caption, readout: readout, hit: hit, groupsFromMath: groupsFromMath, apportion: apportion,
+    rowBands: rowBands, agreeShare: function (g) { return agreeShare(counts(g)); } };
 
   root.PolisVoteGraphic = PolisVoteGraphic;
   if (typeof module !== "undefined" && module.exports) module.exports = PolisVoteGraphic;
