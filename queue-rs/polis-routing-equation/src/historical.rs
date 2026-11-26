@@ -244,26 +244,85 @@ impl Scored {
     }
 }
 
+/// What produced a set of `historical/1` weights: the exact parameter set and
+/// the sources of the two frames it read. Only `historical_1` makes one (the
+/// fields are private and there is no public constructor), so a provenance
+/// that names `historical/1` always names the parameters and frames that
+/// really computed the weights it travels with.
+///
+/// It comes from the weights:
+///
+/// ```
+/// use polis_routing_equation::{
+///     ExtremityFrame, HistoricalCountFrame, HistoricalParams, MetaComments, SourceId, historical_1,
+/// };
+/// let counts = HistoricalCountFrame::new(SourceId::new("previous").unwrap(), []).unwrap();
+/// let e = ExtremityFrame::new(SourceId::new("current").unwrap(), []).unwrap();
+/// let w = historical_1(&HistoricalParams::default(), &counts, &e, &MetaComments::none()).unwrap();
+/// assert_eq!(w.provenance().previous_counts().as_str(), "previous");
+/// ```
+///
+/// and cannot be made by a caller:
+///
+/// ```compile_fail,E0624
+/// use polis_routing_equation::{HistoricalParams, HistoricalProvenance, SourceId};
+/// let s = SourceId::new("previous").unwrap();
+/// let p = HistoricalProvenance::new(HistoricalParams::default(), s.clone(), s);
+/// ```
+#[derive(Clone, Debug, PartialEq)]
+pub struct HistoricalProvenance {
+    params: HistoricalParams,
+    previous_counts: SourceId,
+    current_extremity: SourceId,
+}
+
+impl HistoricalProvenance {
+    pub(crate) fn new(
+        params: HistoricalParams,
+        previous_counts: SourceId,
+        current_extremity: SourceId,
+    ) -> Self {
+        Self {
+            params,
+            previous_counts,
+            current_extremity,
+        }
+    }
+    pub fn params(&self) -> &HistoricalParams {
+        &self.params
+    }
+    /// The source of the previous tick's count frame.
+    pub fn previous_counts(&self) -> &SourceId {
+        &self.previous_counts
+    }
+    /// The source of the current tick's extremity frame.
+    pub fn current_extremity(&self) -> &SourceId {
+        &self.current_extremity
+    }
+}
+
 /// What `historical/1` gives for a conversation: a weight and explanation for
-/// every scored comment, and the comments it did not score.
+/// every scored comment, the comments it did not score, and what produced
+/// them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct HistoricalWeights {
-    params: HistoricalParams,
-    counts_source: SourceId,
-    extremity_source: SourceId,
+    provenance: HistoricalProvenance,
     scored: BTreeMap<CommentId, Scored>,
     unscored: BTreeSet<CommentId>,
 }
 
 impl HistoricalWeights {
+    pub fn provenance(&self) -> &HistoricalProvenance {
+        &self.provenance
+    }
     pub fn params(&self) -> &HistoricalParams {
-        &self.params
+        &self.provenance.params
     }
     pub fn counts_source(&self) -> &SourceId {
-        &self.counts_source
+        &self.provenance.previous_counts
     }
     pub fn extremity_source(&self) -> &SourceId {
-        &self.extremity_source
+        &self.provenance.current_extremity
     }
     pub fn get(&self, id: CommentId) -> Option<&Scored> {
         self.scored.get(&id)
@@ -320,9 +379,11 @@ pub fn historical_1(
         );
     }
     Ok(HistoricalWeights {
-        params: *params,
-        counts_source: counts.source().clone(),
-        extremity_source: extremity.source().clone(),
+        provenance: HistoricalProvenance::new(
+            *params,
+            counts.source().clone(),
+            extremity.source().clone(),
+        ),
         scored,
         unscored,
     })

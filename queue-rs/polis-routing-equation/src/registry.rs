@@ -182,11 +182,15 @@ const HISTORICAL_KEYS: [&str; 8] = [
     "meta_inner",
 ];
 
-fn number(x: f64) -> String {
+pub(crate) fn number(x: f64) -> String {
     serde_json::Number::from_f64(x).map_or_else(String::new, |n| n.to_string())
 }
 
-fn exact_keys(object: &Map<String, Value>, keys: &[&str], what: &str) -> Result<(), Refusal> {
+pub(crate) fn exact_keys(
+    object: &Map<String, Value>,
+    keys: &[&str],
+    what: &str,
+) -> Result<(), Refusal> {
     if let Some(unknown) = object.keys().find(|k| !keys.contains(&k.as_str())) {
         return Err(Refusal::Plain(format!("unknown key {unknown:?} in {what}")));
     }

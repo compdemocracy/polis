@@ -16,14 +16,17 @@
 pub mod draw;
 mod dupkeys;
 pub mod historical;
+mod receipt;
 pub mod registry;
 pub mod types;
 
 pub use draw::{
     Candidates, Cdf, DrawFlags, DrawMode, Drawn, Lane, MIN_TOTAL, StoredWeight, StoredWeights,
-    Unit, cdf, stored_weights_1,
+    Unit, WeightProvenance, WeightsUsed, cdf, stored_weights_1,
 };
-pub use historical::{HistoricalParams, HistoricalWeights, MetaComments, Scored, historical_1};
+pub use historical::{
+    HistoricalParams, HistoricalProvenance, HistoricalWeights, MetaComments, Scored, historical_1,
+};
 pub use registry::{ParamDoc, ParamSet, RuleDoc, RuleId, describe, lookup, params_table};
 pub use types::{
     CommentId, Counts, DrawRefusal, Explanation, Extremity, ExtremityFrame, Factor, FactorName,

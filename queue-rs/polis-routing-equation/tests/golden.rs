@@ -10,9 +10,10 @@
 mod support;
 
 use polis_routing_equation::{
-    Candidates, CommentId, Counts, DrawRefusal, Extremity, ExtremityFrame, HistoricalCountFrame,
-    HistoricalParams, MetaComments, ParamSet, Refusal, RuleId, StoredWeights, Unit, describe,
-    historical_1, lookup, params_table, stored_weights_1,
+    Candidates, CommentId, Counts, DrawRefusal, Drawn, Extremity, ExtremityFrame,
+    HistoricalCountFrame, HistoricalParams, MetaComments, ParamSet, Refusal, RuleId, StoredWeights,
+    Unit, WeightProvenance, WeightsUsed, describe, historical_1, lookup, params_table,
+    stored_weights_1,
 };
 use serde_json::Value;
 
@@ -87,16 +88,26 @@ fn stored_weights_1_goldens_with_their_receipts() {
         assert_eq!(r.candidate_count(), candidates.len());
         assert_eq!(r.candidate_order_digest(), candidates.order_digest());
         assert_eq!(r.input_source(), &input);
-        assert_eq!(r.sources().len(), usize::from(map.is_some()));
+        let expected_weights = match map {
+            Some(_) => WeightsUsed::Map {
+                source: support::src("math 7"),
+                provenance: WeightProvenance::MathEngineStored,
+            },
+            None => WeightsUsed::NoMap,
+        };
+        assert_eq!(r.weights(), &expected_weights);
         assert_eq!(r.lanes().len(), 1);
         assert_eq!(
             r.lanes()[0].contribution().to_bits(),
             r.probability().to_bits()
         );
         assert_eq!(r.params(), ParamSet::StoredWeights1.to_plain());
-        let receipt = serde_json::to_value(&r).unwrap();
-        assert_eq!(receipt["rule"], "stored-weights/1");
+        let plain = r.to_plain();
+        let receipt: Value = serde_json::from_str(&plain).unwrap();
+        assert_eq!(receipt["rule"]["rule"], "stored-weights/1");
         assert_eq!(receipt["draw_mode"], "legacy-cdf/1");
+        assert_eq!(receipt["probability"], case["probability"]);
+        assert_eq!(Drawn::from_plain(&plain).unwrap(), r);
     }
 }
 
@@ -154,6 +165,18 @@ fn historical_1_goldens() {
     .unwrap();
     assert_eq!(r.flags().absent_mapped_to_one(), 2);
     assert_eq!(r.lanes()[0].normaliser(), 5.0625 + 2.0);
+    match r.weights() {
+        WeightsUsed::Map {
+            source,
+            provenance: WeightProvenance::Historical1(h),
+        } => {
+            assert_eq!(source.as_str(), "tick 5");
+            assert!(h.params().is_default());
+            assert_eq!(h.previous_counts().as_str(), "tick 4");
+            assert_eq!(h.current_extremity().as_str(), "tick 5");
+        }
+        other => panic!("{other:?}"),
+    }
 }
 
 #[test]

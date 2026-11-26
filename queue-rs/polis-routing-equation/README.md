@@ -48,6 +48,27 @@ candidate whose weight was too small to be reachable ("absorbed"), the number
 of candidates and a digest of their order (FNV-1a 64 over the ids, an identity
 check, not cryptography), and the source of every input.
 
+**What produced the weights** is in the receipt too, beside the rule that
+drew, as typed data. Every map of weights carries its provenance, set by the
+constructor that made it, never passed in by the caller:
+
+- weights `historical/1` computed here carry `historical/1` with its complete
+  parameter set and the sources of the two frames it read (the previous tick's
+  counts and the current tick's extremity);
+- the math engine's stored `comment-priorities` say exactly that
+  (`math-engine-stored`): this crate did not compute them and the map does not
+  say which rule or parameters did, so the receipt does not claim to know;
+- a draw with no map at all says `no-map`.
+
+So two draws whose weights came from different parameter sets, or from
+different frames, have different receipts, even when every number drawn is
+the same. The receipt has one canonical plain form (`Drawn::to_plain`, JSON
+with keys in a fixed order); `Drawn::from_plain` reads it back through the
+same constructors and refuses any other spelling. Reading a receipt back
+restores what was written; it does not re-run the draw. The weights in a
+receipt that come from the math engine are as trustworthy as the math result
+they were read from, and no more.
+
 Where this crate refuses, it gives no receipt and says why: an empty or
 repeated candidate list, a unit outside [0, 1), a stored weight that is
 negative or above 1e150, or a total below 2^-1021. Today's read route would draw

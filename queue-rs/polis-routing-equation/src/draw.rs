@@ -6,7 +6,7 @@
 //! running sums in the candidates' order, `random_n = unit * total`, and the
 //! first candidate whose running sum is greater than `random_n`.
 
-use crate::historical::HistoricalWeights;
+use crate::historical::{HistoricalProvenance, HistoricalWeights};
 use crate::registry::{ParamSet, RuleId};
 use crate::types::{CommentId, DrawRefusal, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
 use serde::Serialize;
@@ -86,14 +86,54 @@ pub enum StoredWeight {
     False,
 }
 
-/// The math result's `comment-priorities` map, with its source.
+/// What produced a map of weights. Every `StoredWeights` carries one; its
+/// constructors set it, and none takes one from the caller, so it cannot be
+/// left out or claimed.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WeightProvenance {
+    /// The math engine's stored `comment-priorities`, read as stored. This
+    /// crate did not compute them; the map does not say which rule or which
+    /// parameters did, and the receipt does not claim to know.
+    MathEngineStored,
+    /// Computed here by `historical/1`, with these parameters, from these
+    /// frames.
+    Historical1(HistoricalProvenance),
+}
+
+/// A map of weights a draw reads: the math result's `comment-priorities` or
+/// the weights a rule here computed, with the source of the map itself and
+/// what produced it.
+///
+/// Every public way to build one sets the provenance itself:
+///
+/// ```
+/// use polis_routing_equation::{CommentId, SourceId, StoredWeight, StoredWeights, WeightProvenance};
+/// let math = SourceId::new("math").unwrap();
+/// let w = StoredWeights::new(math, [(CommentId::new(0), StoredWeight::Null)]).unwrap();
+/// assert_eq!(w.provenance(), &WeightProvenance::MathEngineStored);
+/// ```
+///
+/// No constructor takes a provenance from the caller, and the fields are
+/// private, so a map cannot be built without one or with a claimed one:
+///
+/// ```compile_fail,E0451
+/// use polis_routing_equation::{SourceId, StoredWeights, WeightProvenance};
+/// let w = StoredWeights {
+///     source: SourceId::new("math").unwrap(),
+///     provenance: WeightProvenance::MathEngineStored,
+///     map: Default::default(),
+/// };
+/// ```
 #[derive(Clone, Debug, PartialEq)]
 pub struct StoredWeights {
     source: SourceId,
+    provenance: WeightProvenance,
     map: BTreeMap<CommentId, StoredWeight>,
 }
 
 impl StoredWeights {
+    /// A map the math engine stored, entry by entry. Its provenance is
+    /// `WeightProvenance::MathEngineStored`.
     pub fn new(
         source: SourceId,
         entries: impl IntoIterator<Item = (CommentId, StoredWeight)>,
@@ -105,13 +145,18 @@ impl StoredWeights {
             }
             map.insert(id, w);
         }
-        Ok(Self { source, map })
+        Ok(Self {
+            source,
+            provenance: WeightProvenance::MathEngineStored,
+            map,
+        })
     }
 
     /// Reads the stored JSON object. Refused: malformed JSON, a duplicate key,
     /// the legacy array shape, a key that is not a comment id written as the
     /// selectors write one (decimal, no sign, no leading zero), and a value
-    /// that is not a number, `null` or `false`.
+    /// that is not a number, `null` or `false`. Its provenance is
+    /// `WeightProvenance::MathEngineStored`.
     pub fn from_json(source: SourceId, json: &str) -> Result<Self, Refusal> {
         crate::dupkeys::check(json).map_err(Refusal::Plain)?;
         let value: Value = serde_json::from_str(json).map_err(|e| Refusal::Plain(e.to_string()))?;
@@ -147,10 +192,13 @@ impl StoredWeights {
     }
 
     /// The weights `historical/1` gave, as a stored map: each scored comment
-    /// its weight; unscored comments are absent (and so draw at 1).
+    /// its weight; unscored comments are absent (and so draw at 1). `source`
+    /// names this map; the provenance keeps the parameter set and the two
+    /// frames' sources that computed it.
     pub fn from_historical(source: SourceId, weights: &HistoricalWeights) -> Self {
         Self {
             source,
+            provenance: WeightProvenance::Historical1(weights.provenance().clone()),
             map: weights
                 .scored()
                 .map(|(id, s)| (id, StoredWeight::Number(s.weight().get())))
@@ -160,6 +208,9 @@ impl StoredWeights {
 
     pub fn source(&self) -> &SourceId {
         &self.source
+    }
+    pub fn provenance(&self) -> &WeightProvenance {
+        &self.provenance
     }
     pub fn get(&self, id: CommentId) -> Option<StoredWeight> {
         self.map.get(&id).copied()
@@ -269,12 +320,12 @@ impl Serialize for DrawMode {
 
 /// One lane's part in a receipt: its effective share, its normaliser and its
 /// contribution to the chosen comment's probability.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Lane {
-    lane: &'static str,
-    share: f64,
-    normaliser: f64,
-    contribution: f64,
+    pub(crate) lane: &'static str,
+    pub(crate) share: f64,
+    pub(crate) normaliser: f64,
+    pub(crate) contribution: f64,
 }
 
 impl Lane {
@@ -293,13 +344,13 @@ impl Lane {
 }
 
 /// What the legacy mapping did, and which candidates could not be reached.
-#[derive(Clone, Debug, Default, PartialEq, Serialize)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct DrawFlags {
-    zero_mapped_to_one: usize,
-    null_or_false_mapped_to_one: usize,
-    absent_mapped_to_one: usize,
-    absorbed: Vec<CommentId>,
-    donations: Vec<String>,
+    pub(crate) zero_mapped_to_one: usize,
+    pub(crate) null_or_false_mapped_to_one: usize,
+    pub(crate) absent_mapped_to_one: usize,
+    pub(crate) absorbed: Vec<CommentId>,
+    pub(crate) donations: Vec<String>,
 }
 
 impl DrawFlags {
@@ -320,25 +371,38 @@ impl DrawFlags {
     }
 }
 
+/// The weights a draw read, as its receipt names them.
+#[derive(Clone, Debug, PartialEq)]
+pub enum WeightsUsed {
+    /// No map was given (the conversation has none): every candidate drew
+    /// at 1.
+    NoMap,
+    /// This map, named by its source, produced as its provenance says.
+    Map {
+        source: SourceId,
+        provenance: WeightProvenance,
+    },
+}
+
 /// The receipt of a draw: which comment, the chance it had, and everything
-/// needed to say what drew it. The crate stores and logs nothing; the caller
-/// keeps it.
-#[derive(Clone, Debug, PartialEq, Serialize)]
+/// needed to say what drew it, including what produced the weights it drew
+/// from. The crate stores and logs nothing; the caller keeps it, in the
+/// canonical form `Drawn::to_plain` writes and `Drawn::from_plain` reads.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Drawn {
-    comment: CommentId,
-    index: usize,
-    random_n: f64,
-    probability: f64,
-    rule: RuleId,
-    params: String,
-    draw_mode: DrawMode,
-    lanes: Vec<Lane>,
-    sampled_lane: Option<String>,
-    flags: DrawFlags,
-    candidate_count: usize,
-    candidate_order_digest: u64,
-    sources: Vec<SourceId>,
-    input_source: SourceId,
+    pub(crate) comment: CommentId,
+    pub(crate) index: usize,
+    pub(crate) random_n: f64,
+    pub(crate) probability: f64,
+    pub(crate) rule: ParamSet,
+    pub(crate) draw_mode: DrawMode,
+    pub(crate) weights: WeightsUsed,
+    pub(crate) lanes: Vec<Lane>,
+    pub(crate) sampled_lane: Option<String>,
+    pub(crate) flags: DrawFlags,
+    pub(crate) candidate_count: usize,
+    pub(crate) candidate_order_digest: u64,
+    pub(crate) input_source: SourceId,
 }
 
 impl Drawn {
@@ -354,12 +418,17 @@ impl Drawn {
     pub fn probability(&self) -> f64 {
         self.probability
     }
+    /// The rule that drew.
     pub fn rule(&self) -> RuleId {
-        self.rule
+        self.rule.rule()
     }
-    /// The rule's complete canonical parameter form.
-    pub fn params(&self) -> &str {
-        &self.params
+    /// The drawing rule's complete canonical parameter form.
+    pub fn params(&self) -> String {
+        self.rule.to_plain()
+    }
+    /// The drawing rule with its parameter set.
+    pub fn rule_params(&self) -> &ParamSet {
+        &self.rule
     }
     pub fn draw_mode(&self) -> DrawMode {
         self.draw_mode
@@ -380,8 +449,10 @@ impl Drawn {
     pub fn candidate_order_digest(&self) -> u64 {
         self.candidate_order_digest
     }
-    pub fn sources(&self) -> &[SourceId] {
-        &self.sources
+    /// The weights the draw read: no map, or a map with its source and what
+    /// produced it.
+    pub fn weights(&self) -> &WeightsUsed {
+        &self.weights
     }
     pub fn input_source(&self) -> &SourceId {
         &self.input_source
@@ -437,9 +508,12 @@ pub fn stored_weights_1(
         index: pick.index,
         random_n: pick.random_n,
         probability: pick.probability,
-        rule: RuleId::StoredWeights1,
-        params: ParamSet::StoredWeights1.to_plain(),
+        rule: ParamSet::StoredWeights1,
         draw_mode: DrawMode::LegacyCdf1,
+        weights: weights.map_or(WeightsUsed::NoMap, |w| WeightsUsed::Map {
+            source: w.source().clone(),
+            provenance: w.provenance().clone(),
+        }),
         lanes: vec![Lane {
             lane: "weights",
             share: 1.0,
@@ -450,7 +524,6 @@ pub fn stored_weights_1(
         flags,
         candidate_count: candidates.len(),
         candidate_order_digest: candidates.order_digest(),
-        sources: weights.map(|w| w.source().clone()).into_iter().collect(),
         input_source: input_source.clone(),
     })
 }

@@ -1,0 +1,340 @@
+//! The canonical plain form of a draw's receipt, and of what produced the
+//! weights it drew from.
+//!
+//! The form is JSON with every field written out, keys in a fixed order, and
+//! numbers in the shortest form that reads back to the same double. Reading
+//! goes through the crate's constructors and then writes the receipt again:
+//! text that is not exactly the canonical form of what it reads as is
+//! refused, so one receipt has one spelling and two receipts are equal
+//! exactly when their texts are. Reading a receipt back does not re-run or
+//! verify the draw; it restores what was written.
+
+use crate::draw::{DrawFlags, DrawMode, Drawn, Lane, WeightProvenance, WeightsUsed};
+use crate::historical::HistoricalProvenance;
+use crate::registry::{ParamSet, exact_keys, number};
+use crate::types::{CommentId, Refusal, SourceId};
+use serde_json::{Map, Value};
+
+const RECEIPT_KEYS: [&str; 13] = [
+    "comment",
+    "index",
+    "random_n",
+    "probability",
+    "rule",
+    "draw_mode",
+    "weights",
+    "lanes",
+    "sampled_lane",
+    "flags",
+    "candidate_count",
+    "candidate_order_digest",
+    "input_source",
+];
+
+/// A JSON string, escaped.
+fn text(s: &str) -> String {
+    serde_json::to_string(s).unwrap_or_default()
+}
+
+fn plain_refusal(why: impl Into<String>) -> Refusal {
+    Refusal::Plain(why.into())
+}
+
+fn field<'a>(object: &'a Map<String, Value>, key: &str) -> Result<&'a Value, Refusal> {
+    object
+        .get(key)
+        .ok_or_else(|| plain_refusal(format!("missing key {key:?}")))
+}
+
+fn object<'a>(value: &'a Value, what: &str) -> Result<&'a Map<String, Value>, Refusal> {
+    value
+        .as_object()
+        .ok_or_else(|| plain_refusal(format!("{what} is not an object")))
+}
+
+fn string<'a>(object: &'a Map<String, Value>, key: &str) -> Result<&'a str, Refusal> {
+    field(object, key)?
+        .as_str()
+        .ok_or_else(|| plain_refusal(format!("{key} is not a string")))
+}
+
+fn unsigned(object: &Map<String, Value>, key: &str) -> Result<u64, Refusal> {
+    field(object, key)?
+        .as_u64()
+        .ok_or_else(|| plain_refusal(format!("{key} is not an unsigned integer")))
+}
+
+fn count(object: &Map<String, Value>, key: &str) -> Result<usize, Refusal> {
+    usize::try_from(unsigned(object, key)?)
+        .map_err(|_| plain_refusal(format!("{key} is too large")))
+}
+
+fn float(object: &Map<String, Value>, key: &str) -> Result<f64, Refusal> {
+    field(object, key)?
+        .as_f64()
+        .ok_or_else(|| plain_refusal(format!("{key} is not a number")))
+}
+
+fn source(object: &Map<String, Value>, key: &str) -> Result<SourceId, Refusal> {
+    SourceId::new(string(object, key)?)
+}
+
+fn comment_id(value: &Value) -> Result<CommentId, Refusal> {
+    let tid = value
+        .as_u64()
+        .ok_or_else(|| plain_refusal("a comment id is not an unsigned integer"))?;
+    let tid = u32::try_from(tid).map_err(|_| plain_refusal("a comment id is not a u32"))?;
+    Ok(CommentId::new(tid))
+}
+
+fn array<'a>(object: &'a Map<String, Value>, key: &str) -> Result<&'a Vec<Value>, Refusal> {
+    field(object, key)?
+        .as_array()
+        .ok_or_else(|| plain_refusal(format!("{key} is not an array")))
+}
+
+impl WeightProvenance {
+    /// The canonical plain form: `{"kind":"math-engine-stored"}`, or
+    /// `{"kind":"computed","rule":<the producing rule's plain form>,
+    /// "inputs":{...}}` with every input frame's source by name.
+    pub fn to_plain(&self) -> String {
+        match self {
+            Self::MathEngineStored => "{\"kind\":\"math-engine-stored\"}".to_string(),
+            Self::Historical1(h) => format!(
+                "{{\"kind\":\"computed\",\"rule\":{},\"inputs\":{{\"previous_counts\":{},\"current_extremity\":{}}}}}",
+                ParamSet::Historical1(*h.params()).to_plain(),
+                text(h.previous_counts().as_str()),
+                text(h.current_extremity().as_str()),
+            ),
+        }
+    }
+
+    fn from_value(value: &Value) -> Result<Self, Refusal> {
+        let top = object(value, "produced_by")?;
+        match string(top, "kind")? {
+            "math-engine-stored" => {
+                exact_keys(top, &["kind"], "produced_by")?;
+                Ok(Self::MathEngineStored)
+            }
+            "computed" => {
+                exact_keys(top, &["kind", "rule", "inputs"], "produced_by")?;
+                let rule = ParamSet::from_plain(&field(top, "rule")?.to_string())?;
+                let inputs = object(field(top, "inputs")?, "inputs")?;
+                match rule {
+                    ParamSet::Historical1(params) => {
+                        exact_keys(inputs, &["previous_counts", "current_extremity"], "inputs")?;
+                        Ok(Self::Historical1(HistoricalProvenance::new(
+                            params,
+                            source(inputs, "previous_counts")?,
+                            source(inputs, "current_extremity")?,
+                        )))
+                    }
+                    other => Err(plain_refusal(format!(
+                        "{} does not compute weights",
+                        other.rule().name()
+                    ))),
+                }
+            }
+            other => Err(plain_refusal(format!("unknown provenance kind {other:?}"))),
+        }
+    }
+}
+
+impl WeightsUsed {
+    /// The canonical plain form: `{"kind":"no-map"}`, or
+    /// `{"kind":"map","source":...,"produced_by":<WeightProvenance>}`.
+    pub fn to_plain(&self) -> String {
+        match self {
+            Self::NoMap => "{\"kind\":\"no-map\"}".to_string(),
+            Self::Map { source, provenance } => format!(
+                "{{\"kind\":\"map\",\"source\":{},\"produced_by\":{}}}",
+                text(source.as_str()),
+                provenance.to_plain()
+            ),
+        }
+    }
+
+    fn from_value(value: &Value) -> Result<Self, Refusal> {
+        let top = object(value, "weights")?;
+        match string(top, "kind")? {
+            "no-map" => {
+                exact_keys(top, &["kind"], "weights")?;
+                Ok(Self::NoMap)
+            }
+            "map" => {
+                exact_keys(top, &["kind", "source", "produced_by"], "weights")?;
+                Ok(Self::Map {
+                    source: source(top, "source")?,
+                    provenance: WeightProvenance::from_value(field(top, "produced_by")?)?,
+                })
+            }
+            other => Err(plain_refusal(format!("unknown weights kind {other:?}"))),
+        }
+    }
+}
+
+fn lane_to_plain(lane: &Lane) -> String {
+    format!(
+        "{{\"lane\":{},\"share\":{},\"normaliser\":{},\"contribution\":{}}}",
+        text(lane.lane),
+        number(lane.share),
+        number(lane.normaliser),
+        number(lane.contribution)
+    )
+}
+
+fn lane_from_value(value: &Value) -> Result<Lane, Refusal> {
+    let top = object(value, "a lane")?;
+    exact_keys(
+        top,
+        &["lane", "share", "normaliser", "contribution"],
+        "a lane",
+    )?;
+    let lane = match string(top, "lane")? {
+        "weights" => "weights",
+        other => return Err(plain_refusal(format!("unknown lane {other:?}"))),
+    };
+    Ok(Lane {
+        lane,
+        share: float(top, "share")?,
+        normaliser: float(top, "normaliser")?,
+        contribution: float(top, "contribution")?,
+    })
+}
+
+fn flags_to_plain(flags: &DrawFlags) -> String {
+    let absorbed: Vec<String> = flags
+        .absorbed
+        .iter()
+        .map(|id| id.get().to_string())
+        .collect();
+    let donations: Vec<String> = flags.donations.iter().map(|d| text(d)).collect();
+    format!(
+        "{{\"zero_mapped_to_one\":{},\"null_or_false_mapped_to_one\":{},\"absent_mapped_to_one\":{},\"absorbed\":[{}],\"donations\":[{}]}}",
+        flags.zero_mapped_to_one,
+        flags.null_or_false_mapped_to_one,
+        flags.absent_mapped_to_one,
+        absorbed.join(","),
+        donations.join(",")
+    )
+}
+
+fn flags_from_value(value: &Value) -> Result<DrawFlags, Refusal> {
+    let top = object(value, "flags")?;
+    exact_keys(
+        top,
+        &[
+            "zero_mapped_to_one",
+            "null_or_false_mapped_to_one",
+            "absent_mapped_to_one",
+            "absorbed",
+            "donations",
+        ],
+        "flags",
+    )?;
+    Ok(DrawFlags {
+        zero_mapped_to_one: count(top, "zero_mapped_to_one")?,
+        null_or_false_mapped_to_one: count(top, "null_or_false_mapped_to_one")?,
+        absent_mapped_to_one: count(top, "absent_mapped_to_one")?,
+        absorbed: array(top, "absorbed")?
+            .iter()
+            .map(comment_id)
+            .collect::<Result<_, _>>()?,
+        donations: array(top, "donations")?
+            .iter()
+            .map(|d| {
+                d.as_str()
+                    .map(str::to_string)
+                    .ok_or_else(|| plain_refusal("a donation is not a string"))
+            })
+            .collect::<Result<_, _>>()?,
+    })
+}
+
+impl Drawn {
+    /// The receipt's canonical plain form, for example (one line):
+    ///
+    /// ```text
+    /// {"comment":1,"index":1,"random_n":1.0,"probability":0.75,
+    ///  "rule":{"rule":"stored-weights/1","params":{},"terms":[]},
+    ///  "draw_mode":"legacy-cdf/1",
+    ///  "weights":{"kind":"map","source":"...","produced_by":{"kind":"math-engine-stored"}},
+    ///  "lanes":[{"lane":"weights","share":1.0,"normaliser":4.0,"contribution":0.75}],
+    ///  "sampled_lane":null,
+    ///  "flags":{"zero_mapped_to_one":1,"null_or_false_mapped_to_one":0,
+    ///           "absent_mapped_to_one":0,"absorbed":[],"donations":[]},
+    ///  "candidate_count":2,"candidate_order_digest":"<16 hex digits>",
+    ///  "input_source":"..."}
+    /// ```
+    pub fn to_plain(&self) -> String {
+        let lanes: Vec<String> = self.lanes.iter().map(lane_to_plain).collect();
+        let sampled = self
+            .sampled_lane
+            .as_deref()
+            .map_or_else(|| "null".to_string(), text);
+        format!(
+            "{{\"comment\":{},\"index\":{},\"random_n\":{},\"probability\":{},\"rule\":{},\"draw_mode\":{},\"weights\":{},\"lanes\":[{}],\"sampled_lane\":{},\"flags\":{},\"candidate_count\":{},\"candidate_order_digest\":\"{:016x}\",\"input_source\":{}}}",
+            self.comment.get(),
+            self.index,
+            number(self.random_n),
+            number(self.probability),
+            self.rule.to_plain(),
+            text(self.draw_mode.name()),
+            self.weights.to_plain(),
+            lanes.join(","),
+            sampled,
+            flags_to_plain(&self.flags),
+            self.candidate_count,
+            self.candidate_order_digest,
+            text(self.input_source.as_str()),
+        )
+    }
+
+    /// Reads a receipt's canonical plain form back. Refused: malformed JSON,
+    /// a duplicate key anywhere, a missing or unknown key, a value of the
+    /// wrong type or outside its constructor's domain, an unknown rule, draw
+    /// mode, lane or provenance, and any text that is not exactly the
+    /// canonical form of the receipt it reads as.
+    pub fn from_plain(plain: &str) -> Result<Self, Refusal> {
+        crate::dupkeys::check(plain).map_err(Refusal::Plain)?;
+        let value: Value = serde_json::from_str(plain).map_err(|e| plain_refusal(e.to_string()))?;
+        let top = object(&value, "the receipt")?;
+        exact_keys(top, &RECEIPT_KEYS, "the receipt")?;
+        let draw_mode = match string(top, "draw_mode")? {
+            "legacy-cdf/1" => DrawMode::LegacyCdf1,
+            other => return Err(plain_refusal(format!("unknown draw mode {other:?}"))),
+        };
+        let digest = string(top, "candidate_order_digest")?;
+        let candidate_order_digest = u64::from_str_radix(digest, 16)
+            .map_err(|_| plain_refusal("candidate_order_digest is not 16 hex digits"))?;
+        let sampled_lane = match field(top, "sampled_lane")? {
+            Value::Null => None,
+            Value::String(s) => Some(s.clone()),
+            _ => return Err(plain_refusal("sampled_lane is not null or a string")),
+        };
+        let drawn = Self {
+            comment: comment_id(field(top, "comment")?)?,
+            index: count(top, "index")?,
+            random_n: float(top, "random_n")?,
+            probability: float(top, "probability")?,
+            rule: ParamSet::from_plain(&field(top, "rule")?.to_string())?,
+            draw_mode,
+            weights: WeightsUsed::from_value(field(top, "weights")?)?,
+            lanes: array(top, "lanes")?
+                .iter()
+                .map(lane_from_value)
+                .collect::<Result<_, _>>()?,
+            sampled_lane,
+            flags: flags_from_value(field(top, "flags")?)?,
+            candidate_count: count(top, "candidate_count")?,
+            candidate_order_digest,
+            input_source: source(top, "input_source")?,
+        };
+        if drawn.to_plain() != plain {
+            return Err(plain_refusal(
+                "not the canonical form of the receipt it reads as",
+            ));
+        }
+        Ok(drawn)
+    }
+}
