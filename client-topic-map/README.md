@@ -828,3 +828,39 @@ before replacing the map's data with `setData`, changing the run or comment
 selection, or changing the reader's permissions; then create a new overlay
 from the new authorized inputs. Do not reuse a moderator's document or
 associated counts for a public reader.
+
+### What the public page keeps (`client-topic-map-embed`)
+
+In the dense drawing the page at `/topicsVizReport/<report id>` reads the
+comment list (`GET /api/v3/comments`) and the math result
+(`GET /api/v3/math/pca2`) beside the map document. Both are public answers
+for the whole conversation: they carry comments the map holds back from this
+reader (moderated out, inactive or muted), which reach the page as bare points
+with no id. The moment each answer arrives the page cuts it to the ids the map
+document carries (`deepZoom.js`: `allowedIds`, `projectText`, `projectMath`):
+text for those ids only; from the math result only `group-votes` (each group's
+`n-members` and, per allowed comment, its `A`, `D` and `S`), `tids` and
+`pca["comment-extremity"]`, kept aligned. Only the cut is kept, cached, or
+handed to this package; nothing keeps the answers themselves, and a wiring
+that is destroyed lets go of its cut too. A test walks every object the page
+and the overlay keep after a join and finds no text, id or count of a
+held-back comment.
+
+What this does not protect: the answers still crossed the network, whole, to
+the reader's browser, where anyone can read them in the browser's network
+panel. Keeping them out of the browser needs a narrower read on the server
+(an answer cut to the reader's comments), which is a separate decision. A
+standalone page (`build.mjs --standalone`) carries whatever comment list and
+math result it was built with in the page itself; it is not a redaction
+boundary, and its inputs must be cut before the file is shared.
+
+The floor of votes for a standout (`minVotes`, 5) is taken, on this page,
+from the math result: a comment's votes from members of the opinion groups,
+passes included (the sum of `S` over the groups). The report counts every vote
+on the comment, so a comment with four votes from group members and one from a
+participant in no group passes the report's floor and not this page's. The
+map document carries no vote total of its own (`points` holds `id`, `x`, `y`,
+`topic`, `text` and `moderatedOut`; `points.votes` is optional here and the
+route never sends it); the page does not ask the comment list for its counts
+(`include_voting_patterns`), which would make the server count every vote of
+the conversation on the pool votes are written through.

@@ -62,7 +62,7 @@ import h from "@solidjs/h";
 import PolisTopicMapDense from "../../client-topic-map/dense.js";
 import PolisTopicMap from "../../client-topic-map/topic-map.js";
 import { isDense, mapRequest, readTopicMap, TEXT } from "./load.js";
-import { readerDataFor, wireMap } from "./deepZoom.js";
+import { allowedIds, readerDataFor, wireMap } from "./deepZoom.js";
 import { countLine, withTooltipText } from "./points.js";
 import { chromeProperties, themeFor } from "./themes.js";
 
@@ -182,6 +182,8 @@ export default function TopicMap(props) {
               conversationId: untrack(() => props.conversationId),
               modLevel: untrack(() => props.modLevel),
               token: untrack(() => props.token),
+              // the reads keep only what concerns this map's comments
+              ids: allowedIds(data),
             })
           : null;
       // The map's own drawing: text at the first pointer move. The dense

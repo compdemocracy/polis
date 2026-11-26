@@ -10,7 +10,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { heldBack } from "../tools/held-back-fixture.mjs";
 import { withTooltipText } from "../src/points.js";
-import { numbersForMap, readerData, wireMap } from "../src/deepZoom.js";
+import { allowedIds, numbersForMap, projectMath, readerData, wireMap } from "../src/deepZoom.js";
 
 const require = createRequire(import.meta.url);
 const here = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -26,7 +26,7 @@ const CONVERSATION = "2example00";
 // The held-back comment: an id, a text and counts found nowhere else.
 const HELD = 7919;
 const HELD_TEXT = "Quokka lantern marmalade: a comment held back from this reader";
-const HELD_COUNTS = [4321, 3412, 2143, 1432];
+const HELD_COUNTS = [74321, 73412, 72143, 71432];
 // A comment every member of group A agreed with.
 const ALL_AGREE = 1005;
 const MEMBERS = [120, 90, 60, 30];
@@ -94,9 +94,9 @@ function drawn(doc, srv, drawing = "dense") {
   const el = fakeHost(1600, 1000);
   const data = withTooltipText(doc);
   const map = new PolisTopicMap(el, { data, theme, level: 0, ...(drawing ? { drawing } : {}) });
-  const inputs = readerData(srv.fetchFn, { reportId: REPORT });
+  const inputs = readerData(srv.fetchFn, { reportId: REPORT, ids: allowedIds(data) });
   const wired = wireMap({ map, element: el, data, inputs, drawing });
-  return { el, data, map, wired };
+  return { el, data, map, wired, inputs };
 }
 function fire(target, type, props) {
   const e = new Event(type, { cancelable: true });
@@ -304,7 +304,7 @@ test("another run or comment state: the old overlay goes with its map, and a com
   const make = (doc) => {
     const data = withTooltipText(doc);
     const map = new PolisTopicMap(el, { data, theme, level: 0, drawing: "dense" });
-    const wired = wireMap({ map, element: el, data, inputs: readerData(srv.fetchFn, { reportId: REPORT }), drawing: "dense" });
+    const wired = wireMap({ map, element: el, data, inputs: readerData(srv.fetchFn, { reportId: REPORT, ids: allowedIds(data) }), drawing: "dense" });
     return { el, data, map, wired };
   };
   const a = make(docA);
@@ -369,3 +369,94 @@ for (const progress of [0, 0.5]) {
     }
   });
 }
+
+// Every value an object keeps, reached through its own enumerable keys (an
+// array's items, and the entries of a Map or Set), skipping the page's elements, whose shown
+// text the first test reads.
+function kept(roots) {
+  const seen = new Set();
+  const out = { strings: [], numbers: [], keys: [] };
+  const stack = [...roots];
+  while (stack.length) {
+    const v = stack.pop();
+    if (typeof v === "string") out.strings.push(v);
+    else if (typeof v === "number") out.numbers.push(v);
+    if (!v || typeof v !== "object" || seen.has(v)) continue;
+    seen.add(v);
+    if (v instanceof EventTarget) continue;
+    if (v instanceof Map) {
+      for (const [k, x] of v) {
+        out.keys.push(k);
+        stack.push(k, x);
+      }
+    } else if (v instanceof Set) {
+      for (const x of v) stack.push(x);
+    } else if (ArrayBuffer.isView(v)) {
+      for (const x of v) out.numbers.push(x);
+    } else if (Array.isArray(v)) {
+      for (const x of v) stack.push(x);
+    } else {
+      for (const k of Object.keys(v)) {
+        out.keys.push(k);
+        stack.push(v[k]);
+      }
+    }
+  }
+  return out;
+}
+
+test("nothing the page or the overlay keeps holds a comment held back: not its text, its id or its counts", async () => {
+  const doc = publicMap();
+  const srv = server(doc);
+  const t = drawn(doc, srv);
+  await t.wired.joined;
+  const overlay = t.wired.overlay();
+  assert.ok(overlay);
+  const roots = [t.wired, overlay, t.map, t.data, t.inputs, await t.inputs.text(), await t.inputs.math()];
+  const { strings, numbers, keys } = kept(roots);
+  // the walk reaches the comments it should: a visible comment's text, id and counts
+  assert.ok(strings.some((s) => s.includes(`Comment ${ALL_AGREE} says`)));
+  assert.ok(keys.includes(String(ALL_AGREE)) || keys.includes(ALL_AGREE));
+  assert.ok(numbers.includes(MEMBERS[0]));
+  // and nothing of the held-back one, which both answers carried
+  assert.ok(!strings.some((s) => s.includes("Quokka")), "its text");
+  assert.ok(!keys.includes(String(HELD)) && !keys.includes(HELD), "its id as a key");
+  for (const n of [HELD, ...HELD_COUNTS, ...HELD_COUNTS.map((a) => a + 7)]) assert.ok(!numbers.includes(n), `the number ${n}`);
+  assert.ok(!keys.includes("mod-out"), "nothing of the answer beyond what the overlay reads");
+  t.wired.destroy();
+  t.map.destroy();
+});
+
+test("the projection keeps only the map's comments, and tids aligned with their extremity", () => {
+  const doc = publicMap();
+  const ids = allowedIds(withTooltipText(doc));
+  assert.ok(!ids.includes(HELD) && !ids.includes(null));
+  assert.equal(ids.length, doc.points.id.length - 1);
+  const m = projectMath(mathResult(doc), new Set(ids));
+  assert.deepEqual(Object.keys(m).sort(), ["group-votes", "pca", "tids"]);
+  assert.ok(!m.tids.includes(HELD));
+  assert.equal(m.tids.length, m.pca["comment-extremity"].length);
+  const full = mathResult(doc);
+  const k = full.tids.indexOf(ALL_AGREE);
+  assert.equal(m.pca["comment-extremity"][m.tids.indexOf(ALL_AGREE)], full.pca["comment-extremity"][k]);
+  assert.deepEqual(m["group-votes"][0].votes[ALL_AGREE], { A: MEMBERS[0], D: 0, S: MEMBERS[0] });
+  assert.equal(m["group-votes"][3]["n-members"], MEMBERS[3]);
+  assert.equal(projectMath({ tids: [] }, new Set(ids)), null);
+});
+
+test("sparse group ids: groups 0 and 2 read A and C in a card's readout", async () => {
+  const doc = publicMap();
+  const math = mathResult(doc);
+  delete math["group-votes"][1];
+  delete math["group-votes"][3];
+  const t = drawn(doc, server(doc, { math }));
+  await t.wired.joined;
+  const overlay = t.wired.overlay();
+  overlay.select(ALL_AGREE);
+  const card = overlay.card.textContent;
+  assert.match(card, /Group A: 120 agreed, 0 disagreed/);
+  assert.match(card, /Group C: /);
+  assert.doesNotMatch(card, /Group B:/);
+  t.wired.destroy();
+  t.map.destroy();
+});

@@ -30,6 +30,11 @@
  *   - Without the comment list, no comment has text, so none is written out;
  *     with the math result the overlay's cards still name the topic and show
  *     the counts.
+ * Both answers are cut to the map's own ids the moment they arrive
+ * (projectText, projectMath), before anything keeps them or hands them to
+ * client-topic-map, so no text, id or count of a comment held back from
+ * this reader is kept anywhere on the page; the answers themselves are not
+ * kept. (They still reached the browser: the two routes are public.)
  * Nothing here throws, and nothing is kept beyond the one map and reader:
  * the reader's data (readerDataFor) is made afresh with every read of the
  * map, and the overlay goes with the map.
@@ -45,7 +50,7 @@ import PolisTopicMapDeepZoom from "../../client-topic-map/deep-zoom.js";
 import PolisTopicMapHighlights from "../../client-topic-map/highlights.js";
 import { isDense, readCommentText, readMath, readReport } from "./load.js";
 import { commentTextFor } from "./commentText.js";
-import { fillText } from "./points.js";
+import { fillText, heldBackCount } from "./points.js";
 
 /* The numbers the standouts are chosen by, from the math result alone:
    group-informed consensus and division as client-topic-map computes them,
@@ -69,12 +74,87 @@ export function numbersForMap(math) {
   return numbers;
 }
 
+/* The comment ids this reader was given: every point of the map document
+   that carries one (a held-back point carries none, and the held-back points
+   are the last ones), in the document's order, each once. */
+export function allowedIds(doc) {
+  const p = doc && doc.points;
+  if (!p || !Array.isArray(p.id)) return [];
+  const first = p.id.length - heldBackCount(doc);
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < first; i++) {
+    const id = p.id[i];
+    if (Number.isInteger(id) && !seen.has(id)) {
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  return out;
+}
+
+/* The projection: each read cut down to the comments this reader was given
+   (allowed, a Set of ids) as soon as it arrives, before it is kept, cached or
+   handed to client-topic-map. The comment list and the math result are
+   public answers that carry comments the map holds back from this reader;
+   nothing of those (no text, no id, no count) is kept, and nothing keeps the
+   answers themselves. */
+const isCount = (v) => typeof v === "number" && Number.isFinite(v);
+const allowedTid = (allowed, tid) => allowed.has(Number(tid));
+
+/* Text by comment id, for the allowed ids only. */
+export function projectText(byId, allowed) {
+  const out = new Map();
+  if (!(byId instanceof Map)) return out;
+  for (const [tid, txt] of byId) if (allowedTid(allowed, tid) && typeof txt === "string") out.set(tid, txt);
+  return out;
+}
+
+/* The math result as client-topic-map reads it, for the allowed ids only:
+   group-votes (each group's n-members, and per allowed comment its counts A,
+   D and S, named counts as they arrive), tids and pca comment-extremity
+   (kept aligned). Every other field of the answer is dropped. null when the
+   answer carries no group-votes. */
+export function projectMath(math, allowed) {
+  const gv = math && math["group-votes"];
+  if (!gv || typeof gv !== "object" || Array.isArray(gv)) return null;
+  const groups = {};
+  for (const gid of Object.keys(gv)) {
+    const g = gv[gid];
+    if (!g || typeof g !== "object") continue;
+    const group = { votes: {} };
+    if (isCount(g["n-members"])) group["n-members"] = g["n-members"];
+    const from = g.votes && typeof g.votes === "object" ? g.votes : {};
+    for (const tid of Object.keys(from)) {
+      const v = from[tid];
+      if (!allowedTid(allowed, tid) || !v || typeof v !== "object") continue;
+      const counts = {};
+      for (const k of ["A", "D", "S"]) if (isCount(v[k])) counts[k] = v[k];
+      group.votes[tid] = counts;
+    }
+    groups[gid] = group;
+  }
+  const tids = [];
+  const extremity = [];
+  const givenTids = Array.isArray(math.tids) ? math.tids : [];
+  const givenExtremity = math.pca && Array.isArray(math.pca["comment-extremity"]) ? math.pca["comment-extremity"] : [];
+  for (let i = 0; i < givenTids.length && i < givenExtremity.length; i++) {
+    if (!allowedTid(allowed, givenTids[i])) continue;
+    tids.push(givenTids[i]);
+    extremity.push(givenExtremity[i]);
+  }
+  return { "group-votes": groups, tids, pca: { "comment-extremity": extremity } };
+}
+
 /* One reader's data for one drawn map: text() and math(), each asked for at
    most once, sharing one report read (skipped when the host gives the
-   conversation id and moderation level). text() resolves to a Map of text by
-   comment id (empty when anything fails), math() to the math result or null.
-   Neither rejects. */
-export function readerData(fetchFn, { reportId, conversationId = null, modLevel = null, token = null }) {
+   conversation id and moderation level), each cut to the reader's ids (those
+   of the map document it was drawn from: allowedIds) the moment it arrives.
+   text() resolves to a Map of text by comment id (empty when anything
+   fails), math() to the projected math result or null. Neither rejects.
+   Without ids nothing is kept. */
+export function readerData(fetchFn, { reportId, conversationId = null, modLevel = null, token = null, ids = [] }) {
+  const allowed = new Set(Array.isArray(ids) ? ids : []);
   let report = null;
   let text = null;
   let math = null;
@@ -89,17 +169,20 @@ export function readerData(fetchFn, { reportId, conversationId = null, modLevel 
             ? readCommentText(fetchFn, reportId, { conversationId: r.conversationId, modLevel: r.modLevel, token })
             : new Map(),
         )
+        .then((byId) => projectText(byId, allowed))
         .catch(() => new Map())),
     math: () =>
       math ||
       (math = (conversationId ? Promise.resolve({ conversationId }) : where())
         .then((r) => (r ? readMath(fetchFn, r.conversationId, { token }) : null))
+        .then((answer) => projectMath(answer, allowed))
         .catch(() => null)),
   };
 }
 
-/* The reader's data, kept for one reader at a time (commentText.js): asked
-   again by the same reader it is the same object, by any other a new one. */
+/* The reader's data, kept for one reader and one map's ids at a time
+   (commentText.js): asked again by the same reader for the same ids it is
+   the same object, by any other a new one. */
 export function readerDataFor(fetchFn) {
   return commentTextFor((reader) => readerData(fetchFn, reader));
 }
@@ -208,6 +291,7 @@ export function wireMap({ map, element, data, inputs, drawing, DeepZoom = PolisT
       element.removeEventListener("pointermove", askText);
       if (overlay) overlay.destroy();
       overlay = null;
+      got = null;
     },
   };
 }
