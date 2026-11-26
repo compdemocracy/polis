@@ -261,6 +261,16 @@ export function drawingFromAddress(search) {
    settings. None, null and "default" are the map's own drawing. */
 export const isDense = (drawing) => Boolean(drawing) && drawing !== "default";
 
+/* The address after a drawing is chosen: drawing=dense for the dense drawing,
+   no drawing parameter for the map's own; everything else kept. */
+export function addressWithDrawing(search, drawing) {
+  const q = new URLSearchParams(search || "");
+  if (isDense(drawing)) q.set("drawing", "dense");
+  else q.delete("drawing");
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
 /* The address after a run is chosen: job_id set (or removed for the current
    map), selection removed (a named run has its own), everything else kept. */
 export function addressWithJob(search, jobId) {
