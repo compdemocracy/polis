@@ -32,7 +32,7 @@ No client uses it yet.
 | `topic-list.js` | the list | 7,976 |
 | `theme-neutral.js` | the neutral theme | 5,754 |
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 28,596 |
-| `highlights.js` | which comments to bring forward over the map: the most consensus and the most divisive, of the whole map and of each topic, as pure functions | 9,739 |
+| `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -353,15 +353,16 @@ placement tolerance.
 ## The highlights: `highlights.js`
 
 `PolisTopicMapHighlights` chooses the comments a page brings forward over the
-map: the most consensus and the most divisive of the whole map, and of each
-topic of one level, with each topic's summary of consensus sorted highest
-first. It draws nothing and measures nothing new: it takes numbers Polis
+map: the comments that stand out on the whole map as most consensus or most
+divisive, the map's top few and each topic's own, with each topic's summaries
+sorted highest consensus first and the topics that stand out as topics
+marked. It draws nothing and measures nothing new: it takes numbers Polis
 already computes, keyed by comment id (the document's point id).
 
 ```js
 var numbers = PolisTopicMapHighlights.numbersFrom(math, comments);
 // math: the math result (GET /api/v3/math/pca2); comments: GET /api/v3/comments
-var h = PolisTopicMapHighlights.highlights(doc, numbers, { n: 5, perTopic: 1, minVotes: 5, level: 0 });
+var h = PolisTopicMapHighlights.highlights(doc, numbers, { n: 5, perTopic: 1, minVotes: 5, level: 0, standout: 0.9 });
 ```
 
 | Number | What it is | Where Polis computes it |
@@ -378,16 +379,35 @@ engine stores).
   value for the measure, and at least `minVotes` votes (5, the topic
   statistics page's floor).
 - **Order:** most first; ties go to more votes, then to the smaller id.
-- **Each topic** of `level` gets `perTopic` comments per measure and a summary
-  of its eligible comments' consensus (`count`, `min`, `q1`, `median`, `q3`,
-  `max`; quartiles by the linear interpolation of plotly.js's box trace, which
-  draws the topic statistics page, at position p × n − 0.5). Topics are sorted
-  by median, then upper quartile, then count, then their order in the
+- **Standouts only:** a comment is brought forward for a measure only when it
+  is in the top share of the map's eligible comments for that measure
+  (`standout`, default 0.9: the top tenth). The line is the value of the k-th
+  comment in order, k = ceil(count × (1 − standout)); every eligible comment at
+  or above it is a standout, so ties at the line are all in. The map's `n` and
+  each topic's `perTopic` picks come from the standouts only: a topic with no
+  standout has no pick; nothing is forced. `standout: 0` makes every eligible
+  comment a standout.
+- **Each topic** of `level` gets its `perTopic` standouts per measure, all its
+  standouts (`standouts.consensus`, `standouts.divisive`, most first), and a
+  summary of its eligible comments' consensus (`summary`) and divisiveness
+  (`divisiveSummary`): `count`, `min`, `q1`, `median`, `q3`, `max`; quartiles
+  by the linear interpolation of plotly.js's box trace, which draws the topic
+  statistics page, at position p × n − 0.5. Topics are sorted by median
+  consensus, then upper quartile, then count, then their order in the
   document; a topic with no eligible comment comes last, with `summary: null`.
-- **Returns** `{ settings, eligible, consensus, divisive, topics }`; each chosen
-  comment is `{ index, id, x, y, value, votes, topic }`, where `index` is the
-  point's place in the document and `topic` the id of its topic at `level`, or
-  `null`.
+- **Special topics** (`special.consensus`, `special.divisive` on each topic):
+  over the topics with a summary, a topic is special for consensus when its
+  median consensus is in the top share of the topics' medians (`topicStandout`,
+  default 0.85, by the same k-th rule) and its spread q3 − q1 is at or under
+  the `spreadQuantile` quantile of the topics' spreads (default 0.25, the
+  narrowest quarter); special for division when its median divisiveness is in
+  the top share of the topics' medians of that measure (`topicDivisive`,
+  default 0.9).
+- **Returns** `{ settings, eligible, standout, special, consensus, divisive,
+  topics }`; `standout` gives each measure's `line` and `count`, `special` each
+  rule's lines and how many topics it marks; each chosen comment is
+  `{ index, id, x, y, value, votes, topic }`, where `index` is the point's
+  place in the document and `topic` the id of its topic at `level`, or `null`.
 
 ## Taking it into a client
 
