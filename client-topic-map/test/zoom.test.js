@@ -289,7 +289,10 @@ test("a box can be reserved beside each comment label; it is reported and nothin
   const boxes = lay.names.map((n) => n.box).concat(lay.comments.map((c) => c.box));
   for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) assert.ok(!overlaps(boxes[i], boxes[j]));
   assert.deepEqual(comments.at(-1).comments.map((c) => c.slot), lay.comments.map((c) => c.slot), "the event carries the slots");
-  assert.equal(count(log, "fillRect"), 1, "only the ground is filled");
+  // the ground, and on the grey ground (comments are shown here) a plate of
+  // the ground's own colour under each comment: nothing is drawn in the box
+  assert.equal(map.grey, true);
+  assert.equal(count(log, "fillRect"), 1 + lay.comments.length, "only the ground and the plates of the ground are filled");
   assert.equal(count(log, "strokeRect"), 0);
 });
 

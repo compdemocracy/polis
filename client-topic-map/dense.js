@@ -338,11 +338,61 @@
   var WARM_TINT = [15, 130];
   var NEUTRAL_TINT = "oklch(0.80 0.02 250)";
 
-  function palette(scheme) {
+  // The grey ground: whenever comments and their votes are drawn on the map,
+  // the topics step back to grey so that the votes are the only colour. Each
+  // of the topics' colours keeps its hue number but loses its chroma and
+  // moves to the lightness here (OKLCH L, chroma 0: neutral greys); the
+  // written-out comments' ink moves to near-black.
+  var GREY_GROUND = {
+    light: { tint: 0.9, outline: 0.76, district: 0.82, name: 0.64, dot: 0.78, commentInk: "#1f2329" },
+    dark: { tint: 0.34, outline: 0.5, district: 0.44, name: 0.7, dot: 0.52, commentInk: "#e6e8eb" }
+  };
+
+  function round4(v) { return Math.round(v * 10000) / 10000; }
+
+  // An oklch() colour moved by share g (0 to 1) toward the neutral grey of
+  // lightness L: its chroma falls to 0 and its lightness goes to L. Any other
+  // colour (the greys written in hex) is returned as it is.
+  function towardGrey(colour, g, L) {
+    if (!(g > 0) || typeof colour !== "string") return colour;
+    var m = /^oklch\(\s*([\d.]+)\s+([\d.]+)\s+(-?[\d.]+)\s*\)$/.exec(colour);
+    if (!m) return colour;
+    var u = Math.min(1, g), l = +m[1];
+    return "oklch(" + round4(l + (L - l) * u) + " " + round4(+m[2] * (1 - u)) + " " + m[3] + ")";
+  }
+
+  function mixHex(a, b, u) {
+    var pa = [1, 3, 5].map(function (k) { return parseInt(a.slice(k, k + 2), 16); });
+    var pb = [1, 3, 5].map(function (k) { return parseInt(b.slice(k, k + 2), 16); });
+    return "#" + pa.map(function (v, k) { var c = Math.round(v + (pb[k] - v) * u); return (c < 16 ? "0" : "") + c.toString(16); }).join("");
+  }
+
+  // The palette; with grey (0 to 1) above 0, the palette of the grey ground
+  // at that share: every topic colour toward its grey (towardGrey), the
+  // comments' ink toward near-black; the ground, the halo and the greys
+  // unchanged. With no grey it is the palette exactly as before.
+  function palette(scheme, grey) {
+    var base = paletteColour(scheme);
+    if (!(grey > 0)) return base;
+    var g = Math.min(1, grey), G = GREY_GROUND[scheme === "dark" ? "dark" : "light"], p = Object.assign({}, base);
+    p.greyShare = g;
+    p.labelInk = function (h) { return towardGrey(base.labelInk(h), g, G.name); };
+    p.nameInk = function (ink) { return towardGrey(ink, g, G.name); };
+    p.dotInk = function (h) { return towardGrey(base.dotInk(h), g, G.dot); };
+    p.zoneTint = function (h) { return towardGrey(base.zoneTint(h), g, G.tint); };
+    p.zoneTintZoomed = function (h) { return towardGrey(base.zoneTintZoomed(h), g, G.tint); };
+    p.zoneOutline = function (h) { return towardGrey(base.zoneOutline(h), g, G.outline); };
+    p.districtStroke = function (h) { return towardGrey(base.districtStroke(h), g, G.district); };
+    p.commentInk = mixHex(base.commentInk, G.commentInk, g);
+    return p;
+  }
+
+  function paletteColour(scheme) {
     var dark = scheme === "dark";
     var INK = dark ? "#d6d9de" : "#2b3038";
     var GREY = dark ? "#5a5e66" : "#b4b9c1";
     return {
+      nameInk: function (ink) { return ink; },
       ground: dark ? "#111214" : "#ffffff",
       ink: INK,
       grey: GREY,
@@ -1097,7 +1147,7 @@
     DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, PRESET_ZOOM: PRESET_ZOOM, DEFAULT_FACE: DEFAULT_FACE,
     resolveZoom: resolveZoom, commentsInView: commentsInView, zoomStage: zoomStage, WARM_TINT: WARM_TINT, NEUTRAL_TINT: NEUTRAL_TINT,
     rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
-    weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
+    weightFor: weightFor, palette: palette, GREY_GROUND: GREY_GROUND, towardGrey: towardGrey, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
     fitView: fitView, fitFor: fitFor, zoneReach: zoneReach, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,
     gridScale: gridScale, blurRadius: blurRadius, binnedCounts: binnedCounts, densityGrid: densityGrid,
     contourSegs: contourSegs, zoneAlpha: zoneAlpha, zoneShapes: zoneShapes,

@@ -82,6 +82,7 @@ Options:
 | `projection` | `"web-mercator"`, as datamapplot's maps are drawn, or `"linear"`, the UMAP positions with no stretch | `"web-mercator"` |
 | `collision` | which names show where names compete: `"as-drawn"`, as datamapplot's maps show them today, or `"by-weight"`, the rule datamapplot asks for (larger topics first) | `"as-drawn"` |
 | `drawing` | `null` for the map as described here, or `"dense"` (or an object of settings) for the dense drawing: see [The dense drawing](#the-dense-drawing-the-drawing-option) | `null` |
+| `ground` | in the dense drawing, `"comments"` (comments and their votes over a grey map wherever comments are written out) or `"topics"` (no comment written out, the topics in colour): see [The grey ground](#the-grey-ground) | `"comments"` |
 
 Methods:
 
@@ -93,6 +94,7 @@ Methods:
 | `select(id, origin)` | selects a topic, or clears the selection with `null`; dispatches `topicselect` if the selection changed. Throws for an unknown id |
 | `hover(id, origin)` | marks a topic as hovered, or none with `null`; dispatches `topichover` if it changed. Throws for an unknown id |
 | `setCollision(mode)` | `"as-drawn"` or `"by-weight"`, as the option |
+| `setGround(ground)` | `"comments"` or `"topics"`, as the option; draws at once in the same view |
 | `setDrawing(settings)` | `null`, `"dense"` or the dense drawing's settings, as the `drawing` option; draws at once |
 | `settle()` | finishes at once any work on which names show and draws the result (in the dense drawing: ends the zoom in progress and places the names for that view) |
 | `resetView()` | returns to the first view (in the dense drawing, the fit) and draws |
@@ -101,7 +103,7 @@ Methods:
 | `destroy()` | removes the canvas, the tooltip and every listener |
 
 It also has the properties `level`, `selected`, `hovered`, `collision`,
-`projection` and `canvas`, and an optional `onTiming` callback, unset by
+`projection`, `ground`, `grey` (whether the grey ground is on) and `canvas`, and an optional `onTiming` callback, unset by
 default, called as `onTiming(kind, milliseconds)` with `kind` `"draw"` for a
 redraw and `"claims"` for a slice of the work on which names show.
 `PolisTopicMap.geometry` holds the pure rules the tests check.
@@ -237,6 +239,7 @@ when something changed.
 | `topichover` | map, list | `{ topic, previous, origin }`: `topic` is the hovered topic's id, or `null` |
 | `levelchange` | map | `{ level, previous, origin }`: a level number, or `"all"` |
 | `densestats` | map, dense drawing only | `{ caption, width, height, placed, byLayer, dropped, layerTotals, zoneCount, shrunk, shiftMedian, shiftP90, zoom, comments }`: what the dense drawing placed, dispatched each time it places the names (at the first draw, after a resize or a gesture has settled, when a face loads) |
+| `groundchange` | map, dense drawing only | `{ grey, ground }`: the grey ground turned on (`grey` true) or off |
 | `densecomments` | map, dense drawing only | `{ zoom, on, inView, spacing, comments }`: whether the view is close enough for comment labels (points in view, their median nearest-neighbour spacing in px) and the labels placed, dispatched with every `densestats` |
 
 `origin` says where the change came from: `"map"` when a person did it on the
@@ -704,6 +707,40 @@ One rule for every size of conversation, not a preset for small ones.
   `minInView` points would be left in view a step further. Other maps keep
   `zoom.steps` and `zoom.max`.
 
+### The grey ground
+
+Topic colour is for orienting in topic space. Whenever comments and their
+votes are on the map, the votes are the only colour: the zones' tints, the
+zone and district borders, every name (waypoints included) and any coloured
+dots turn to neutral greys, and the comments written out turn near-black.
+
+- **When:** the grey ground is on exactly while the settled view shows
+  comments: `densecomments.detail.on` with a document that has comment text,
+  that is the comments written out at the whole-map view of a map with room,
+  the deepest step of any map (its comments, their first words, a hovered or
+  selected comment's card, which show only there), and comment labels zoomed
+  in. Where no comment is shown (a crowded map's whole view and its first
+  steps) the topics keep their colours exactly as before.
+- **The greys** (`PolisTopicMapDense.GREY_GROUND`, OKLCH lightness, chroma 0;
+  on the light ground): tints 0.90 (at the tint's alpha, from about `#fafafa`
+  to `#f0f0f0` over white), zone borders 0.76, district borders 0.82, names
+  0.64 (with their white halo; waypoints keep their 0.62 alpha), coloured
+  dots 0.78; grey dots stay `#b4b9c1`; the comments' ink `#1f2329`. Each
+  topic colour keeps its hue number and loses its chroma (`towardGrey`).
+  `palette(scheme, share)` is the palette at a share of grey; with no share
+  it is the palette as before.
+- **The votes' colours** are untouched: the vote graphic, the green and red
+  rules of group-informed consensus and division, and the rings on their
+  dots. The leaders are a grey that recedes (`#9ba1aa`).
+- **A clean plate:** on the grey ground each comment written out (its text,
+  gap and graphic) has a rectangle of the ground's own colour under it, no
+  border or shadow, drawn before the dots, so it never sits on a tint.
+- **The change** turns over 360 ms, eased; at once at the first draw, after
+  `settle()` or `resetView()`, and for a reader who asks for less motion.
+- **The option `ground`:** `"comments"` (the default) is the rule above;
+  `"topics"`, the orienting state, writes no comment out (its zoom has no
+  comment stage and no surface) and keeps the topics in colour at every step.
+
 ## Tests
 
 ```sh
@@ -756,6 +793,11 @@ node --test client-topic-map/test/*.test.js
   leads only at the deepest step, cut with "…", never over anything, the
   fewest votes left out; the fit of a small map keeps every zone inside the
   frame.
+- `test/grey-ground.test.js`: the grey ground is on exactly when comments are
+  shown (a map with room at its whole view; a crowded map at rest, off, and
+  at its deepest step, on; the topics' ground, off), every fill and stroke
+  colour drawn then (and every tint colour resolved) has chroma under 0.025,
+  the votes' colours are unchanged, the plates, the fade and its cut.
 - `test/self-contained.test.js`: no script or style sheet of the package names a
   URL with a scheme or opens a request, and the style sheet's one URL is the
   font file beside it, the face the neutral theme names.

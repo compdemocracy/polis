@@ -56,7 +56,7 @@
     maxLines: 4,            // lines at most, the last cut with "…"
     slot: { w: 34, h: 15, gap: 6 },     // the reserved box: the four rows at 34 by 15 (3 px rows)
     rule: 3,                // px: the coloured rule at a standout's left
-    leader: "#59606b",      // the line from a dot to its comment written out beside it
+    leader: "#9ba1aa",      // the line from a dot to its comment written out beside it (a grey that recedes)
     // the card: its comment text (font) and its smaller lines (small), px
     card: { width: 300, font: 14, small: 12, rowsW: 84, rowsH: 19, pouredW: 168, pouredH: 84 },
     // px: the pointer picks the comment nearest it within this distance (the

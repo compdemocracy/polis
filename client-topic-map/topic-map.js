@@ -215,6 +215,14 @@
     this._denseMoveTimer = 0;
     this._denseFitAt = null;
     this._denseRGB = {};
+    /* The ground of the dense drawing: "comments" (the default) writes the
+       comments and their votes out where there is room and draws the map
+       under them in grey, the topics in colour wherever no comment is
+       shown; "topics" writes no comment and keeps the topics in colour. */
+    if (options.ground != null && options.ground !== "comments" && options.ground !== "topics") throw new Error("PolisTopicMap: ground is \"comments\" or \"topics\"");
+    this.ground = options.ground === "topics" ? "topics" : "comments";
+    this.grey = false;
+    this._grey = null;
 
     if (getComputedStyle(host).position === "static") host.style.position = "relative";
     this.canvas = document.createElement("canvas");
@@ -342,6 +350,35 @@
   PolisTopicMap.prototype.setDrawing = function (settings) {
     this._useDrawing(settings);
     this._resize();
+  };
+
+  /* The ground: "comments" or "topics" (see the constructor). Draws at once,
+     in the same view. */
+  PolisTopicMap.prototype.setGround = function (ground) {
+    if (ground !== "comments" && ground !== "topics") throw new Error("PolisTopicMap: ground is \"comments\" or \"topics\"");
+    if (ground === this.ground) return;
+    this.ground = ground;
+    if (this.drawing && this._dense) {
+      this._dense = null;
+      this._draw();
+    }
+  };
+
+  /* The share of the grey ground now, 0 (the topics in colour) to 1 (grey):
+     it turns over GREY_MS toward 1 while comments are shown and toward 0
+     while none are, eased; at once at the first draw, after settle() or
+     resetView(), and for a reader who asks for less motion. */
+  var GREY_MS = 360;
+  function greyAt(G, t) {
+    if (!(G.ms > 0)) return G.to;
+    var u = Math.max(0, Math.min(1, (t - G.t0) / G.ms));
+    return G.from + (G.to - G.from) * u * u * (3 - 2 * u);
+  }
+  PolisTopicMap.prototype._greyNow = function (want) {
+    var to = want ? 1 : 0, G = this._grey, t = performance.now();
+    if (!G || this._denseQuick) G = this._grey = { from: to, to: to, t0: t, ms: 0 };
+    else if (G.to !== to) G = this._grey = { from: greyAt(G, t), to: to, t0: t, ms: reducedMotion() ? 0 : GREY_MS };
+    return greyAt(G, t);
   };
 
   PolisTopicMap.prototype._useDrawing = function (settings) {
@@ -1168,6 +1205,8 @@
       var settings = Object.assign({}, this.drawing);
       if (settings.fontSans == null) settings.fontSans = this.theme.font.family;
       if (settings.fontMono == null) settings.fontMono = this.theme.font.family;
+      /* The topics' ground writes no comment out. */
+      if (this.ground === "topics" && settings.zoom) settings.zoom = Object.assign({}, settings.zoom, { comments: null });
       dense = this._dense = { model: D.prepare(this.data, settings), frame: null, shapes: null, w: 0, h: 0, fit: null, settleNow: false };
     }
     if (!dense.fit || dense.fitW !== this._w || dense.fitH !== this._h) {
@@ -1339,6 +1378,17 @@
     var moving = now.s !== fv.s || now.tx !== fv.tx || now.ty !== fv.ty;
     var mk = now.s / fv.s, ox = now.tx - fv.tx * mk, oy = now.ty - fv.ty * mk;
     if (moving) this._denseScheduleSettle();
+    /* The grey ground: on exactly while comments are shown (written out at
+       the surface or at the deepest step, their first words, a comment's
+       card), so the votes drawn with them are the only colour; off, the
+       topics in colour, wherever none is shown. */
+    var want = this.ground !== "topics" && !!(frame.commentLevel && frame.commentLevel.on) && model.commentOrder.length > 0;
+    if (want !== this.grey) {
+      this.grey = want;
+      this._emit("groundchange", { grey: want, ground: this.ground });
+    }
+    var g = Math.round(this._greyNow(want) * 32) / 32;
+    if (g > 0) pal = D.palette(cfg.scheme, g);
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalAlpha = 1;
@@ -1354,10 +1404,10 @@
       var z = shapes.zones[i], G = z.grid;
       if (z.alpha) {
         ctx.imageSmoothingEnabled = true;
-        ctx.drawImage(this._denseTint(dense, i, tintShare, pal), 0, 0, G.gw * G.cell, G.gh * G.cell);
+        ctx.drawImage(this._denseTint(dense, i, tintShare, pal, g), 0, 0, G.gw * G.cell, G.gh * G.cell);
       }
       if (z.outline) {
-        ctx.strokeStyle = z.outline;
+        ctx.strokeStyle = g ? pal.zoneOutline(z.hue) : z.outline;
         ctx.lineWidth = shaped ? z.outlineWidth / sk : z.outlineWidth;
         ctx.beginPath();
         for (segs = z.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
@@ -1370,7 +1420,7 @@
       ctx.setLineDash(shaped ? d0.dash.map(function (x) { return x / sk; }) : d0.dash);
       for (i = 0; i < shapes.districts.length; i++) {
         var d = shapes.districts[i];
-        ctx.strokeStyle = d.stroke;
+        ctx.strokeStyle = g ? pal.districtStroke(d.hue) : d.stroke;
         ctx.beginPath();
         for (segs = d.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
         ctx.stroke();
@@ -1378,6 +1428,18 @@
       ctx.setLineDash([]);
     }
     if (shaped) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    /* On the grey ground each comment written out (its text, gap and vote
+       graphic) has a clean plate of the ground under it, so it never sits
+       on a tint; the dots are drawn over it. */
+    if (g > 0 && frame.comments.length) {
+      ctx.fillStyle = pal.ground;
+      ctx.globalAlpha = g;
+      for (i = 0; i < frame.comments.length; i++) {
+        var pc = frame.comments[i], pb = pc.box, pdx = ox + mk * pc.x - pc.x, pdy = oy + mk * pc.y - pc.y;
+        ctx.fillRect(pb[0] + pdx, pb[1] + pdy, pb[2] - pb[0], pb[3] - pb[1]);
+      }
+      ctx.globalAlpha = 1;
+    }
 
     /* Every point, held back or not, in grey (or by its topic's or zone's hue
        when the settings say so), in one path per colour. */
@@ -1427,24 +1489,24 @@
       /* A comment label set with align "left" is drawn from its text's left edge. */
       if (p.align === "left") { ctx.textAlign = "left"; px -= p.w / 2; }
       for (j = 0; j < p.lines.length; j++) ctx.strokeText(p.lines[j], px, y0 + j * p.lh);
-      ctx.fillStyle = p.ink;
+      ctx.fillStyle = g ? (p.point != null ? pal.commentInk : pal.nameInk(p.ink)) : p.ink;
       for (j = 0; j < p.lines.length; j++) ctx.fillText(p.lines[j], px, y0 + j * p.lh);
       if (p.align === "left") ctx.textAlign = "center";
     }
     ctx.globalAlpha = 1;
     ctx.letterSpacing = "0px";
     this._labelHits = [];
-    if (this._denseFade) this.redraw();
+    if (this._denseFade || g !== (want ? 1 : 0)) this.redraw();
     if (this.onTiming) this.onTiming("draw", performance.now() - started);
   };
 
   /* A zone's tint as an image of its grid, in its tint at rest turned by
      share (0 to 1, in sixteenths) toward its tint zoomed in; made once per
      zone and share. */
-  PolisTopicMap.prototype._denseTint = function (dense, i, share, pal) {
-    var key = i + ":" + share, cached = dense.tintImages[key];
+  PolisTopicMap.prototype._denseTint = function (dense, i, share, pal, grey) {
+    var key = i + ":" + share + (grey ? ":" + grey : ""), cached = dense.tintImages[key];
     if (cached) return cached;
-    var z = dense.shapes.zones[i], G = z.grid, rgb = this._rgbOf(z.tint), k;
+    var z = dense.shapes.zones[i], G = z.grid, rgb = this._rgbOf(grey ? pal.zoneTint(z.hue) : z.tint), k;
     if (share > 0) {
       var to = this._rgbOf(pal.zoneTintZoomed(z.hue));
       rgb = [0, 1, 2].map(function (c) { return Math.round(rgb[c] + (to[c] - rgb[c]) * share); });
