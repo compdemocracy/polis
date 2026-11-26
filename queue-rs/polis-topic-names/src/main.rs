@@ -4,13 +4,18 @@
 //! usage error (nothing written); 1 when `hierarchy.json` cannot be read or
 //! checked, or `names.json` cannot be written (nothing written).
 
-use polis_topic_names::{Hierarchy, KEY_ENV, Namer, RUN_MAX_ENV, RunCap, client, name_topics};
+use polis_topic_names::{
+    Access, Hierarchy, KEY_ENV, Namer, Provider, REGION_ENV, RUN_MAX_ENV, RunCap, client,
+    name_topics_with,
+};
 use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 const USAGE: &str = "usage: polis-topic-names name --in <hierarchy.json> --out <names.json> --namer '<namer json>'\n\
   The key is read from DELPHI_NAMING_ANTHROPIC_API_KEY and the per-run cap (dollars) from\n\
-  DELPHI_NAMING_RUN_MAX_USD (0.50 when unset). --api-base <url> is for tests only.";
+  DELPHI_NAMING_RUN_MAX_USD (0.50 when unset). --api-base <url> is for tests only.\n\
+  With \"provider\":\"bedrock\" in the namer, the call goes to Amazon Bedrock in AWS_REGION,\n\
+  signed with credentials from the default AWS credential chain; no key is read.";
 
 struct Args {
     input: PathBuf,
@@ -98,13 +103,34 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    let key = std::env::var(KEY_ENV).ok();
     let cap = RunCap::from_setting(std::env::var(RUN_MAX_ENV).ok().as_deref());
     let mut settings = client::Settings::default();
+    // The key is read only for the Claude API; the region only for Bedrock.
+    let key = match args.namer.provider {
+        Provider::Anthropic => std::env::var(KEY_ENV).ok(),
+        Provider::Bedrock => None,
+    };
+    let region = match args.namer.provider {
+        Provider::Anthropic => None,
+        Provider::Bedrock => std::env::var(REGION_ENV).ok(),
+    };
+    if let Some(r) = region.as_deref().map(str::trim)
+        && client::valid_region(r)
+    {
+        settings.api_base = client::bedrock_api_base(r);
+    }
     if let Some(base) = args.api_base {
         settings.api_base = base;
     }
-    let file = name_topics(&hierarchy, &args.namer, key.as_deref(), cap, &settings);
+    let chain = client::AwsCredentials::DefaultChain;
+    let access = match args.namer.provider {
+        Provider::Anthropic => Access::Key(key.as_deref()),
+        Provider::Bedrock => Access::Bedrock {
+            region: region.as_deref(),
+            credentials: &chain,
+        },
+    };
+    let file = name_topics_with(&hierarchy, &args.namer, access, cap, &settings);
     if let Err(e) = write_atomically(&args.output, &file.to_json()) {
         eprintln!(
             "polis-topic-names: cannot write {}: {e}",

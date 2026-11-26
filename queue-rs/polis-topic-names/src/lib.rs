@@ -14,7 +14,7 @@ pub mod namer;
 pub mod prompt;
 
 pub use hierarchy::{Hierarchy, HierarchyError, Topic};
-pub use namer::{Model, Namer, NamerError, PROMPT_VERSION, Thinking, Usage};
+pub use namer::{Model, Namer, NamerError, PROMPT_VERSION, Provider, Thinking, Usage};
 
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -23,6 +23,8 @@ use std::collections::BTreeMap;
 pub const NAMES_SCHEMA: &str = "polis-topic-names.names/1";
 /// The environment variable the key is read from.
 pub const KEY_ENV: &str = "DELPHI_NAMING_ANTHROPIC_API_KEY";
+/// The environment variable the Bedrock region is read from.
+pub const REGION_ENV: &str = "AWS_REGION";
 /// The environment variable the per-run cap is read from.
 pub const RUN_MAX_ENV: &str = "DELPHI_NAMING_RUN_MAX_USD";
 /// The per-run cap when none is set.
@@ -37,6 +39,10 @@ pub const MAX_COUNTED_INPUT: u64 = 120_000;
 pub enum Outcome {
     Named,
     NoKey,
+    /// Bedrock: no AWS credentials from the chain, or none that could sign.
+    NoCredentials,
+    /// Bedrock: `AWS_REGION` unset or not a region name.
+    NoRegion,
     OverRunCap,
     TooLarge,
     Http(u16),
@@ -56,6 +62,8 @@ impl Outcome {
         match self {
             Self::Named => "named".into(),
             Self::NoKey => "no_key".into(),
+            Self::NoCredentials => "no_credentials".into(),
+            Self::NoRegion => "no_region".into(),
             Self::OverRunCap => "over_run_cap".into(),
             Self::TooLarge => "too_large".into(),
             Self::Http(s) => format!("http_{s}"),
@@ -96,6 +104,10 @@ impl RunCap {
 /// The record of one naming, as `names.json` holds it.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Record {
+    /// Present only through Bedrock (`"bedrock"`), so the Claude API's file is
+    /// the file it was before the provider existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider: Option<&'static str>,
     pub model: &'static str,
     pub prompt: &'static str,
     pub thinking: &'static str,
@@ -155,6 +167,18 @@ impl Run {
     }
 }
 
+/// What authenticates the call.
+#[derive(Debug, Clone, Copy)]
+pub enum Access<'a> {
+    /// The Claude API key, when one is set.
+    Key(Option<&'a str>),
+    /// Amazon Bedrock: the region (when set) and where credentials come from.
+    Bedrock {
+        region: Option<&'a str>,
+        credentials: &'a client::AwsCredentials,
+    },
+}
+
 /// Names the hierarchy. `key` is the key's value when one is set and not
 /// empty. Every way this can end is an outcome in the returned file.
 pub fn name_topics(
@@ -164,12 +188,34 @@ pub fn name_topics(
     cap: RunCap,
     settings: &client::Settings,
 ) -> NamesFile {
+    name_topics_with(h, namer, Access::Key(key), cap, settings)
+}
+
+/// Names the hierarchy through the namer's provider. A Claude API namer
+/// needs [`Access::Key`], a Bedrock namer [`Access::Bedrock`]; the other kind
+/// is `no_key` or `no_credentials`, with no call made.
+pub fn name_topics_with(
+    h: &Hierarchy,
+    namer: &Namer,
+    access: Access<'_>,
+    cap: RunCap,
+    settings: &client::Settings,
+) -> NamesFile {
     let body = prompt::body_v1(h, namer);
     let counted = body.len() as u64;
-    let worst = namer.model.worst_case_usd(counted, prompt::MAX_TOKENS);
-    let run = decide_and_call(h, key, cap, settings, &body, counted, worst);
+    let worst = namer.worst_case_usd(counted, prompt::MAX_TOKENS);
+    let run = decide_and_call(
+        h,
+        namer.provider,
+        access,
+        cap,
+        settings,
+        &body,
+        counted,
+        worst,
+    );
     let outcome = run.outcome.word();
-    let dollars = run.usage.map(|u| namer.model.dollars(&u));
+    let dollars = run.usage.map(|u| namer.dollars(&u));
     NamesFile {
         schema: NAMES_SCHEMA,
         outcome: outcome.clone(),
@@ -180,6 +226,10 @@ pub fn name_topics(
             BTreeMap::new()
         },
         record: Record {
+            provider: match namer.provider {
+                Provider::Anthropic => None,
+                Provider::Bedrock => Some(Provider::Bedrock.word()),
+            },
             model: namer.model.id(),
             prompt: PROMPT_VERSION,
             thinking: namer.thinking.word(),
@@ -201,9 +251,11 @@ pub fn name_topics(
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 fn decide_and_call(
     h: &Hierarchy,
-    key: Option<&str>,
+    provider: Provider,
+    access: Access<'_>,
     cap: RunCap,
     settings: &client::Settings,
     body: &str,
@@ -240,22 +292,72 @@ fn decide_and_call(
         }
         RunCap::Usd(_) => {}
     }
-    let Some(key) = key.filter(|k| !k.is_empty()) else {
-        return Run::failed(Outcome::NoKey, format!("{KEY_ENV} is not set"));
+    let auth = match (provider, access) {
+        (Provider::Anthropic, Access::Key(key)) => {
+            let Some(key) = key.filter(|k| !k.is_empty()) else {
+                return Run::failed(Outcome::NoKey, format!("{KEY_ENV} is not set"));
+            };
+            client::Auth::ApiKey(key)
+        }
+        (Provider::Anthropic, Access::Bedrock { .. }) => {
+            return Run::failed(
+                Outcome::NoKey,
+                "a Claude API namer was given AWS credentials, not a key",
+            );
+        }
+        (
+            Provider::Bedrock,
+            Access::Bedrock {
+                region,
+                credentials,
+            },
+        ) => {
+            let Some(region) = region.map(str::trim).filter(|r| !r.is_empty()) else {
+                return Run::failed(Outcome::NoRegion, format!("{REGION_ENV} is not set"));
+            };
+            if !client::valid_region(region) {
+                return Run::failed(
+                    Outcome::NoRegion,
+                    format!("{REGION_ENV} is not a region name"),
+                );
+            }
+            client::Auth::Bedrock {
+                region,
+                credentials,
+            }
+        }
+        (Provider::Bedrock, Access::Key(_)) => {
+            return Run::failed(
+                Outcome::NoCredentials,
+                "a Bedrock namer needs AWS credentials, not a key",
+            );
+        }
     };
     // An unsuccessful attempt may still have been billed. Reserve the same
     // estimate for both attempts before permitting a second request.
     let allow_retry = matches!(cap, RunCap::Usd(max) if worst <= max / 2.0);
-    let call = client::call_with_retry(settings, key, body, allow_retry);
+    let call = client::call_with_auth(settings, auth, body, allow_retry);
     let mut run = match call.ended {
         client::Ended::Answered(bytes) => judge_reply(h, &bytes),
         client::Ended::Oversize => Run::failed(
             Outcome::BadJson,
             format!("the reply body is over {} bytes", client::MAX_REPLY_BYTES),
         ),
+        client::Ended::Status(403) if provider == Provider::Bedrock => Run::failed(
+            Outcome::Http(403),
+            "Amazon Bedrock answered HTTP 403: model access not granted, or the role may not call bedrock-mantle:CreateInference",
+        ),
         client::Ended::Status(s) => {
             Run::failed(Outcome::Http(s), format!("the provider answered HTTP {s}"))
         }
+        client::Ended::NoCredentials => Run::failed(
+            Outcome::NoCredentials,
+            "no AWS credentials from the default credential chain",
+        ),
+        client::Ended::CannotSign => Run::failed(
+            Outcome::NoCredentials,
+            "the AWS credentials could not sign the request",
+        ),
         client::Ended::Timeout => {
             Run::failed(Outcome::Timeout, "no complete reply within the timeout")
         }

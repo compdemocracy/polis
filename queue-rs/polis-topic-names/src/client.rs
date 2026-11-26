@@ -1,12 +1,23 @@
 //! The one HTTP call to the Messages API, with its timeout and at most one
 //! retry.
 //!
-//! Headers sent: `content-type`, `anthropic-version` and `x-api-key` (marked
-//! sensitive), and whatever the HTTP client itself adds (`accept`, `host`,
-//! `content-length`). No user agent and nothing that names a project or a
-//! conversation.
+//! Headers sent to the Claude API: `content-type`, `anthropic-version` and
+//! `x-api-key` (marked sensitive), and whatever the HTTP client itself adds
+//! (`accept`, `host`, `content-length`). No user agent and nothing that names
+//! a project or a conversation.
+//!
+//! Through Amazon Bedrock ([`Auth::Bedrock`]) the same body and the same two
+//! content headers go to the region's `bedrock-mantle` endpoint, with no
+//! `x-api-key`: the request is signed with AWS Signature Version 4 (signing
+//! name `bedrock-mantle`), which adds `authorization`, `x-amz-date` and, with
+//! temporary credentials, `x-amz-security-token` (the last two marked
+//! sensitive with the first). The credentials are read from the default AWS
+//! credential chain when the call is made, held only in memory for its
+//! attempts, and never written anywhere.
 
-use std::time::Duration;
+use aws_credential_types::Credentials;
+use aws_credential_types::provider::ProvideCredentials;
+use std::time::{Duration, SystemTime};
 
 /// The provider's API version the measurement sent.
 pub const ANTHROPIC_VERSION: &str = "2026-10-21";
@@ -19,6 +30,55 @@ pub const MAX_REPLY_BYTES: usize = 4 * 1024 * 1024;
 
 /// Statuses after which the call is made once more.
 pub const RETRY_STATUSES: [u16; 6] = [429, 500, 502, 503, 504, 529];
+
+/// The Signature Version 4 signing name of Claude in Amazon Bedrock.
+pub const BEDROCK_SIGNING_NAME: &str = "bedrock-mantle";
+
+/// The API base of Claude in Amazon Bedrock in one region; the call is made to
+/// `<base>/messages`, that is `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages`.
+pub fn bedrock_api_base(region: &str) -> String {
+    format!("https://bedrock-mantle.{region}.api.aws/anthropic/v1")
+}
+
+/// Whether a region name can go into the endpoint's host name: lowercase
+/// letters, digits and single hyphens, such as `us-east-1`.
+pub fn valid_region(region: &str) -> bool {
+    !region.is_empty()
+        && region.len() <= 32
+        && region
+            .bytes()
+            .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit() || b == b'-')
+        && !region.starts_with('-')
+        && !region.ends_with('-')
+        && !region.contains("--")
+}
+
+/// Where AWS credentials come from.
+#[derive(Debug, Clone)]
+pub enum AwsCredentials {
+    /// The default AWS credential chain, read when the call is made: the
+    /// environment, the shared profile files, the container's credentials,
+    /// then the instance role through the instance metadata service.
+    DefaultChain,
+    /// Credentials given by the caller. The offline tests use made-up ones.
+    Given {
+        access_key_id: String,
+        secret_access_key: String,
+        session_token: Option<String>,
+    },
+}
+
+/// How a call is authenticated.
+#[derive(Debug, Clone, Copy)]
+pub enum Auth<'a> {
+    /// The Claude API: the key goes in `x-api-key`.
+    ApiKey(&'a str),
+    /// Amazon Bedrock: a Signature Version 4 signature for `region`.
+    Bedrock {
+        region: &'a str,
+        credentials: &'a AwsCredentials,
+    },
+}
 
 /// How the call is made. [`Settings::default`] is production's.
 #[derive(Debug, Clone)]
@@ -60,6 +120,11 @@ pub enum Ended {
     Connect,
     /// The key cannot be sent as a header value.
     BadKey,
+    /// Bedrock: the credential chain gave no credentials (none configured,
+    /// none reachable, or none within the connect timeout).
+    NoCredentials,
+    /// Bedrock: the credentials or the region could not sign the request.
+    CannotSign,
 }
 
 /// The call's result and how many attempts it took.
@@ -88,6 +153,17 @@ pub(crate) fn call_with_retry(
     body: &str,
     allow_retry: bool,
 ) -> Call {
+    call_with_auth(settings, Auth::ApiKey(key), body, allow_retry)
+}
+
+/// Makes the call with either provider's authentication; a second attempt
+/// only when the caller reserved its cost.
+pub(crate) fn call_with_auth(
+    settings: &Settings,
+    auth: Auth<'_>,
+    body: &str,
+    allow_retry: bool,
+) -> Call {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -98,18 +174,148 @@ pub(crate) fn call_with_retry(
             http_status: None,
         };
     };
-    rt.block_on(call_async(settings, key, body, allow_retry))
+    rt.block_on(call_async(settings, auth, body, allow_retry))
 }
 
-async fn call_async(settings: &Settings, key: &str, body: &str, allow_retry: bool) -> Call {
-    let Ok(mut key_value) = reqwest::header::HeaderValue::from_str(key) else {
-        return Call {
-            ended: Ended::BadKey,
-            attempts: 0,
-            http_status: None,
-        };
+/// What signs each attempt.
+enum Signer {
+    Key(reqwest::header::HeaderValue),
+    Bedrock { region: String, creds: Credentials },
+}
+
+fn ended(ended: Ended) -> Call {
+    Call {
+        ended,
+        attempts: 0,
+        http_status: None,
+    }
+}
+
+/// Reads credentials from the default chain, bounded by `limit`.
+async fn chain_credentials(region: &str, limit: Duration) -> Option<Credentials> {
+    let read = async {
+        let config = aws_config::defaults(aws_config::BehaviorVersion::latest())
+            .region(aws_config::Region::new(region.to_string()))
+            .load()
+            .await;
+        let provider = config.credentials_provider()?;
+        provider.provide_credentials().await.ok()
     };
-    key_value.set_sensitive(true);
+    tokio::time::timeout(limit, read).await.ok().flatten()
+}
+
+async fn signer(settings: &Settings, auth: Auth<'_>) -> Result<Signer, Ended> {
+    match auth {
+        Auth::ApiKey(key) => {
+            let mut v = reqwest::header::HeaderValue::from_str(key).map_err(|_| Ended::BadKey)?;
+            v.set_sensitive(true);
+            Ok(Signer::Key(v))
+        }
+        Auth::Bedrock {
+            region,
+            credentials,
+        } => {
+            if !valid_region(region) {
+                return Err(Ended::CannotSign);
+            }
+            let creds = match credentials {
+                AwsCredentials::Given {
+                    access_key_id,
+                    secret_access_key,
+                    session_token,
+                } => Credentials::new(
+                    access_key_id.clone(),
+                    secret_access_key.clone(),
+                    session_token.clone(),
+                    None,
+                    "given",
+                ),
+                AwsCredentials::DefaultChain => chain_credentials(region, settings.connect_timeout)
+                    .await
+                    .ok_or(Ended::NoCredentials)?,
+            };
+            Ok(Signer::Bedrock {
+                region: region.to_string(),
+                creds,
+            })
+        }
+    }
+}
+
+/// The SigV4 headers for one attempt: `authorization`, `x-amz-date` and, with
+/// a session token, `x-amz-security-token`. The signature covers the method,
+/// the path, the host, the two content headers and the body's SHA-256.
+pub(crate) fn sigv4_headers(
+    creds: &Credentials,
+    region: &str,
+    url: &str,
+    body: &str,
+    now: SystemTime,
+) -> Option<Vec<(String, String)>> {
+    use aws_sigv4::http_request::{SignableBody, SignableRequest, SigningSettings, sign};
+    let identity: aws_smithy_runtime_api::client::identity::Identity = creds.clone().into();
+    let params = aws_sigv4::sign::v4::SigningParams::builder()
+        .identity(&identity)
+        .region(region)
+        .name(BEDROCK_SIGNING_NAME)
+        .time(now)
+        .settings(SigningSettings::default())
+        .build()
+        .ok()?
+        .into();
+    let signed = [
+        ("content-type", "application/json"),
+        ("anthropic-version", ANTHROPIC_VERSION),
+    ];
+    let request = SignableRequest::new(
+        "POST",
+        url,
+        signed.into_iter(),
+        SignableBody::Bytes(body.as_bytes()),
+    )
+    .ok()?;
+    let (instructions, _signature) = sign(request, &params).ok()?.into_parts();
+    let (headers, _params) = instructions.into_parts();
+    Some(
+        headers
+            .into_iter()
+            .map(|h| (h.name().to_string(), h.value().to_string()))
+            .collect(),
+    )
+}
+
+impl Signer {
+    /// The headers of one attempt, signed at the moment it is made.
+    fn headers(&self, url: &str, body: &str) -> Option<reqwest::header::HeaderMap> {
+        use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
+        let mut h = HeaderMap::new();
+        h.insert("content-type", HeaderValue::from_static("application/json"));
+        h.insert(
+            "anthropic-version",
+            HeaderValue::from_static(ANTHROPIC_VERSION),
+        );
+        match self {
+            Self::Key(key) => {
+                h.insert("x-api-key", key.clone());
+            }
+            Self::Bedrock { region, creds } => {
+                for (k, v) in sigv4_headers(creds, region, url, body, SystemTime::now())? {
+                    let name = HeaderName::from_bytes(k.as_bytes()).ok()?;
+                    let mut value = HeaderValue::from_str(&v).ok()?;
+                    value.set_sensitive(true);
+                    h.insert(name, value);
+                }
+            }
+        }
+        Some(h)
+    }
+}
+
+async fn call_async(settings: &Settings, auth: Auth<'_>, body: &str, allow_retry: bool) -> Call {
+    let signer = match signer(settings, auth).await {
+        Ok(s) => s,
+        Err(e) => return ended(e),
+    };
     let Ok(client) = reqwest::Client::builder()
         .timeout(settings.timeout)
         .connect_timeout(settings.connect_timeout)
@@ -125,8 +331,15 @@ async fn call_async(settings: &Settings, key: &str, body: &str, allow_retry: boo
     let url = format!("{}/messages", settings.api_base.trim_end_matches('/'));
     let mut attempts = 0;
     loop {
+        let Some(headers) = signer.headers(&url, body) else {
+            return Call {
+                ended: Ended::CannotSign,
+                attempts,
+                http_status: None,
+            };
+        };
         attempts += 1;
-        match attempt(&client, &url, &key_value, body).await {
+        match attempt(&client, &url, headers, body).await {
             Attempt::Done(ended, http_status) => {
                 return Call {
                     ended,
@@ -154,14 +367,12 @@ async fn call_async(settings: &Settings, key: &str, body: &str, allow_retry: boo
 async fn attempt(
     client: &reqwest::Client,
     url: &str,
-    key: &reqwest::header::HeaderValue,
+    headers: reqwest::header::HeaderMap,
     body: &str,
 ) -> Attempt {
     let sent = client
         .post(url)
-        .header("content-type", "application/json")
-        .header("anthropic-version", ANTHROPIC_VERSION)
-        .header("x-api-key", key.clone())
+        .headers(headers)
         .body(body.to_string())
         .send()
         .await;

@@ -22,8 +22,14 @@ polis-topic-names name --in hierarchy.json --out names.json \
   `polis-topic-names/1`; `thinking` is `default` (no thinking field is sent) or
   `off` (Haiku `{"type": "disabled"}`, Sonnet `{"type": "between_tools"}`). An
   optional `"by": "model"` is accepted. Anything else is refused.
-- The key is read from `DELPHI_NAMING_ANTHROPIC_API_KEY`, and only from there.
-  The program never prints it or writes it anywhere.
+- `provider` (optional): `anthropic`, the default when absent, sends the call
+  to the Claude API; `bedrock` sends it to Claude in Amazon Bedrock (below).
+  The namer word gains a `bedrock.` prefix through Bedrock
+  (`bedrock.claude-sonnet-5-5.p1.default`); without the field every word,
+  body and file is what it was before the field existed.
+- The key is read from `DELPHI_NAMING_ANTHROPIC_API_KEY`, and only from there,
+  and only for the Claude API. The program never prints it or writes it
+  anywhere.
 - The per-run cap, in dollars, is read from `DELPHI_NAMING_RUN_MAX_USD` (0.50
   when unset).
 - `--api-base <url>` points the call somewhere other than
@@ -33,6 +39,46 @@ Exit status: **0** when `names.json` was written, whatever the outcome (a
 failed model call is an outcome, not an error); **2** for a usage error; **1**
 when `hierarchy.json` cannot be read or checked, or `names.json` cannot be
 written. On 1 or 2 nothing is written.
+
+## Through Amazon Bedrock
+
+With `"provider": "bedrock"` the call goes to the Messages API of Claude in
+Amazon Bedrock, `https://bedrock-mantle.<region>.api.aws/anthropic/v1/messages`.
+
+- **Settings it reads** (names only): `AWS_REGION` (the region, for example
+  `us-east-1`; unset, or not a region name, is the outcome `no_region`), the
+  per-run cap `DELPHI_NAMING_RUN_MAX_USD`, and whatever the default AWS
+  credential chain reads. No key: `DELPHI_NAMING_ANTHROPIC_API_KEY` is not
+  read.
+- **Credentials** come from the default AWS credential chain when the call is
+  made: the environment, the shared profile files, the container's
+  credentials, then the instance role through the instance metadata service.
+  On a production box that is the instance role. They are held in memory for
+  the call's attempts and never written, printed or logged. Single sign-on and
+  credential processes are not compiled in.
+- **The request** is the Claude API's request byte for byte, with one
+  difference: the body's `model` is Bedrock's id for the same model
+  (`anthropic.claude-sonnet-5-5`, `anthropic.claude-haiku-5-5`). The headers
+  are `content-type`, `anthropic-version` and the AWS Signature Version 4
+  headers (`authorization`, `x-amz-date`, and `x-amz-security-token` with
+  temporary credentials), signed for the service `bedrock-mantle` in the
+  region; `x-api-key` is never sent.
+- **Where the text goes.** The comment text of the sample comments (the
+  comments participants are shown) leaves the box to Amazon Bedrock in that
+  region, over TLS. Nothing goes to the Claude API.
+- **Price.** AWS's pricing page showed no price for these models when this was
+  written. Anthropic's page says a regional endpoint costs 10 percent more
+  than the global one, and AWS's says `bedrock-mantle` does not route across
+  regions, so the cost check uses the Claude API's prices plus 10 percent as
+  an estimate (Sonnet 5.5 $2.20 in, $11 out per million; Haiku 5.5 $0.11 in,
+  $0.55 out, $0.55 and $2.75 above 100,000 prompt tokens). Bowling Green's
+  Sonnet worst case is then over the $0.50 default cap, so a Bedrock Sonnet run
+  of a conversation that size needs a higher cap.
+- **Outcomes** are the Claude API's, plus `no_region` and `no_credentials` (the
+  chain gave none within 30 s, or they could not sign the request), both with
+  no call made. HTTP 403 (model access not granted, or the role may not call
+  `bedrock-mantle:CreateInference`) is `http_403`, not retried; 429, the
+  timeout, a refusal and every reply check end as they do for the Claude API.
 
 ## What it reads: `hierarchy.json`
 
@@ -81,6 +127,8 @@ attempts, HTTP status, stop reason, the worst-case estimate and the cap).
 | `too_large` | more than 400 topics, or more than 120,000 counted input tokens | 0 |
 | `over_run_cap` | the worst case passes the cap, or the cap setting is unreadable | 0 |
 | `no_key` | no key in the environment | 0 |
+| `no_region` | Bedrock: `AWS_REGION` unset or not a region name | 0 |
+| `no_credentials` | Bedrock: no credentials from the chain, or none that can sign | 0 |
 | `http_<status>` | any status but 200 (after the retry, for a retried status) | 1 or 2 |
 | `timeout` | no complete reply within 300 s | 1 |
 | `connect_error` | no connection after the permitted attempts | 1 or 2 |
@@ -179,5 +227,14 @@ fixtures are described in `tests/fixtures/README.md`.
   ten other scripts; Bowling Green's recorded input tokens are under it.
 - `review_boundaries`: overflowing usage, an unknown stop reason and the byte
   count on vTaiwan's Chinese text.
+- `bedrock`: through Bedrock, with made-up credentials: the body is the saved
+  body with only the model id changed; the signature is recomputed in the test
+  (credential scope `<date>/<region>/bedrock-mantle/aws4_request`, signed
+  headers, the body's hash) and equals the one sent; no `x-api-key`; 403, 429
+  with and without the retry, the timeout, a refusal, a bad cover, no region,
+  credentials that cannot sign, and the cap at the Bedrock price.
+- `program_bedrock`: the program with credentials from the environment
+  through the default chain, with none (the profile files absent and the
+  instance metadata service switched off), and with no region.
 
 Run them with `make check-polis-topic-names` (format, clippy, tests).
