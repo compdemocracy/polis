@@ -117,7 +117,7 @@
     var o = merge(options);
     return { zoom: {
       comments: { only: ranking.map(function (r) { return r.id; }), font: o.font, words: o.words, wordsPerDoubling: 0,
-        wrap: o.wrap, wrapPerDoubling: 0, maxLines: o.maxLines },
+        wrap: o.wrap, wrapPerDoubling: 0, maxLines: o.maxLines, align: "left" },
       slot: withSlot ? { w: o.slot.w, h: o.slot.h, gap: o.slot.gap } : null,
       budget: { comments: o.budget }
     } };
@@ -319,15 +319,17 @@
       words.style.cssText = "font-size:11px;line-height:1.35;color:#2b3038";
       var rd = G.readout(groups);
       rd.lines.forEach(function (line) { var d = doc.createElement("div"); d.textContent = line; words.appendChild(d); });
-      if (selected) row.appendChild(words);
-      else { card.appendChild(words); words.style.marginTop = "4px"; }
-      if (!selected) row.style.marginBottom = "0";
+      // the counts in words under the graphic, at the card's full width
+      card.appendChild(words); words.style.marginTop = "6px";
     }
     card.style.display = "block";
     var lv = this._view(); if (!lv) return;
     var s = this._screen(i, lv.view), cw = card.offsetWidth || o.card.width, ch = card.offsetHeight || 120;
-    var x = s.x + 14, y = s.y - ch / 2;
-    if (x + cw > lv.W - 4) x = s.x - 14 - cw;
+    var x = s.x + 14, y = s.y - ch / 2, lab = null;
+    this.labels.forEach(function (l) { if (l.point === i) lab = l; });
+    // a comment written out: the card goes beside its label, not over it
+    if (lab) { x = lab.box[2] + 8; y = lab.box[1]; if (x + cw > lv.W - 4) x = lab.box[0] - 8 - cw - o.rule - 3; }
+    else if (x + cw > lv.W - 4) x = s.x - 14 - cw;
     x = Math.max(4, Math.min(x, lv.W - cw - 4)); y = Math.max(4, Math.min(y, lv.H - ch - 4));
     card.style.transform = "translate(" + Math.round(x) + "px," + Math.round(y) + "px)";
   };

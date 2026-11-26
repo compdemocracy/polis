@@ -631,7 +631,7 @@
             var tx = bx - bw / 2 + cwid / 2;
             comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: ccut, lines: clines, f: cf, weight: cw, fam: cfam,
               letterSpacing: "0px", lh: clh, lineWidths: clw, w: cwid, h: ch, x: tx, y: by, x0: px0, y0: py0, box: cb,
-              ink: pal.commentInk, alpha: pal.commentAlpha, haloWidth: pal.haloWidth(cf),
+              ink: pal.commentInk, alpha: pal.commentAlpha, haloWidth: pal.haloWidth(cf), align: C.align === "left" ? "left" : "center",
               slot: slot ? { x: tx + cwid / 2 + slot.gap, y: by - slot.h / 2, w: slot.w, h: slot.h } : null });
             break;
           }

@@ -169,6 +169,7 @@ The zoom settings are the key `zoom` of the drawing's settings, merged over
 | `comments.wrap`, `comments.wrapPerDoubling` | characters per line at the fit, and added per doubling | `22`, `6` |
 | `comments.only` | a list of point ids: only those points get a label, the first placed first (an empty list gives none); `null`, every point with text, the most voted first | `null` |
 | `comments.maxLines` | at most this many lines of a label, the last cut with "…"; `null`, no limit | `null` |
+| `comments.align` | `"left"` draws each label's lines from its text's left edge; otherwise they are centred | centred |
 | `comments` | `false` turns comment labels off | |
 | `slot` | `{ w, h, gap }`: a box w by h px reserved gap px to the right of each comment label's text, taken into its room when it is placed; nothing is drawn in it | `null` |
 
