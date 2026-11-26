@@ -115,7 +115,8 @@
     max: 40,
     settleMs: 120,
     hitRadiusMin: 3,
-    comments: { maxPoints: 150, minSpacing: 24, font: 10, words: 5, wordsPerDoubling: 2.5, wrap: 22, wrapPerDoubling: 6 },
+    comments: { maxPoints: 150, minSpacing: 24, font: 10, words: 5, wordsPerDoubling: 2.5, wrap: 22, wrapPerDoubling: 6,
+      only: null, maxLines: null },
     slot: null,
     steps: [1.5, 3, 6],
     floor: 11,
@@ -427,6 +428,20 @@
     for (i = 0; i < N; i++) if (ids[i] != null && typeof text[i] === "string" && text[i].trim()) commentOrder.push(i);
     var votes = Array.isArray(P.votes) && P.votes.length === N && P.votes.every(function (v) { return typeof v === "number" && isFinite(v); }) ? P.votes : null;
     if (votes) commentOrder.sort(function (a, b) { return votes[b] - votes[a] || a - b; });
+    // zoom.comments.only: a list of point ids, first placed first; only those
+    // points are given a label (an empty list gives none)
+    var onlyIds = cfg.zoom && cfg.zoom.comments && Array.isArray(cfg.zoom.comments.only) ? cfg.zoom.comments.only : null;
+    if (onlyIds) {
+      var withText = {}, byId = {};
+      commentOrder.forEach(function (pi) { withText[pi] = true; });
+      for (i = 0; i < N; i++) if (ids[i] != null && !(String(ids[i]) in byId)) byId[String(ids[i])] = i;
+      var seen = {};
+      commentOrder = [];
+      onlyIds.forEach(function (id) {
+        var pi = byId[String(id)];
+        if (pi !== undefined && withText[pi] && !seen[pi]) { seen[pi] = true; commentOrder.push(pi); }
+      });
+    }
 
     var districtIdx = cfg.subOutline == null ? [] :
       T.map(function (t, i) { return t.level === cfg.subOutline ? i : -1; }).filter(function (i) { return i >= 0; });
@@ -598,7 +613,12 @@
           if (px0 < 0 || py0 < 0 || px0 > W || py0 > H) continue;
           var words = PX.text[pi].trim().split(/\s+/), nw = Math.min(words.length, nWords);
           var ctext = words.slice(0, nw).join(" ") + (nw < words.length ? "\u2026" : "");
-          var clines = wrapText(ctext, cWrap), clw = [], cwid = 0;
+          var clines = wrapText(ctext, cWrap), clw = [], cwid = 0, ccut = nw < words.length;
+          if (C.maxLines > 0 && clines.length > C.maxLines) {
+            clines = clines.slice(0, C.maxLines);
+            clines[clines.length - 1] = clines[clines.length - 1].replace(/[\s\u2026]*$/, "") + "\u2026";
+            ctext = clines.join(" "); ccut = true;
+          }
           for (var cl = 0; cl < clines.length; cl++) { var cmw = measure(clines[cl], cSpec); clw.push(cmw); cwid = Math.max(cwid, cmw); }
           var ch = clines.length * clh;
           var bw = slot ? cwid + slot.gap + slot.w : cwid, bh = slot ? Math.max(ch, slot.h) : ch;
@@ -609,7 +629,7 @@
             if (hits(cb)) continue;
             add(cb);
             var tx = bx - bw / 2 + cwid / 2;
-            comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: nw < words.length, lines: clines, f: cf, weight: cw, fam: cfam,
+            comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: ccut, lines: clines, f: cf, weight: cw, fam: cfam,
               letterSpacing: "0px", lh: clh, lineWidths: clw, w: cwid, h: ch, x: tx, y: by, x0: px0, y0: py0, box: cb,
               ink: pal.commentInk, alpha: pal.commentAlpha, haloWidth: pal.haloWidth(cf),
               slot: slot ? { x: tx + cwid / 2 + slot.gap, y: by - slot.h / 2, w: slot.w, h: slot.h } : null });

@@ -34,6 +34,7 @@ No client uses it yet.
 | `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `highlights.js` | which comments to bring forward over the map: those that stand out as most consensus or most divisive, of the whole map and of each topic, and the topics that stand out, as pure functions | 14,795 |
 | `vote-graphic.js` | the group vote graphic beside one comment, as pure functions (two forms: four rows, filled; poured) | 30,649 |
+| `deep-zoom.js` | the deepest zoom over the dense drawing: the comments that stand out on the whole map (by `highlights.js`) as the only comment labels, each with the four rows (`vote-graphic.js`) in its reserved box; every other comment in view revealed on hover or focus, and selected on click with the poured form and the counts in words | |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -166,6 +167,8 @@ The zoom settings are the key `zoom` of the drawing's settings, merged over
 | `comments.font` | the labels' size, in px | `10` |
 | `comments.words`, `comments.wordsPerDoubling` | words shown at the fit, and added per doubling of the zoom (the rest cut with "…") | `5`, `2.5` |
 | `comments.wrap`, `comments.wrapPerDoubling` | characters per line at the fit, and added per doubling | `22`, `6` |
+| `comments.only` | a list of point ids: only those points get a label, the first placed first (an empty list gives none); `null`, every point with text, the most voted first | `null` |
+| `comments.maxLines` | at most this many lines of a label, the last cut with "…"; `null`, no limit | `null` |
 | `comments` | `false` turns comment labels off | |
 | `slot` | `{ w, h, gap }`: a box w by h px reserved gap px to the right of each comment label's text, taken into its room when it is placed; nothing is drawn in it | `null` |
 
