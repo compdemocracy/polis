@@ -557,10 +557,15 @@ pub fn rule_admission(
 
 /// The word a namer is recorded under: `<model>.p<prompt version>.<thinking>`
 /// (`claude-haiku-5-5.p1.default`), the word `polis-topic-names` records.
-/// Refused unless the model, prompt and thinking are ones the child passes on
-/// (`jobs::child::namer`), so an admission never names a namer no child runs.
+/// Through Amazon Bedrock it is prefixed with the provider
+/// (`bedrock.claude-sonnet-5-5.p1.default`, as `polis-topic-names` writes it);
+/// a namer with no `provider`, or `anthropic`, has no prefix, so every word
+/// stored before the provider existed keeps its meaning.
+/// Refused unless the provider, model, prompt and thinking are ones the child
+/// passes on (`jobs::child::namer`), so an admission never names a namer no
+/// child runs.
 pub fn namer_word(naming: &Value) -> Result<String, &'static str> {
-    use crate::jobs::child::{NAMER_MODELS, NAMER_PROMPTS, NAMER_THINKING};
+    use crate::jobs::child::{NAMER_MODELS, NAMER_PROMPTS, NAMER_THINKING, namer_provider};
     let field = |key: &str, known: &[&'static str], refusal: &'static str| {
         naming
             .get(key)
@@ -572,17 +577,23 @@ pub fn namer_word(naming: &Value) -> Result<String, &'static str> {
     if fields.get("by").and_then(Value::as_str) != Some("model") {
         return Err("naming_unknown_by");
     }
-    if fields
-        .keys()
-        .any(|k| !matches!(k.as_str(), "by" | "model" | "prompt" | "thinking"))
-    {
+    if fields.keys().any(|k| {
+        !matches!(
+            k.as_str(),
+            "by" | "provider" | "model" | "prompt" | "thinking"
+        )
+    }) {
         return Err("naming_unknown_key");
     }
+    let provider = namer_provider(fields)?;
     let model = field("model", &NAMER_MODELS, "naming_unknown_model")?;
     let prompt = field("prompt", &NAMER_PROMPTS, "naming_unknown_prompt")?;
     let thinking = field("thinking", &NAMER_THINKING, "naming_unknown_thinking")?;
     let version = prompt.rsplit('/').next().unwrap_or(prompt);
-    Ok(format!("{model}.p{version}.{thinking}"))
+    Ok(match provider {
+        None => format!("{model}.p{version}.{thinking}"),
+        Some(p) => format!("{p}.{model}.p{version}.{thinking}"),
+    })
 }
 
 /// The publication scope of runs named by `namer` (a [`namer_word`]): its
@@ -624,6 +635,15 @@ pub fn names_admission(
         return Err("names_of_source_named");
     }
     let namer = namer_word(naming)?;
+    // `anthropic` is the default: stored as no `provider`, so a request that
+    // names it is the same job (key, scope and request digest) as one that
+    // does not.
+    let mut naming = naming.clone();
+    if naming["provider"] == "anthropic"
+        && let Some(fields) = naming.as_object_mut()
+    {
+        fields.remove("provider");
+    }
     let shadow = &source_config["shadow"];
     let source = source.hyphenated().to_string();
     let config = json!({
@@ -1510,6 +1530,64 @@ mod tests {
         // The keyword runs' admissions are what they were: no naming, no source.
         assert!(first.config.get("naming").is_none() && first.config.get("names_of").is_none());
         assert!(rule.config.get("naming").is_none() && rule.config.get("names_of").is_none());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn the_provider_names_its_own_job_and_its_absence_is_todays() {
+        let today = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        // Today's word, key and scope, byte for byte, for an absent provider
+        // and for the default named.
+        let mut anthropic = haiku();
+        anthropic["provider"] = json!("anthropic");
+        assert_eq!(namer_word(&haiku()).unwrap(), "claude-haiku-5-5.p1.default");
+        assert_eq!(
+            namer_word(&anthropic).unwrap(),
+            "claude-haiku-5-5.p1.default"
+        );
+        let named = names_admission(7, SOURCE, &source_config(), &anthropic).unwrap();
+        assert_eq!(
+            (&named.key, &named.scope, &named.request_sha, &named.config),
+            (&today.key, &today.scope, &today.request_sha, &today.config)
+        );
+        assert_eq!(named.config["naming"], haiku());
+
+        // Through Amazon Bedrock: another word, key and scope.
+        let mut bedrock = haiku();
+        bedrock["provider"] = json!("bedrock");
+        assert_eq!(
+            namer_word(&bedrock).unwrap(),
+            "bedrock.claude-haiku-5-5.p1.default"
+        );
+        let b = names_admission(7, SOURCE, &source_config(), &bedrock).unwrap();
+        assert_eq!(
+            b.key,
+            "shadow:names:7:0e8a7c1e111142228333444455556666:bedrock.claude-haiku-5-5.p1.default"
+        );
+        assert!(b.key.len() <= 128);
+        assert_eq!(b.scope, "delphi:names:bedrock.claude-haiku-5-5.p1.default");
+        assert_eq!(
+            b.config["shadow"]["namer"],
+            "bedrock.claude-haiku-5-5.p1.default"
+        );
+        assert_eq!(b.config["naming"], bedrock);
+        assert_ne!(b.key, today.key);
+        assert_ne!(b.scope, today.scope);
+        assert_ne!(b.request_sha, today.request_sha);
+        // The child accepts what the admission stores.
+        assert_eq!(
+            crate::jobs::names_of::source(&b.config),
+            Ok(Some(SOURCE.to_owned()))
+        );
+
+        for provider in [json!("vertex"), json!("Bedrock"), Value::Null, json!(1)] {
+            let mut n = haiku();
+            n["provider"] = provider;
+            assert_eq!(
+                names_admission(7, SOURCE, &source_config(), &n).unwrap_err(),
+                "naming_unknown_provider"
+            );
+        }
     }
 
     #[test]

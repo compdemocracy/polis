@@ -57,6 +57,12 @@ assert args[0] == "name" and args[1] == "--in" and args[3] == "--out" and args[5
 hierarchy = json.load(open(args[2], encoding="utf-8"))
 namer = json.loads(args[6])
 outcome = os.environ.get("STUB_OUTCOME", "named")
+# As the program does: through Amazon Bedrock, no call without all three
+# price settings given explicitly.
+PRICE = ("DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK", "DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK",
+         "DELPHI_NAMING_BEDROCK_PRICE_SOURCE")
+if namer.get("provider") == "bedrock" and not all(os.environ.get(k, "").strip() for k in PRICE):
+    outcome = "no_price"
 if outcome == "named":
     names = json.load(open(os.environ["STUB_NAMES"], encoding="utf-8")) if os.environ.get("STUB_NAMES") else {
         tid: "Generated name " + tid for tid in hierarchy["topics"]}
@@ -68,7 +74,7 @@ elif outcome == "garbage":
     open(args[4], "w").write("not json")
     sys.exit(0)
 else:
-    answered = outcome not in ("no_key", "over_run_cap", "too_large", "connect_error")
+    answered = outcome not in ("no_key", "over_run_cap", "too_large", "connect_error", "no_price")
     doc = {"schema": "polis-topic-names.names/1", "outcome": outcome, "reason": "stand-in " + outcome,
            "names": {}, "record": dict(namer, tokens_in=1200 if answered else None,
                                        tokens_out=40 if answered else None,

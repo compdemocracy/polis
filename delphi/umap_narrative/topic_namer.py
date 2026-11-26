@@ -6,6 +6,9 @@ passes only when the job's configuration names one) as a JSON object::
 
     {"model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "default"}
 
+or, through Amazon Bedrock, with ``"provider": "bedrock"`` first (absent is
+the Claude API, as before).
+
 With it, the naming step does not use the older per-topic provider path
 (``topic_naming.generate_cluster_topic_labels``). Instead it:
 
@@ -93,6 +96,12 @@ MODELS = ("claude-haiku-5-5", "claude-sonnet-5-5")
 PROMPTS = ("polis-topic-names/1",)
 THINKING = ("default", "off")
 NAMER_KEYS = ("model", "prompt", "thinking")
+# The providers a namer may name: the Claude API, the default (a namer with no
+# ``provider``, which is how it is passed on and recorded, so every namer
+# written before the provider existed keeps its argument and record), and
+# Amazon Bedrock, which is passed on and recorded as ``"provider": "bedrock"``.
+PROVIDERS = ("anthropic", "bedrock")
+DEFAULT_PROVIDER = "anthropic"
 
 HIERARCHY_SCHEMA = "polis-topic-names.hierarchy/1"
 NAMES_SCHEMA = "polis-topic-names.names/1"
@@ -131,6 +140,9 @@ NAMER_FAILED = "namer_failed"
 PROGRAM_OUTCOMES = frozenset({
     NAMED, "no_key", "over_run_cap", "too_large", "timeout", "connect_error", "refused", "truncated",
     "bad_json", "bad_cover", "repeated_names", "bad_length", "wrong_language",
+    # Through Amazon Bedrock: no credentials from the default chain, no
+    # region, no price given explicitly (the program makes no call without one).
+    "no_credentials", "no_region", "no_price",
 })
 
 
@@ -140,22 +152,31 @@ class NamerRefused(ValueError):
 
 def parse_namer(text: str) -> Dict[str, str]:
     """The namer a run was given, checked: exactly ``model``, ``prompt`` and
-    ``thinking``, each one this version knows. Raises NamerRefused otherwise."""
+    ``thinking``, and optionally ``provider``, each one this version knows.
+    The default provider is returned as no ``provider`` at all; ``bedrock``
+    is kept. Raises NamerRefused otherwise."""
     try:
         namer = json.loads(text)
     except (TypeError, ValueError):
         raise NamerRefused("the namer is not JSON") from None
-    if not isinstance(namer, dict) or set(namer) != set(NAMER_KEYS):
-        raise NamerRefused(f"the namer must be an object of exactly {', '.join(NAMER_KEYS)}")
+    if not isinstance(namer, dict) or set(namer) - {"provider"} != set(NAMER_KEYS):
+        raise NamerRefused(f"the namer must be an object of exactly {', '.join(NAMER_KEYS)}, and optionally provider")
     for key, known in (("model", MODELS), ("prompt", PROMPTS), ("thinking", THINKING)):
         if namer[key] not in known:
             raise NamerRefused(f"unknown namer {key}: {namer[key]!r}")
-    return {key: namer[key] for key in NAMER_KEYS}
+    provider = namer.get("provider", DEFAULT_PROVIDER)
+    if not isinstance(provider, str) or provider not in PROVIDERS:
+        raise NamerRefused(f"unknown namer provider: {provider!r}")
+    parsed = {key: namer[key] for key in NAMER_KEYS}
+    return parsed if provider == DEFAULT_PROVIDER else {"provider": provider, **parsed}
 
 
 def namer_argument(namer: Dict[str, str]) -> str:
-    """The namer as one compact JSON argument, keys in a fixed order."""
-    return json.dumps({key: namer[key] for key in NAMER_KEYS}, separators=(",", ":"))
+    """The namer as one compact JSON argument, keys in a fixed order:
+    ``provider`` first when it is not the default (the shape the job child
+    writes and ``polis-topic-names --namer`` reads), else today's three."""
+    keys = (("provider",) if namer.get("provider", DEFAULT_PROVIDER) != DEFAULT_PROVIDER else ()) + NAMER_KEYS
+    return json.dumps({key: namer[key] for key in keys}, separators=(",", ":"))
 
 
 def exit_on_sigterm() -> None:
@@ -355,7 +376,7 @@ def step_facts(result: Dict[str, Any]) -> Dict[str, Any]:
     """What the run's step log records of the naming (closed words and
     counts; the reason is the program's own short line, never comment text)."""
     namer = result["namer"]
-    return {
+    facts = {
         "provider": PROGRAM,
         "model": namer["model"],
         "namer": namer_argument(namer),
@@ -364,6 +385,12 @@ def step_facts(result: Dict[str, Any]) -> Dict[str, Any]:
         "outcome": result["outcome"],
         "reason": result["reason"],
     }
+    # The provider the namer named (what was asked, as ``namer`` is), only
+    # when it is not the default: a run through the Claude API records
+    # exactly today's facts. ``provider`` above is the program, as before.
+    if namer.get("provider", DEFAULT_PROVIDER) != DEFAULT_PROVIDER:
+        facts["namer_provider"] = namer["provider"]
+    return facts
 
 
 def record_of(result: Dict[str, Any]) -> Dict[str, Any]:

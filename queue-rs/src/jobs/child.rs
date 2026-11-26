@@ -296,13 +296,38 @@ pub const NAMER_MODELS: [&str; 2] = ["claude-haiku-5-5", "claude-sonnet-5-5"];
 pub const NAMER_PROMPTS: [&str; 1] = ["polis-topic-names/1"];
 pub const NAMER_THINKING: [&str; 2] = ["default", "off"];
 
+/// The providers a namer may name (`polis-topic-names --namer`'s
+/// `provider`): `anthropic`, the Claude API and the default when absent, and
+/// `bedrock`, Amazon Bedrock.
+pub const NAMER_PROVIDERS: [&str; 2] = ["anthropic", "bedrock"];
+
+/// The provider of a `config.naming` object, as the child passes it on:
+/// `None` when it is absent or `anthropic` (the default, which is passed on
+/// as no `provider` at all, so every namer written before the provider
+/// existed keeps its argument, word, key and scope), `Some("bedrock")`
+/// otherwise. Refused (`naming_unknown_provider`) when it is any other word
+/// or not a string.
+pub fn namer_provider(
+    naming: &serde_json::Map<String, Value>,
+) -> std::result::Result<Option<&'static str>, &'static str> {
+    match naming.get("provider") {
+        None => Ok(None),
+        Some(Value::String(p)) if p == NAMER_PROVIDERS[0] => Ok(None),
+        Some(Value::String(p)) if p == NAMER_PROVIDERS[1] => Ok(Some(NAMER_PROVIDERS[1])),
+        Some(_) => Err("naming_unknown_provider"),
+    }
+}
+
 /// The namer the admission names (`config.naming`), as the one compact JSON
 /// argument `run_delphi.py --namer=` takes (`{"model":..,"prompt":..,
-/// "thinking":..}`, keys in that order). Absent, null or `{"by":"keywords"}`,
-/// the run is today's and its arguments are byte for byte today's. A namer
-/// is refused before a child starts when its model, prompt or thinking is
-/// unknown, when it carries any other key, or when the run's selection is
-/// not `participant_visible/1`.
+/// "thinking":..}`, keys in that order; through Amazon Bedrock
+/// `{"provider":"bedrock","model":..,"prompt":..,"thinking":..}`, the shape
+/// `polis-topic-names --namer` reads). Absent, null or `{"by":"keywords"}`,
+/// the run is today's and its arguments are byte for byte today's; a namer
+/// with no `provider`, or `anthropic`, is today's argument. A namer is
+/// refused before a child starts when its provider, model, prompt or
+/// thinking is unknown, when it carries any other key, or when the run's
+/// selection is not `participant_visible/1`.
 pub fn namer(adm: &Admission) -> Result<Option<String>> {
     let naming = match adm.config.get("naming") {
         None | Some(Value::Null) => return Ok(None),
@@ -315,12 +340,15 @@ pub fn namer(adm: &Admission) -> Result<Option<String>> {
         Some("model") => {}
         _ => bail!("naming_unknown_by"),
     }
-    if naming
-        .keys()
-        .any(|k| !matches!(k.as_str(), "by" | "model" | "prompt" | "thinking"))
-    {
+    if naming.keys().any(|k| {
+        !matches!(
+            k.as_str(),
+            "by" | "provider" | "model" | "prompt" | "thinking"
+        )
+    }) {
         bail!("naming_unknown_key");
     }
+    let provider = namer_provider(naming).map_err(|refusal| anyhow!(refusal))?;
     let field = |key: &str, known: &[&'static str], refusal: &'static str| {
         naming
             .get(key)
@@ -335,8 +363,9 @@ pub fn namer(adm: &Admission) -> Result<Option<String>> {
         bail!("naming_selection_not_named");
     }
     // Every value is one of the closed words above: no escaping is needed.
+    let provider = provider.map_or(String::new(), |p| format!(r#""provider":"{p}","#));
     Ok(Some(format!(
-        r#"{{"model":"{model}","prompt":"{prompt}","thinking":"{thinking}"}}"#
+        r#"{{{provider}"model":"{model}","prompt":"{prompt}","thinking":"{thinking}"}}"#
     )))
 }
 
@@ -934,6 +963,84 @@ mod tests {
         Ok(())
     }
 
+    /// The provider: absent or `anthropic`, the argument is exactly today's
+    /// (no `provider` key); `bedrock` reaches the program as the first key of
+    /// the namer argument, the shape `polis-topic-names --namer` reads.
+    #[test]
+    fn a_namer_names_its_provider_only_when_it_is_bedrock() -> Result<()> {
+        let app = Path::new("/app");
+        let namer_of = |provider: Option<&str>| {
+            let mut n = json!({"by": "model", "model": "claude-sonnet-5-5",
+                "prompt": "polis-topic-names/1", "thinking": "default"});
+            if let Some(p) = provider {
+                n["provider"] = json!(p);
+            }
+            shadow_with(json!("participant_visible/1"), Some(n))
+        };
+        let today = r#"--namer={"model":"claude-sonnet-5-5","prompt":"polis-topic-names/1","thinking":"default"}"#;
+        for provider in [None, Some("anthropic")] {
+            let (_, args) = command_args(
+                app,
+                &claim("delphi_full_pipeline"),
+                &namer_of(provider),
+                "run",
+            )?;
+            assert_eq!(args[4], today);
+            assert_eq!(args.len(), 5);
+        }
+        let (_, args) = command_args(
+            app,
+            &claim("delphi_full_pipeline"),
+            &namer_of(Some("bedrock")),
+            "run",
+        )?;
+        assert_eq!(
+            args[4],
+            r#"--namer={"provider":"bedrock","model":"claude-sonnet-5-5","prompt":"polis-topic-names/1","thinking":"default"}"#
+        );
+        assert_eq!(
+            args[..4],
+            command_args(app, &claim("delphi_full_pipeline"), &namer_of(None), "run")?.1[..4]
+        );
+        Ok(())
+    }
+
+    /// The Amazon Bedrock price settings `polis-topic-names` reads are passed
+    /// to a Delphi child when they are set: the child strips only the queue's
+    /// own credentials from a Delphi stage.
+    #[test]
+    fn the_bedrock_price_settings_reach_a_delphi_child() {
+        let mut command = Command::new("python");
+        command
+            .env("DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK", "2.2")
+            .env("DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK", "11")
+            .env(
+                "DELPHI_NAMING_BEDROCK_PRICE_SOURCE",
+                "made-up figures for a test",
+            )
+            .env("QUEUE_DATABASE_URL", "generated-queue");
+        child_environment(&mut command, "delphi_full_pipeline", std::iter::empty());
+        let actual: std::collections::BTreeMap<_, _> = command.get_envs().collect();
+        for (key, value) in [
+            ("DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK", "2.2"),
+            ("DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK", "11"),
+            (
+                "DELPHI_NAMING_BEDROCK_PRICE_SOURCE",
+                "made-up figures for a test",
+            ),
+        ] {
+            assert_eq!(
+                actual.get(std::ffi::OsStr::new(key)),
+                Some(&Some(std::ffi::OsStr::new(value))),
+                "{key}"
+            );
+        }
+        assert_eq!(
+            actual.get(std::ffi::OsStr::new("QUEUE_DATABASE_URL")),
+            Some(&None)
+        );
+    }
+
     /// An unknown model, prompt, thinking or key, a namer that is not an
     /// object, and a namer under any comment rule but the participants' own
     /// start no child.
@@ -994,6 +1101,26 @@ mod tests {
                 "naming_selection_not_named",
             ),
             (Value::Null, good.clone(), "naming_selection_not_named"),
+            (
+                json!("participant_visible/1"),
+                with("provider", json!("vertex")),
+                "naming_unknown_provider",
+            ),
+            (
+                json!("participant_visible/1"),
+                with("provider", json!("Bedrock")),
+                "naming_unknown_provider",
+            ),
+            (
+                json!("participant_visible/1"),
+                with("provider", Value::Null),
+                "naming_unknown_provider",
+            ),
+            (
+                json!("participant_visible/1"),
+                with("provider", json!(["bedrock"])),
+                "naming_unknown_provider",
+            ),
         ];
         for (selection, naming, word) in refused {
             let adm = shadow_with(selection, Some(naming));
