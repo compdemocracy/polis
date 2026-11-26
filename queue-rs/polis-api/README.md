@@ -1377,13 +1377,24 @@ are and on the comments' moderation at the time of the read, not of the run:
   `Cache-Control: private, no-store` and `Vary: Authorization,
   Accept-Encoding`.
 - Every other reader, a token that does not verify included, receives each
-  comment held back now as a bare point: moderated out (`mod = -1`), inactive
-  (`active = false`) or muted (`velocity <= 0`), the states Node's
-  participant list leaves out. A comment not yet moderated (`mod = 0`, under
-  strict moderation too) is not held back: a job that laid it out may show it
-  (the map carries no comment text; a page gets text from Node's list, which
-  gives none for such a comment). The report's `mod_level` is not applied: the
-  job chooses the comments. The points that are not held back come first, as
+  comment held back now as a bare point. What is held back follows the run's
+  selection (its configuration's `selection`, `<rule>/<n>`):
+  - `all_comments` (the map of every comment) and `all_but_moderated_out`
+    (the map of everything not moderated out): a comment moderated out now
+    (`mod = -1`). A comment that is inactive (`active = false`), muted
+    (`velocity <= 0`) or not yet moderated (`mod = 0`, under strict
+    moderation too) is not held back for that alone: these runs exist to show
+    such comments.
+  - `participant_visible` (what participants see), and a run with no recorded
+    selection or one the route does not know (runs made before selections
+    were recorded were participants' runs): a comment participants are not
+    shown now, by Node's participant list (`participantVisibleClause` in
+    `server/src/comment.ts`): one that is not active, or is muted, or is
+    moderated out, or, when the conversation has strict moderation, is not
+    accepted (`mod <> 1`).
+
+  The map carries no comment text; a page gets text from Node's list. The
+  report's `mod_level` is not applied: the job chooses the comments. The points that are not held back come first, as
   stored, then the bare points, ordered by position, each with its position
   only (`id` null, `topic` -1 at every level); `points.moderatedOut` is their
   count. A topic with no visible member is not sent. A topic with a held-back
@@ -1397,9 +1408,12 @@ are and on the comments' moderation at the time of the read, not of the run:
   map that holds no held-back comment is the stored bytes. These answers are
   `Cache-Control: no-cache` and `Vary: Accept-Encoding`.
 - The held-back ids are read on the route's own read pool, on the connection
-  that reads the map, before it (`SELECT array_agg(tid) FROM comments WHERE
-  zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0)`, on the comments'
-  `(zid)` index), once per request: a moderation committed while a request is
+  that reads the map, before it, for both rules in one statement: the
+  conversation's `strict_moderation` by its key, then, on the comments'
+  `(zid)` index, `mod = -1` for the broad maps and `(active = true AND
+  velocity > 0 AND (strict ? mod = 1 : mod <> -1)) IS NOT TRUE` for the
+  participants' map, once per request; the run read decides which set is
+  used: a moderation committed while a request is
   under way reaches the next one, and a copy a client already has cannot be
   recalled. While the conversation has any, a reader's ETag is the SHA-256 of
   the stored digest, the form's name (`held-back/2`) and HMAC-SHA256 of the
@@ -1450,10 +1464,12 @@ are and on the comments' moderation at the time of the read, not of the run:
   was not measured with every level kept. A request
   that cannot start one within the route's deadline is answered 503 with
   `Retry-After`, as the route sheds any other. A conversation that
-  holds back more than 25,000 comments gives a reader no map (422
+  holds back more than 25,000 comments under the rule of the run read
+  gives a reader no map (422
   `too_large`); a moderator still receives it.
 - The route's database login must be able to `SELECT` on `comments`
-  (`zid`, `tid`, `mod`, `active`, `velocity`). Without it the route answers
+  (`zid`, `tid`, `mod`, `active`, `velocity`) and on `conversations` (`zid`,
+  `strict_moderation`). Without it the route answers
   500 `polis_err_topic_map_unreadable`, naming nothing, and sends no map.
 
 A past run's map may later be removed to save storage, and then answers
@@ -1519,8 +1535,8 @@ than `jobs` (as an unknown `source` is).
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
-`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and
-`comments` and is a member of `polis_queue_executor`), two slots, a 50 ms
+`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports`,
+`comments` and `conversations` and is a member of `polis_queue_executor`), two slots, a 50 ms
 acquisition timeout and a 2 s statement timeout. A request with a bearer token
 reads who it is on a one-slot identity pool
 (`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else `READ_ONLY_DATABASE_URL`,

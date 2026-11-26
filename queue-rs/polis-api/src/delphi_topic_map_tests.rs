@@ -1303,3 +1303,30 @@ fn layered_fixture_keeps_topics_at_every_level_after_redaction() {
         }
     }
 }
+
+/// The rule a run's selection names: only the two broad maps hold back what
+/// is moderated out alone; the participants' map, a run with no selection
+/// and one this route does not know hold back what participants are not
+/// shown.
+#[test]
+fn a_runs_selection_names_the_rule_of_what_is_held_back() {
+    for selection in [
+        "all_comments",
+        "all_comments/1",
+        "all_but_moderated_out",
+        "all_but_moderated_out/2",
+    ] {
+        assert_eq!(rule_of(Some(selection)), Rule::ModeratedOut, "{selection}");
+    }
+    for selection in [
+        Some("participant_visible"),
+        Some("participant_visible/1"),
+        None,
+        Some(""),
+        Some("a_later_rule/1"),
+        Some("All_Comments/1"),
+        Some("/all_comments"),
+    ] {
+        assert_eq!(rule_of(selection), Rule::Participant, "{selection:?}");
+    }
+}
