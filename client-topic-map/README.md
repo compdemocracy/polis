@@ -348,7 +348,7 @@ var groups = G.groupsFromMath(math, tid);     // from GET /api/v3/math/pca2
 var L = G.layout(groups, { x: 0, y: 0, width: 34, height: 14 }, { form: "rows", scheme: "light" });
 ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 G.draw(ctx, L);                               // fills only, inside the box
-G.caption(L);                                 // "Each row is a group, A at the top. Agree, disagree, pass: of those who voted. Dotted: did not vote."
+G.caption(L);                                 // describes the form and its smoothing
 G.readout(L).lines;                           // ["Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote (179 of 243 voted).", ...]
 G.hit(L, x, y);                               // the group under a point (CSS px), or -1: for hover and click
 ```
@@ -361,7 +361,9 @@ it (left out, the remainder is one part). `groupsFromMath(math, tid)` builds
 them from the math result: `group-votes[gid].votes[tid]` gives `A` (agrees),
 `D` (disagrees) and `S` (votes of any kind, passes included), and
 `group-votes[gid]["n-members"]` the group's size; pass is `S - A - D` and did
-not vote `n-members - S`. Groups are lettered in order of id.
+not vote `n-members - S`. Group ids 0 through 9 are labelled A through J,
+as in the report; gaps retain their letters. Other ids keep their id as the
+label. Rows and columns remain in ascending group-id order.
 
 Two forms, from the same groups into the same box, so a page can toggle
 between them with the `form` setting:
@@ -371,7 +373,10 @@ between them with the `form` setting:
   full width (inside an inset of 1 px when the box is under 16 px tall, else
   2 px): agree from the left to the group's share of agree, `(agree + 1) /
   (agree + disagree + 2)`, and disagree from there to the right end. Pass and
-  those who did not vote are not drawn; their counts are in `readout`. The
+  those who did not vote are not drawn; their counts are in `readout`. These
+  are smoothed shares, not the raw fractions: one agree and no disagrees
+  draws two thirds agree; no agrees or disagrees draws half, even when all
+  votes are passes. The caption explains this. The
   height is split into the rows and a 1 px lighter line between each two (the
   row above at half strength): row `i` runs from `round(i * (h + 1) / n)` to
   `round((i + 1) * (h + 1) / n) - 1` (`rowBands`), so at 14 px the rows are 3,
@@ -702,3 +707,19 @@ blocked belongs to the page that shows it.
 licence: datamapplot, deck.gl and mjolnir.js (MIT), Python's textwrap module
 (PSF License), Roboto (SIL Open Font License 1.1, full text in `fonts/OFL.txt`),
 and the public fixtures (CC BY 4.0, from `compdemocracy/openData`).
+
+## Reader data and overlay lifetime
+
+The package renders the data the page supplies; it does not authorize a
+reader or apply moderation. Pass only the map document and comment text,
+counts and measures permitted for the current reader. Never restore an id,
+text or topic association to a held-back point by joining a broader comment
+list or math result. Preserve the route's neutral topic names and filtered
+membership. All parallel point arrays must still describe the same points
+in the same order.
+
+A deep-zoom overlay retains its input document, math and numbers. Destroy it
+before replacing the map's data with `setData`, changing the run or comment
+selection, or changing the reader's permissions; then create a new overlay
+from the new authorized inputs. Do not reuse a moderator's document or
+associated counts for a public reader.

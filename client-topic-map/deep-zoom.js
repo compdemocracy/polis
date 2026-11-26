@@ -160,12 +160,16 @@
     this._h = {
       comments: function (e) {
         self.labels = e.detail.comments || []; self.on = !!e.detail.on; self.moving = false; self._paint();
+        // a card comes back only while its comment is still in view
+        var back = self.selected !== null ? self.selected : self.hovered;
+        if (self.on && back !== null && self._inView(back)) self._showCard(back, self.selected !== null);
+        else self._hideCard();
         // the rows and rules fade in with the comment labels they stand beside
         var st = self.overlay.style, fade = map.drawing && map.drawing.zoom ? map.drawing.zoom.fadeMs : 0;
-        if (st && fade > 0 && root.requestAnimationFrame) {
+        if (st && fade > 0 && root.requestAnimationFrame && !(root.matchMedia && root.matchMedia("(prefers-reduced-motion: reduce)").matches)) {
           st.transition = "none"; st.opacity = "0";
           root.requestAnimationFrame(function () { st.transition = "opacity " + fade + "ms"; st.opacity = "1"; });
-        }
+        } else if (st) { st.transition = "none"; st.opacity = "1"; }
       },
       down: function (e) { down = { x: e.clientX, y: e.clientY }; self.moving = true; self._clearOverlay(); self._hideCard(); },
       up: function () { self.moving = false; },
@@ -225,6 +229,14 @@
     return { x: X[i] * v.s + v.tx, y: -Y[i] * v.s + v.ty };
   };
 
+  // Whether point i is on screen in the settled view.
+  P._inView = function (i) {
+    var lv = this._view();
+    if (!lv) return false;
+    var s = this._screen(i, lv.view);
+    return s.x >= 0 && s.y >= 0 && s.x <= lv.W && s.y <= lv.H;
+  };
+
   // The comments in view (with an id), left to right: [{ i, x, y }].
   P._dotsInView = function () {
     var lv = this._view(), out = [];
@@ -279,7 +291,7 @@
   P.select = function (id) {
     var i = id == null ? null : this._indexOf(id);
     var prev = this.selected === null ? null : this.doc.points.id[this.selected];
-    if (i === this.selected) return;
+    if (i === this.selected) { if (i !== null) this._showCard(i, true); return; }
     this.selected = i;
     if (i === null) { if (this.hovered !== null) this._showCard(this.hovered, false); else this._hideCard(); }
     else this._showCard(i, true);
