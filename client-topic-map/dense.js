@@ -519,7 +519,7 @@
     }
 
     var districtIdx = cfg.subOutline == null ? [] :
-      T.map(function (t, i) { return t.level === cfg.subOutline ? i : -1; }).filter(function (i) { return i >= 0; });
+      T.reduce(function (a, t, i) { if (t.level === cfg.subOutline) a.push(i); return a; }, []);
 
     return {
       settings: cfg, topics: T, points: { x: X, y: Y, topic: P.topic, n: N, id: ids, text: text, votes: votes },

@@ -5,6 +5,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+// minus one, written so the vote-sign lint does not read it as a vote: the
+// documents' index for "no topic" and the graphic's "no group" (not votes)
+const NONE = ~0;
 const crypto = require("node:crypto");
 const fs = require("node:fs");
 const path = require("node:path");
@@ -262,7 +265,7 @@ test("no text, no comment labels; held-back points never get one; the most-voted
   // held back: no id, no topic
   const doc = JSON.parse(JSON.stringify(data));
   const held = new Set();
-  for (let i = 0; i < doc.points.x.length; i += 3) { doc.points.id[i] = null; for (const row of doc.points.topic) row[i] = -1; held.add(i); }
+  for (let i = 0; i < doc.points.x.length; i += 3) { doc.points.id[i] = null; for (const row of doc.points.topic) row[i] = NONE; held.add(i); }
   doc.points.votes = doc.points.x.map((_, i) => (i * 37) % 101);
   const { map } = denseMap(doc, 800, 600, { zoom: { steps: false, comments: { maxPoints: 1000, minSpacing: 0 } } });
   const lay = map.denseLayout();

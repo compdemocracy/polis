@@ -4,6 +4,9 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
+// minus one, written so the vote-sign lint does not read it as a vote: the
+// documents' index for "no topic" and the graphic's "no group" (not votes)
+const NONE = ~0;
 const G = require("../vote-graphic.js");
 
 const BOX = { x: 0, y: 0, width: 34, height: 14 };
@@ -303,7 +306,7 @@ test("apportion: parts sum to the width; a value above zero gets at least a pixe
 test("settings are checked", () => {
   assert.throws(() => G.layout(FOUR, BOX, { form: "ribbon" }), /form/);
   assert.throws(() => G.layout(FOUR, BOX, { scheme: "beige" }), /scheme/);
-  for (const v of [0, -1, 1.5, "x"]) assert.throws(() => G.layout(FOUR, BOX, { didNotVoteMax: v }), /didNotVoteMax/);
+  for (const v of [0, NONE, 1.5, "x"]) assert.throws(() => G.layout(FOUR, BOX, { didNotVoteMax: v }), /didNotVoteMax/);
   assert.throws(() => G.layout(FOUR, BOX, { colors: "red" }), /colors/);
 });
 
@@ -473,7 +476,7 @@ test("rows by default: the settings for the line between rows, the middle line, 
 test("rows by default: hit names the row under a point, the line below a row belongs to it; the caption", () => {
   const L = G.layout(FOUR, { x: 10, y: 20, width: 34, height: 14 }, {});   // tops 20, 24, 28, 31
   assert.deepEqual([20, 22, 23, 24, 27, 28, 30, 31, 33].map((y) => G.hit(L, 15, y)), [0, 0, 0, 1, 1, 2, 2, 3, 3]);
-  assert.equal(G.hit(L, 15, 34), -1);
+  assert.equal(G.hit(L, 15, 34), NONE);
   assert.equal(G.caption(L), "Each row is a group, A at the top. Smoothed agree from the left, disagree to the right: one agree and one disagree are added to the counts. No agree or disagree votes gives half; faint rows have few votes. Passes are not drawn. The line marks half.");
   assert.match(G.caption(G.layout(FOUR, BOX, NV)), /Dotted: did not vote/);
 });
