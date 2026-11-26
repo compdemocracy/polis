@@ -74,7 +74,10 @@ pub fn body_with_instruction(h: &Hierarchy, namer: &Namer, instruction: &str) ->
     let mut content = String::from(instruction);
     content.push_str(&hierarchy_text(h));
     let mut body = String::from("{\"model\": ");
-    push_json_string(&mut body, namer.model.id());
+    // The provider's id for the model: `claude-sonnet-5-5` on the Claude API,
+    // `anthropic.claude-sonnet-5-5` on Bedrock. Nothing else in the body
+    // depends on the provider.
+    push_json_string(&mut body, namer.request_model_id());
     let _ = write!(
         body,
         ", \"max_tokens\": {MAX_TOKENS}, \"messages\": [{{\"role\": \"user\", \"content\": "
