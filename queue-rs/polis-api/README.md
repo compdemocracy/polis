@@ -1338,12 +1338,20 @@ rule asked for: `selection=participant_visible` (the default) reads the
 deployment's scope (`DELPHI_RESULT_SCOPE`, else `delphi`), `all_comments` and
 `all_but_moderated_out` read `<scope>:all_comments` and
 `<scope>:all_but_moderated_out`. The scope is always named, so two rules' runs
-are never read as one. `source=shadow` reads the same way in the env named by
+are never read as one. `source=served` reads the served env
+(`DELPHI_RESULT_ENV`); `source=shadow` reads the same way in the env named by
 `POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV` (a `shadow-` env other than
 `DELPHI_RESULT_ENV`; unset, `source=shadow` is 404
-`polis_err_topic_map_no_source`). `job_id` names one stored run
+`polis_err_topic_map_no_source`). Without `source`, the served env is read
+first; when it has nothing stored for the query (no served run in the scope,
+a run whose own batch holds no map, or no such job), the shadow env is read
+the same way on the same connection, and when the shadow has nothing stored
+either, the served env's answer is given. Anything a run stored itself (a
+map, a stored no-map reason, `too_large`, rows that are not a map) is that
+side's answer. With no shadow env named, a query without `source` reads the
+served env alone. `job_id` names one stored run
 (`delphi_result_jobs`), which must be the report's conversation's and
-finished. The map is read from the run's own batch only: the published
+finished, whichever comment rule it ran under. The map is read from the run's own batch only: the published
 artifact for a served run, and for a named run the artifact its run record
 (`pd_run_record`) gives for a family the run itself produced. Reads that walk
 a publication's earlier batches would find an earlier run's map for a run
@@ -1357,20 +1365,99 @@ the map), `X-Polis-Topic-Map-Source`, `X-Polis-Topic-Map-Scope` and
 names it); the document's own `provenance`, when the step writes one, says
 how it was made.
 
-Who: the served map under the participants' rule is as public as the report's
-other Delphi reads (`/api/v3/delphi`, `/delphi/reports`,
-`/delphi/visualizations`, which Node registers without sign-in): the report id
-reads it. A past run named by `job_id` is as public too when it was made under
-the participants' rule (`PUBLIC_RUN_HISTORY`); a past run's map may later be
-removed to save storage, and then answers `not_stored`, as a run that never
-stored one does. Any other `selection`, and a named run made under another
-rule, need a sign-in of one of the conversation's moderators or a site
-administrator (`ADMIN_UIDS`), the rule of the typed result reads;
-`source=shadow` needs a site administrator. Without a
-verifiable bearer token: 401 `polis_err_topic_map_sign_in`; signed in without
-the right: 403 `polis_err_topic_map_auth`. Those answers are
-`Cache-Control: private, no-store` with `Vary: Authorization, Accept-Encoding`.
-An identity lookup the database does not answer is 503, never 401.
+Who: anyone who holds the report id, for every query (any `selection`, any
+`job_id` of the conversation, either `source`), as for the report's other
+Delphi reads (`/api/v3/delphi`, `/delphi/reports`, `/delphi/visualizations`,
+which Node registers without sign-in). What they receive depends on who they
+are and on the comments' moderation at the time of the read, not of the run:
+
+- A moderator of the conversation or a site administrator (a bearer token
+  that verifies, then the moderation list's rule: the owner, a user of the
+  owner's site, `ADMIN_UIDS`) receives the map as stored, with
+  `Cache-Control: private, no-store` and `Vary: Authorization,
+  Accept-Encoding`.
+- Every other reader, a token that does not verify included, receives each
+  comment held back now as a bare point: moderated out (`mod = -1`), inactive
+  (`active = false`) or muted (`velocity <= 0`), the states Node's
+  participant list leaves out. A comment not yet moderated (`mod = 0`, under
+  strict moderation too) is not held back: a job that laid it out may show it
+  (the map carries no comment text; a page gets text from Node's list, which
+  gives none for such a comment). The report's `mod_level` is not applied: the
+  job chooses the comments. The points that are not held back come first, as
+  stored, then the bare points, ordered by position, each with its position
+  only (`id` null, `topic` -1 at every level); `points.moderatedOut` is their
+  count. A topic with no visible member is not sent. A topic with a held-back
+  member, at any level, is sent with the generator's neutral name
+  (`Topic <cluster>`), its label at the mean of its visible members and its
+  count and weight over them; a topic with none keeps its name, place, count
+  and weight. Parents are counted again over the visible members, and every
+  label's colours (and each level's `cmapPalette`) are chosen again by the
+  generator's palette from the points and labels sent, since the stored
+  colours were chosen over every label, a dropped or moved one included. A
+  map that holds no held-back comment is the stored bytes. These answers are
+  `Cache-Control: no-cache` and `Vary: Accept-Encoding`.
+- The held-back ids are read on the route's own read pool, on the connection
+  that reads the map, before it (`SELECT array_agg(tid) FROM comments WHERE
+  zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0)`, on the comments'
+  `(zid)` index), once per request: a moderation committed while a request is
+  under way reaches the next one, and a copy a client already has cannot be
+  recalled. While the conversation has any, a reader's ETag is the SHA-256 of
+  the stored digest, the form's name (`held-back/2`) and HMAC-SHA256 of the
+  conversation and the ids under a 32-byte key each process draws at start and
+  never writes down. This prevents offline enumeration of held-back ids. Tags
+  still reveal changes in the held-back set within a process, and distinguish
+  an empty set from a nonempty one when the stored digest is known. The
+  statement computes the same, so `If-None-Match` still answers 304
+  with no part crossing the connection; a moderator's ETag never answers 304
+  to a reader while anything is held back, and a held-back set change is a new
+  ETag from the next read. The two web boxes, and a process after a deploy,
+  hold different keys: a client that meets another process re-downloads the
+  map on an exact-tag mismatch. `If-None-Match: *` still answers 304 for an
+  existing map, without comparing representations. With nothing held
+  back, the reader's ETag is the stored digest, the moderators' too, and a
+  304 for it is correct (the bytes are the same). The reader's form is made
+  off the runtime's threads while the request keeps its place (in a release
+  build, about 15 ms for a 9,000-comment map of 440 topics: inflate, rewrite,
+  colours, deflate). The form and its gzip are kept per stored map and
+  held-back set (the key is the stored digest and the keyed digest of the
+  set), at most 64 forms and 32 MiB in the process, least recently used out
+  first; a moderator's map is never one of them, and a held-back set that
+  changes is another key, so a kept form is the form for the moderation the
+  request read (a moderation change committed while a request is in flight
+  may still miss that request). The held-back set is still read on every
+  request. A form not yet kept is made once however many ask for it at
+  once, at most one at a time in the process, and within a budget of 100 ms
+  of rewriting per second (200 ms banked at most). Each rewrite is charged
+  its estimated time before it starts (the slowest rate per stored byte the
+  process has seen, with half again as headroom; before the first, the whole
+  burst for a part at the stored-row bound) and settled with what it took
+  when it ends, so rewrites arriving together cannot start on the same
+  credit. The estimate is charged in full: a rewrite estimated above the
+  200 ms bank starts only from a full bank and leaves the budget owing the
+  rest, which the next rewrite waits to see repaid. So from any moment, the
+  rewrite time spent `t` seconds later is at most 200 ms or the costliest
+  single estimate, whichever is more, plus `t` tenths of a second, plus what
+  rewrites took beyond their estimates. A rewrite is not interrupted: one slower than its
+  estimate runs to its end and the next waits until the difference is
+  repaid. The budget is wall time of the rewrite, not a reservation of CPU,
+  and it covers making the form, not the rest of the request. Measured in
+  a release build under the service's half CPU (arm64), a form takes about
+  10 ms for a one-level map of 30,000 comments with 2,000 held back, and
+  about 18 to 24 ms for a four-level map (300, 100, 30 and 10 topics, every
+  level kept) of 4,000 comments with 1,500 held back; under the flood the
+  rewrites stayed within the budget, beyond their charges by 0.05 to 0.07 s
+  over about four seconds. A larger four-level map costs more per form and
+  was not measured with every level kept. A request
+  that cannot start one within the route's deadline is answered 503 with
+  `Retry-After`, as the route sheds any other. A conversation that
+  holds back more than 25,000 comments gives a reader no map (422
+  `too_large`); a moderator still receives it.
+- The route's database login must be able to `SELECT` on `comments`
+  (`zid`, `tid`, `mod`, `active`, `velocity`). Without it the route answers
+  500 `polis_err_topic_map_unreadable`, naming nothing, and sends no map.
+
+A past run's map may later be removed to save storage, and then answers
+`not_stored`, as a run that never stored one does.
 
 Refusals as the neighbours': no `report_id` is 400; a report that does not
 exist or has no conversation is 404 `Could not find conversation for
@@ -1392,14 +1479,53 @@ the stored digest and the gzip must inflate to exactly the document
 (`miniz_oxide`). The verdict, never the bytes, is kept for the family (which
 never changes), so later requests send one part with no check.
 
+`GET /api/v3/delphi/topicMap?report_id=…&list=jobs` (with `source` and
+`selection` as above, to narrow it) answers which runs of the report's
+conversation a page can offer, so it can then read one by its `job_id`: 200
+with `{"report_id":…,"jobs":[…]}`, the conversation's finished full pipeline
+runs (`job_type` `full_pipeline`, status `COMPLETED`) of both sides together,
+newest first by `created_at` then `job_id`, at most 50 (`MAX_LISTED`; an older
+run is not listed and is still read by its `job_id`). Each entry is `job_id`,
+`source` (`served` or `shadow`), `selection` (the rule its configuration
+names, without its version; null if none this route knows), `created_at`
+(RFC 3339, UTC), `points`, `levels`, `names` and `current`. They come from the
+jobs' rows only (`delphi_result_jobs`), never from a map and never from a run
+record per run: whether a run stored a map, how many points it laid out and
+whether it stored topic names are in its run record only (`pd_run_record`,
+one call per run), so a listed run may have stored no map (reading it gives
+the no-map answer), and `points` is always null. `levels` is always null,
+because topics per level are in the map's body only (read the map for them).
+`names` is `{"by":"keywords","model":null}` for every run: a run's
+configuration says only what naming was asked for, and a run that asked for a
+model can still have stored the keyword fallback (no key, over its cap, a
+failed call), so the configuration is not read; model-named runs will be
+reported once the naming outcome (the manifest's `models.topic`) is readable
+in the list's one statement (`none` is never said). `current` marks the
+run a read with the same `report_id`, `source` and `selection` and no
+`job_id` answers (per side in order, the served pointer's run when its record
+holds that run's map at the pointer's artifact). The list is the same for
+every reader, reads no comment and no identity, so moderating a comment never
+changes it and it shows nothing of a held-back comment. It takes one of the
+route's places and its pool like a map read (so a flood of lists is shed with
+the same 503), in two statements: the jobs by the `(env, zid::text)` index
+(`delphi_jobs_env_zid_text`; no index serves the order, since the view
+exposes `created_at` as text, so each of the conversation's job rows on the
+sides is read once and the newest 50 kept by a top-N sort, under the pool's
+statement timeout), and the sides' served pointers (at most two rows) with
+their runs' records (at most two `pd_run_record` calls, whatever the number
+of runs). `list` with `job_id` is 400 `parameter: list`, as is a `list` other
+than `jobs` (as an unknown `source` is).
+
 Both switches default off: `POLIS_API_DELPHI_TOPIC_MAP_READS=1` in polis-api
 (with `DELPHI_RESULT_BACKEND=postgres` and `DELPHI_RESULT_ENV`) and
 `RUST_API_ROUTES=delphiTopicMap` in nginx. Its own read-only pool uses
-`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and is
-a member of `polis_queue_executor`), two slots, a 50 ms acquisition timeout
-and a 2 s statement timeout; identity and the moderator rule use their own
-one-slot pool (`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else Node's read
-login), 50 ms and 100 ms.
+`POLIS_API_DELPHI_TOPIC_MAP_DATABASE_URL` (a login that reads `reports` and
+`comments` and is a member of `polis_queue_executor`), two slots, a 50 ms
+acquisition timeout and a 2 s statement timeout. A request with a bearer token
+reads who it is on a one-slot identity pool
+(`POLIS_API_DELPHI_TOPIC_MAP_AUTH_DATABASE_URL`, else `READ_ONLY_DATABASE_URL`,
+else `DATABASE_URL`; 50 ms acquisition, 100 ms statements); the identity
+database not answering is 503. It has no other pool.
 
 The participation path shares nothing with this route. Before anything is
 read a request takes one of four places in the process; with none free it is
@@ -1424,8 +1550,11 @@ buffers, not polis-api's. The isolation tests are
 `connection_bounds_topic_map_saturation_keeps_participation_latency`.
 `delphiTopicMapServed`, `delphiTopicMapFallback` and `delphiTopicMap` (places
 in use now and at most, requests shed, maps sent and answered 304, stored
-bytes held now and at most, families checked) are on `/health`, switched on or
-off.
+bytes held now and at most, families checked, and readers' forms: `rewrites`
+made, `maxRewriting` at most at once, `formsReused`, `formsKept` and
+`formBytesKept`) are on `/health`, switched on or off. The deploy's validation
+reads none of them; it reads named fields only (`status`, `mathEnv`,
+`routing`, `pools.common`, `postVotes`, `version`, `commit`).
 
 ### Statement importance (off by default)
 

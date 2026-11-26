@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Topic map</title>
+{{CLIENT_ERRORS}}{{NOTICES}}
+<style>
+/* Roboto, variable weight, latin subset: SIL Open Font License 1.1, Copyright 2011 The Roboto Project Authors. */
+@font-face { font-family: "Roboto"; font-style: normal; font-weight: 100 900; font-stretch: 100%; src: url({{FONT_URL}}) format("woff2"); }
+/* Every colour and type size is a custom property the component sets from the
+   theme; none is written here. */
+html, body { margin: 0; height: 100%; }
+body { background: #121212; }
+#topic-map { height: 100%; }
+.polis-topic-map { box-sizing: border-box; height: 100%; display: flex; flex-direction: column; padding: 16px; gap: 12px;
+  background: var(--ground); color: var(--ink); font: 400 var(--ui-size) var(--font-family); }
+.polis-topic-map-controls { display: flex; flex-wrap: wrap; gap: 8px 32px; }
+.polis-topic-map-levels, .polis-topic-map-rules { display: flex; flex-wrap: wrap; gap: 8px; }
+.polis-topic-map-controls button { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); padding: 4px 10px; cursor: pointer; }
+.polis-topic-map-controls button:hover { background: var(--hover-ground); }
+.polis-topic-map-controls button[aria-pressed="true"] { background: var(--selected-ground); font-weight: 600; }
+.polis-topic-map-jobs { display: flex; align-items: center; gap: 8px; }
+.polis-topic-map-jobs select { font: inherit; color: var(--ink); background: var(--ground); border: 1px solid var(--rule); padding: 4px 6px; max-width: 100%; }
+.polis-topic-map-counts { margin: 0; color: var(--ink-muted); font-size: var(--small-size); }
+.polis-topic-map-canvas { flex: 1 1 auto; min-height: 320px; border: 1px solid var(--rule); overflow: hidden; }
+.polis-topic-map-message { margin: 0; color: var(--ink-muted); font-size: var(--small-size); }
+</style>
+</head>
+<body>
+<div id="topic-map"></div>
+{{DOCUMENT}}<script src="{{SCRIPT_URL}}"></script>
+</body>
+</html>

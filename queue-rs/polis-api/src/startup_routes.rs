@@ -420,7 +420,10 @@ const ROUTES: &[Route] = &[
         delphi_topic_map,
         ["GET", "HEAD"],
         crate::delphi_topic_map::PATH,
-        ["POLIS_API_DELPHI_TOPIC_MAP_READS"],
+        [
+            "POLIS_API_DELPHI_TOPIC_MAP_READS",
+            "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS"
+        ],
         "delphi_topic_map::PATH"
     ),
     exact!(

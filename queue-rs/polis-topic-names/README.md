@@ -83,7 +83,7 @@ attempts, HTTP status, stop reason, the worst-case estimate and the cap).
 | `no_key` | no key in the environment | 0 |
 | `http_<status>` | any status but 200 (after the retry, for a retried status) | 1 or 2 |
 | `timeout` | no complete reply within 300 s | 1 |
-| `connect_error` | no connection, twice | 2 |
+| `connect_error` | no connection after the permitted attempts | 1 or 2 |
 | `refused` | stop reason `refusal` | 1 or 2 |
 | `truncated` | stop reason `max_tokens` | 1 or 2 |
 | `bad_json` | the reply is not the schema's shape, has invalid usage counts, is over 4 MiB, or has another stop reason | 1 or 2 |
@@ -98,6 +98,8 @@ with keyword names).
 
 **The one retry** follows HTTP 429, 500, 502, 503, 504 or 529, or a failed
 connection, after the reply's `retry-after` (at most 60 s), else 10 s.
+A second attempt is permitted only when twice the per-attempt estimate fits
+the run cap; otherwise the first failure is returned without retrying.
 
 **The cost check.** Before any call, the worst case is the counted input
 tokens at the model's input price plus 32,000 output tokens at its output
@@ -106,7 +108,7 @@ $2.50 above 100,000 prompt tokens); Sonnet 5.5 $2 in, $10 out. A model not in
 the table is refused.
 
 The counted input tokens are the request body's length in UTF-8 bytes, which
-is an upper bound on the provider's input tokens for text in any script:
+is a conservative estimate under the following tokenizer and framing assumptions:
 
 - A tokenizer in which every token stands for at least one byte of UTF-8
   text turns n bytes into at most n tokens. That is the bound's one
@@ -119,17 +121,20 @@ is an upper bound on the provider's input tokens for text in any script:
 - The body holds every byte of the prompt text (the JSON writes non-ASCII as
   UTF-8, and an escape such as `\n` only adds bytes), plus the body's own
   JSON: model, max_tokens, thinking, the message's role and quotes. The
-  provider's framing of one user message is a few tokens; the body's own JSON
-  is far more bytes than that (1,204 bytes for Bowling Green: a 70,540-byte
+  estimate assumes the provider's framing of one user message fits within
+  the allowance supplied by the body's own JSON (1,204 bytes for Bowling Green: a 70,540-byte
   body around 69,336 bytes of prompt).
 - Recorded against it: Bowling Green's calls reported 25,444 to 25,445 input
   tokens for that 70,540-byte body, 2.8 bytes a token.
 
 So Bowling Green's worst case is 70,540 x $0.10 / 1M + 32,000 x $0.50 / 1M
 = $0.0231 on Haiku and 70,540 x $2 / 1M + 32,000 x $10 / 1M = $0.4611 on
-Sonnet, both under the $0.50 default. The bound is for one attempt: when the
-one retry follows a status that the provider charged for, the run can cost up
-to twice the worst case.
+Sonnet, both under the $0.50 default. This estimate is for one attempt.
+The run reserves another full estimate before allowing a retry, including
+when the first attempt has unknown usage. Sonnet does not retry under the
+default cap: its output allowance alone is $0.32 per attempt. A caller can
+explicitly raise the cap to allow two attempts. This bounds admitted attempts
+under the stated tokenization and price assumptions, not a provider invoice.
 
 **The language check.** The code names no language; the model decides from the
 comments. For the check only, the comments' majority script is counted over

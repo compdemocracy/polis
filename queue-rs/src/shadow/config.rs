@@ -143,6 +143,8 @@ pub struct Config {
     pub pause_file: PathBuf,
     pub state_path: PathBuf,
     pub statement_timeout: Duration,
+    /// The derived-map backfill (`backfill`), off by default.
+    pub derived: super::backfill::Settings,
 }
 
 /// The part of the storage budget a run may spend.
@@ -217,6 +219,38 @@ fn number<F: Fn(&str) -> Option<String>>(
         Ok(v) if (min..=max).contains(&v) => Ok(v),
         _ => err(format!("{key} must be an integer in {min}..={max}")),
     }
+}
+
+/// The backfill's settings: the switch is `1`, `0` or unset; each number
+/// within its bounds, whether the switch is on or not.
+fn derived_settings<F: Fn(&str) -> Option<String>>(
+    get: &F,
+) -> Result<super::backfill::Settings, ConfigError> {
+    let key = super::backfill::SWITCH;
+    let enabled = match get(key).as_deref().map(str::trim) {
+        None | Some("") | Some("0") => false,
+        Some("1") => true,
+        Some(_) => return err(format!("{key} must be 0 or 1")),
+    };
+    Ok(super::backfill::Settings {
+        enabled,
+        per_cycle: number(get, "DELPHI_SHADOW_DERIVED_PER_CYCLE", 2, 1, 20)? as u32,
+        daily: number(get, "DELPHI_SHADOW_DERIVED_DAILY", 100, 1, 2000)? as u32,
+        every: Duration::from_secs(number(
+            get,
+            "DELPHI_SHADOW_DERIVED_EVERY_SECONDS",
+            3600,
+            60,
+            86400,
+        )?),
+        storage_bytes: number(
+            get,
+            "DELPHI_SHADOW_DERIVED_STORAGE_BYTES",
+            super::backfill::STORAGE_BYTES,
+            super::backfill::STORAGE_BYTES_MIN,
+            super::backfill::STORAGE_BYTES_MAX,
+        )?,
+    })
 }
 
 fn fraction<F: Fn(&str) -> Option<String>>(
@@ -478,6 +512,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             100,
             600_000,
         )?),
+        derived: derived_settings(&get)?,
     })))
 }
 

@@ -191,8 +191,78 @@ def _texts_and_ids(comments):
     )
 
 
-def _embed(comment_texts):
-    """The comments' vectors, from the run's embedding model."""
+def _reuse_offer():
+    """The stored vectors the job frame offers this run (inputs.embeddings), checked
+    against the name this run stores its vectors under; None when the frame
+    offers none (outside the daemon, or the daemon's reuse switch off)."""
+    if not os.environ.get("DELPHI_FRAME", "").strip():
+        return None
+    from polismath import embedding_model as em
+    from polismath.job_child import embedding_reuse
+    try:
+        stored = DynamoDBStorage._EMBEDDING_MODEL_ALIASES.get(em.resolve().model)
+    except Exception:
+        stored = None
+    return embedding_reuse.offer(stored, em.DIMS)
+
+
+def _embed_reusing(comment_texts, comment_ids, offer):
+    """``_embed`` with the frame's stored vectors: a comment whose id is stored
+    with the SHA-256 of this text takes the stored vector; the others are encoded
+    in one batch, and the model is loaded only when there is one to encode. The
+    vectors come back in the input order, the shape and dtype ``_embed`` returns."""
+    from polismath import embedding_model as em
+
+    stored = [offer.vector_for(tid, text) for tid, text in zip(comment_ids, comment_texts)]
+    missing = [i for i, vector in enumerate(stored) if vector is None]
+    changed = sum(1 for tid, text in zip(comment_ids, comment_texts) if offer.text_changed(tid, text))
+    reason = offer.reason
+    with step_log.step("embed_load") as facts:
+        if missing:
+            embedding_model, resolved = em.load()
+            facts["model_source"] = "image" if resolved.local else "hub"
+        else:
+            embedding_model, resolved = None, em.resolve()
+            facts["model_source"] = "none"
+        facts["model"] = resolved.model
+    with step_log.step("embed_encode", n_comments=len(comment_texts)) as facts:
+        encoded = None
+        if missing:
+            encoded = em.encode(embedding_model, [comment_texts[i] for i in missing], show_progress_bar=True)
+            if getattr(encoded, "ndim", 0) != 2 or encoded.shape != (len(missing), em.DIMS):
+                # Not the width the stored vectors have: nothing is mixed in.
+                document_vectors = em.encode(embedding_model, comment_texts, show_progress_bar=True)
+                missing, reason = list(range(len(comment_texts))), "dims"
+                encoded = None
+        if encoded is not None or not missing:
+            dtype = encoded.dtype if encoded is not None else np.float32
+            document_vectors = np.empty((len(comment_texts), em.DIMS), dtype=dtype)
+            for i, vector in enumerate(stored):
+                if vector is not None:
+                    document_vectors[i] = np.asarray(vector, dtype=dtype)
+            if encoded is not None:
+                document_vectors[missing] = encoded
+        facts["dims"] = int(document_vectors.shape[1]) if getattr(document_vectors, "ndim", 0) == 2 else None
+        facts["embeddings_reused"] = len(comment_texts) - len(missing)
+        facts["embeddings_encoded"] = len(missing)
+        if facts["embeddings_reused"] == 0:
+            facts["embeddings_reuse"] = reason or "unmatched"
+        if changed:
+            facts["embeddings_text_changed"] = changed
+    logger.info(f"Embeddings: {len(comment_texts) - len(missing)} reused from the store, "
+                f"{len(missing)} encoded" + (f" (nothing reused: {reason or 'unmatched'})"
+                                             if len(missing) == len(comment_texts) else ""))
+    return document_vectors
+
+
+def _embed(comment_texts, comment_ids=None):
+    """The comments' vectors, from the run's embedding model, or, for a comment
+    the job frame offers a stored vector of the same text under the same model,
+    that vector (``_embed_reusing``)."""
+    if comment_ids is not None:
+        offer = _reuse_offer()
+        if offer is not None:
+            return _embed_reusing(comment_texts, comment_ids, offer)
     # Generate embeddings with SentenceTransformer. DELPHI_EMBED_MODEL_PATH set
     # (the Delphi services): the model's files carried in the image, checked
     # against DELPHI_EMBED_MODEL_LOCK and read with no network. Unset: the
@@ -234,7 +304,7 @@ def process_selected_comments(comments, conversation_id, selected):
         f"laying out the {len(selected)} its selection keeps..."
     )
     all_texts, all_ids = _texts_and_ids(comments)
-    all_vectors = _embed(all_texts)
+    all_vectors = _embed(all_texts, all_ids)
     keep = [i for i, tid in enumerate(all_ids) if int(tid) in selected]
     comment_texts = [all_texts[i] for i in keep]
     comment_ids = [all_ids[i] for i in keep]
@@ -269,7 +339,7 @@ def process_comments(comments, conversation_id):
     # Extract comment texts and IDs
     comment_texts, comment_ids = _texts_and_ids(comments)
 
-    document_vectors = _embed(comment_texts)
+    document_vectors = _embed(comment_texts, comment_ids)
 
     from umap_narrative.numerical_stages import project_and_cluster
     document_map, cluster_layers = project_and_cluster(document_vectors)
@@ -1424,6 +1494,16 @@ def _read_selected_inputs(zid, selection_name, facts):
     return comments, metadata, kept
 
 
+def _embeddings_to_store(texts, ids, vectors):
+    """Hand over every vector used, including a text conflict.
+
+    The immutable table refuses a different text for a stored comment id. Keep
+    that refusal: silently omitting the new vector would close a set containing
+    the old vector while this run's layout used the new one.
+    """
+    return texts, ids, vectors
+
+
 def _store_base(export_dynamo, conversation_id, document_vectors, document_map, cluster_layers,
                 comment_texts, comment_ids, metadata, embedded=None):
     """The run's first writes: metadata, embeddings, UMAP edges, assignments, topics.
@@ -1470,6 +1550,7 @@ def _store_base(export_dynamo, conversation_id, document_vectors, document_map, 
         logger.info("Storing comment embeddings...")
         if dynamo_storage.embeddings_table_enabled():
             import hashlib
+            embed_texts, embed_ids, embed_vectors = _embeddings_to_store(embed_texts, embed_ids, embed_vectors)
             text_shas = [hashlib.sha256(text.encode("utf-8")).digest() for text in embed_texts]
             result = dynamo_storage.put_comment_embeddings_table(
                 conversation_id, embed_ids, text_shas, embed_vectors, model_name

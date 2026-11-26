@@ -157,6 +157,31 @@ pub fn pause(
     signals: Option<&Signals>,
     paused: Option<Pause>,
 ) -> Option<Pause> {
+    held(cfg, state, operator, disk, signals, paused, true)
+}
+
+/// The pauses a derived map job is asked under: every one of [`pause`] but
+/// the daily cap of full runs (the backfill has its own, `backfill`).
+pub fn derived_pause(
+    cfg: &Config,
+    state: &State,
+    operator: bool,
+    disk: Option<Disk>,
+    signals: Option<&Signals>,
+    paused: Option<Pause>,
+) -> Option<Pause> {
+    held(cfg, state, operator, disk, signals, paused, false)
+}
+
+fn held(
+    cfg: &Config,
+    state: &State,
+    operator: bool,
+    disk: Option<Disk>,
+    signals: Option<&Signals>,
+    paused: Option<Pause>,
+    daily_cap: bool,
+) -> Option<Pause> {
     if operator {
         return Some(Pause::Operator);
     }
@@ -178,7 +203,7 @@ pub fn pause(
     if s.math_lag_ms > cfg.math_lag_max.as_millis() as i64 {
         return Some(Pause::MathLag);
     }
-    if state.day_runs >= cfg.daily_runs {
+    if daily_cap && state.day_runs >= cfg.daily_runs {
         return Some(Pause::DailyCap);
     }
     if !state.storage.pending.is_empty() {

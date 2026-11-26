@@ -473,6 +473,13 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
         // A run that names a selection reads the two columns it needs in the
         // same snapshot (an unknown one is refused below, with the arguments).
         let selection = matches!(child::selection(&admission), Ok(Some(_)));
+        // Stored embeddings the run may reuse (one switch, default off, and
+        // only with the embeddings table): off, no read and no frame key.
+        let reuse = (cfg.embeddings_reuse && cfg.embeddings_table).then(|| super::reuse::Request {
+            env: claim.env.clone(),
+            model: super::reuse::run_model(&|key| std::env::var(key).ok()),
+            max_bytes: super::embedding::MAX_SPOOL_BYTES,
+        });
         match super::inputs::prepare(
             dsn,
             &cfg.transport,
@@ -480,8 +487,14 @@ pub fn run(ctx: Arc<Ctx>, claim: Claim, reply: Value) {
             admission.zid,
             &math_env,
             selection,
+            reuse.as_ref(),
         ) {
-            Ok(bundle) => frame["inputs"]["bundle"] = bundle,
+            Ok((bundle, embeddings)) => {
+                frame["inputs"]["bundle"] = bundle;
+                if let Some(embeddings) = embeddings {
+                    frame["inputs"]["embeddings"] = embeddings;
+                }
+            }
             Err(_) => {
                 refuse_without_child(&ctx, &mut rpc, &claim, false, "input_bundle_unavailable");
                 let _ = ctx.journal.remove(&claim.attempt_id);

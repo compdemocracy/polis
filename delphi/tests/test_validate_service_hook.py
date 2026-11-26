@@ -21,7 +21,7 @@ def _validate_service_path():
 
 VALIDATE_SERVICE_PATH = _validate_service_path()
 
-def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0, shadow_http=0, shadow_state='running false none', reads_http=0, reads_state='running false none', hook=None, absent=''):
+def probe(tmp_path, role='server', state='running false none', http=0, missing=False, drain=0, start='0', routes='', rust_http=0, rust_state='running false none', config_status=0, shadow_http=0, shadow_state='running false none', reads_http=0, reads_state='running false none', hook=None, absent='', derived_leftover=False, derived_inventory_status=0, derived_inventory_failures=0):
     bin_dir=tmp_path/'bin';bin_dir.mkdir()
     (tmp_path/'service_type.txt').write_text(role)
     (tmp_path/'VERSION').write_text('2.0.0\n')
@@ -35,11 +35,19 @@ def probe(tmp_path, role='server', state='running false none', http=0, missing=F
     script=tmp_path/'validate.sh';script.write_text(source)
     fakes={
         'sudo':'exec "$@"',
-        'sleep':'exit 0',
+        'sleep':'echo "$*" >> "$CALLS.sleep"',
         'docker-compose':'''shift 4
 case "$*" in *"config --format json"*) exit "$CONFIG_STATUS";; esac
 case "$1" in
  ps) echo "${@: -1}" >> "$CALLS.ps"
+     if [ "$*" = 'ps -a -q delphi-derived-worker' ]; then
+       echo "$*" >> "$CALLS.inventory"
+       n=$(wc -l < "$CALLS.inventory")
+       [ "$n" -gt "$DERIVED_INVENTORY_FAILURES" ] || exit 1
+       [ "$DERIVED_INVENTORY_STATUS" = 0 ] || exit "$DERIVED_INVENTORY_STATUS"
+       [ "$DERIVED_LEFTOVER" = 0 ] || printf 'old-worker\nold-worker-two\n'
+       exit 0
+     fi
      [ "$MISSING" = 1 ] || case " $ABSENT " in *" ${@: -1} "*) ;; *)
        case "${@: -1}" in polis-api) echo rust;; polis-api-shadow) echo shadow;; polis-api-shadow-reads) echo reads;; *) echo owned;; esac ;; esac ;;
  exec) case "$*" in *polis-api:5100*) echo rust >> "$CALLS"; exit "$RUST_HTTP";;
@@ -54,7 +62,7 @@ case "$*" in *POLIS_API_START*) echo "$START";; *) echo "$ROUTES";; esac''',
     }
     for name,body in fakes.items():
         f=bin_dir/name;f.write_text('#!/bin/bash\n'+body+'\n');f.chmod(0o755)
-    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),SHADOW_HTTP=str(shadow_http),SHADOW_STATE=shadow_state,READS_HTTP=str(reads_http),READS_STATE=reads_state,MISSING=str(int(missing)),ABSENT=absent,DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
+    env=dict(os.environ,PATH=str(bin_dir)+':/usr/bin:/bin',STATE=state,HTTP_STATUS=str(http),START=start,ROUTES=routes,RUST_HTTP=str(rust_http),RUST_STATE=rust_state,CONFIG_STATUS=str(config_status),SHADOW_HTTP=str(shadow_http),SHADOW_STATE=shadow_state,READS_HTTP=str(reads_http),READS_STATE=reads_state,MISSING=str(int(missing)),ABSENT=absent,DERIVED_LEFTOVER=str(int(derived_leftover)),DERIVED_INVENTORY_STATUS=str(derived_inventory_status),DERIVED_INVENTORY_FAILURES=str(derived_inventory_failures),DRAIN=str(drain),COUNT=str(tmp_path/'count'),CALLS=str(tmp_path/'calls'))
     return subprocess.run(['bash',str(script)],env=env,text=True,capture_output=True,timeout=30)
 
 def test_healthy_server_requires_three_http_successes(tmp_path):
@@ -89,7 +97,7 @@ def _hook_naming(services):
 def test_the_delphi_box_requires_the_services_the_real_hook_names(tmp_path):
     p = probe(tmp_path, role='delphi')
     assert p.returncode == 0, p.stderr
-    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3 + ['delphi-derived-worker']
 
 
 # The free-only Delphi shadow is optional work and never named in
@@ -110,7 +118,7 @@ def test_the_delphi_box_fails_when_a_named_service_has_no_container(tmp_path):
 def test_a_service_taken_off_the_list_is_not_required(tmp_path):
     p = probe(tmp_path, role='delphi', hook=_hook_naming('delphi'), absent='math-python')
     assert p.returncode == 0, p.stderr
-    assert (tmp_path/'calls.ps').read_text().split() == ['delphi'] * 3
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi'] * 3 + ['delphi-derived-worker']
 
 
 @pytest.mark.parametrize('hook', ['#!/bin/bash\n', _hook_naming(''), _hook_naming('delphi') * 2,
@@ -297,3 +305,94 @@ def test_read_shadow_with_its_read_route_is_refused_before_polling(tmp_path, rou
     assert p.returncode != 0
     assert f'{message} cannot be selected together' in p.stderr
     assert not (tmp_path/'calls').exists()
+
+
+# A selected derived worker remains optional. Switched off, its container
+# must be absent, including stopped containers, before a downgrade is safe.
+@pytest.mark.parametrize('line', [None, 'POLIS_JOBS_DERIVED_WORKER=0', 'POLIS_JOBS_DERIVED_WORKER=true',
+                                  '# POLIS_JOBS_DERIVED_WORKER=1'])
+def test_the_derived_worker_switched_off_checks_absence_silently(tmp_path, line):
+    if line is not None:
+        (tmp_path/'.env').write_text(line + '\n')
+    p = probe(tmp_path, role='delphi')
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3 + ['delphi-derived-worker']
+    assert 'derived' not in p.stdout + p.stderr
+
+
+@pytest.mark.parametrize('absent,running', [('', True), ('delphi-derived-worker', False)])
+def test_the_derived_worker_switched_on_is_reported_and_never_required(tmp_path, absent, running):
+    (tmp_path/'.env').write_text('POLIS_JOBS_DERIVED_WORKER=1\n')
+    p = probe(tmp_path, role='delphi', absent=absent)
+    assert p.returncode == 0, p.stderr
+    assert (tmp_path/'calls.ps').read_text().split() == ['delphi', 'math-python'] * 3 + ['delphi-derived-worker']
+    if running:
+        assert 'delphi-derived-worker running (POLIS_JOBS_DERIVED_WORKER=1)' in p.stdout
+    else:
+        assert 'delphi-derived-worker is not running although POLIS_JOBS_DERIVED_WORKER=1' in p.stderr
+
+
+def test_the_derived_worker_line_on_a_web_box_says_nothing(tmp_path):
+    (tmp_path/'.env').write_text('POLIS_JOBS_DERIVED_WORKER=1\n')
+    p = probe(tmp_path, role='server')
+    assert p.returncode == 0, p.stderr
+    assert 'derived' not in p.stdout + p.stderr
+
+
+@pytest.mark.parametrize('line', [None, 'POLIS_JOBS_DERIVED_WORKER=0',
+                                  'POLIS_JOBS_DERIVED_WORKER=true',
+                                  '# POLIS_JOBS_DERIVED_WORKER=1'])
+@pytest.mark.parametrize('kw,message', [
+    ({'derived_leftover': True}, 'still exists with its switch off'),
+    ({'derived_inventory_status': 1}, 'Cannot verify delphi-derived-worker removal'),
+])
+def test_worker_off_requires_successful_inventory_and_no_container(tmp_path, line, kw, message):
+    if line is not None:
+        (tmp_path/'.env').write_text(line + '\n')
+    p = probe(tmp_path, role='delphi', **kw)
+    assert p.returncode != 0
+    assert message in p.stderr
+    assert 'older release' in p.stderr
+    assert 'ValidateService passed' not in p.stdout
+    tries = 3 if kw.get('derived_inventory_status') else 1
+    assert (tmp_path/'calls.inventory').read_text().splitlines() == [
+        'ps -a -q delphi-derived-worker'] * tries
+    # Two readiness waits, then only the waits between failed inventories.
+    assert (tmp_path/'calls.sleep').read_text().splitlines() == ['2'] * (2 + tries - 1)
+
+
+@pytest.mark.parametrize('role', ['server', 'math', 'delphi-large', 'delphi-worker'])
+def test_other_roles_do_not_check_derived_container_absence(tmp_path, role):
+    p = probe(tmp_path, role=role, derived_leftover=True, derived_inventory_status=1)
+    assert p.returncode == 0, p.stderr
+    assert not (tmp_path/'calls.inventory').exists()
+    assert 'derived' not in p.stdout + p.stderr
+
+
+@pytest.mark.parametrize('failures', [1, 2])
+@pytest.mark.parametrize('leftover', [False, True])
+def test_worker_inventory_recovers_without_hiding_a_leftover(tmp_path, failures, leftover):
+    p = probe(tmp_path, role='delphi', derived_inventory_failures=failures,
+              derived_leftover=leftover)
+    assert (p.returncode != 0) == leftover, p.stderr
+    assert (tmp_path/'calls.inventory').read_text().splitlines() == [
+        'ps -a -q delphi-derived-worker'] * (failures + 1)
+    assert (tmp_path/'calls.sleep').read_text().splitlines() == ['2'] * (2 + failures)
+    assert 'Cannot verify' not in p.stderr
+    if leftover:
+        assert 'still exists with its switch off' in p.stderr
+        assert 'ValidateService passed' not in p.stdout
+    else:
+        assert 'ValidateService passed for delphi' in p.stdout
+        assert 'derived' not in p.stdout + p.stderr
+
+
+def test_worker_inventory_does_not_try_a_fourth_time(tmp_path):
+    # The fourth inventory would succeed; the third failure must still stop.
+    p = probe(tmp_path, role='delphi', derived_inventory_failures=3)
+    assert p.returncode != 0
+    assert 'Cannot verify delphi-derived-worker removal' in p.stderr
+    assert 'ValidateService passed' not in p.stdout
+    assert (tmp_path/'calls.inventory').read_text().splitlines() == [
+        'ps -a -q delphi-derived-worker'] * 3
+    assert (tmp_path/'calls.sleep').read_text().splitlines() == ['2'] * 4

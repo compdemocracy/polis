@@ -1,5 +1,5 @@
-//! The report topic map route without a database: what it admits, who must be
-//! signed in for what, the ETags it reads, the places it sheds on, and the
+//! The report topic map route without a database: what it admits, the ETags
+//! it reads, the places it sheds on, and the
 //! answers it gives before it reads anything. The database tests (the whole
 //! request against PostgreSQL) are in `delphi_topic_map_database_tests.rs`.
 use super::*;
@@ -63,7 +63,6 @@ pub(crate) fn app() -> App {
     };
     let mut app = App::new(&cfg, pool(cfg.pool.clone()));
     app.delphi_topic_map_db = Some(pool(pool_limits()));
-    app.delphi_topic_map_auth_db = Some(pool(auth_pool_limits()));
     app.delphi_topic_map_env = "test".into();
     app
 }
@@ -108,11 +107,20 @@ fn only_this_routes_query_is_admitted() {
     .unwrap();
     assert_eq!(p.request.report_id.as_deref(), Some("r1"));
     assert_eq!(p.request.job_id.as_deref(), Some("j-1"));
-    assert_eq!(p.request.source, Source::Shadow);
+    assert_eq!(p.request.source, Some(Source::Shadow));
     assert_eq!(p.request.selection, Some(Selection::AllComments));
     assert!(p.bad.is_none());
     let p = parse(&app, &get("/api/v3/delphi/topicMap?report_id=")).unwrap();
     assert_eq!(p.request, contract::Request::default());
+    // A query that names no source is not one that names `served`.
+    let p = parse(&app, &get("/api/v3/delphi/topicMap?report_id=r1")).unwrap();
+    assert_eq!(p.request.source, None);
+    let p = parse(
+        &app,
+        &get("/api/v3/delphi/topicMap?report_id=r1&source=served"),
+    )
+    .unwrap();
+    assert_eq!(p.request.source, Some(Source::Served));
     // A known key with a value this route does not know is a 400, not Node's.
     for (target, key) in [
         (
@@ -152,34 +160,6 @@ fn only_this_routes_query_is_admitted() {
     let mut off = app;
     off.delphi_topic_map_db = None;
     assert!(parse(&off, &get("/api/v3/delphi/topicMap?report_id=r1")).is_none());
-}
-
-#[test]
-fn who_must_be_signed_in_for_what() {
-    let q = |job: Option<&str>, source, selection| contract::Request {
-        report_id: Some("r".into()),
-        job_id: job.map(str::to_owned),
-        source,
-        selection,
-    };
-    use Selection::*;
-    use Source::*;
-    for (request, expected) in [
-        (q(None, Served, None), Need::Anyone),
-        (q(None, Served, Some(ParticipantVisible)), Need::Anyone),
-        (q(None, Served, Some(AllComments)), Need::Moderator),
-        (q(None, Served, Some(AllButModeratedOut)), Need::Moderator),
-        // Ruled public: a past run's map (made under the participants' rule,
-        // checked once its job is read) is as public as the current one.
-        (q(Some("j"), Served, None), Need::Anyone),
-        (q(None, Shadow, None), Need::SiteAdministrator),
-        (q(Some("j"), Shadow, None), Need::SiteAdministrator),
-        (q(None, Shadow, Some(AllComments)), Need::SiteAdministrator),
-    ] {
-        assert_eq!(need(&request), expected, "{request:?}");
-    }
-    // The ruling this waits on is one constant.
-    const { assert!(PUBLIC_RUN_HISTORY) };
 }
 
 #[test]
@@ -617,6 +597,709 @@ pub(crate) async fn lateness<F: std::future::Future>(work: F) -> (F::Output, Dur
     (out, worst)
 }
 
+#[test]
+fn the_served_postgres_env_starts_the_route_as_before() {
+    let envs = Envs::from_settings(Some("postgres"), Some("prod"), None).unwrap();
+    assert_eq!((envs.served.as_deref(), envs.shadow), (Some("prod"), None));
+    let envs =
+        Envs::from_settings(Some("postgres"), Some("prod"), Some("shadow-delphi-1")).unwrap();
+    assert_eq!(
+        (envs.served.as_deref(), envs.shadow.as_deref()),
+        (Some("prod"), Some("shadow-delphi-1"))
+    );
+    // As before: the served Postgres backend needs its env, and the shadow
+    // must be a shadow- env other than it.
+    for served in [None, Some("")] {
+        let e = Envs::from_settings(Some("postgres"), served, Some("shadow-delphi-1")).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "DELPHI_RESULT_ENV is required for report topic map reads"
+        );
+    }
+    for shadow in ["prod", "shadow-delphi-1"] {
+        let served = if shadow == "prod" {
+            "prod"
+        } else {
+            "shadow-delphi-1"
+        };
+        let e = Envs::from_settings(Some("postgres"), Some(served), Some(shadow)).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+        );
+    }
+}
+
+#[test]
+fn a_served_delphi_not_on_postgres_starts_the_route_on_the_shadow_alone() {
+    // Unset, empty and dynamodb are the served Delphi on DynamoDB, as Node
+    // and the Delphi service read them; its env is never a Postgres env.
+    for backend in [None, Some(""), Some("dynamodb")] {
+        for served in [None, Some(""), Some("prod")] {
+            let envs = Envs::from_settings(backend, served, Some("shadow-delphi-1")).unwrap();
+            assert_eq!(
+                (envs.served, envs.shadow.as_deref()),
+                (None, Some("shadow-delphi-1"))
+            );
+        }
+        let e = Envs::from_settings(backend, Some("prod"), Some("prod")).unwrap_err();
+        assert_eq!(
+            e.to_string(),
+            "POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV must be a shadow- env other than DELPHI_RESULT_ENV"
+        );
+    }
+}
+
+#[test]
+fn neither_a_served_postgres_env_nor_a_shadow_refuses_to_start() {
+    for backend in [None, Some(""), Some("dynamodb")] {
+        for shadow in [None, Some("")] {
+            let e = Envs::from_settings(backend, Some("prod"), shadow).unwrap_err();
+            let said = e.to_string();
+            assert!(said.contains("DELPHI_RESULT_BACKEND=postgres"), "{said}");
+            assert!(said.contains("DELPHI_RESULT_ENV"), "{said}");
+            assert!(
+                said.contains("POLIS_API_DELPHI_TOPIC_MAP_SHADOW_ENV"),
+                "{said}"
+            );
+        }
+    }
+}
+
+#[test]
+fn a_result_backend_the_route_does_not_know_refuses_to_start() {
+    for backend in ["Postgres", "postgresql", "dynamo", " postgres"] {
+        let e =
+            Envs::from_settings(Some(backend), Some("prod"), Some("shadow-delphi-1")).unwrap_err();
+        assert!(e.to_string().contains("DELPHI_RESULT_BACKEND"), "{e}");
+    }
+}
+
+#[test]
+fn a_shadow_only_route_never_reads_a_served_env() {
+    let mut app = app();
+    app.delphi_topic_map_env = String::new();
+    app.delphi_topic_map_shadow_env = Some("shadow-delphi-1".into());
+    let plan = |source| {
+        sides(&app, source)
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.source, s.env, s.base))
+            .collect::<Vec<_>>()
+    };
+    let served = (Source::Served, None, "delphi".to_owned());
+    let shadow = (
+        Source::Shadow,
+        Some("shadow-delphi-1".to_owned()),
+        "delphi".to_owned(),
+    );
+    assert_eq!(plan(None), vec![served.clone(), shadow.clone()]);
+    assert_eq!(plan(Some(Source::Served)), vec![served]);
+    assert_eq!(plan(Some(Source::Shadow)), vec![shadow]);
+    // What a side with no env answers, unread: what a served env with
+    // nothing stored answers.
+    assert!(matches!(
+        unread(false).found,
+        Found::NoMap {
+            job: None,
+            reason: NoMapReason::NoRun
+        }
+    ));
+    assert!(matches!(unread(true).found, Found::NoSuchRun));
+    assert!(nothing_stored(&unread(false).found) && nothing_stored(&unread(true).found));
+}
+
+#[test]
+fn a_served_route_reads_its_env_as_before() {
+    let mut app = app();
+    app.delphi_topic_map_scope = Some("delphi:x".into());
+    let plan = |source| {
+        sides(&app, source)
+            .unwrap()
+            .into_iter()
+            .map(|s| (s.source, s.env, s.base))
+            .collect::<Vec<_>>()
+    };
+    let served = (
+        Source::Served,
+        Some("test".to_owned()),
+        "delphi:x".to_owned(),
+    );
+    assert_eq!(plan(None), vec![served.clone()]);
+    assert_eq!(plan(Some(Source::Served)), vec![served]);
+    assert!(matches!(
+        sides(&app, Some(Source::Shadow)),
+        Err(Refused::SourceUnavailable)
+    ));
+}
+
 #[cfg(feature = "db-tests")]
 #[path = "delphi_topic_map_database_tests.rs"]
 pub(crate) mod database_tests;
+
+#[cfg(feature = "db-tests")]
+#[path = "delphi_topic_map_migrated_database_tests.rs"]
+mod migrated_database_tests;
+
+/// A map of two levels and five comments (ids 10 to 14): at the finer level
+/// topics 0_0 {10, 11}, 0_1 {12, 13} and 0_2 {14}; at the coarser 1_0 {10, 11,
+/// 12} and 1_1 {13, 14}. Comment 14 is the only member of 0_2, whose name is
+/// its words.
+pub(crate) fn small_map() -> String {
+    let topic = |id: &str,
+                 level: u32,
+                 cluster: i64,
+                 name: &str,
+                 count: u64,
+                 parent: Option<(&str, f64)>| {
+        serde_json::json!({"id": id, "level": level, "cluster": cluster, "key": null, "name": name,
+            "count": count, "x": 0.5, "y": 0.25, "weight": (count as f64).powf(0.25),
+            "parent": parent.map(|p| p.0), "parentShare": parent.map(|p| p.1),
+            "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"})
+    };
+    serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": "j", "topicModel": null, "createdAt": null},
+        "bounds": [-1.0, 1.0, -1.0, 1.0], "pointRadius": 0.11,
+        "levels": [{"level": 0, "topics": 3, "unclustered": 0, "cmapPalette": false},
+                   {"level": 1, "topics": 2, "unclustered": 0, "cmapPalette": false}],
+        "topics": [topic("0_0", 0, 0, "roads", 2, Some(("1_0", 1.0))),
+                   topic("0_1", 0, 1, "schools", 2, Some(("1_0", 0.5))),
+                   topic("0_2", 0, 2, "secret words", 1, Some(("1_1", 1.0))),
+                   topic("1_0", 1, 0, "town", 3, None),
+                   topic("1_1", 1, 1, "secret and schools", 2, None)],
+        "points": {"id": [10, 11, 12, 13, 14], "x": [0.9, 0.1, 0.2, 0.3, -0.5],
+                   "y": [0.0, 0.1, 0.2, 0.3, 0.4], "topic": [[0, 0, 1, 1, 2], [3, 3, 3, 4, 4]], "text": []},
+        "provenance": {"schema": "polis-topic-map.provenance/1"}
+    })
+    .to_string()
+}
+
+#[test]
+fn a_reader_receives_moderated_out_comments_as_bare_points() {
+    let doc = small_map();
+    let hidden = |ids: &[i64]| {
+        ids.iter()
+            .copied()
+            .collect::<std::collections::BTreeSet<i64>>()
+    };
+    // Nothing of the map moderated out: the stored bytes, untouched.
+    assert_eq!(public_form(doc.as_bytes(), &hidden(&[])), Ok(None));
+    assert_eq!(public_form(doc.as_bytes(), &hidden(&[1, 99])), Ok(None));
+    // Comments 14 and 10 moderated out.
+    let form = public_form(doc.as_bytes(), &hidden(&[14, 10]))
+        .unwrap()
+        .unwrap();
+    let raw: serde_json::Value = serde_json::from_slice(&form).unwrap();
+    let out: contract::TopicMap = serde_json::from_slice(&form).unwrap();
+    let p = &out.points;
+    // The visible comments first, as stored; the bare points last, by position.
+    assert_eq!(p.id, vec![Some(11), Some(12), Some(13), None, None]);
+    assert_eq!(p.x, vec![0.1, 0.2, 0.3, -0.5, 0.9]);
+    assert_eq!(p.y, vec![0.1, 0.2, 0.3, 0.4, 0.0]);
+    assert_eq!(p.moderated_out, 2);
+    assert_eq!(raw["points"]["moderatedOut"], 2);
+    assert_eq!(raw["points"]["id"][3], serde_json::Value::Null);
+    // No topic for a bare point; 0_2 had no other member and is not sent.
+    let ids: Vec<&str> = out.topics.iter().map(|t| t.id.as_str()).collect();
+    assert_eq!(ids, ["0_0", "0_1", "1_0", "1_1"]);
+    assert!(!String::from_utf8_lossy(&form).contains("secret words"));
+    assert_eq!(p.topic, vec![vec![0, 1, 1, -1, -1], vec![2, 2, 3, -1, -1]]);
+    // Counted again over what this reader sees, as the generator counts.
+    let counts: Vec<u64> = out.topics.iter().map(|t| t.count).collect();
+    assert_eq!(counts, [1, 2, 2, 1]);
+    assert_eq!(out.topics[0].weight, 1.0);
+    let parents: Vec<(Option<&str>, Option<f64>)> = out
+        .topics
+        .iter()
+        .map(|t| (t.parent.as_deref(), t.parent_share))
+        .collect();
+    assert_eq!(
+        parents,
+        [
+            (Some("1_0"), Some(1.0)),
+            (Some("1_0"), Some(0.5)),
+            (None, None),
+            (None, None)
+        ]
+    );
+    let levels: Vec<(u64, u64)> = out
+        .levels
+        .iter()
+        .map(|l| (l.topics, l.unclustered))
+        .collect();
+    assert_eq!(levels, [(2, 2), (2, 2)]);
+    // A topic with a held-back member (0_0 held 10; 1_0 held 10; 1_1 held
+    // 14) has the neutral name and its label over its visible members only;
+    // 0_1 held none and keeps its name and place.
+    let labels: Vec<(&str, f64, f64)> = out
+        .topics
+        .iter()
+        .map(|t| (t.name.as_str(), t.x, t.y))
+        .collect();
+    assert_eq!(
+        labels,
+        [
+            ("Topic 0", 0.1, 0.1),
+            ("schools", 0.5, 0.25),
+            ("Topic 0", 0.15, 0.15),
+            ("Topic 1", 0.3, 0.3)
+        ]
+    );
+    assert!(!String::from_utf8_lossy(&form).contains("secret"));
+    // The colours are chosen again from what is sent: none is the stored one.
+    for t in &out.topics {
+        for c in [&t.color, &t.label_color, &t.color_all, &t.label_color_all] {
+            assert!(c.len() == 7 && c.starts_with('#'), "{c}");
+        }
+    }
+    assert_eq!(
+        out.levels
+            .iter()
+            .map(|l| l.cmap_palette)
+            .collect::<Vec<_>>(),
+        [false, false]
+    );
+    assert_eq!(
+        out.provenance,
+        Some(serde_json::json!({"schema": "polis-topic-map.provenance/1"}))
+    );
+    // Every comment moderated out: no topic, every point bare.
+    let all = public_form(doc.as_bytes(), &hidden(&[10, 11, 12, 13, 14]))
+        .unwrap()
+        .unwrap();
+    let all: contract::TopicMap = serde_json::from_slice(&all).unwrap();
+    assert!(all.topics.is_empty());
+    assert_eq!(all.points.id, vec![None; 5]);
+    assert_eq!(all.points.moderated_out, 5);
+    assert!(all.points.topic.iter().flatten().all(|k| *k == -1));
+    // Text, where a document has it: emptied for a bare point.
+    let mut with_text: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    with_text["points"]["text"] = serde_json::json!(["a", "b", "c", "d", "e"]);
+    let form = public_form(with_text.to_string().as_bytes(), &hidden(&[12]))
+        .unwrap()
+        .unwrap();
+    let form: contract::TopicMap = serde_json::from_slice(&form).unwrap();
+    assert_eq!(form.points.text, ["a", "b", "d", "e", ""]);
+    // A document the closed type does not read, or whose arrays disagree, is
+    // not sent to such a reader.
+    let mut unknown: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    unknown["points"]["author"] = serde_json::json!([1, 2, 3, 4, 5]);
+    assert_eq!(
+        public_form(unknown.to_string().as_bytes(), &hidden(&[10])),
+        Err(())
+    );
+    let mut short: serde_json::Value = serde_json::from_str(&doc).unwrap();
+    short["points"]["x"] = serde_json::json!([0.0]);
+    assert_eq!(
+        public_form(short.to_string().as_bytes(), &hidden(&[10])),
+        Err(())
+    );
+}
+
+/// What a held-back comment leaves in the reader's form is its position and
+/// nothing else: where it sat inside its topic, and the topic it alone made,
+/// change no byte of what is sent.
+#[test]
+fn a_held_back_comment_leaves_only_its_position() {
+    let hidden: std::collections::BTreeSet<i64> = [14, 10].into_iter().collect();
+    let form = |doc: &serde_json::Value| {
+        public_form(doc.to_string().as_bytes(), &hidden)
+            .unwrap()
+            .unwrap()
+    };
+    let doc: serde_json::Value = serde_json::from_str(&small_map()).unwrap();
+    // The same map with comment 14 in no topic of its own at the finer
+    // level (no 0_2 stored, other stored colours): the run's labels and
+    // colours were different, the reader's form is not.
+    let mut without = doc.clone();
+    without["topics"].as_array_mut().unwrap().remove(2);
+    without["points"]["topic"] = serde_json::json!([[0, 0, 1, 1, -1], [2, 2, 2, 3, 3]]);
+    without["levels"][0]["topics"] = 2.into();
+    without["levels"][0]["unclustered"] = 1.into();
+    for t in without["topics"].as_array_mut().unwrap() {
+        t["color"] = "#123456".into();
+        t["colorAll"] = "#654321".into();
+    }
+    assert_eq!(form(&doc), form(&without));
+    // The held-back comment of a mixed topic (1_1 holds 13 and 14) moved
+    // within it: only its own position changes in what is sent, never a
+    // label's place.
+    let mut moved = doc.clone();
+    moved["points"]["x"][4] = 0.8.into();
+    let (a, b): (contract::TopicMap, contract::TopicMap) = (
+        serde_json::from_slice(&form(&doc)).unwrap(),
+        serde_json::from_slice(&form(&moved)).unwrap(),
+    );
+    let place = |m: &contract::TopicMap| {
+        m.topics
+            .iter()
+            .map(|t| {
+                (
+                    t.id.clone(),
+                    t.name.clone(),
+                    t.x,
+                    t.y,
+                    t.count,
+                    t.parent.clone(),
+                )
+            })
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(place(&a), place(&b));
+}
+
+#[test]
+fn hmac_sha256_is_rfc_4231() {
+    // RFC 4231, test case 2.
+    assert_eq!(
+        super::hex_of(&super::hmac_sha256(
+            b"Jefe",
+            b"what do ya want for nothing?"
+        )),
+        "5bdcc146bf60754e6a042426089575c75a003f089d2739839dec58b964ec3843"
+    );
+}
+
+#[test]
+fn a_readers_etag_names_the_form_and_the_moderation() {
+    let key = State::default().validator_key().to_owned();
+    let sha = "e".repeat(64);
+    assert_eq!(
+        reader_tag(&sha, ""),
+        sha,
+        "no comment held back: the stored form"
+    );
+    let one = reader_tag(&sha, &reader_form(&key, 7, &[3]));
+    let two = reader_tag(&sha, &reader_form(&key, 7, &[3, 4]));
+    assert!(is_digest(&one) && is_digest(&two));
+    assert_ne!(one, sha);
+    assert_ne!(one, two);
+    assert_eq!(reader_form(&key, 7, &[]), "");
+    assert_ne!(
+        reader_tag(&"f".repeat(64), &reader_form(&key, 7, &[3])),
+        one
+    );
+    assert_ne!(reader_tag(&sha, &reader_form(&key, 8, &[3])), one);
+}
+
+/// Someone who knows the stored digest and every comment id cannot tell
+/// which comments are held back from a reader's ETag: every keyless recipe
+/// over every small set of ids misses, and the same set under another
+/// process's key is another tag.
+#[test]
+fn a_readers_etag_tells_nothing_to_someone_who_guesses_ids() {
+    use sha2::{Digest, Sha256};
+    let hex = |b: &[u8]| super::hex_of(b);
+    let sha = "e".repeat(64);
+    let zid = 7;
+    let key = State::default().validator_key().to_owned();
+    let tag_14 = reader_tag(&sha, &reader_form(&key, zid, &[14]));
+    let tag_15 = reader_tag(&sha, &reader_form(&key, zid, &[15]));
+    assert_ne!(tag_14, tag_15);
+    let mut guesses = std::collections::BTreeSet::new();
+    let sets: Vec<Vec<i64>> = (0..100)
+        .map(|i| vec![i])
+        .chain((0..30).flat_map(|i| (i + 1..30).map(move |j| vec![i, j])))
+        .collect();
+    for ids in &sets {
+        let csv = ids.iter().map(i64::to_string).collect::<Vec<_>>().join(",");
+        for name in ["moderated-out/1", READER_FORM] {
+            for inner in [
+                hex(&Sha256::digest(csv.as_bytes())),
+                hex(&Sha256::digest(format!("{zid}:{csv}").as_bytes())),
+                // An empty or public key in place of the process's.
+                hex(&super::hmac_sha256(b"", format!("{zid}:{csv}").as_bytes())),
+                hex(&super::hmac_sha256(
+                    sha.as_bytes(),
+                    format!("{zid}:{csv}").as_bytes(),
+                )),
+            ] {
+                guesses.insert(reader_tag(&sha, &format!(":{name}:{inner}")));
+            }
+        }
+    }
+    assert!(!guesses.contains(&tag_14) && !guesses.contains(&tag_15));
+    // Another process draws another key.
+    let other = State::default().validator_key().to_owned();
+    assert_ne!(key, other);
+    assert_ne!(tag_14, reader_tag(&sha, &reader_form(&other, zid, &[14])));
+    // The tag's bits look like any digest's: about half of them set, over
+    // many held-back sets.
+    let ones: u32 = (0..200)
+        .map(|i| {
+            let t = reader_tag(&sha, &reader_form(&key, zid, &[i]));
+            t.chars()
+                .map(|c| c.to_digit(16).unwrap().count_ones())
+                .sum::<u32>()
+        })
+        .sum();
+    let bits = 200 * 256;
+    assert!(
+        (ones as f64 / bits as f64 - 0.5).abs() < 0.02,
+        "{ones} of {bits}"
+    );
+}
+
+/// The cost of the reader's form of a large map: 9,000 comments over four
+/// levels, half of them moderated out. Run on its own, it prints.
+#[test]
+#[ignore]
+fn the_readers_form_of_a_large_map_is_timed() {
+    let n = 9000usize;
+    let levels = 4usize;
+    let mut topics = Vec::new();
+    let mut rows = Vec::new();
+    let per = [300usize, 100, 30, 10];
+    for (l, k) in per.iter().enumerate().take(levels) {
+        for c in 0..*k {
+            topics.push(serde_json::json!({"id": format!("{l}_{c}"), "level": l, "cluster": c,
+                "key": null, "name": format!("keyword{c} other{c} third{c}"), "count": n / k,
+                "x": 0.12345, "y": -1.23456, "weight": 2.5, "parent": null, "parentShare": null,
+                "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"}));
+        }
+        let first: usize = per[..l].iter().sum();
+        rows.push((0..n).map(|i| (first + i % k) as i64).collect::<Vec<_>>());
+    }
+    let doc = serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": "j", "topicModel": null, "createdAt": null},
+        "bounds": [-6.5, 6.5, -4.25, 4.25], "pointRadius": 0.11,
+        "levels": (0..levels).map(|l| serde_json::json!({"level": l, "topics": per[l], "unclustered": 0, "cmapPalette": per[l] > 50})).collect::<Vec<_>>(),
+        "topics": topics,
+        "points": {"id": (0..n).collect::<Vec<_>>(),
+                   "x": (0..n).map(|i| ((i * 7919) % 100_000) as f64 / 7919.0 - 6.31234).collect::<Vec<_>>(),
+                   "y": (0..n).map(|i| ((i * 104_729) % 100_000) as f64 / 11_731.0 - 4.12345).collect::<Vec<_>>(),
+                   "topic": rows, "text": []},
+    })
+    .to_string();
+    let gz = crate::compress::node_stream(doc.as_bytes(), true)
+        .unwrap()
+        .concat();
+    let hidden: std::collections::BTreeSet<i64> = (0..n as i64).filter(|i| i % 2 == 0).collect();
+    let rounds = 20;
+    let start = std::time::Instant::now();
+    let mut out = 0;
+    for _ in 0..rounds {
+        let d = gunzip(&gz, MAX_PART_BYTES as usize).unwrap();
+        let form = public_form(&d, &hidden).unwrap().unwrap();
+        out = crate::compress::node_stream(&form, true)
+            .unwrap()
+            .concat()
+            .len();
+    }
+    let each = start.elapsed() / rounds;
+    let start = std::time::Instant::now();
+    for _ in 0..rounds {
+        public_form(doc.as_bytes(), &hidden).unwrap().unwrap();
+    }
+    let form_only = start.elapsed() / rounds;
+    println!(
+        "document {} bytes, gzip {} bytes, reader's gzip {out} bytes; gunzip+form+gzip {each:?} each, form alone {form_only:?} each",
+        doc.len(),
+        gz.len()
+    );
+}
+
+/// The kept readers' forms stay within both bounds, least recently kept out
+/// first, and a form larger than the byte bound is not kept at all.
+#[test]
+fn kept_readers_forms_stay_within_their_bounds() {
+    use super::{Forms, Kept, READER_FORM_BYTES_KEPT, READER_FORMS_KEPT};
+    let form = |n: usize| {
+        Arc::new(Kept::Form {
+            plain: vec![b'x'; n],
+            gzip: vec![b'z'; n / 4],
+        })
+    };
+    let key = |i: usize| (format!("{i:064x}"), format!(":held-back/2:{i}"));
+    let mut forms = Forms::default();
+    for i in 0..READER_FORMS_KEPT * 2 {
+        forms.keep(key(i), form(1000));
+        assert!(forms.kept.len() <= READER_FORMS_KEPT);
+    }
+    assert_eq!(forms.kept.front().unwrap().0, key(READER_FORMS_KEPT));
+    assert_eq!(forms.bytes, READER_FORMS_KEPT * 1250);
+    let big = READER_FORM_BYTES_KEPT / 3;
+    for i in 0..5 {
+        forms.keep(key(1000 + i), form(big));
+        assert!(forms.bytes <= READER_FORM_BYTES_KEPT, "{}", forms.bytes);
+    }
+    assert_eq!(forms.kept.len(), 2, "two of a third and their gzip fit");
+    forms.keep(key(2000), form(READER_FORM_BYTES_KEPT));
+    assert!(forms.kept.iter().all(|(k, _)| *k != key(2000)));
+    let total: usize = forms.kept.iter().map(|(_, k)| k.bytes()).sum();
+    assert_eq!(total, forms.bytes);
+}
+
+/// The rewrites' budget: a quiet process may spend its burst at once, then
+/// waits for the share to repay what it spent past it.
+#[test]
+fn the_rewrites_budget_repays_what_it_spends() {
+    use super::{REWRITE_BURST, REWRITE_SHARE, State};
+    let state = State::default();
+    assert_eq!(state.budget_wait(), Duration::ZERO);
+    // Spending the burst and one second's share more: about a second to wait.
+    let wait = state.spend(REWRITE_BURST + REWRITE_SHARE);
+    assert!(
+        wait > Duration::from_millis(900) && wait <= Duration::from_secs(1),
+        "{wait:?}"
+    );
+    assert!(state.budget_wait() > Duration::from_millis(900));
+}
+
+/// A rewrite costlier than the burst is charged its whole estimate, so the
+/// bound (the larger of the burst and the costliest estimate, plus the share
+/// of the time, plus what went beyond the estimates) holds for it: the next
+/// rewrite waits until all of it is repaid, and a rewrite that takes what it
+/// was charged adds nothing beyond its charge.
+#[test]
+fn a_rewrite_costlier_than_the_burst_is_charged_in_full() {
+    use super::{REWRITE_BURST, REWRITE_HEADROOM, REWRITE_SHARE, State};
+    let state = State::default();
+    let len = 1_000_000;
+    // The process has timed a rewrite of this part at 0.3 s, a burst and a half.
+    let first = state.reserve(len, true).unwrap();
+    state.settle(first, Duration::from_millis(300), len, true);
+    let (_, overrun_before) = state.rewrite_time();
+    // Until the bank is full again, as in a quiet process.
+    std::thread::sleep(
+        state.budget_wait()
+            + REWRITE_BURST.div_f64(REWRITE_SHARE.as_secs_f64())
+            + Duration::from_millis(50),
+    );
+    let cost = 0.3 * REWRITE_HEADROOM;
+    let charged = state.reserve(len, true).expect("a full bank starts it");
+    assert!(
+        (charged - cost).abs() < 1e-6,
+        "{charged} charged, {cost} expected"
+    );
+    assert!(charged > REWRITE_BURST.as_secs_f64());
+    // The budget owes the estimate beyond the bank; the next rewrite waits
+    // for that and a full bank: the whole estimate at the share.
+    let wait = state.reserve(len, true).unwrap_err().as_secs_f64();
+    let owed = cost / REWRITE_SHARE.as_secs_f64();
+    assert!(
+        wait > owed - 0.1 && wait <= owed,
+        "{wait} s, {owed} s expected"
+    );
+    state.settle(charged, Duration::from_secs_f64(cost), len, true);
+    let (_, overrun) = state.rewrite_time();
+    assert!(
+        (overrun - overrun_before).abs() < 1e-9,
+        "{overrun} beyond charges"
+    );
+}
+
+/// A `polis-topic-map/1` document of `points` comments in four levels of
+/// 300, 100, 30 and 10 topics (the costly shape for a reader's form: every
+/// topic of every level is recoloured from what the reader may see), without
+/// text, valid for the contract's closed types. `seed` moves the positions,
+/// so two documents of the same size are different maps.
+pub(crate) fn layered_document(points: usize, job: &str, seed: usize) -> String {
+    let per = [300usize, 100, 30, 10];
+    let mut topics = Vec::new();
+    let mut rows = Vec::new();
+    for (l, k) in per.iter().enumerate() {
+        let first = topics.len();
+        for c in 0..*k {
+            topics.push(serde_json::json!({"id": format!("{l}_{c}"), "level": l, "cluster": c,
+                "key": null, "name": format!("keyword{c} other{c} third{c}"), "count": points / k,
+                "x": 0.12345, "y": -1.23456, "weight": 2.5, "parent": null, "parentShare": null,
+                "color": "#dd6a94", "labelColor": "#734252", "colorAll": "#dd6a94", "labelColorAll": "#734252"}));
+        }
+        rows.push(
+            (0..points)
+                .map(|i| (first + i % k) as i64)
+                .collect::<Vec<_>>(),
+        );
+    }
+    serde_json::json!({
+        "schema": "polis-topic-map/1", "title": "", "attribution": "",
+        "run": {"jobId": job, "topicModel": null, "createdAt": null},
+        "bounds": [-6.5, 6.5, -4.25, 4.25], "pointRadius": 0.11,
+        "levels": (0..per.len()).map(|l| serde_json::json!({"level": l, "topics": per[l], "unclustered": 0, "cmapPalette": per[l] > 50})).collect::<Vec<_>>(),
+        "topics": topics,
+        "points": {"id": (0..points).collect::<Vec<_>>(),
+                   "x": (0..points).map(|i| (((i + seed) * 7919) % 100_000) as f64 / 7919.0 - 6.31234).collect::<Vec<_>>(),
+                   "y": (0..points).map(|i| (((i + seed) * 104_729) % 100_000) as f64 / 11_731.0 - 4.12345).collect::<Vec<_>>(),
+                   "topic": rows, "text": []},
+    })
+    .to_string()
+}
+
+/// Distinct costly maps all asking for their reader's form at once, from a
+/// quiet process: the rewrites run one at a time, each charged before it
+/// starts, and the rewrite time spent stays within the burst plus the share
+/// of the time since the first asked, plus what the rewrites took beyond
+/// their charges, which is at most the first rewrite's own time (the one
+/// made before the process had timed any).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_burst_of_distinct_maps_stays_within_the_rewrites_budget() {
+    use super::{MAX_REWRITES, State, reader_body};
+    const MAPS: usize = 6;
+    let state = State::new(MAPS);
+    let hidden: Vec<i64> = (0..9_000).filter(|i| i % 2 == 0).collect();
+    let parts: Vec<Vec<u8>> = (0..MAPS)
+        .map(|m| {
+            let doc = layered_document(9_000, "burst", m * 13);
+            crate::compress::node_stream(doc.as_bytes(), true)
+                .unwrap()
+                .concat()
+        })
+        .collect();
+    let started = std::time::Instant::now();
+    let asked: Vec<_> = parts
+        .into_iter()
+        .enumerate()
+        .map(|(m, part)| {
+            let (state, hidden) = (state.clone(), hidden.clone());
+            tokio::spawn(async move {
+                let place = state.admit().expect("a place each");
+                let held = state.hold(part.len());
+                let key = (format!("{m:064x}"), format!(":held-back/2:{m}"));
+                let out = reader_body(&state, key, part, held, hidden, true, place).await;
+                (out.is_ok(), std::time::Instant::now())
+            })
+        })
+        .collect();
+    let mut last = started;
+    for a in asked {
+        let (ok, at) = a.await.unwrap();
+        assert!(ok, "every form was made");
+        last = last.max(at);
+    }
+    let window = (last - started).as_secs_f64();
+    let (charged, overrun) = state.rewrite_time();
+    println!(
+        "{MAPS} layered maps at once: rewrite time {charged:.3} s ({overrun:.3} s beyond charges) over {window:.3} s; bound {:.3} s",
+        state.rewrite_bound(window)
+    );
+    assert_eq!(state.rewrites(), MAPS as u64);
+    assert!(state.max_rewriting() <= MAX_REWRITES);
+    assert!(
+        charged <= state.rewrite_bound(window) + 1e-6,
+        "rewrite time {charged:.3} s over {window:.3} s"
+    );
+    // Beyond the charges by at most one rewrite's time: the estimate after
+    // the first is the slowest rate seen, with headroom.
+    assert!(
+        overrun <= charged / MAPS as f64 * 2.0,
+        "the rewrites took {overrun:.3} s beyond their charges of {charged:.3} s in all"
+    );
+}
+
+#[test]
+fn layered_fixture_keeps_topics_at_every_level_after_redaction() {
+    let doc = layered_document(4_000, "fixture", 0);
+    let hidden = (1_000..4_000).step_by(2).collect();
+    let bytes = public_form(doc.as_bytes(), &hidden).unwrap().unwrap();
+    let shown: contract::TopicMap = serde_json::from_slice(&bytes).unwrap();
+    let counts: Vec<_> = shown.levels.iter().map(|level| level.topics).collect();
+    assert_eq!(counts, vec![300, 100, 30, 10]);
+    for (level, row) in shown.points.topic.iter().enumerate() {
+        for topic in row.iter().filter(|topic| **topic >= 0) {
+            assert_eq!(shown.topics[*topic as usize].level as usize, level);
+        }
+    }
+}

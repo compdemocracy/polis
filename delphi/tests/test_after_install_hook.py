@@ -32,6 +32,7 @@ $POLIS_CHECKOUT_DIR, else an ancestor of this file.
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -76,7 +77,7 @@ FAKES = {
     # this project (on the Delphi box, after `down`: the profile-gated ones).
     # The fake exits with its last line's status (a failed Rust start), so
     # that line stays last.
-    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"shadow-graph-off.yml --profile delphi-shadow config"*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __compose_fail__ ] || exit 1;; esac\n'
+    "docker-compose": RECORD + 'case "$*" in *" ps -a --services") [ "${FAKE_COMPOSE_PS_FAILURE:-0}" != 1 ] || exit 1; printf "%s\\n" ${FAKE_COMPOSE_PS-}; exit 0;; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow-reads"*) [ "${FAKE_READS_START_FAILURE:-0}" != 1 ]; exit $?;; esac\n' + 'case "$*" in *"--profile rust-api down"*) rm -f "$HOME/rust-running";; *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" = 1 ] || touch "$HOME/rust-running";; esac\n' + 'case "$*" in *"--force-recreate polis-api-shadow"*) [ "${FAKE_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"up -d delphi-shadow delphi-shadow-scheduler "*) [ "${FAKE_DELPHI_SHADOW_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n' + 'case "$*" in *"shadow-graph-off.yml --profile delphi-shadow config"*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __compose_fail__ ] || exit 1;; esac\n'                      + 'case "$*" in *"up -d delphi-derived-worker "*) [ "${FAKE_DERIVED_WORKER_START_FAILURE:-0}" != 1 ] || exit 1;; esac\n'
                       + 'case "$*" in *"up -d --no-deps --no-build --force-recreate polis-api"*) [ "$FAKE_RUST_START_FAILURE" != 1 ];; esac\n',
     "curl": RECORD + 'case "$*" in *instance-id*) echo i-0123456789abcdef0;; *) echo token;; esac\n',
     # Real jq consumes its input; the fake must too, or pipefail can report
@@ -95,7 +96,7 @@ FAKES = {
     # file that blanks it, unless a test says what the composed list holds.
     # (__fail__: jq itself fails; __compose_fail__: the docker-compose fake
     # fails to render the files for that read-back.)
-    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *delphi-shadow-scheduler.DELPHI_SHADOW_ENV*) [ "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}";; *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *environment.DELPHI_SHADOW_GRAPH_CONVERSATIONS*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __fail__ ] || exit 3; if [ -n "${FAKE_GRAPH_LIST_COMPOSED+set}" ]; then printf "%s\\n" "$FAKE_GRAPH_LIST_COMPOSED"; elif grep -qx "      - DELPHI_SHADOW_GRAPH_CONVERSATIONS=" docker-compose.shadow-graph-off.yml 2>/dev/null; then echo; else echo zzgraphlist9; fi;; *) echo value;; esac\n',
+    "jq": RECORD + 'cat >/dev/null\n' + 'case "$*" in *delphi-derived-worker.QUEUE_DATABASE_URL*) [ "${FAKE_DERIVED_WORKER_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DERIVED_WORKER_WRONG-}";; *delphi-shadow-scheduler.DELPHI_SHADOW_ENV*) [ "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}" != __fail__ ] || exit 3; printf "%s\\n" "${FAKE_DELPHI_SHADOW_SETTINGS_WRONG-}";; *polis-api-shadow-reads*POLIS_API_ROLE*) printf "%s\\n" "${FAKE_READS_SETTINGS_WRONG-}";; *polis-api-shadow-reads*_COMMENT_READS*) printf "%s\\n" "${FAKE_READS_SWITCHES_WRONG-}";; *POLIS_API_ROLE*) printf "%s\\n" "${FAKE_SHADOW_SETTINGS_WRONG-}";; *POLIS_API_DB_TRANSPORT*) printf "%s\\n" "${FAKE_POLIS_API_TRANSPORT:-tls}";; *POLIS_API_START*) printf "%s\\n" "${FAKE_POLIS_API_START-0}";; *RUST_API_ROUTES*) printf "%s\\n" "$FAKE_RUST_API_ROUTES";; *POLIS_API_POST_COMMENTS*) if [ -n "${FAKE_SHADOW_COMMENTS_SWITCH+set}" ]; then printf "%s\\n" "$FAKE_SHADOW_COMMENTS_SWITCH"; elif grep -qx "      - POLIS_API_POST_COMMENTS=observe" docker-compose.images.yml 2>/dev/null; then echo observe; else echo; fi;; *environment.DELPHI_SHADOW_GRAPH_CONVERSATIONS*) [ "${FAKE_GRAPH_LIST_COMPOSED-}" != __fail__ ] || exit 3; if [ -n "${FAKE_GRAPH_LIST_COMPOSED+set}" ]; then printf "%s\\n" "$FAKE_GRAPH_LIST_COMPOSED"; elif grep -qx "      - DELPHI_SHADOW_GRAPH_CONVERSATIONS=" docker-compose.shadow-graph-off.yml 2>/dev/null; then echo; else echo zzgraphlist9; fi;; *) echo value;; esac\n',
     "git": RECORD + ('case "$1" in clone) mkdir -p "${@: -1}";; rev-parse) echo 0123456789abcdef0123456789abcdef01234567;;\n'
                      '  merge-base) [ -z "$FAKE_NOT_ON_BRANCH" ] || exit 1;; esac\n'),
     "aws": RECORD + (
@@ -211,8 +212,12 @@ def _deploy(tmp_path, service_type, migration_failure="", revision=REVISION,
             shadow_start_failure=False, shadow_comments_switch=None, shadow_settings_wrong=None,
             reads_start_failure=False, reads_switches_wrong=None, reads_settings_wrong=None,
             env_extra=None, delphi_shadow_settings_wrong=None, delphi_shadow_start_failure=False,
-            compose_ps="math-python", compose_ps_failure=False, hook_rules=(), graph_list_composed=None, **kw):
+            compose_ps="math-python", compose_ps_failure=False, hook_rules=(), graph_list_composed=None,
+            derived_worker_wrong=None, derived_worker_start_failure=False, **kw):
     root, env = _box(tmp_path, service_type, **kw)
+    if derived_worker_wrong is not None:
+        env["FAKE_DERIVED_WORKER_WRONG"] = derived_worker_wrong
+    env["FAKE_DERIVED_WORKER_START_FAILURE"] = "1" if derived_worker_start_failure else "0"
     if env_extra is not None:
         env["FAKE_ENV_EXTRA"] = env_extra
     if graph_list_composed is not None:
@@ -1697,3 +1702,155 @@ def test_other_roles_never_list_or_remove_services_by_name(tmp_path, service_typ
     compose = _compose(log)
     assert DELPHI_PS not in compose
     assert _compose_rm(compose) == []
+
+
+# --- Derived topic maps: nothing without their exact lines ------------------
+# The worker (delphi-derived-worker) starts on the Delphi box only on the
+# exact line POLIS_JOBS_DERIVED_WORKER=1, after its composed settings are read
+# back; the scheduler's backfill settings (docker-compose.derived.yml) are
+# composed only with the shadow and only on the exact line
+# DELPHI_SHADOW_DERIVED_BACKFILL=1, and with no worker started its admission
+# is composed off. Every Delphi deploy removes a worker container a previous
+# deploy left, as it removes the shadow's.
+
+DERIVED_WORKER_UP = "up -d delphi-derived-worker --no-build --force-recreate"
+DERIVED_WORKER_CONFIG = COMPOSE_FILES + "--profile delphi-shadow --profile delphi-derived-worker config --format json"
+DERIVED_WORKER_RM = "rm -s -f delphi-derived-worker"
+DERIVED_FILE = "docker-compose.derived.yml"
+ADMISSION_OFF = "docker-compose.derived-admission-off.yml"
+ADMISSION_OFF_TEXT = "services:\n  delphi-shadow-scheduler:\n    environment:\n      - POLIS_JOBS_DERIVED_ADMISSION=0\n"
+ADMISSION_HELD_LINE = ("DELPHI_SHADOW_DERIVED_BACKFILL=1 with no derived topic map worker started: the scheduler starts "
+                       "with POLIS_JOBS_DERIVED_ADMISSION=0, so it asks for no map job that nothing would run")
+WORKER_ON = "POLIS_JOBS_DERIVED_WORKER=1"
+BACKFILL_ON = "DELPHI_SHADOW_DERIVED_BACKFILL=1"
+SHADOW_ON = "DELPHI_SHADOW_ENABLED=1"
+# Every derived line in a form that is not exactly on, and the switches whose
+# lines this hook never reads (they reach their processes only through the
+# composed files it adds when a line it reads is on).
+DERIVED_NOT_ON = "\n".join([
+    "POLIS_JOBS_DERIVED_WORKER=0", "POLIS_JOBS_DERIVED_WORKER=true", "POLIS_JOBS_DERIVED_WORKER=1 ",
+    "# POLIS_JOBS_DERIVED_WORKER=1", "DELPHI_SHADOW_DERIVED_BACKFILL=true", " DELPHI_SHADOW_DERIVED_BACKFILL=1",
+    "POLIS_JOBS_DERIVED_ADMISSION=1", "DELPHI_SHADOW_DERIVED_PER_CYCLE=20", "DELPHI_SHADOW_DERIVED_DAILY=2000",
+    "DELPHI_SHADOW_DERIVED_EVERY_SECONDS=60", "POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS=1"])
+
+
+def _box_dir(tmp_path):
+    return tmp_path / "root/opt/polis/polis"
+
+
+# What any derived work by the hook would name (the test's own temporary
+# directory is named after the test, so not the bare word).
+DERIVED_MARKS = re.compile(r"delphi-derived-worker|docker-compose\.derived|DERIVED|derived topic map")
+
+
+def _assert_no_derived_work(tmp_path, proc, log):
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert not [line for line in log if DERIVED_MARKS.search(line)], log
+    assert not DERIVED_MARKS.search(proc.stdout + proc.stderr)
+    assert not (_box_dir(tmp_path) / ADMISSION_OFF).exists()
+    images = _box_dir(tmp_path) / "docker-compose.images.yml"
+    assert not images.exists() or "derived" not in images.read_text()
+
+
+# The first-deploy proof: with no derived line at all, or with every derived
+# line in a form that is not exactly on, a deploy of each role makes exactly
+# the calls it makes without derived jobs, and names nothing derived.
+@pytest.mark.parametrize("service_type", sorted(UNCHANGED))
+@pytest.mark.parametrize("shadow", [None, SHADOW_ON])
+@pytest.mark.parametrize("derived", [None, DERIVED_NOT_ON])
+def test_with_no_derived_line_on_a_deploy_does_no_derived_work(tmp_path, service_type, shadow, derived):
+    extra = "\n".join(x for x in (shadow, derived) if x) or None
+    proc, log = _deploy(tmp_path, service_type, env_extra=extra)
+    _assert_no_derived_work(tmp_path, proc, log)
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    expected = UNCHANGED[service_type] + ([DELPHI_SHADOW_UP] if shadow and service_type == "delphi" else [])
+    assert ups == expected
+
+
+@pytest.mark.parametrize("shadow", [None, SHADOW_ON])
+def test_the_derived_worker_starts_on_its_exact_line_before_the_shadow(tmp_path, shadow):
+    extra = "\n".join(x for x in (WORKER_ON, shadow) if x)
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert _calls(log, "docker-compose").count(DERIVED_WORKER_CONFIG) == 1
+    ups = [c for c in _compose(log) if c.startswith("up")]
+    assert ups == UNCHANGED["delphi"] + [DERIVED_WORKER_UP] + ([DELPHI_SHADOW_UP] if shadow else [])
+    images = (_box_dir(tmp_path) / "docker-compose.images.yml").read_text()
+    assert f"  delphi-derived-worker:\n    image: {IMAGES['delphi']}\n" in images
+    assert "POLIS_JOBS_DERIVED_WORKER=1: starting the derived topic map worker (delphi-derived-worker)" in proc.stdout
+    # Without the backfill's line the scheduler composes no derived setting.
+    assert not [c for c in _calls(log, "docker-compose") if DERIVED_FILE in c or ADMISSION_OFF in c]
+
+
+@pytest.mark.parametrize("service_type", ["server", "math"])
+def test_other_roles_never_start_the_derived_worker(tmp_path, service_type):
+    proc, log = _deploy(tmp_path, service_type, env_extra="\n".join([WORKER_ON, SHADOW_ON, BACKFILL_ON]))
+    _assert_no_derived_work(tmp_path, proc, log)
+
+
+@pytest.mark.parametrize("wrong,named", [("delphi-derived-worker.QUEUE_DATABASE_URL",) * 2,
+                                         ("delphi-derived-worker.POLIS_JOBS_ENV delphi-derived-worker.DATABASE_URL",) * 2,
+                                         ("__fail__", "unreadable")])
+def test_a_worker_whose_settings_cannot_work_is_not_started_and_the_deploy_goes_on(tmp_path, wrong, named):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=WORKER_ON, derived_worker_wrong=wrong)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert DERIVED_WORKER_UP not in _compose(log)
+    lines = [line for line in proc.stderr.splitlines() if "derived" in line]
+    assert lines == [f"The derived topic map worker's composed settings cannot work ({named}); not starting it"]
+    assert "example.invalid" not in proc.stdout + proc.stderr
+
+
+def test_a_worker_that_fails_to_start_does_not_fail_the_deploy(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=WORKER_ON, derived_worker_start_failure=True)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert "The derived topic map worker did not start; the deploy continues without it" in proc.stderr
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"] + [DERIVED_WORKER_UP]
+
+
+def test_the_backfill_with_the_worker_composes_its_settings_and_admission_as_set(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra="\n".join([SHADOW_ON, BACKFILL_ON, WORKER_ON]))
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    calls = _calls(log, "docker-compose")
+    assert COMPOSE_FILES + f"-f {DERIVED_FILE} " + DELPHI_SHADOW_UP in calls
+    assert not (_box_dir(tmp_path) / ADMISSION_OFF).exists()
+    assert ADMISSION_HELD_LINE not in proc.stderr
+    ups = [c for c in _compose(log) if c.startswith("up") or "up -d" in c]
+    assert ups == UNCHANGED["delphi"] + [DERIVED_WORKER_UP, f"-f {DERIVED_FILE} " + DELPHI_SHADOW_UP]
+
+
+@pytest.mark.parametrize("worker,wrong", [(None, None), (WORKER_ON, "delphi-derived-worker.QUEUE_DATABASE_URL")])
+def test_the_backfill_with_no_worker_started_asks_for_nothing(tmp_path, worker, wrong):
+    extra = "\n".join(x for x in (SHADOW_ON, BACKFILL_ON, "POLIS_JOBS_DERIVED_ADMISSION=1", worker) if x)
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra, derived_worker_wrong=wrong)
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    assert (_box_dir(tmp_path) / ADMISSION_OFF).read_text() == ADMISSION_OFF_TEXT
+    assert ADMISSION_HELD_LINE in proc.stderr.splitlines()
+    calls = _calls(log, "docker-compose")
+    assert COMPOSE_FILES + f"-f {DERIVED_FILE} -f {ADMISSION_OFF} " + DELPHI_SHADOW_UP in calls
+    assert DERIVED_WORKER_UP not in _compose(log)
+
+
+def test_the_backfill_line_without_the_shadow_does_nothing(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=BACKFILL_ON)
+    _assert_no_derived_work(tmp_path, proc, log)
+    assert [c for c in _compose(log) if c.startswith("up")] == UNCHANGED["delphi"]
+
+
+# The way back: a deploy with the worker's line off removes the container a
+# previous deploy started (before the engine's start) and starts nothing of
+# it; switched on, it is removed and started again on the new image.
+@pytest.mark.parametrize("extra", [None, "POLIS_JOBS_DERIVED_WORKER=0", "# POLIS_JOBS_DERIVED_WORKER=1"])
+def test_switching_the_worker_off_removes_its_container(tmp_path, extra):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=extra, compose_ps="math-python delphi-derived-worker")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose.count(DERIVED_WORKER_RM) == 1
+    assert compose.index("down") < compose.index(DERIVED_WORKER_RM) < compose.index(UNCHANGED["delphi"][0])
+    assert DERIVED_WORKER_UP not in compose
+
+
+def test_switched_on_a_worker_left_running_is_removed_and_started_again(tmp_path):
+    proc, log = _deploy(tmp_path, "delphi", env_extra=WORKER_ON, compose_ps="math-python delphi-derived-worker")
+    assert proc.returncode == 0, proc.stdout + proc.stderr
+    compose = _compose(log)
+    assert compose.index(DERIVED_WORKER_RM) < compose.index(UNCHANGED["delphi"][0]) < compose.index(DERIVED_WORKER_UP)

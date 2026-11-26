@@ -68,7 +68,7 @@ async function one<T>(text: string, values?: unknown[]): Promise<T> {
   return Object.values(result.rows[0] ?? {})[0] as T;
 }
 
-describe("the Delphi job table (000023) with large class (000024) and graph stages (000027)", () => {
+describe("the Delphi job table (000023) with large class (000024), graph stages (000027) and the derived stage (000050)", () => {
   it("records contract polis-queue/5 in the queue's install row", async () => {
     expect(
       await one<string>(
@@ -103,14 +103,14 @@ describe("the Delphi job table (000023) with large class (000024) and graph stag
     },
   );
 
-  it("admits exactly noop, both daemon stages, rebuild and the three graph stages, and holds no job of any", async () => {
+  it("admits exactly noop, both daemon stages, rebuild, the graph stages and the derived stage, and holds no job of any", async () => {
     expect(
       await one<string>(
         "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
           "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'polis_queue_jobs_stage_check'",
       ),
     ).toBe(
-      "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_topics'::text, 'graph_narrative'::text])))",
+      "CHECK ((stage = ANY (ARRAY['noop'::text, 'delphi_full_pipeline'::text, 'delphi_narrative'::text, 'math_rebuild'::text, 'graph_embed'::text, 'graph_cluster'::text, 'graph_topics'::text, 'graph_narrative'::text, 'delphi_derived'::text]))) NOT VALID",
     );
     expect(
       await one<number>(
@@ -119,14 +119,14 @@ describe("the Delphi job table (000023) with large class (000024) and graph stag
     ).toBe(0);
   });
 
-  it("admits exactly noop, delphi and large, with large required for rebuild and optional for graph clustering", async () => {
+  it("admits exactly noop, delphi, large and derived, with large required for rebuild and optional for graph clustering, and derived exactly for the derived stage", async () => {
     expect(
       await one<string>(
         "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
           "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'polis_queue_jobs_worker_class_check'",
       ),
     ).toBe(
-      "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text])))",
+      "CHECK ((worker_class = ANY (ARRAY['noop'::text, 'delphi'::text, 'large'::text, 'derived'::text]))) NOT VALID",
     );
     expect(
       await one<string>(
@@ -135,6 +135,14 @@ describe("the Delphi job table (000023) with large class (000024) and graph stag
       ),
     ).toBe(
       "CHECK ((((stage = 'math_rebuild'::text) AND (worker_class = 'large'::text)) OR ((stage = 'graph_cluster'::text) AND (worker_class = ANY (ARRAY['delphi'::text, 'large'::text]))) OR ((stage <> ALL (ARRAY['math_rebuild'::text, 'graph_cluster'::text])) AND (worker_class <> 'large'::text))))",
+    );
+    expect(
+      await one<string>(
+        "SELECT pg_get_constraintdef(oid) FROM pg_constraint " +
+          "WHERE conrelid = 'public.polis_queue_jobs'::regclass AND conname = 'pq_stage_derived'",
+      ),
+    ).toBe(
+      "CHECK (((stage = 'delphi_derived'::text) = (worker_class = 'derived'::text))) NOT VALID",
     );
   });
 

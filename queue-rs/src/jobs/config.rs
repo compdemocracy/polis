@@ -106,6 +106,12 @@ pub struct Config {
     /// names it in `inputs.bundle`. Holds the database setting the rows are
     /// read with: the child's own `DATABASE_URL`. Off, the frame is today's.
     pub input_bundle_dsn: Option<String>,
+    /// One switch, default off (`POLIS_JOBS_EMBEDDINGS_REUSE=1`), effective
+    /// only with `embeddings_table` and the input bundle: the bundle of a
+    /// full-pipeline child also carries the stored embeddings of its
+    /// conversation and model (`jobs::reuse`), named in `inputs.embeddings`.
+    /// Off, or without either of the other two, the frame is today's.
+    pub embeddings_reuse: bool,
     pub lease_seconds: u32,
     pub heartbeat_seconds: u32,
     pub child_timeout: Duration,
@@ -291,6 +297,8 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     } else {
         None
     };
+    // Same rule: only "1". Inert unless the table and the bundle are on too.
+    let embeddings_reuse = get("POLIS_JOBS_EMBEDDINGS_REUSE").as_deref() == Some("1");
     Ok(Load::Ready(Box::new(Config {
         dsn,
         env,
@@ -302,6 +310,7 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
         stages,
         embeddings_table,
         input_bundle_dsn,
+        embeddings_reuse,
         lease_seconds: lease as u32,
         heartbeat_seconds: heartbeat as u32,
         child_timeout: Duration::from_secs(child_timeout),
@@ -469,6 +478,16 @@ mod tests {
         let mut pairs = BASE.to_vec();
         pairs.push(("POLIS_JOBS_INPUT_BUNDLE", "1"));
         assert!(with(&pairs).is_err(), "on without DATABASE_URL is refused");
+    }
+
+    #[test]
+    fn embeddings_reuse_flag_is_off_unless_exactly_one() {
+        assert!(!ready(&BASE).embeddings_reuse);
+        for (value, on) in [("1", true), ("0", false), ("true", false), ("", false)] {
+            let mut pairs = BASE.to_vec();
+            pairs.push(("POLIS_JOBS_EMBEDDINGS_REUSE", value));
+            assert_eq!(ready(&pairs).embeddings_reuse, on, "{value:?}");
+        }
     }
 
     #[test]
