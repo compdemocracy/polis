@@ -365,6 +365,10 @@ impl Drawn {
         // One candidate: the candidate list is exactly the chosen comment, so
         // its order digest is known.
         if self.candidate_count == 1 {
+            // Adding one weight to zero is exact: no summation allowance.
+            if lane.normaliser > WEIGHT_CEILING {
+                return Err(fail());
+            }
             let only = Candidates::new(vec![self.comment]).map_err(|_| fail())?;
             if only.order_digest() != self.candidate_order_digest {
                 return Err(fail());

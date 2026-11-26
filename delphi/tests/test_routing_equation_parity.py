@@ -9,6 +9,10 @@ changes without a new rule version and fixture: it re-runs every recorded
 case through today's function and compares the function's source hash with
 the one the fixture recorded.
 
+Only priority_metric itself is source-hashed. Called helpers, constants and
+configuration are checked through their outputs on this finite corpus.
+Upstream count/extremity computation is not executed by this test.
+
 The fixtures are read from /app/routing-equation-fixtures (copied there by
 ci/local/delphi-python.sh), or from the repository when the test runs from a
 checkout. A missing fixture fails; it never skips.

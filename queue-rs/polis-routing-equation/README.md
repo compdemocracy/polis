@@ -272,9 +272,8 @@ turn the tests red.
 
 **What is not proven.** That any rule is better for participants. That a caller
 will feed the crate the counts of the right tick, with agrees and disagrees in
-the right fields. Recorded replays of the public conversations, and a Python
-test that fails when the Python formula changes without this crate following,
-are the next piece.
+the right fields. The recorded public replays and the scalar Python drift
+test below check a fixed input corpus; they do not certify the live pipeline.
 
 ### The recorded public replays
 
@@ -286,7 +285,9 @@ was fed and every priority it returned: VW 10 ticks and 1,034 comment cells,
 biodiversity 10 ticks and 2,189 cells (150 of them meta comments), and 8
 constructed ticks with 34 cells (one comment, which gives fewer than two PCA
 component rows; new comments; groups changing between ticks; a moderation
-change). `tests/parity_historical.rs` feeds each tick's recorded counts and
+change). A separate empty recompute records no PCA and no priority calls,
+bringing the constructed total to 9 ticks, still 34 cells.
+`tests/parity_historical.rs` feeds each tick's recorded counts and
 extremities to `historical/1` at its defaults: **all 3,257 cells agree bit for
 bit; the largest relative difference is 0** (tolerance 1e-12, exact zeros
 exact). For one comment per conversation the fixture also carries an extremity
@@ -299,7 +300,10 @@ its agree (disagree) value equal the comments export's `agrees` (`disagrees`)
 for every comment (125 and 316); and each participant's latest vote, folded
 independently, equals the engine's loaded vote matrix comment by comment at
 every prefix. The first proves the export's sign is read as the export
-declares it; the second, that the loader neither flipped nor dropped a vote.
+declares it; the second checks the latest per-comment counts. These totals
+detect the tested flips, agree/disagree swaps and raw-row/latest-row mixups;
+they do not prove participant identities or that every intermediate re-vote
+was processed. Permuting participants can preserve every column total.
 
 What the replays prove: given exactly the counts and extremities the Python
 engine fed its priority formula while replaying these two public conversations
@@ -368,7 +372,15 @@ recorded replay through today's `priority_metric` and compares its source hash
 with the one the grid recorded; when the Python formula changes it fails with
 "the routing equation changed in Python; record a new rule version and its
 fixture in the routing equation crate and move the binding in the same change;
-never edit historical/1's fixture". The Delphi Python check copies
-`tests/fixtures` into its container read-only and checks it against
-`tests/fixtures/SHA256SUMS`; a missing or changed file fails. Fixtures are
-added, never changed: `SHA256SUMS` may only grow, and only the binding may move.
+never edit historical/1's fixture". This hashes only the scalar function
+body. Changes to constants, configuration or called helpers are caught when
+they change a recorded output. Helper changes outside this corpus, new
+behaviour behind inactive settings, and upstream changes to extremity or
+count construction can pass: the test reuses recorded inputs and does not
+replay the engine. A complete pipeline drift check is separate. The Delphi
+Python check copies `tests/fixtures` into its container read-only and checks
+it against `tests/fixtures/SHA256SUMS`; a missing or changed file fails. The
+Rust check also requires the bound rule to be registered and to reproduce the
+bound grid; each new rule needs an explicit parity evaluator. Fixtures are
+added, never changed: `SHA256SUMS` may only grow, and only the binding may
+move.

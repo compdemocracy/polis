@@ -178,3 +178,26 @@ fn recorded_replays_reproduce_through_historical_1() {
         total.ticks, total.cells, total.bit_exact, total.max_rel
     );
 }
+
+#[test]
+fn empty_engine_recompute_records_no_priority_calls() {
+    let fixture: Value =
+        serde_json::from_str(include_str!("fixtures/historical-1/no-calls.json")).unwrap();
+    assert_eq!(fixture["header"]["rule"], "historical/1");
+    let ticks = fixture["ticks"].as_array().unwrap();
+    assert_eq!(ticks.len(), 1);
+    let tick = &ticks[0];
+    assert_eq!(tick["no_priority_calls"], true);
+    assert_eq!(tick["calls"], 0);
+    assert_eq!(tick["columns"], 0);
+    assert!(tick["pca"].is_null());
+    assert!(tick["priorities"].as_object().unwrap().is_empty());
+    let cells = tick["cells"].as_array().unwrap();
+    assert!(cells.is_empty());
+    let result = weights(cells, None);
+    assert_eq!(result.scored().count(), 0);
+    assert_eq!(result.unscored().count(), 0);
+    let mut tally = Tally::default();
+    compare(ticks, &mut tally);
+    assert_eq!(tally.no_call_ticks, 1);
+}

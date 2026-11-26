@@ -325,3 +325,27 @@ fn impossible_mapped_totals_and_single_candidate_digests_are_refused() {
     println!("accepted impossible receipts (mapped totals, digests): {accepted:?}");
     assert!(accepted.is_empty());
 }
+
+#[test]
+fn one_candidate_cannot_have_a_total_above_the_weight_ceiling() {
+    let id = CommentId::new(17);
+    let map = StoredWeights::new(src("math"), [(id, StoredWeight::Number(3.0))]).unwrap();
+    let good = stored_weights_1(
+        Some(&map),
+        &Candidates::new(vec![id]).unwrap(),
+        Unit::new(0.5).unwrap(),
+        &src("participant"),
+    )
+    .unwrap()
+    .to_plain();
+    assert!(Drawn::from_plain(&good).is_ok());
+    let too_large = serde_json::Number::from_f64(1.5 * WEIGHT_CEILING)
+        .unwrap()
+        .to_string();
+    let bad = good.replace(
+        r#""normaliser":3.0"#,
+        &format!(r#""normaliser":{too_large}"#),
+    );
+    assert_ne!(good, bad);
+    assert!(Drawn::from_plain(&bad).is_err());
+}
