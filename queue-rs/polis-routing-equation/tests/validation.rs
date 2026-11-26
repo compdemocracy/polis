@@ -94,17 +94,21 @@ fn constructors_reject_invalid_values() {
     }
     assert_eq!(cdf(&[], unit), Err(DrawRefusal::Empty));
     assert!(cdf(&[1e150], unit).is_ok());
-    // At most 2^24 candidates: one more is refused for its length before
+    // At most 2^24 candidates (the contract's number, written here rather
+    // than read from the crate's constant): one more is refused for its length before
     // anything else; exactly 2^24 is not refused for its length.
-    let at_limit = vec![id; MAX_CANDIDATES];
+    // The contract's number, written here rather than read from the crate.
+    const LIMIT: usize = 1 << 24;
+    assert_eq!(MAX_CANDIDATES, LIMIT);
+    let at_limit = vec![id; LIMIT];
     assert_eq!(
         Candidates::new(at_limit),
         Err(DrawRefusal::DuplicateCandidate(id))
     );
-    let over = vec![id; MAX_CANDIDATES + 1];
+    let over = vec![id; LIMIT + 1];
     assert_eq!(
         Candidates::new(over),
-        Err(DrawRefusal::TooManyCandidates(MAX_CANDIDATES + 1))
+        Err(DrawRefusal::TooManyCandidates(LIMIT + 1))
     );
     // The stored JSON: only an object of canonical decimal ids to a number,
     // null or false.
@@ -133,4 +137,22 @@ fn constructors_reject_invalid_values() {
         Some(StoredWeight::Number(-2.0))
     );
     assert_eq!(read.get(CommentId::new(4)), None);
+    // A weight that leaves the range is refused at the step where it left,
+    // by name. At the defaults with no votes and E = 1e150, the running
+    // product is 0.5, then 0.5 x (1e150 + 1) = 5e149, then x 0.5 = 2.5e149,
+    // then x the novelty 9 = 2.25e150, above 1e150: refused at the novelty.
+    let counts = HistoricalCountFrame::new(src("c"), [(id, Counts::default())]).unwrap();
+    let e = ExtremityFrame::new(src("e"), [(id, Extremity::new(1e150).unwrap())]).unwrap();
+    assert_eq!(
+        historical_1(
+            &HistoricalParams::default(),
+            &counts,
+            &e,
+            &MetaComments::none()
+        ),
+        Err(Refusal::WeightOutOfRange {
+            comment: id,
+            term: "novelty"
+        })
+    );
 }
