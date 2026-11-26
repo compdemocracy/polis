@@ -32,16 +32,19 @@
 //!   `Cache-Control: private, no-store` and `Vary: Authorization,
 //!   Accept-Encoding`.
 //! - Every other reader, signed in or not, receives each comment that is held
-//!   back now ([`held_back`]: moderated out, `comments.mod = -1`; inactive,
-//!   `active = false`; or muted, `velocity <= 0`) as a bare point
+//!   back now as a bare point, by the run's selection ([`Rule`],
+//!   [`held_back`]): from the map of every comment and the map of everything
+//!   not moderated out, a comment moderated out (`comments.mod = -1`); from
+//!   the participants' map, and a run with no selection or one this route
+//!   does not know, a comment participants are not shown (moderated out,
+//!   inactive, muted, or not accepted under strict moderation)
 //!   ([`public_form`]): its position, no id, no topic, and the count of such
 //!   points in `points.moderatedOut`. A topic left with no member this
 //!   reader may see is not sent; a topic with a held-back member is sent
 //!   with the neutral name `Topic <cluster>` and its label placed over its
 //!   visible members only; the labels' colours are chosen again from what
 //!   is sent. A map that holds no held-back comment is sent as stored, byte
-//!   for byte. A comment not yet moderated (`mod = 0`, under strict
-//!   moderation too) is not held back. The held-back comments are read on
+//!   for byte. The held-back comments are read on
 //!   the route's own read pool, in the same connection as the map, one
 //!   indexed statement, when the request starts: a moderation committed
 //!   while a read is under way reaches the next request.
@@ -931,6 +934,7 @@ async fn answer(
                 job: job.clone(),
                 gzip,
                 tags: tags.clone(),
+                forms: RuleForms::default(),
                 form: String::new(),
                 derived: app.delphi_topic_map_derived,
             });
@@ -940,39 +944,69 @@ async fn answer(
     let state = app.delphi_topic_map.clone();
     let reading = place.clone();
     // Every side on one connection, one after the other: the first side with
-    // something stored answers; when none has, the first side's answer.
+    // something stored answers; when none has, preserve a known named
+    // run over a side where that job does not exist.
     let read = pool
         .with(move |c| {
             let _place = reading;
             classified((|| {
-                // What is held back now, before the map: one indexed read.
-                // More than a reader's form is made for: no map.
-                let hidden = if moderator {
-                    Vec::new()
+                // What is held back now under each rule, before the map: one
+                // indexed read. A moderator is shown everything.
+                let held = if moderator {
+                    HeldBack::nothing()
                 } else {
-                    match held_back(c, zid)? {
-                        Some(hidden) => hidden,
-                        None => return Ok(None),
-                    }
+                    held_back(c, zid)?
                 };
-                let form = reader_form(state.validator_key(), zid, &hidden);
+                // More than a reader's form is made for under even the
+                // narrower rule: no map, whatever the run.
+                if held.moderated_out.is_none() {
+                    return Ok(None);
+                }
+                let forms = held.forms(state.validator_key(), zid);
+                // The answer and what is held back from it, by the rule its
+                // run's selection names; more than a reader's form is made
+                // for under that rule: no map.
+                let answer = |read: Read, source, scope| {
+                    let rule = rule_of(read.selection.as_deref());
+                    let hidden = held.under(rule)?.to_vec();
+                    let form = forms.of(rule).to_owned();
+                    Some((read, source, scope, hidden, form))
+                };
                 let mut first = None;
                 for (source, scope, ask) in asks {
                     let read = match ask {
                         Some(mut ask) => {
-                            ask.form = form.clone();
+                            ask.forms = forms.clone();
                             read(c, ask, &state)?
                         }
                         None => unread(named_run),
                     };
                     if !nothing_stored(&read.found) {
-                        return Ok(Some((read, source, scope, hidden, form)));
+                        return Ok(answer(read, source, scope));
                     }
-                    first.get_or_insert((read, source, scope));
+                    // A named run can exist only on the later side without
+                    // storing a map. Keep that answer over an earlier side's
+                    // missing job, so a listed run is not reported absent.
+                    if matches!(
+                        &first,
+                        Some((
+                            Read {
+                                found: Found::NoSuchRun,
+                                ..
+                            },
+                            _,
+                            _
+                        ))
+                    ) && matches!(read.found, Found::NoMap { .. })
+                    {
+                        first = Some((read, source, scope));
+                    } else {
+                        first.get_or_insert((read, source, scope));
+                    }
                 }
                 let (read, source, scope) =
                     first.ok_or_else(|| anyhow::anyhow!("no side to read"))?;
-                Ok(Some((read, source, scope, hidden, form)))
+                Ok(answer(read, source, scope))
             })())
         })
         .await;
@@ -1082,24 +1116,109 @@ async fn moderates(app: &App, authorization: &str, zid: i32) -> Option<Result<bo
     }
 }
 
-/// The ids of the conversation's comments held back from a reader who is not
-/// a moderator, in order: moderated out (`mod = -1`, the moderation list's
-/// `polisTypes.mod.ban`), inactive (`active = false`) or muted
-/// (`velocity <= 0`), the states Node's participant list leaves out
-/// (`server/src/comment.ts`, `participantVisibleClause`). A comment not yet
-/// moderated (`mod = 0`) is not held back, under strict moderation too: a
-/// job that laid it out may show it. One statement on the comments' `(zid)`
-/// index, which reads at most one id past [`MAX_HELD_BACK`]: `None` when the
-/// conversation holds back more than that.
-fn held_back(c: &mut postgres::Client, zid: i32) -> anyhow::Result<Option<Vec<i64>>> {
+/// Which comments a reader who is not a moderator is not shown, by the kind
+/// of run whose map it is ([`rule_of`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Rule {
+    /// The map of every comment (`all_comments`) and the map of everything
+    /// not moderated out (`all_but_moderated_out`): a comment moderated out
+    /// now (`mod = -1`, the moderation list's `polisTypes.mod.ban`).
+    /// Inactive, muted or not yet moderated alone does not hold one back.
+    ModeratedOut,
+    /// The participants' map (`participant_visible`): a comment participants
+    /// are not shown now, by Node's participant list
+    /// (`server/src/comment.ts`, `participantVisibleClause`): one that is
+    /// not active, or is muted (`velocity <= 0`), or is moderated out, or,
+    /// under strict moderation, is not accepted (`mod <> 1`).
+    Participant,
+}
+
+/// The rule for a run whose configuration names `selection` (`<rule>/<n>`):
+/// a run with none, or one this route does not know (runs made before
+/// selections were recorded were participants' runs), gets the stricter,
+/// participants' rule.
+pub(crate) fn rule_of(selection: Option<&str>) -> Rule {
+    match selection.and_then(|s| Selection::parse(s.split('/').next().unwrap_or(""))) {
+        Some(Selection::AllComments | Selection::AllButModeratedOut) => Rule::ModeratedOut,
+        Some(Selection::ParticipantVisible) | None => Rule::Participant,
+    }
+}
+
+/// The ids held back now under each [`Rule`], in order; `None` for a rule
+/// under which the conversation holds back more than [`MAX_HELD_BACK`].
+pub(crate) struct HeldBack {
+    pub(crate) moderated_out: Option<Vec<i64>>,
+    pub(crate) participant: Option<Vec<i64>>,
+}
+
+impl HeldBack {
+    /// What a moderator is not shown: nothing.
+    pub(crate) fn nothing() -> Self {
+        Self {
+            moderated_out: Some(Vec::new()),
+            participant: Some(Vec::new()),
+        }
+    }
+    pub(crate) fn under(&self, rule: Rule) -> Option<&[i64]> {
+        match rule {
+            Rule::ModeratedOut => self.moderated_out.as_deref(),
+            Rule::Participant => self.participant.as_deref(),
+        }
+    }
+    /// The reader's form ([`reader_form`]) under each rule; a rule with more
+    /// held back than a form is made for gets none (its answer is no map).
+    fn forms(&self, key: &[u8; 32], zid: i32) -> RuleForms {
+        let form = |rule| {
+            self.under(rule)
+                .map_or_else(String::new, |ids| reader_form(key, zid, ids))
+        };
+        RuleForms {
+            moderated_out: form(Rule::ModeratedOut),
+            participant: form(Rule::Participant),
+        }
+    }
+}
+
+/// The reader's form under each [`Rule`], for a read to choose from once it
+/// knows its run's selection.
+#[derive(Clone, Default)]
+struct RuleForms {
+    moderated_out: String,
+    participant: String,
+}
+
+impl RuleForms {
+    fn of(&self, rule: Rule) -> &str {
+        match rule {
+            Rule::ModeratedOut => &self.moderated_out,
+            Rule::Participant => &self.participant,
+        }
+    }
+}
+
+/// The ids of the conversation's comments held back now under each [`Rule`]
+/// ([`HeldBack`]). One statement: the conversation's `strict_moderation` by
+/// its key, and the comments on their `(zid)` index, reading at most one id
+/// past [`MAX_HELD_BACK`] for each rule.
+pub(crate) fn held_back(c: &mut postgres::Client, zid: i32) -> anyhow::Result<HeldBack> {
     let row = c.query_one(
-        "SELECT COALESCE(array_agg(tid ORDER BY tid), '{}'::bigint[]) FROM \
-         (SELECT tid::bigint AS tid FROM public.comments \
-          WHERE zid=$1 AND (mod=-1 OR active IS NOT TRUE OR velocity<=0) ORDER BY 1 LIMIT $2) h",
+        "WITH s AS (SELECT COALESCE((SELECT strict_moderation FROM public.conversations \
+           WHERE zid=$1 LIMIT 1), false) AS strict) \
+         SELECT (SELECT COALESCE(array_agg(tid ORDER BY tid), '{}'::bigint[]) FROM \
+           (SELECT tid::bigint AS tid FROM public.comments \
+            WHERE zid=$1 AND mod=-1 ORDER BY 1 LIMIT $2) o), \
+          (SELECT COALESCE(array_agg(tid ORDER BY tid), '{}'::bigint[]) FROM \
+           (SELECT c.tid::bigint AS tid FROM public.comments c, s \
+            WHERE c.zid=$1 AND (c.active=true AND c.velocity>0 \
+              AND CASE WHEN s.strict THEN c.mod=1 ELSE c.mod <> -1 END) IS NOT TRUE \
+            ORDER BY 1 LIMIT $2) p)",
         &[&zid, &(MAX_HELD_BACK as i64 + 1)],
     )?;
-    let hidden = row.try_get::<_, Vec<i64>>(0)?;
-    Ok((hidden.len() <= MAX_HELD_BACK).then_some(hidden))
+    let within = |ids: Vec<i64>| (ids.len() <= MAX_HELD_BACK).then_some(ids);
+    Ok(HeldBack {
+        moderated_out: within(row.try_get(0)?),
+        participant: within(row.try_get(1)?),
+    })
 }
 
 /// What a reader's ETag adds to the stored digest: nothing when no comment
@@ -1916,7 +2035,10 @@ struct Ask {
     job: Option<String>,
     gzip: bool,
     tags: Vec<String>,
-    /// What this reader's ETag adds to the stored digest ([`reader_form`]).
+    /// The reader's form under each rule ([`HeldBack::forms`]).
+    forms: RuleForms,
+    /// What this reader's ETag adds to the stored digest ([`reader_form`]):
+    /// the form under the rule of the run read, chosen once it is known.
     form: String,
     /// Whether derived maps are read (`POLIS_API_DELPHI_TOPIC_MAP_DERIVED_READS`):
     /// off, no derived lookup of any kind is made.
@@ -1968,7 +2090,7 @@ struct Unverified {
 
 /// The run, then its map's part, on one connection: indexed reads and the
 /// result store's own functions, nothing computed here.
-fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Read> {
+fn read(c: &mut postgres::Client, mut ask: Ask, state: &State) -> anyhow::Result<Read> {
     // The derived job a request named, when it named one: see below.
     let mut via: Option<String> = None;
     let (job, selection, mut artifact) = match &ask.job {
@@ -2079,6 +2201,9 @@ fn read(c: &mut postgres::Client, ask: Ask, state: &State) -> anyhow::Result<Rea
             (job.clone(), selection, None)
         }
     };
+    // What is held back follows the run's selection; a derived job's map is
+    // its source run's.
+    ask.form = ask.forms.of(rule_of(selection.as_deref())).to_owned();
     let mut scope = ask.job.is_none().then(|| ask.scope.clone());
     if ask.job.is_some() {
         // The named run's own result artifact, from its record. Only a family

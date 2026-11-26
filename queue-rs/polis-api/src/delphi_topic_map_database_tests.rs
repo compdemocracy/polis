@@ -32,7 +32,8 @@ pub(crate) fn stand_ins(c: &mut postgres::Client, reports: bool) {
     c.batch_execute(
         "CREATE TABLE IF NOT EXISTS users(uid integer, site_id text);
          CREATE TABLE IF NOT EXISTS oidc_user_mappings(uid integer, oidc_sub text);
-         CREATE TABLE IF NOT EXISTS conversations(zid integer, owner integer);
+         CREATE TABLE IF NOT EXISTS conversations(zid integer, owner integer,
+           strict_moderation boolean NOT NULL DEFAULT false);
          CREATE TABLE IF NOT EXISTS comments(zid integer, tid integer, mod integer,
            active boolean NOT NULL DEFAULT true, velocity real NOT NULL DEFAULT 1);
          CREATE TABLE delphi_result_publications(env text, zid integer, scope_key text,
@@ -1489,10 +1490,12 @@ fn moderated_out_comments_are_bare_points_to_all_but_moderators() {
 }
 
 /// A map with one comment of each state: what a reader who is not a
-/// moderator receives for each, as Node's participant list decides it
-/// (`active`, `velocity`), except that a comment not yet moderated is shown.
+/// moderator receives for each from the participants' map, as Node's
+/// participant list decides it (`active`, `velocity`; without strict
+/// moderation a comment not yet moderated is shown), and from the map of
+/// every comment, which holds back only what is moderated out.
 #[test]
-fn inactive_and_muted_comments_are_held_back_and_unmoderated_ones_are_not() {
+fn inactive_and_muted_comments_are_held_back_from_the_participants_map_only() {
     let db = Db::new("held_back");
     let every = stored(small_map());
     {
@@ -1510,6 +1513,14 @@ fn inactive_and_muted_comments_are_held_back_and_unmoderated_ones_are_not() {
             &mut c,
             "test",
             ZID,
+            "delphi",
+            "participant_visible/1",
+            Some(&map_family(ZID, &every)),
+        );
+        served(
+            &mut c,
+            "test",
+            ZID,
             "delphi:all_comments",
             "all_comments/1",
             Some(&map_family(ZID, &every)),
@@ -1521,7 +1532,7 @@ fn inactive_and_muted_comments_are_held_back_and_unmoderated_ones_are_not() {
             app.clone(),
             None,
             with(
-                "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments",
+                "/api/v3/delphi/topicMap?report_id=r1&selection=participant_visible",
                 &[],
             ),
         )
@@ -1539,6 +1550,23 @@ fn inactive_and_muted_comments_are_held_back_and_unmoderated_ones_are_not() {
             &reader_form(app.delphi_topic_map.validator_key(), ZID, &[10, 11]),
         );
         assert_eq!(tag, format!("W/\"{expected}\""));
+        // The map of every comment: none of these is moderated out, so it is
+        // sent as stored, with the stored digest as its tag.
+        let out = crate::dispatch(
+            app.clone(),
+            None,
+            with(
+                "/api/v3/delphi/topicMap?report_id=r1&selection=all_comments",
+                &[],
+            ),
+        )
+        .await;
+        assert_eq!(out.status, 200, "{}", text(&out));
+        assert!(bytes(&out) == every.document.as_bytes(), "sent as stored");
+        assert_eq!(
+            header(&out, "ETag").unwrap(),
+            format!("W/\"{}\"", every.sha256)
+        );
     });
 }
 
@@ -3150,4 +3178,317 @@ fn a_named_derived_job_answers_as_its_source() {
             text(&out)
         );
     });
+}
+
+#[test]
+fn a_listed_shadow_run_without_a_map_is_found_when_no_source_is_named() {
+    let db = Db::new("listed_shadow_without_map");
+    let shadow = "shadow-test";
+    let mut c = db.connect();
+    c.batch_execute(&format!(
+        "INSERT INTO reports VALUES('r1',{ZID}),('foreign',77)"
+    ))
+    .unwrap();
+    let jobs: Vec<_> = [None, Some("participant_visible/1"), Some("all_comments/1")]
+        .into_iter()
+        .map(|selection| {
+            let job = listed_run(
+                &mut c,
+                shadow,
+                ZID,
+                selection.unwrap_or(""),
+                "2026-11-17T08:31:00.000000Z",
+                None,
+                None,
+            );
+            if selection.is_none() {
+                c.execute(
+                    "UPDATE delphi_result_jobs SET job_config='{}' WHERE job_id=$1",
+                    &[&job],
+                )
+                .unwrap();
+            }
+            job
+        })
+        .collect();
+    drop(c);
+    runtime().block_on(async {
+        // Both a configured served env with no such job and shadow-only
+        // mode must preserve the shadow's known run without a stored map.
+        for served in ["test", ""] {
+            let mut app = app_on(&db);
+            app.delphi_topic_map_env = served.into();
+            app.delphi_topic_map_shadow_env = Some(shadow.into());
+            let app = Arc::new(app);
+            let out = crate::dispatch(
+                app.clone(),
+                None,
+                with("/api/v3/delphi/topicMap?report_id=r1&list=jobs", &[]),
+            )
+            .await;
+            let list = listed(&out);
+            assert_eq!(list.jobs.len(), jobs.len());
+            assert!(list.jobs.iter().any(|j| j.selection.is_none()));
+            for job in &jobs {
+                assert!(list.jobs.iter().any(|j| &j.job_id == job));
+                for source in ["&source=shadow", ""] {
+                    let out = crate::dispatch(
+                        app.clone(),
+                        None,
+                        with(
+                            &format!("/api/v3/delphi/topicMap?report_id=r1&job_id={job}{source}"),
+                            &[],
+                        ),
+                    )
+                    .await;
+                    assert_eq!(
+                        out.status,
+                        200,
+                        "served={served:?} source={source:?}: {}",
+                        text(&out)
+                    );
+                    let body: serde_json::Value = serde_json::from_slice(&bytes(&out)).unwrap();
+                    assert_eq!(body["job_id"], *job);
+                    assert_eq!(body["source"], "shadow");
+                    assert_eq!(body["reason"], "not_stored");
+                }
+                for query in [
+                    format!("report_id=r1&job_id={job}&source=served"),
+                    format!("report_id=foreign&job_id={job}"),
+                ] {
+                    let out = crate::dispatch(
+                        app.clone(),
+                        None,
+                        with(&format!("/api/v3/delphi/topicMap?{query}"), &[]),
+                    )
+                    .await;
+                    assert_eq!(out.status, 404, "{}", text(&out));
+                }
+            }
+            let unknown = uuid(0x8000);
+            let out = crate::dispatch(
+                app,
+                None,
+                with(
+                    &format!("/api/v3/delphi/topicMap?report_id=r1&job_id={unknown}"),
+                    &[],
+                ),
+            )
+            .await;
+            assert_eq!(out.status, 404);
+        }
+    });
+}
+
+/// A conversation under strict moderation, its map holding a comment
+/// moderated out (14), one not yet moderated and inactive (12), one not yet
+/// moderated and active (10) and two accepted (11, 13): what a reader who is
+/// not a moderator receives from each kind of run, and what a moderator does.
+/// The map of every comment and the map of everything not moderated out
+/// hold back only what is moderated out; the participants' map, and a run
+/// with no selection or one this route does not know, hold back what
+/// participants are not shown now.
+#[test]
+fn what_is_held_back_follows_the_runs_selection() {
+    let db = Db::new("three_states");
+    let every = stored(small_map());
+    let report = "r0examplereportid0000";
+    let named = {
+        let mut c = db.connect();
+        c.batch_execute(&format!(
+            "INSERT INTO reports VALUES('{report}',{ZID});
+             INSERT INTO users VALUES(3,'owners');
+             INSERT INTO oidc_user_mappings VALUES(3,'owner');
+             INSERT INTO conversations(zid,owner,strict_moderation) VALUES({ZID},3,true);
+             INSERT INTO comments(zid,tid,mod,active,velocity) VALUES({ZID},10,0,true,1),
+               ({ZID},11,1,true,1),({ZID},12,0,false,1),({ZID},13,1,true,1),({ZID},14,-1,true,1);"
+        ))
+        .unwrap();
+        for (scope, selection) in [
+            ("delphi", "participant_visible/1"),
+            ("delphi:all_comments", "all_comments/1"),
+            ("delphi:all_but_moderated_out", "all_but_moderated_out/1"),
+        ] {
+            served(
+                &mut c,
+                "test",
+                ZID,
+                scope,
+                selection,
+                Some(&map_family(ZID, &every)),
+            );
+        }
+        // Runs named by job id: one made before runs recorded a selection,
+        // one whose selection this route does not know.
+        let mut named = vec![];
+        for selection in [None, Some("a_later_rule/1")] {
+            let (job, artifact) = (uuid(0x8000), uuid(0xa000));
+            run(
+                &mut c,
+                "test",
+                &job,
+                ZID,
+                "COMPLETED",
+                selection.unwrap_or(""),
+                Some((artifact.as_str(), job.as_str())),
+            );
+            wire_at(&mut c, "test", &artifact, &map_family(ZID, &every), &job);
+            if selection.is_none() {
+                c.execute(
+                    "UPDATE delphi_result_jobs SET job_config='{}' WHERE job_id=$1",
+                    &[&job],
+                )
+                .unwrap();
+            }
+            named.push(job);
+        }
+        named
+    };
+    let mut app = app_on(&db);
+    let signer = Signer::new(&mut app);
+    let owner = signer.bearer("owner");
+    let app = Arc::new(app);
+    let base = format!("/api/v3/delphi/topicMap?report_id={report}");
+    // What the query names, the ids sent in order, the grey count, and how
+    // many topics are sent under the neutral name.
+    let broad = (vec![Some(10), Some(11), Some(12), Some(13), None], 1, 1);
+    let participant = (vec![Some(11), Some(13), None, None, None], 3, 4);
+    let cases = [
+        ("&selection=all_comments".to_owned(), broad.clone()),
+        ("&selection=all_but_moderated_out".to_owned(), broad),
+        (
+            "&selection=participant_visible".to_owned(),
+            participant.clone(),
+        ),
+        ("".to_owned(), participant.clone()),
+        (format!("&job_id={}", named[0]), participant.clone()),
+        (format!("&job_id={}", named[1]), participant),
+    ];
+    runtime().block_on(async {
+        for (query, (ids, grey, neutral)) in cases {
+            let url = format!("{base}{query}");
+            let out = crate::dispatch(app.clone(), None, with(&url, &[])).await;
+            assert_eq!(out.status, 200, "{url}: {}", text(&out));
+            let doc: contract::TopicMap = serde_json::from_slice(&bytes(&out)).unwrap();
+            assert_eq!(doc.points.id, ids, "{url}");
+            assert_eq!(doc.points.moderated_out, grey, "{url}");
+            let neutrals = doc
+                .topics
+                .iter()
+                .filter(|t| t.name.starts_with("Topic "))
+                .count();
+            assert_eq!(neutrals, neutral, "{url}");
+            // A topic whose every member is held back is not sent.
+            assert!(doc.topics.iter().all(|t| t.id != "0_2"), "{url}");
+
+            // A moderator receives every run's map as stored.
+            let out = crate::dispatch(
+                app.clone(),
+                None,
+                with(&url, &[("authorization", owner.as_str())]),
+            )
+            .await;
+            assert_eq!(out.status, 200, "{url}: {}", text(&out));
+            assert!(bytes(&out) == every.document.as_bytes(), "{url}: as stored");
+        }
+    });
+}
+
+/// Every state a comment can be in (strict moderation or not; moderated out,
+/// not yet moderated, accepted; active or not; muted or not), and whether a
+/// reader is shown it in a map holding it, as the statement the route sends
+/// decides it: a moderator is shown all; from the map of every comment and
+/// the map of everything not moderated out, only what is moderated out is
+/// held back; from the participants' map, and from a run with no selection
+/// or one this route does not know, what participants are not shown.
+#[test]
+fn every_comment_state_is_held_back_by_the_rule_of_its_runs_selection() {
+    // (strict, mod, active, velocity > 0, held back from the broad maps,
+    // held back from the participants' map); H is true.
+    const H: bool = true;
+    const V: bool = false;
+    let table: [(bool, i32, bool, bool, bool, bool); 24] = [
+        (false, -1, true, true, H, H),
+        (false, -1, true, false, H, H),
+        (false, -1, false, true, H, H),
+        (false, -1, false, false, H, H),
+        (false, 0, true, true, V, V),
+        (false, 0, true, false, V, H),
+        (false, 0, false, true, V, H),
+        (false, 0, false, false, V, H),
+        (false, 1, true, true, V, V),
+        (false, 1, true, false, V, H),
+        (false, 1, false, true, V, H),
+        (false, 1, false, false, V, H),
+        (true, -1, true, true, H, H),
+        (true, -1, true, false, H, H),
+        (true, -1, false, true, H, H),
+        (true, -1, false, false, H, H),
+        (true, 0, true, true, V, H),
+        (true, 0, true, false, V, H),
+        (true, 0, false, true, V, H),
+        (true, 0, false, false, V, H),
+        (true, 1, true, true, V, V),
+        (true, 1, true, false, V, H),
+        (true, 1, false, true, V, H),
+        (true, 1, false, false, V, H),
+    ];
+    let db = Db::new("every_state");
+    let (lenient, strict) = (ZID, ZID + 1);
+    let mut c = db.connect();
+    c.batch_execute(&format!(
+        "INSERT INTO conversations(zid,owner,strict_moderation) VALUES({lenient},3,false),({strict},3,true)"
+    ))
+    .unwrap();
+    for (tid, &(is_strict, m, active, moving, _, _)) in table.iter().enumerate() {
+        // Muted is velocity 0 or below: both are written.
+        let velocity: f32 = if moving {
+            1.0
+        } else if active {
+            0.0
+        } else {
+            -1.0
+        };
+        c.execute(
+            "INSERT INTO comments(zid,tid,mod,active,velocity) VALUES($1,$2,$3,$4,$5)",
+            &[
+                &if is_strict { strict } else { lenient },
+                &(tid as i32),
+                &m,
+                &active,
+                &velocity,
+            ],
+        )
+        .unwrap();
+    }
+    let held = [
+        (lenient, held_back(&mut c, lenient).unwrap()),
+        (strict, held_back(&mut c, strict).unwrap()),
+    ];
+    let moderator = HeldBack::nothing();
+    for selection in [
+        Some("all_comments/1"),
+        Some("all_but_moderated_out/1"),
+        Some("participant_visible/1"),
+        Some("participant_visible"),
+        None,
+        Some("a_later_rule/1"),
+        Some(""),
+    ] {
+        let rule = rule_of(selection);
+        for (tid, &(is_strict, m, active, moving, broad, participant)) in table.iter().enumerate() {
+            let zid = if is_strict { strict } else { lenient };
+            let set = &held.iter().find(|(z, _)| *z == zid).unwrap().1;
+            let hidden = set.under(rule).unwrap().contains(&(tid as i64));
+            let expected = match selection.and_then(|s| s.split('/').next()) {
+                Some("all_comments" | "all_but_moderated_out") => broad,
+                _ => participant,
+            };
+            assert_eq!(
+                hidden, expected,
+                "selection {selection:?}: strict {is_strict}, mod {m}, active {active}, velocity>0 {moving}"
+            );
+            assert!(!moderator.under(rule).unwrap().contains(&(tid as i64)));
+        }
+    }
 }
