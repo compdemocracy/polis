@@ -93,7 +93,9 @@ render(
       onDrawingChange: (value) => chooseDrawing(value),
       document: inlined,
       fetch: (url, init) => fetchFn(url, init),
-      commentText: !offline,
+      // A standalone page has comment text only when its data carries the
+      // comment list (offline.js).
+      commentText: !offline || Boolean(offline.comments),
       header: h(JobChooser, {
         list: () => list(),
         jobId: () => jobId(),

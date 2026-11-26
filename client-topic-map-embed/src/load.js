@@ -26,11 +26,19 @@
  *    include_voting_patterns, which adds vote counts to the same rows; the
  *    tooltips need none, so it is left out. When no moderation level can be
  *    had, no comment text is asked for.
+ * 4. Only in the dense drawing (never in the map's own drawing), once per
+ *    drawn map and reader, beside the comment list and after the report read
+ *    above (the same one, never a second), the conversation's math result
+ *    (deepZoom.js joins it):
+ *      GET /api/v3/math/pca2?conversation_id=<conversation id>
+ *    the request the report pages make for it, answered from the server's
+ *    own cache of the math result.
  * Nothing else: no datamapplot listing.
  */
 export const TOPIC_MAP_PATH = "/api/v3/delphi/topicMap";
 export const REPORTS_PATH = "/api/v3/reports";
 export const COMMENTS_PATH = "/api/v3/comments";
+export const MATH_PATH = "/api/v3/math/pca2";
 export const SCHEMA = "polis-topic-map/1";
 
 /* The comment rules a map can be made under, as the route names them. */
@@ -141,7 +149,7 @@ function init(token) {
 
 /* One GET; { status, body } with body null when it is not JSON, or null when
    the request itself failed. Never throws. */
-async function getJson(fetchFn, url, token) {
+export async function getJson(fetchFn, url, token) {
   let response;
   try {
     response = await fetchFn(url, init(token));
@@ -233,6 +241,36 @@ export async function readCommentText(
     if (c && Number.isInteger(c.tid) && typeof c.txt === "string") text.set(c.tid, c.txt);
   }
   return text;
+}
+
+/* The report's conversation id and moderation level, as readCommentText reads
+   them: { conversationId, modLevel } (modLevel null when the report gives
+   none), or null when the report does not answer with a conversation. Never
+   throws. */
+export async function readReport(fetchFn, reportId, { origin = "", token = null } = {}) {
+  const report = await getJson(fetchFn, reportUrl(reportId, origin), token);
+  const row = report && report.status === 200 && Array.isArray(report.body) ? report.body[0] : null;
+  const conversationId = row && typeof row.conversation_id === "string" ? row.conversation_id : null;
+  if (!conversationId) return null;
+  return { conversationId, modLevel: modLevelOrNull(row.mod_level) };
+}
+
+export function mathUrl(conversationId, origin = "") {
+  return `${origin}${MATH_PATH}?${new URLSearchParams({ conversation_id: conversationId })}`;
+}
+
+/* The math result, or null for any answer that does not carry per-group
+   counts (group-votes as an object). */
+export function answerToMath(status, body) {
+  if (status !== 200 || !body || typeof body !== "object") return null;
+  const gv = body["group-votes"];
+  return gv && typeof gv === "object" && !Array.isArray(gv) ? body : null;
+}
+
+/* Asks for the math result once; the result or null. Never throws. */
+export async function readMath(fetchFn, conversationId, { origin = "", token = null } = {}) {
+  const answer = await getJson(fetchFn, mathUrl(conversationId, origin), token);
+  return answer ? answerToMath(answer.status, answer.body) : null;
 }
 
 /* The page's address:

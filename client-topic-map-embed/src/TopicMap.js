@@ -47,6 +47,10 @@
  * comes from the report's comment list under the report's moderation level,
  * asked for at the first pointer move over the map and kept in memory for
  * that reader only (load.js names the requests; commentText.js the keeping).
+ * In the dense drawing the comment list is asked for as soon as the map is
+ * drawn, with the conversation's math result beside it, and both are joined
+ * onto the points with a comment id for the deepest zoom (deepZoom.js); the
+ * map's own drawing never asks for the math result.
  *
  * The map itself is client-topic-map's PolisTopicMap, used as it is. The
  * row of buttons is the host's, as the prototype's host page writes it: one
@@ -57,9 +61,9 @@ import { createEffect, createSignal, onCleanup, untrack } from "solid-js";
 import h from "@solidjs/h";
 import PolisTopicMapDense from "../../client-topic-map/dense.js";
 import PolisTopicMap from "../../client-topic-map/topic-map.js";
-import { isDense, mapRequest, readCommentText, readTopicMap, TEXT } from "./load.js";
-import { commentTextFor } from "./commentText.js";
-import { countLine, fillText, withTooltipText } from "./points.js";
+import { isDense, mapRequest, readTopicMap, TEXT } from "./load.js";
+import { readerDataFor, wireMap } from "./deepZoom.js";
+import { countLine, withTooltipText } from "./points.js";
 import { chromeProperties, themeFor } from "./themes.js";
 
 const RULES = [
@@ -100,17 +104,19 @@ export default function TopicMap(props) {
   let drawnWith = null; // the drawing the map was last given (null: its own)
 
   const fetchFn = () => untrack(() => props.fetch) || globalThis.fetch.bind(globalThis);
-  // This component's comment text, for one reader at a time (commentText.js),
-  // made afresh with every read of the map.
-  const freshText = () => commentTextFor((reader) => readCommentText(fetchFn(), reader.reportId, reader));
-  let textFor = freshText();
+  // This component's comment text and math result, for one reader at a time
+  // (commentText.js keeps it; deepZoom.js reads it), made afresh with every
+  // read of the map.
+  const freshData = () => readerDataFor((url, init) => fetchFn()(url, init));
+  let dataFor = freshData();
+  let wiring = null;
 
   // The one read: again if the report, the run, the rule, the document or
   // the reader's token, conversation or moderation level changes; the old map and text go.
   createEffect(
     () => [props.reportId, props.jobId, props.selection, props.document, props.token, props.conversationId, props.modLevel],
     ([reportId, jobId, selection, doc, token]) => {
-      textFor = freshText();
+      dataFor = freshData();
       if (doc) {
         setState({ kind: "map", doc });
         return undefined;
@@ -168,25 +174,23 @@ export default function TopicMap(props) {
       mapElement.addEventListener("topichover", onHover);
       mapElement.addEventListener("levelchange", onLevel);
       mapElement.addEventListener("levelchange", onLevelShown);
-      let asked = false;
-      const askText = () => {
-        if (asked) return;
-        asked = true;
-        mapElement.removeEventListener("pointermove", askText);
-        const reportId = untrack(() => props.reportId);
-        if (!reportId || untrack(() => props.commentText) === false) return;
-        textFor({
-          reportId,
-          conversationId: untrack(() => props.conversationId),
-          modLevel: untrack(() => props.modLevel),
-          token: untrack(() => props.token),
-        }).then((byId) => {
-          if (map === made) fillText(data, byId);
-        });
-      };
-      mapElement.addEventListener("pointermove", askText);
+      const reportId = untrack(() => props.reportId);
+      const inputs =
+        reportId && untrack(() => props.commentText) !== false
+          ? dataFor({
+              reportId,
+              conversationId: untrack(() => props.conversationId),
+              modLevel: untrack(() => props.modLevel),
+              token: untrack(() => props.token),
+            })
+          : null;
+      // The map's own drawing: text at the first pointer move. The dense
+      // drawing: text and the math result at once, joined after the map draws.
+      const wired = wireMap({ map: made, element: mapElement, data, inputs, drawing: drawnWith });
+      wiring = wired;
       return () => {
-        mapElement.removeEventListener("pointermove", askText);
+        wired.destroy();
+        if (wiring === wired) wiring = null;
         mapElement.removeEventListener("topicselect", onSelect);
         mapElement.removeEventListener("topichover", onHover);
         mapElement.removeEventListener("levelchange", onLevel);
@@ -211,7 +215,8 @@ export default function TopicMap(props) {
     (drawing) => {
       if (!map || drawing === drawnWith) return;
       drawnWith = drawing;
-      map.setDrawing(drawing);
+      if (wiring) wiring.setDrawing(drawing);
+      else map.setDrawing(drawing);
     },
   );
 
