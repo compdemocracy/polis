@@ -87,3 +87,21 @@ def test_the_real_program_without_a_price_makes_no_call_and_says_no_price(tmp_pa
     assert result["outcome"] == "no_price" and result["names"] == {}
     assert result["tokens_in"] is None and result["tokens_out"] is None and result["dollars"] is None
     assert os.listdir(tmp_path / "work") == []
+
+
+def test_the_map_records_the_namer_provider_in_algorithm_facts(monkeypatch):
+    from polismath import step_log
+    from polismath.delphi_storage.topic_map import execution_record
+
+    monkeypatch.setattr(step_log, "_record", None)
+    for namer, provider in ((HAIKU, None), (BEDROCK, "bedrock")):
+        step_log.record()
+        result = topic_namer._result(namer, "no_price")
+        step_log.note("topic_names", **topic_namer.step_facts(result))
+        execution = execution_record(step_log.recorded(), "participant_visible/1")
+        assert execution["steps"] == []
+        [facts] = execution["algorithms"]["topic_names"]
+        assert facts["namer"] == topic_namer.namer_argument(namer)
+        assert facts.get("namer_provider") == provider
+        if provider is None:
+            assert "namer_provider" not in facts

@@ -123,9 +123,10 @@ pub const JOB_ID: &str = "job_id";
 /// `too_large` above it).
 pub const ROW_LIMIT: usize = 1_048_576;
 
-/// The fact of a `topic_names` step in a map's provenance naming the
-/// provider its namer named (`bedrock`); absent for the default, the Claude
-/// API (`anthropic`).
+/// The fact at `provenance.execution.algorithms.topic_names[]` naming the
+/// provider a model namer was given (`bedrock`); absent for the default, the
+/// Claude API (`anthropic`). This default applies only to an entry with a
+/// `namer` fact, not to a keyword or legacy naming entry without one.
 pub const NAMER_PROVIDER: &str = "namer_provider";
 /// The provider a namer names when it names none.
 pub const DEFAULT_NAMER_PROVIDER: &str = "anthropic";
@@ -556,11 +557,12 @@ pub struct TopicMap {
     /// counts), written by the step that stored it; absent from documents
     /// made before the step wrote one. Who named the topics is
     /// `models.topic` (the model, or `keywords` for the keyword fallback);
-    /// the namer a model-named run was given is in its `topic_names` steps
-    /// (`execution.steps`), whose facts carry [`NAMER_PROVIDER`] only when
-    /// the namer named a provider other than the default: absent, the namer
-    /// was the Claude API's, and every map stored before the provider existed
-    /// reads that way. Sent as stored.
+    /// the namer a run was given is in `execution.algorithms.topic_names`.
+    /// Those entries carry a `namer` fact and [`NAMER_PROVIDER`] only when
+    /// that namer named a provider other than the default. A `namer` with no
+    /// provider names the Claude API; an entry with no `namer` makes no such
+    /// claim. The timed entries in `execution.steps` do not carry these
+    /// algorithm facts. Sent as stored.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub provenance: Option<serde_json::Value>,
 }
@@ -843,7 +845,7 @@ mod tests {
         // keeps insertion order.
         let doc = |extra: &str| {
             format!(
-                r#"{{"schema":"polis-topic-map/1","title":"","attribution":"","run":{{"jobId":"j","topicModel":"claude-haiku-5-5","createdAt":null}},"bounds":[-1.5,1.5,-2.0,2.0],"pointRadius":0.11,"levels":[],"topics":[],"points":{{"id":[],"x":[],"y":[],"topic":[],"text":[]}},"provenance":{{"execution":{{"steps":[{{"layer":0,"model":"claude-haiku-5-5","namer":"n"{extra},"note":"topic_names","outcome":"named","prompt":"polis-topic-names/1","provider":"polis-topic-names","reason":null,"thinking":"default"}}]}},"models":{{"embed":"e","narrative":null,"topic":"claude-haiku-5-5"}},"schema":"polis-topic-map.provenance/1"}}}}"#
+                r#"{{"schema":"polis-topic-map/1","title":"","attribution":"","run":{{"jobId":"j","topicModel":"claude-haiku-5-5","createdAt":null}},"bounds":[-1.5,1.5,-2.0,2.0],"pointRadius":0.11,"levels":[],"topics":[],"points":{{"id":[],"x":[],"y":[],"topic":[],"text":[]}},"provenance":{{"execution":{{"algorithms":{{"topic_names":[{{"layer":0,"model":"claude-haiku-5-5","namer":"n"{extra},"outcome":"named","prompt":"polis-topic-names/1","provider":"polis-topic-names","reason":null,"thinking":"default"}}]}},"steps":[]}},"models":{{"embed":"e","narrative":null,"topic":"claude-haiku-5-5"}},"schema":"polis-topic-map.provenance/1"}}}}"#
             )
         };
         let old = doc("");
@@ -851,7 +853,7 @@ mod tests {
         for (doc, provider) in [(&old, None), (&new, Some("bedrock"))] {
             let parsed: TopicMap = serde_json::from_str(doc).unwrap();
             assert_eq!(&serde_json::to_string(&parsed).unwrap(), doc);
-            let step = &parsed.provenance.unwrap()["execution"]["steps"][0];
+            let step = &parsed.provenance.unwrap()["execution"]["algorithms"]["topic_names"][0];
             assert_eq!(step[NAMER_PROVIDER].as_str(), provider);
             assert_eq!(
                 step[NAMER_PROVIDER]
