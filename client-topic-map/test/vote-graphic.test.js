@@ -38,11 +38,14 @@ function recorder() {
   return { ctx, calls };
 }
 
+// The first drawing: every member to scale along the row.
+const FIRST = { didNotVoteMax: 1 };
+
 const segs = (L) => L.bars.flatMap((b) => b.segments.map((s) => Object.assign({ bar: b }, s)));
 const sum = (xs) => xs.reduce((a, b) => a + b, 0);
 
 test("rows: the exact rectangles for four hand-made groups at 34 by 14", () => {
-  const L = G.layout(FOUR, BOX, {});
+  const L = G.layout(FOUR, BOX, FIRST);
   assert.equal(L.empty, false);
   assert.deepEqual(L.row, { height: 2, gap: 1, top: 1, x: 0, width: 34 });
   const got = L.bars.map((b) => b.segments.map((s) => [s.kind, s.x, s.y, s.w, s.h]));
@@ -61,12 +64,49 @@ test("rows: the exact rectangles for four hand-made groups at 34 by 14", () => {
   assert.equal(L.rects.find((r) => r.group === 0 && r.kind === "agree").alpha, 1);
 });
 
-test("rows: colours are the report's agree, disagree and pass", () => {
+test("rows by default: the did-not-vote part is its share times a quarter, so each row stays nearly full", () => {
   const L = G.layout(FOUR, BOX, {});
-  const fill = (k) => L.rects.find((r) => r.kind === k).fill;
-  assert.equal(fill("agree"), "rgb(46, 204, 113)");
-  assert.equal(fill("disagree"), "rgb(231, 76, 60)");
-  assert.equal(fill("pass"), "rgb(230, 230, 230)");
+  assert.deepEqual(L.row, { height: 2, gap: 1, top: 1, x: 0, width: 34 });
+  assert.deepEqual(L.bars.map((b) => b.segments.map((s) => [s.kind, s.x, s.y, s.w, s.h])), [
+    [["agree", 0, 1, 14, 2], ["disagree", 14, 1, 4, 2], ["pass", 18, 1, 13, 2], ["didNotVote", 31, 1, 3, 2]],
+    [["agree", 0, 4, 26, 2], ["didNotVote", 26, 4, 8, 2]],
+    [["didNotVote", 0, 7, 34, 2]],
+    [["agree", 0, 10, 31, 2], ["disagree", 31, 10, 3, 2]],
+  ]);
+  // at the size beside a comment in a list: 4 px rows
+  const M = G.layout(FOUR, { x: 0, y: 0, width: 150, height: 20 }, {});
+  assert.deepEqual(M.row, { height: 4, gap: 1, top: 0, x: 0, width: 150 });
+  assert.deepEqual(M.bars.map((b) => b.segments.map((s) => [s.kind, s.w])),
+    [[["agree", 61], ["disagree", 16], ["pass", 60], ["didNotVote", 13]], [["agree", 113], ["didNotVote", 37]], [["didNotVote", 150]], [["agree", 135], ["disagree", 15]]]);
+  // half of a group did not vote: an eighth of the row
+  const H = G.layout([g("A", 5, 5, 0, 10)], { x: 0, y: 0, width: 40, height: 4 }, { didNotVoteMax: 0.25 });
+  assert.deepEqual(H.bars[0].segments.map((s) => [s.kind, s.w]), [["agree", 18], ["disagree", 17], ["didNotVote", 5]]);
+});
+
+test("rows: the default colours, the first drawing's colours, and colours given by the caller", () => {
+  const L = G.layout(FOUR, BOX, {});
+  const fill = (k, X) => (X || L).rects.find((r) => r.kind === k).fill;
+  assert.equal(fill("agree"), "#004d40");
+  assert.equal(fill("disagree"), "#eb5b3f");
+  assert.equal(fill("pass"), "#8e949c");
+  assert.equal(fill("didNotVote"), "#e6e9ed");
+  assert.equal(fill("dot"), "#8f96a0");
+  const F = G.layout(FOUR, BOX, { colors: G.FIRST_SCHEMES.light, didNotVoteMax: 1 });
+  assert.equal(fill("agree", F), "rgb(46, 204, 113)");
+  assert.equal(fill("disagree", F), "rgb(231, 76, 60)");
+  assert.equal(fill("pass", F), "rgb(230, 230, 230)");
+  const C = G.layout(FOUR, BOX, { colors: { disagree: "#ff0000" } });
+  assert.equal(fill("disagree", C), "#ff0000");
+  assert.equal(fill("agree", C), "#004d40", "a colour not given keeps the scheme's");
+  // the darkest colour is agree, and disagree is far lighter (the cut between them shows)
+  const lum = (hex) => {
+    const c = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => (Math.max(lum(a), lum(b)) + 0.05) / (Math.min(lum(a), lum(b)) + 0.05);
+  assert.ok(ratio(G.SCHEMES.light.agree, G.SCHEMES.light.disagree) >= 2.8);
+  assert.ok(ratio(G.SCHEMES.light.agree, "#ffffff") >= 7);
+  assert.ok(ratio(G.SCHEMES.light.tint, "#ffffff") >= 1.2, "the did-not-vote tint shows on white");
   const D = G.layout(FOUR, BOX, { scheme: "dark" });
   assert.notEqual(D.rects.find((r) => r.kind === "didNotVote").fill, fill("didNotVote"));
 });
@@ -149,7 +189,10 @@ for (const form of ["rows", "poured"]) {
           const votedW = sum(votes.map((s) => s.w));
           if (c.voted === 0) { assert.equal(votedW, 0); assert.equal(sum(rest.map((s) => s.w)), b.w); return; }
           if (b.part === "lower") assert.equal(votedW, b.w, "the lower bar is all votes");
-          else assert.ok(Math.abs(votedW - b.w * c.voted / c.members) <= 2.0001, "the voted part is near its share");
+          else if (form === "rows" && c.didNotVote > 0) {
+            const restW = b.w - votedW;
+            assert.ok(Math.abs(restW - b.w * 0.25 * c.didNotVote / c.members) <= 1.0001, "did not vote: its share times a quarter");
+          } else assert.ok(Math.abs(votedW - b.w * c.voted / c.members) <= 2.0001, "the voted part is near its share");
           // whole pixels, and at least one for any kind of vote that was cast: within a pixel per kind cast
           for (const s of votes) {
             const exact = votedW * c[s.kind] / c.voted;
@@ -174,7 +217,7 @@ test("a group with no voters draws its full row as remainder, dotted", () => {
 });
 
 test("did not see, when known, is split from saw and did not vote", () => {
-  const L = G.layout([g("A", 10, 10, 0, 20, 15), g("B", 10, 0, 0, 0, 0)], { x: 0, y: 0, width: 40, height: 9 }, {});
+  const L = G.layout([g("A", 10, 10, 0, 20, 15), g("B", 10, 0, 0, 0, 0)], { x: 0, y: 0, width: 40, height: 9 }, FIRST);
   assert.deepEqual(L.bars[0].segments.map((s) => [s.kind, s.x, s.w]),
     [["agree", 0, 10], ["disagree", 10, 10], ["sawDidNotVote", 20, 5], ["didNotSee", 25, 15]]);
   assert.match(G.caption(L), /did not see/);
@@ -258,4 +301,35 @@ test("apportion: parts sum to the width; a value above zero gets at least a pixe
 test("settings are checked", () => {
   assert.throws(() => G.layout(FOUR, BOX, { form: "ribbon" }), /form/);
   assert.throws(() => G.layout(FOUR, BOX, { scheme: "beige" }), /scheme/);
+  for (const v of [0, -1, 1.5, "x"]) assert.throws(() => G.layout(FOUR, BOX, { didNotVoteMax: v }), /didNotVoteMax/);
+  assert.throws(() => G.layout(FOUR, BOX, { colors: "red" }), /colors/);
+});
+
+test("readout: the numbers per group, in plain words, from the groups or from a layout", () => {
+  const R = G.readout(FOUR);
+  assert.deepEqual(R.lines, [
+    "Group A: 70 agreed, 18 disagreed, 68 passed, 87 did not vote (156 of 243 voted).",
+    "Group B: 1 agreed, 0 disagreed, 0 passed, 4756 did not vote (1 of 4757 voted).",
+    "Group C: 0 agreed, 0 disagreed, 0 passed, 20 did not vote (0 of 20 voted).",
+    "Group D: 9 agreed, 1 disagreed, 0 passed, 0 did not vote (10 of 10 voted).",
+  ]);
+  assert.equal(R.text, R.lines.join("\n"));
+  assert.deepEqual(R.groups[0], { label: "A", agree: 70, disagree: 18, pass: 68, didNotVote: 87, didNotSee: null,
+    voted: 156, members: 243, text: R.lines[0] });
+  for (const form of ["rows", "poured"]) assert.deepEqual(G.readout(G.layout(FOUR, BOX, { form })), R);
+  assert.equal(G.readout([g("A", 1, 2, 3, 20, 15)]).lines[0],
+    "Group A: 1 agreed, 2 disagreed, 3 passed, 20 did not vote (6 of 26 voted); of those who did not vote, 15 did not see it.");
+  assert.deepEqual(G.readout([]).lines, []);
+});
+
+test("hit: which group is under a point, for hover and click", () => {
+  const box = { x: 10, y: 20, width: 34, height: 14 };
+  const L = G.layout(FOUR, box, {});          // rows 2 px, gap 1, top 21
+  assert.deepEqual([[11, 21], [11, 23], [43, 24], [11, 30], [11, 33]].map(([x, y]) => G.hit(L, x, y)), [0, 0, 1, 3, 3]);
+  assert.equal(G.hit(L, 11, 20), 0, "above the first row, inside the box: the first group");
+  assert.equal(G.hit(L, 9, 25), -1);
+  assert.equal(G.hit(L, 44, 25), -1);
+  const P = G.layout(FOUR, box, { form: "poured" });   // columns 7 px, gap 1, left 11
+  assert.deepEqual([[11, 25], [18, 25], [19, 25], [43, 25], [10, 25]].map(([x, y]) => G.hit(P, x, y)), [0, 0, 1, 3, 0]);
+  assert.equal(G.hit(G.layout(FOUR, { x: 0, y: 0, width: 34, height: 3 }, {}), 1, 1), -1, "an empty layout names no group");
 });

@@ -12,11 +12,14 @@
  *
  * Two forms from the same input into the same box, so a page can toggle:
  *
- *   "rows"    (the default) one row per group, A at the top. The full length of
- *             a row is every member of the group. From the left: agree,
- *             disagree, pass, as shares of those who voted, within the part
- *             of the row that voted; the rest of the row, those who did not
- *             vote, is a light tint with light dots.
+ *   "rows"    (the default) one row per group, A at the top. From the left:
+ *             agree, disagree, pass, as shares of those who voted; then those
+ *             who did not vote, a light tint with dots, at the right end. The
+ *             did-not-vote part takes its share of the group times
+ *             `didNotVoteMax` (a quarter by default), so every row stays a
+ *             nearly full bar and the four rows read as one whole form; with
+ *             `didNotVoteMax: 1` the row's full length is every member (the
+ *             first drawing). The exact numbers are in `readout`.
  *   "poured"  one column per group, A at the left. The upper bar is every
  *             member (the votes from the left, the rest dotted); the votes
  *             pour down from the voted part of the upper bar and widen, in an
@@ -36,10 +39,35 @@
 (function (root) {
   "use strict";
 
-  // The colours of the report's vote bars (client-report, globals.js: agree,
-  // disagree, pass). The remainder's tint and dots are this module's own,
-  // one pair for each ground the map page has (white, and #111214 dark).
+  // The default colours, one set for each ground the map page has (white, and
+  // #111214 dark): a dark agree and a light, strong red disagree, far apart in
+  // lightness so the cut between them shows at a few pixels; a mid grey pass;
+  // a light tint with dots for those who did not vote, darker than the ground
+  // so every row keeps its full length. Any of them is overridden with the
+  // `colors` setting ({ agree, disagree, pass, tint, dots, letter }).
   var SCHEMES = {
+    light: {
+      agree: "#004d40",
+      disagree: "#eb5b3f",
+      pass: "#8e949c",
+      tint: "#e6e9ed",
+      dots: "#8f96a0",
+      letter: "#2b3038"
+    },
+    dark: {
+      agree: "#4fd1a5",
+      disagree: "#f0502d",
+      pass: "#7d838c",
+      tint: "#24272c",
+      dots: "#6b717a",
+      letter: "#d6d9de"
+    }
+  };
+
+  // The colours of the first drawing: the report's vote bars (client-report,
+  // globals.js: agree, disagree, pass) with a lighter tint and dots. Kept so a
+  // page can still draw it: { colors: FIRST_SCHEMES.light, didNotVoteMax: 1 }.
+  var FIRST_SCHEMES = {
     light: {
       agree: "rgb(46, 204, 113)",
       disagree: "rgb(231, 76, 60)",
@@ -73,7 +101,9 @@
     pouredHeights: [8, 12, 10], // upper bar, liquid, lower bar, in proportion (the experiment's inline heights)
     mouthMin: 2,             // the voted part of the upper bar is never narrower than this, px, when anyone voted
     letters: false,          // draw the group letters (rows form only, and only when a row is 6 px or taller)
-    face: DEFAULT_FACE
+    face: DEFAULT_FACE,
+    didNotVoteMax: 0.25,     // rows: the did-not-vote part's length is its share of the group times this; 1 = every member to scale
+    colors: null             // { agree, disagree, pass, tint, dots, letter }: any of them over the scheme's
   };
 
   function merge(settings) {
@@ -82,6 +112,10 @@
     if (settings) for (var j in settings) if (settings[j] !== undefined) s[j] = settings[j];
     if (s.form !== "rows" && s.form !== "poured") throw new Error("form must be \"rows\" or \"poured\": " + s.form);
     if (!SCHEMES[s.scheme]) throw new Error("scheme must be \"light\" or \"dark\": " + s.scheme);
+    var m = Number(s.didNotVoteMax);
+    if (!(m > 0 && m <= 1)) throw new Error("didNotVoteMax must be above 0 and at most 1: " + s.didNotVoteMax);
+    s.didNotVoteMax = m;
+    if (s.colors !== null && typeof s.colors !== "object") throw new Error("colors must be an object of colours");
     return s;
   }
 
@@ -140,6 +174,11 @@
     var votedW, restW;
     if (whole) { votedW = c.voted > 0 ? width : 0; restW = width - votedW; }
     else if (c.members === 0 || c.voted === 0) { votedW = 0; restW = width; }
+    else if (s.form === "rows" && s.didNotVoteMax < 1 && c.didNotVote > 0 && width >= 2) {
+      // the did-not-vote part, its share of the group times didNotVoteMax, at least a pixel
+      restW = Math.min(width - 1, Math.max(1, Math.round(width * s.didNotVoteMax * c.didNotVote / c.members)));
+      votedW = width - restW;
+    }
     else {
       var split = apportion([c.voted, c.didNotVote], width, [s.form === "poured" ? s.mouthMin : 1, 1]);
       votedW = split[0]; restW = split[1];
@@ -182,8 +221,15 @@
     return { form: s.form, scheme: s.scheme, box: box, rects: [], paths: [], texts: [], groups: cs, empty: true, why: why };
   }
 
+  function palette(s) {
+    var col = {}, base = SCHEMES[s.scheme], k;
+    for (k in base) col[k] = base[k];
+    if (s.colors) for (k in base) if (s.colors[k]) col[k] = String(s.colors[k]);
+    return col;
+  }
+
   function finish(L, s) {
-    var col = SCHEMES[s.scheme];
+    var col = palette(s);
     var rects = [];
     L.bars.forEach(function (bar) {
       bar.segments.forEach(function (seg) {
@@ -219,7 +265,7 @@
       var y = top + i * (rowH + g);
       var b = barSegments(c, barX, y, barW, rowH, s, false);
       L.bars.push({ group: i, part: "row", x: barX, y: y, w: barW, h: rowH, segments: b.segments, few: c.agree + c.disagree < s.few });
-      if (letters) L.texts.push({ text: c.label, x: box.x, y: y + rowH, font: "500 " + rowH + "px " + s.face, fill: SCHEMES[s.scheme].letter });
+      if (letters) L.texts.push({ text: c.label, x: box.x, y: y + rowH, font: "500 " + rowH + "px " + s.face, fill: palette(s).letter });
     });
     return finish(L, s);
   }
@@ -362,8 +408,45 @@
     });
   }
 
-  var PolisVoteGraphic = { DEFAULTS: DEFAULTS, SCHEMES: SCHEMES, DEFAULT_FACE: DEFAULT_FACE,
-    layout: layout, draw: draw, caption: caption, groupsFromMath: groupsFromMath, apportion: apportion };
+  /*
+   * readout(groups or layoutResult): the numbers behind the graphic, for a page
+   * to show on hover or click, in plain words. Returns { groups, lines, text }:
+   * groups [{ label, agree, disagree, pass, didNotVote, didNotSee, voted,
+   * members, text }] in order; lines, each group's text; text, the lines
+   * joined by newlines. For example "Group A: 118 agreed, 9 disagreed, 52
+   * passed, 64 did not vote (179 of 243 voted)."
+   */
+  function readout(x) {
+    var cs = Array.isArray(x) ? x.map(counts) : ((x && x.groups) || []).map(counts);
+    var out = cs.map(function (c) {
+      var t = "Group " + c.label + ": " + c.agree + " agreed, " + c.disagree + " disagreed, " + c.pass + " passed, " +
+        c.didNotVote + " did not vote (" + c.voted + " of " + c.members + " voted)";
+      if (c.didNotSee !== null) t += "; of those who did not vote, " + c.didNotSee + " did not see it";
+      return { label: c.label, agree: c.agree, disagree: c.disagree, pass: c.pass, didNotVote: c.didNotVote,
+        didNotSee: c.didNotSee, voted: c.voted, members: c.members, text: t + "." };
+    });
+    var lines = out.map(function (r) { return r.text; });
+    return { groups: out, lines: lines, text: lines.join("\n") };
+  }
+
+  /*
+   * hit(layoutResult, x, y): the index of the group whose row (or column) is
+   * under the point (x, y), in the layout's CSS px, or -1 outside the box. The
+   * gap between two rows belongs to the row above it, so every point in the
+   * box names a group.
+   */
+  function hit(L, x, y) {
+    if (!L || L.empty || !L.groups.length) return -1;
+    var b = L.box;
+    if (x < b.x || y < b.y || x >= b.x + b.width || y >= b.y + b.height) return -1;
+    var n = L.groups.length, i;
+    if (L.form === "poured") i = Math.floor((x - L.column.left) / (L.column.width + L.column.gap));
+    else i = Math.floor((y - L.row.top) / (L.row.height + L.row.gap));
+    return Math.max(0, Math.min(n - 1, i));
+  }
+
+  var PolisVoteGraphic = { DEFAULTS: DEFAULTS, SCHEMES: SCHEMES, FIRST_SCHEMES: FIRST_SCHEMES, DEFAULT_FACE: DEFAULT_FACE,
+    layout: layout, draw: draw, caption: caption, readout: readout, hit: hit, groupsFromMath: groupsFromMath, apportion: apportion };
 
   root.PolisVoteGraphic = PolisVoteGraphic;
   if (typeof module !== "undefined" && module.exports) module.exports = PolisVoteGraphic;

@@ -290,6 +290,8 @@ var L = G.layout(groups, { x: 0, y: 0, width: 34, height: 14 }, { form: "rows", 
 ctx.setTransform(devicePixelRatio, 0, 0, devicePixelRatio, 0, 0);
 G.draw(ctx, L);                               // fills only, inside the box
 G.caption(L);                                 // "Each row is a group, A at the top. Agree, disagree, pass: of those who voted. Dotted: did not vote."
+G.readout(L).lines;                           // ["Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote (179 of 243 voted).", ...]
+G.hit(L, x, y);                               // the group under a point (CSS px), or -1: for hover and click
 ```
 
 `groups` is one object per opinion group, in order (A first):
@@ -306,10 +308,13 @@ Two forms, from the same groups into the same box, so a page can toggle
 between them with the `form` setting:
 
 - `"rows"` (the default), **four rows, filled**: one row per group, A at the
-  top. The whole length of a row is every member of the group. From the left:
-  agree, disagree and pass, each a share of those who voted, within the part of
-  the row that voted; the rest of the row, those who did not vote, is a light
-  tint with light dots. A group with no voters is a row of dots.
+  top. From the left: agree, disagree and pass, each a share of those who
+  voted; then, at the right end, those who did not vote, a light tint with
+  dots. The did-not-vote part's length is its share of the group times
+  `didNotVoteMax` (0.25), at least a pixel, so every row stays a nearly full
+  bar and the rows read as one whole form even when most of a group did not
+  vote; `didNotVoteMax: 1` draws every member to scale (the first drawing). A
+  group with no voters is a row of dots.
 - `"poured"`: one column per group, A at the left. The upper bar is every
   member, the votes from the left and the rest dotted; the votes pour down from
   the voted part of the upper bar in an S bend and widen to fill the lower bar,
@@ -332,8 +337,25 @@ tallest row, 4 px), `few` (a group with fewer agrees plus disagrees than this,
 dots' spacing), `pouredHeights` (upper bar, liquid, lower bar in proportion,
 8 : 12 : 10), `mouthMin` (the voted part of the poured upper bar is at least
 2 px), `letters` and `face` (the group letters at the left of rows 6 px or
-taller, in the package's face). The colours are the report's agree, disagree
-and pass.
+taller, in the package's face), `didNotVoteMax` (above), and `colors`, any of
+`{ agree, disagree, pass, tint, dots, letter }` over the scheme's. The default
+colours put a dark agree (`#004d40` on white) beside a light, strong red
+disagree (`#eb5b3f`), far apart in lightness so the cut between them shows at
+2 px rows; pass is a mid grey (`#8e949c`) and the did-not-vote tint
+(`#e6e9ed`) is darker than the ground, so each row keeps its full length.
+`SCHEMES` holds both grounds' defaults; `FIRST_SCHEMES` the colours of the
+first drawing (the report's agree, disagree and pass), drawn with
+`{ colors: FIRST_SCHEMES.light, didNotVoteMax: 1 }`.
+
+`readout(groups or layout)` gives the numbers behind the graphic in plain
+words, for a page to show on hover or click: `{ groups, lines, text }`, one
+line per group ("Group A: 118 agreed, 9 disagreed, 52 passed, 64 did not vote
+(179 of 243 voted)."). `hit(layout, x, y)` names the group whose row or column
+is under a point in the box, or -1 outside it. The page does the event
+handling; both are pure functions.
+
+At four groups, a box 14 px tall gives 2 px rows with 1 px gaps; 15 px gives
+3 px rows, 19 px gives 4 px.
 
 ## The dense drawing's rules: `dense.js`
 
