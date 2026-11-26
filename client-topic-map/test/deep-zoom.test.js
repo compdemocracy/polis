@@ -71,6 +71,8 @@ test("drawing settings: the standouts as the only labels, the budget, the box on
   assert.deepEqual(s.zoom.slot, { w: 34, h: 15, gap: 6 });
   assert.equal(Deep.drawingSettings(r, {}, false).zoom.slot, null);
   assert.equal(Deep.DEFAULTS.budget, 5);
+  assert.equal(s.zoom.comments.font, 14);
+  assert.equal(s.zoom.comments.wrap, 30);
 });
 
 test("dense labels: only the listed comments, in the list's order, none over another, at most maxLines", () => {

@@ -44,13 +44,14 @@
     budget: 5,              // standouts readable at once (the map's zoom.budget.comments)
     standout: 0.9,          // the highlights rule: the top tenth of the map, per measure
     minVotes: 5,            // and its floor of votes
-    font: 12,               // a standout's text, px
+    font: 14,               // a standout's text, px
     words: 60,              // words of a standout's text at most
-    wrap: 34,               // characters per line
+    wrap: 30,               // characters per line (about the width 34 gave at 12 px)
     maxLines: 4,            // lines at most, the last cut with "…"
     slot: { w: 34, h: 15, gap: 6 },     // the reserved box: the four rows at 34 by 15 (3 px rows)
     rule: 3,                // px: the coloured rule at a standout's left
-    card: { width: 280, rowsW: 84, rowsH: 19, pouredW: 168, pouredH: 84 },
+    // the card: its comment text (font) and its smaller lines (small), px
+    card: { width: 300, font: 14, small: 12, rowsW: 84, rowsH: 19, pouredW: 168, pouredH: 84 },
     hitRadius: 6,           // px: the least distance at which a dot answers the pointer
     scheme: "light",
     // The report's own colours for agree and disagree (client-report
@@ -147,7 +148,7 @@
     var card = this.card = doc.createElement("div");
     card.style.cssText = "position:absolute;left:0;top:0;display:none;pointer-events:none;z-index:2;box-sizing:border-box;" +
       "background:#ffffff;color:#2b3038;border:1px solid #d5d9df;border-radius:4px;box-shadow:0 2px 8px rgba(16,24,40,0.14);" +
-      "padding:8px 10px;font:13px/1.35 " + (map.theme && map.theme.font ? map.theme.font.family : "sans-serif") + ";width:" + o.card.width + "px";
+      "padding:8px 10px;font:" + o.card.font + "px/1.35 " + (map.theme && map.theme.font ? map.theme.font.family : "sans-serif") + ";width:" + o.card.width + "px";
     el.appendChild(card);
     if (!el.hasAttribute("tabindex")) el.setAttribute("tabindex", "0");
 
@@ -316,7 +317,7 @@
     card.textContent = "";
     var add = function (tag, css, t) { var n = doc.createElement(tag); if (css) n.style.cssText = css; if (t != null) n.textContent = t; card.appendChild(n); return n; };
     if (r) {
-      var k = add("div", "font-size:11px;color:#59606b;margin-bottom:4px");
+      var k = add("div", "font-size:" + o.card.small + "px;color:#59606b;margin-bottom:4px");
       var sw = doc.createElement("span");
       sw.style.cssText = "display:inline-block;width:8px;height:8px;margin-right:5px;vertical-align:0;background:" + o.colors[r.kind];
       k.appendChild(sw);
@@ -324,7 +325,7 @@
     }
     if (typeof text === "string" && text.trim()) add("div", "margin-bottom:6px", text);
     var tn = this._topicName(i);
-    if (tn) add("div", "font-size:11px;color:#59606b;margin-bottom:6px", "In " + tn);
+    if (tn) add("div", "font-size:" + o.card.small + "px;color:#59606b;margin-bottom:6px", "In " + tn);
     if (groups) {
       var w = selected ? o.card.pouredW : o.card.rowsW, h = selected ? o.card.pouredH : o.card.rowsH;
       var row = add("div", "display:flex;gap:10px;align-items:flex-start");
@@ -336,7 +337,7 @@
       var ctx = c.getContext("2d");
       if (ctx) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); G.draw(ctx, L); }
       var words = doc.createElement("div");
-      words.style.cssText = "font-size:11px;line-height:1.35;color:#2b3038";
+      words.style.cssText = "font-size:" + o.card.small + "px;line-height:1.35;color:#2b3038";
       var rd = G.readout(groups);
       rd.lines.forEach(function (line) { var d = doc.createElement("div"); d.textContent = line; words.appendChild(d); });
       // the counts in words under the graphic, at the card's full width
