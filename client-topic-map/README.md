@@ -28,10 +28,10 @@ No client uses it yet.
 
 | File | What it is | Bytes |
 | --- | --- | ---: |
-| `topic-map.js` | the map | 53,516 |
+| `topic-map.js` | the map | 62,363 |
 | `topic-list.js` | the list | 7,976 |
 | `theme-neutral.js` | the neutral theme | 5,754 |
-| `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 28,596 |
+| `dense.js` | the dense drawing's rules, as pure functions (the map draws them with `drawing: "dense"`) | 35,593 |
 | `fonts/roboto.css` | the `@font-face` rule for the font below | 270 |
 | `fonts/Roboto-latin-wght.woff2` | Roboto, variable weight 100 to 900, latin subset | 37,520 |
 | `fonts/OFL.txt` | the font's licence, SIL Open Font License 1.1 | 4,394 |
@@ -91,7 +91,9 @@ Methods:
 | `hover(id, origin)` | marks a topic as hovered, or none with `null`; dispatches `topichover` if it changed. Throws for an unknown id |
 | `setCollision(mode)` | `"as-drawn"` or `"by-weight"`, as the option |
 | `setDrawing(settings)` | `null`, `"dense"` or the dense drawing's settings, as the `drawing` option; draws at once |
-| `settle()` | finishes at once any work on which names show and draws the result |
+| `settle()` | finishes at once any work on which names show and draws the result (in the dense drawing: ends the zoom in progress and places the names for that view) |
+| `resetView()` | returns to the first view (in the dense drawing, the fit) and draws |
+| `denseLayout()` | in the dense drawing, the settled placement: `{ width, height, view, fit, zoom, names, comments, commentLevel }` (see below); otherwise `null` |
 | `redraw()` | draws again at the next frame |
 | `destroy()` | removes the canvas, the tooltip and every listener |
 
@@ -130,12 +132,46 @@ What differs from the default drawing while it is selected:
 - the positions are drawn linearly (y up), fitted to the extent of every point
   with a pad of 3% of the smaller side; `projection`, `level`, `collision`, the
   theme's colours and the document's colours do not apply;
-- names are placed again only when the element's size has stopped changing for
-  120 ms, and when a face finishes loading;
-- there is no hover, click or zoom: the pointer does nothing. The settings
-  `hover`, `click` and `zoom` are refused for now;
+- the gestures are the default drawing's (drag, the wheel and a pinch about the
+  pointer, double-click in and Shift-double-click out), within the zoom
+  settings' limits; hovering a comment's dot shows its text in the tooltip and
+  hovers the finest topic that holds it, hovering a name hovers its topic, and a
+  click selects as in the default drawing, with the same events. The settings
+  `hover` and `click` are refused: both are always on;
+- zones, districts and dots scale with the view; names keep their size in
+  pixels. While the view moves, the last placement is drawn moved with it; when
+  the view (or the element's size) has not changed for `zoom.settleMs` (120 ms)
+  the names are placed again for that view, so going in shows names that had
+  no room, and a name whose anchor has left the view takes none;
+- zoomed in until the points in view are few and far apart, each point with
+  text and an id is labelled with its first words, placed after the names by
+  the same rule (the most voted first when the document has `points.votes`);
+  the further in, the more words. A document without text never shows them;
 - each placement dispatches `densestats`, whose `caption` is a line of counts a
-  page can show ("Drawn now at 1408 by 803 px: 69 topic names (…).").
+  page can show ("Drawn now at 1408 by 803 px: 69 topic names (…)."), and
+  `densecomments`, the comment labels placed.
+
+The zoom settings are the key `zoom` of the drawing's settings, merged over
+`PolisTopicMapDense.PRESET_ZOOM` (its `comments` key by key too):
+
+| Setting | What it does | Preset |
+| --- | --- | --- |
+| `min`, `max` | the zoom's limits, as multiples of the fitted scale | `0.8`, `40` |
+| `settleMs` | how long the view or size must rest before names are placed again | `120` |
+| `hitRadiusMin` | the least radius, in px, at which a dot answers the pointer | `3` |
+| `comments.maxPoints` | comment labels only when at most this many points are in view | `150` |
+| `comments.minSpacing` | and when the median distance from each point in view to its nearest neighbour is at least this, in px | `24` |
+| `comments.font` | the labels' size, in px | `10` |
+| `comments.words`, `comments.wordsPerDoubling` | words shown at the fit, and added per doubling of the zoom (the rest cut with "…") | `5`, `2.5` |
+| `comments.wrap`, `comments.wrapPerDoubling` | characters per line at the fit, and added per doubling | `22`, `6` |
+| `comments` | `false` turns comment labels off | |
+| `slot` | `{ w, h, gap }`: a box w by h px reserved gap px to the right of each comment label's text, taken into its room when it is placed; nothing is drawn in it | `null` |
+
+A placed comment label, in `denseLayout().comments` and in the `comments` of
+`densecomments`, is `{ point, id, text, cut, lines, x, y, w, h, box, slot }`:
+the point's index and id, the words shown, the text's centre and size, the box
+it takes (text, gap and slot, with a margin of 1.5 px) and the reserved box
+`{ x, y, w, h }` (top left, CSS px, at the settled view), or `null`.
 
 `setDrawing(null)` returns to the default drawing, drawn exactly as before.
 
@@ -174,7 +210,8 @@ when something changed.
 | `topicselect` | map, list | `{ topic, previous, origin }`: `topic` is the selected topic's id, or `null` when the selection was cleared; `previous` is the one before |
 | `topichover` | map, list | `{ topic, previous, origin }`: `topic` is the hovered topic's id, or `null` |
 | `levelchange` | map | `{ level, previous, origin }`: a level number, or `"all"` |
-| `densestats` | map, dense drawing only | `{ caption, width, height, placed, byLayer, dropped, layerTotals, zoneCount, shrunk, shiftMedian, shiftP90 }`: what the dense drawing placed, dispatched each time it places the names (at the first draw, after a resize has settled, when a face loads) |
+| `densestats` | map, dense drawing only | `{ caption, width, height, placed, byLayer, dropped, layerTotals, zoneCount, shrunk, shiftMedian, shiftP90, zoom, comments }`: what the dense drawing placed, dispatched each time it places the names (at the first draw, after a resize or a gesture has settled, when a face loads) |
+| `densecomments` | map, dense drawing only | `{ zoom, on, inView, spacing, comments }`: whether the view is close enough for comment labels (points in view, their median nearest-neighbour spacing in px) and the labels placed, dispatched with every `densestats` |
 
 `origin` says where the change came from: `"map"` when a person did it on the
 map, `"list"` when a person did it in the list, and `"api"` when the host called
@@ -219,7 +256,8 @@ on the element's size, the zoom or the theme is worked out in the browser.
   "points": {                 // one entry per comment, in the same order in every array
     "id": [ … ], "x": [ … ], "y": [ … ],
     "topic": [ [ … ], [ … ] ],  // per level: the index in "topics" of each comment's topic, or -1 for none
-    "text": [ … ]               // what the tooltip shows
+    "text": [ … ],              // what the tooltip shows, and the dense drawing's comment labels
+    "votes": [ … ]              // optional: votes per comment, which the dense drawing labels first
   }
 }
 ```
@@ -416,6 +454,15 @@ node --test client-topic-map/test/*.test.js
   outline per district, one dot per point (held-back points included) and one
   text draw per placed line, and, measuring with the reference's widths, places
   the reference's names; a document of two levels draws too.
+- `test/zoom.test.js`: zoom, pan, hover and click in the dense drawing,
+  dispatched as a browser would: at rest its calls are the ones it made before
+  it could move; a double-click zooms about the pointer and the names are
+  placed again (more of those in view, none whose anchor has left it); a name
+  keeps its size in pixels; mid-gesture the last placement is drawn moved and
+  is placed again after the settle; the limits and `resetView`; comment labels
+  only past the threshold, only for points with text, never for held-back
+  points, without overlap, most voted first, more words further in; the
+  reserved box; the same events as the default drawing.
 - `test/dense.test.js`: the dense drawing's rules against one drawing made in
   a browser at 1408 by 803 px (`fixtures/dense-reference.json`): given that
   drawing's document, its recorded spreads and its measured widths,

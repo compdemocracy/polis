@@ -79,6 +79,36 @@
     dots: "grey"
   };
 
+  // Zoom and the comments it shows, with values chosen on a conversation of
+  // 125 comments: the limits of the zoom as multiples of the fitted scale;
+  // how long the view
+  // must rest before names are placed again (as after a resize); the least
+  // radius, in px, a dot answers the pointer at; and when the points in view
+  // are few enough (maxPoints) and far enough apart (the median distance from
+  // each to its nearest neighbour, in px, at least minSpacing), each point
+  // with text is labelled with its first words: font px, words at the fit,
+  // and words and wrap (in characters) added per doubling of the zoom. slot,
+  // when set to { w, h, gap }, reserves a box that size beside each comment
+  // label, gap px to the right of its text; nothing is drawn in it.
+  var PRESET_ZOOM = {
+    min: 0.8,
+    max: 40,
+    settleMs: 120,
+    hitRadiusMin: 3,
+    comments: { maxPoints: 150, minSpacing: 24, font: 10, words: 5, wordsPerDoubling: 2.5, wrap: 22, wrapPerDoubling: 6 },
+    slot: null
+  };
+
+  // The zoom settings: given keys over PRESET_ZOOM, and given comment keys
+  // over its comments. comments: false turns comment labels off.
+  function resolveZoom(given) {
+    given = given && typeof given === "object" ? given : {};
+    var out = Object.assign({}, PRESET_ZOOM, given);
+    out.comments = given.comments === false ? null : Object.assign({}, PRESET_ZOOM.comments, given.comments || {});
+    out.slot = given.slot ? { w: Number(given.slot.w) || 0, h: Number(given.slot.h) || 0, gap: given.slot.gap == null ? 4 : Number(given.slot.gap) } : null;
+    return out;
+  }
+
   // The roles a layer can be named by, read from the levels a document has:
   // the zone is the coarsest level, the district the one below it, the finest
   // level 0. For documents of fewer than three levels the roles fall on the
@@ -160,6 +190,8 @@
       districtWidth: 0.8,
       districtDash: [2, 2],
       halo: dark ? "rgba(17,18,20,0.85)" : "rgba(255,255,255,0.85)",
+      commentInk: dark ? "#aeb3ba" : "#4a505a",
+      commentAlpha: 0.92,
       haloWidth: function (f) { return Math.max(2, f * 0.22); }
     };
   }
@@ -279,11 +311,21 @@
     var pri = function (ti) { return cfg.size === "count" ? T[ti].count : (T[ti].level * 1e5 + T[ti].count); };
     order.sort(function (a, b) { return pri(b) - pri(a); });
 
+    // the points a comment label may be given to, in the order they are
+    // placed: those with an id and some text, the most voted first when the
+    // document gives a number of votes for every point, else in its order
+    var commentOrder = [];
+    var text = Array.isArray(P.text) ? P.text : [], ids = Array.isArray(P.id) ? P.id : [];
+    for (i = 0; i < N; i++) if (ids[i] != null && typeof text[i] === "string" && text[i].trim()) commentOrder.push(i);
+    var votes = Array.isArray(P.votes) && P.votes.length === N && P.votes.every(function (v) { return typeof v === "number" && isFinite(v); }) ? P.votes : null;
+    if (votes) commentOrder.sort(function (a, b) { return votes[b] - votes[a] || a - b; });
+
     var districtIdx = cfg.subOutline == null ? [] :
       T.map(function (t, i) { return t.level === cfg.subOutline ? i : -1; }).filter(function (i) { return i >= 0; });
 
     return {
-      settings: cfg, topics: T, points: { x: X, y: Y, topic: P.topic, n: N },
+      settings: cfg, topics: T, points: { x: X, y: Y, topic: P.topic, n: N, id: ids, text: text, votes: votes },
+      commentOrder: commentOrder,
       centre: { cx: cx, cy: cy }, extent: { minX: minX, maxX: maxX, minY: minY, maxY: maxY },
       zoneIdx: zoneIdx, zoneOrder: zoneOrder, zoneHue: zoneHue, zoneOf: zoneOf, zoneBy: zoneBy, hueOf: hueOf,
       districtIdx: districtIdx, pointTopic: pointTopic, pointZone: pointZone,
@@ -400,11 +442,75 @@
           x0: x0, y0: y0, rScreen: rScreen, ink: pal.labelInk(hue) });
       }
     }
+    // then, when the settings have zoom and the view is close enough, the
+    // comments, by the same rule, after every name
+    var comments = [], commentLevel = { on: false, inView: 0, spacing: null };
+    var Z = cfg.zoom;
+    if (Z && Z.comments) {
+      commentLevel = commentsInView(model, view, W, H, Z.comments);
+      if (commentLevel.on) {
+        var C = Z.comments, lg = Math.log2(Math.max(1, view.s / fit.s)), slot = Z.slot;
+        var nWords = Math.round(C.words + C.wordsPerDoubling * lg), cWrap = C.wrap + C.wrapPerDoubling * lg;
+        var cf = C.font, cw = weightFor(cf), cfam = cfg.fontSans;
+        var cSpec = { weight: cw, size: cf, family: cfam, letterSpacing: "0px", font: cw + " " + cf + "px " + cfam };
+        var clh = cf * 1.12, cm = 1.5, creach = cfg.maxShift * cf, cstep = Math.max(2, cf * 0.4);
+        var ctries = [[0, 0]];
+        for (var cr = cstep; cr <= creach; cr += cstep) for (var ca = 0; ca < 16; ca++) { var cth = ca * Math.PI / 8; ctries.push([cr * Math.cos(cth), cr * Math.sin(cth) * 0.75]); }
+        var PX = model.points;
+        for (var ci = 0; ci < model.commentOrder.length; ci++) {
+          var pi = model.commentOrder[ci], px0 = sx(PX.x[pi]), py0 = sy(PX.y[pi]);
+          if (px0 < 0 || py0 < 0 || px0 > W || py0 > H) continue;
+          var words = PX.text[pi].trim().split(/\s+/), nw = Math.min(words.length, nWords);
+          var ctext = words.slice(0, nw).join(" ") + (nw < words.length ? "\u2026" : "");
+          var clines = wrapText(ctext, cWrap), clw = [], cwid = 0;
+          for (var cl = 0; cl < clines.length; cl++) { var cmw = measure(clines[cl], cSpec); clw.push(cmw); cwid = Math.max(cwid, cmw); }
+          var ch = clines.length * clh;
+          var bw = slot ? cwid + slot.gap + slot.w : cwid, bh = slot ? Math.max(ch, slot.h) : ch;
+          for (var cj = 0; cj < ctries.length; cj++) {
+            var bx = px0 + ctries[cj][0], by = py0 + ctries[cj][1];
+            var cb = [bx - bw / 2 - cm, by - bh / 2 - cm, bx + bw / 2 + cm, by + bh / 2 + cm];
+            if (cb[0] < 2 || cb[1] < 2 || cb[2] > W - 2 || cb[3] > H - 2) continue;
+            if (hits(cb)) continue;
+            add(cb);
+            var tx = bx - bw / 2 + cwid / 2;
+            comments.push({ point: pi, id: PX.id[pi], text: ctext, cut: nw < words.length, lines: clines, f: cf, weight: cw, fam: cfam,
+              letterSpacing: "0px", lh: clh, lineWidths: clw, w: cwid, h: ch, x: tx, y: by, x0: px0, y0: py0, box: cb,
+              ink: pal.commentInk, alpha: pal.commentAlpha, haloWidth: pal.haloWidth(cf),
+              slot: slot ? { x: tx + cwid / 2 + slot.gap, y: by - slot.h / 2, w: slot.w, h: slot.h } : null });
+            break;
+          }
+        }
+      }
+    }
+    stats.comments = comments.length;
     var sh = stats.shift.slice().sort(function (p, q) { return p - q; });
     stats.shiftMedian = sh.length ? sh[Math.floor(sh.length / 2)] : 0;
     stats.shiftP90 = sh.length ? sh[Math.floor(sh.length * 0.9)] : 0;
     return { W: W, H: H, fit: fit, view: view, settings: cfg, placed: placed, dropped: dropped, stats: stats,
-      zoneCount: model.zoneIdx.length, layerTotals: layerTotals(model) };
+      comments: comments, commentLevel: commentLevel, zoneCount: model.zoneIdx.length, layerTotals: layerTotals(model) };
+  }
+
+  // Whether the points in this view are few enough and far enough apart for
+  // comment labels: how many are in view, and the median distance in px from
+  // each to its nearest neighbour in view (null when it is not worked out).
+  function commentsInView(model, view, W, H, C) {
+    var X = model.points.x, Y = model.points.y, xs = [], ys = [];
+    for (var i = 0; i < model.points.n; i++) {
+      var x = X[i] * view.s + view.tx, y = -Y[i] * view.s + view.ty;
+      if (x >= 0 && y >= 0 && x <= W && y <= H) { xs.push(x); ys.push(y); }
+    }
+    var n = xs.length;
+    if (!n || n > C.maxPoints) return { on: false, inView: n, spacing: null };
+    if (n === 1) return { on: true, inView: 1, spacing: null };
+    var nn = [];
+    for (i = 0; i < n; i++) {
+      var best = Infinity;
+      for (var j = 0; j < n; j++) if (j !== i) best = Math.min(best, Math.hypot(xs[i] - xs[j], ys[i] - ys[j]));
+      nn.push(best);
+    }
+    nn.sort(function (a, b) { return a - b; });
+    var spacing = nn[n >> 1];
+    return { on: spacing >= C.minSpacing, inView: n, spacing: spacing };
   }
 
   function layerTotals(model) {
@@ -555,7 +661,8 @@
   }
 
   var PolisTopicMapDense = {
-    DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, DEFAULT_FACE: DEFAULT_FACE,
+    DEFAULTS: DEFAULTS, PRESET_DENSE: PRESET_DENSE, PRESET_ZOOM: PRESET_ZOOM, DEFAULT_FACE: DEFAULT_FACE,
+    resolveZoom: resolveZoom, commentsInView: commentsInView,
     rolesOf: rolesOf, resolveSettings: resolveSettings, stripNamePrefix: stripNamePrefix, wrapText: wrapText,
     weightFor: weightFor, palette: palette, topicSpread: topicSpread, prepare: prepare, canvasSize: canvasSize,
     fitView: fitView, layout: layout, drawOrder: drawOrder, caption: caption, dotRadius: dotRadius,

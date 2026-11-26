@@ -212,6 +212,8 @@
     this.drawing = null;
     this._dense = null;
     this._denseTimer = 0;
+    this._denseMoveTimer = 0;
+    this._denseFitAt = null;
     this._denseRGB = {};
 
     if (getComputedStyle(host).position === "static") host.style.position = "relative";
@@ -225,16 +227,16 @@
     this.ctx = this.canvas.getContext("2d");
 
     var self = this;
-    /* The dense drawing has no hover, click or zoom yet: a person's pointer
-       does nothing while it is drawn. */
+    /* The same gestures in both drawings; the dense drawing answers them in
+       its own view (see _hit and _zoomLimits). */
     this._on = {
-      pointerdown: function (e) { if (!self.drawing) self._pointerDown(e); },
-      pointermove: function (e) { if (!self.drawing) self._pointerMove(e); },
-      pointerup: function (e) { if (!self.drawing) self._pointerUp(e); },
-      pointercancel: function (e) { if (!self.drawing) self._pointerUp(e); },
-      pointerleave: function () { if (!self.drawing) self._setHoverFromMap(-1, null); },
-      wheel: function (e) { if (!self.drawing) self._wheel(e); },
-      dblclick: function (e) { if (!self.drawing) self._doubleClick(e); }
+      pointerdown: function (e) { self._pointerDown(e); },
+      pointermove: function (e) { self._pointerMove(e); },
+      pointerup: function (e) { self._pointerUp(e); },
+      pointercancel: function (e) { self._pointerUp(e); },
+      pointerleave: function () { self._setHoverFromMap(-1, null); },
+      wheel: function (e) { self._wheel(e); },
+      dblclick: function (e) { self._doubleClick(e); }
     };
     Object.keys(this._on).forEach(function (name) {
       self.canvas.addEventListener(name, self._on[name], name === "wheel" ? { passive: false } : undefined);
@@ -334,7 +336,9 @@
      "dense", or an object of the dense drawing's settings (dense.js; merged
      over its PRESET_DENSE), draws the dense map: tinted and outlined zones,
      dashed districts, every comment a grey dot, several layers of names at
-     once, placed by dense.js. Its families default to the theme's face. */
+     once, placed by dense.js. Its families default to the theme's face.
+     Its key zoom holds the zoom settings (dense.js resolveZoom, over
+     PRESET_ZOOM). */
   PolisTopicMap.prototype.setDrawing = function (settings) {
     this._useDrawing(settings);
     this._resize();
@@ -345,16 +349,24 @@
     if (settings && settings !== "default") {
       var given = settings === "dense" ? {} : settings;
       if (typeof given !== "object") throw new Error("PolisTopicMap: drawing is null, \"default\", \"dense\" or the dense drawing's settings");
-      ["hover", "click", "zoom"].forEach(function (key) {
-        if (given[key]) throw new Error("PolisTopicMap: " + key + " is not available in the dense drawing yet");
+      /* Hover and click are not settings: the dense drawing hovers and
+         clicks as the default one does. */
+      ["hover", "click"].forEach(function (key) {
+        if (given[key]) throw new Error("PolisTopicMap: " + key + " is not available in the dense drawing yet as a setting; it is always on");
       });
       drawing = Object.assign({}, denseRules().PRESET_DENSE, given);
+      drawing.zoom = denseRules().resolveZoom(given.zoom);
     }
     this.drawing = drawing;
     this._dense = null;
+    this._view = null;
+    this._anim = null;
+    this._denseFitAt = null;
     clearTimeout(this._denseTimer);
+    clearTimeout(this._denseMoveTimer);
     this._denseTimer = 0;
-    this.canvas.style.cursor = drawing ? "default" : "grab";
+    this._denseMoveTimer = 0;
+    this.canvas.style.cursor = "grab";
   };
 
   PolisTopicMap.prototype.setLevel = function (level, origin) {
@@ -395,6 +407,7 @@
     if (document.fonts) document.fonts.removeEventListener("loadingdone", this._fontsLoaded);
     cancelAnimationFrame(this._frame);
     clearTimeout(this._denseTimer);
+    clearTimeout(this._denseMoveTimer);
     this._job = null;
     if (this._jobChannel) this._jobChannel.port1.close();
     this.canvas.remove();
@@ -420,7 +433,7 @@
         self._denseSettled = true;
         self._resize();
         self._denseSettled = false;
-      }, DENSE_SETTLE_MS);
+      }, this.drawing.zoom.settleMs);
       return;
     }
     var dpr = root.devicePixelRatio || 1;
@@ -429,7 +442,12 @@
     this._dpr = dpr;
     this.canvas.width = Math.round(w * dpr);
     this.canvas.height = Math.round(h * dpr);
-    if (!this._view && this.data) {
+    if (this.drawing && this.data) {
+      /* The dense view follows the fit while nobody has moved it. */
+      var atFit = !this._view || this._denseAtFit();
+      var fitted = this._denseFitView();
+      if (atFit) this._view = fitted;
+    } else if (!this._view && this.data) {
       var v = initialView(this.data.bounds, w, h);
       var toWorldY = this.projection === "linear" ? latToWorldLinear : latToWorld;
       this._view = { zoom: v.zoom, cx: lngToWorld(v.lng), cy: toWorldY(v.lat) };
@@ -461,8 +479,36 @@
     this._view.cy = at[1] - (this._h / 2 - py) / k;
   };
 
+  /* The zoom's limits: the default drawing's, or the dense drawing's
+     settings as multiples of its fitted scale. */
+  PolisTopicMap.prototype._zoomLimits = function () {
+    if (this.drawing && this._dense && this._dense.fit) {
+      var s = this._dense.fit.s, z = this.drawing.zoom;
+      return [Math.log2(s * z.min), Math.log2(s * z.max)];
+    }
+    return [0, 20];
+  };
+
+  /* Returns to the first view: the fit in the dense drawing. */
+  PolisTopicMap.prototype.resetView = function () {
+    if (!this.data || !this._w) return;
+    this._anim = null;
+    if (this.drawing) {
+      this._view = this._denseFitView();
+      clearTimeout(this._denseMoveTimer);
+      this._denseMoveTimer = 0;
+      this._dense.settleNow = true;
+    } else {
+      var v = initialView(this.data.bounds, this._w, this._h);
+      var toWorldY = this.projection === "linear" ? latToWorldLinear : latToWorld;
+      this._view = { zoom: v.zoom, cx: lngToWorld(v.lng), cy: toWorldY(v.lat) };
+    }
+    this._draw();
+  };
+
   PolisTopicMap.prototype._animateZoom = function (zoom, px, py, ms) {
-    zoom = clamp(zoom, 0, 20);
+    var lim = this._zoomLimits();
+    zoom = clamp(zoom, lim[0], lim[1]);
     this._anim = { z0: this._view.zoom, z1: zoom, px: px, py: py, at: this._worldAt(px, py), t0: performance.now(), ms: ms };
     this.redraw();
   };
@@ -524,7 +570,8 @@
     if (this._pointers.size === 2 && this._pinch) {
       var pts = Array.from(this._pointers.values());
       var d = Math.hypot(pts[0][0] - pts[1][0], pts[0][1] - pts[1][1]) || 1;
-      this._zoomTo(clamp(this._pinch.zoom + Math.log2(d / this._pinch.d), 0, 20), (pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2, this._pinch.at);
+      var lim = this._zoomLimits();
+      this._zoomTo(clamp(this._pinch.zoom + Math.log2(d / this._pinch.d), lim[0], lim[1]), (pts[0][0] + pts[1][0]) / 2, (pts[0][1] + pts[1][1]) / 2, this._pinch.at);
       this._down.moved = true;
     } else {
       var k = Math.pow(2, this._view.zoom);
@@ -560,6 +607,7 @@
   /* What is under a pixel: a comment's disc first (the topmost one), then a
      label that is drawn. */
   PolisTopicMap.prototype._hit = function (px, py) {
+    if (this.drawing) return this._hitDense(px, py);
     var order = this._order[String(this.level)];
     var k = Math.pow(2, this._view.zoom);
     var r = this._radius(k);
@@ -945,6 +993,16 @@
   /* Finishes at once whatever is being worked out and draws the result: the
      picture the map comes to rest on. */
   PolisTopicMap.prototype.settle = function () {
+    if (this.drawing) {
+      /* The dense drawing: the zoom in progress ends where it was going and
+         the names are placed for that view. */
+      if (this._anim) this._step(Infinity);
+      clearTimeout(this._denseMoveTimer);
+      this._denseMoveTimer = 0;
+      if (this._dense) this._dense.settleNow = true;
+      this._draw();
+      return;
+    }
     this._settling = true;
     this._draw();
     this._settling = false;
@@ -1055,8 +1113,6 @@
 
   /* ------------------------------------------------------- dense drawing */
 
-  var DENSE_SETTLE_MS = 120;
-
   function denseRules() {
     var D = root.PolisTopicMapDense;
     if (!D && typeof module !== "undefined" && module.exports && typeof require === "function") D = require("./dense.js");
@@ -1077,19 +1133,75 @@
     return (this._denseRGB[colour] = [d[0], d[1], d[2]]);
   };
 
-  /* The dense picture for this document, these settings and this size:
-     prepared once per document, laid out again when the size changes or a
-     face finishes loading. Names are measured on the map's canvas. */
-  PolisTopicMap.prototype._denseFrame = function () {
+  /* The prepared document (once per document and settings) and the fitted
+     view for the element's size. */
+  PolisTopicMap.prototype._denseModel = function () {
     var D = denseRules(), dense = this._dense;
     if (!dense) {
       var settings = Object.assign({}, this.drawing);
       if (settings.fontSans == null) settings.fontSans = this.theme.font.family;
       if (settings.fontMono == null) settings.fontMono = this.theme.font.family;
-      dense = this._dense = { model: D.prepare(this.data, settings), frame: null, shapes: null, w: 0, h: 0 };
+      dense = this._dense = { model: D.prepare(this.data, settings), frame: null, shapes: null, w: 0, h: 0, fit: null, settleNow: false };
     }
-    if (!dense.frame || dense.w !== this._w || dense.h !== this._h || this._remeasure) {
+    if (!dense.fit || dense.fitW !== this._w || dense.fitH !== this._h) {
+      var size = D.canvasSize(this._w, this._h);
+      dense.fit = D.fitView(dense.model.extent, size.W, size.H, dense.model.settings.pad);
+      dense.fitW = this._w;
+      dense.fitH = this._h;
+    }
+    return dense;
+  };
+
+  /* The fit as the map's view: in the dense drawing the view's world is the
+     document's own positions, unprojected, so the default drawing's gestures
+     (which move this._view) move it too: scale 2^zoom, centre (cx, cy). */
+  PolisTopicMap.prototype._denseFitView = function () {
+    var fit = this._denseModel().fit;
+    var v = { zoom: Math.log2(fit.s), cx: (this._w / 2 - fit.tx) / fit.s, cy: (fit.ty - this._h / 2) / fit.s };
+    this._denseFitAt = { zoom: v.zoom, cx: v.cx, cy: v.cy };
+    return v;
+  };
+
+  PolisTopicMap.prototype._denseAtFit = function () {
+    var f = this._denseFitAt, v = this._view;
+    return !!(f && v && v.zoom === f.zoom && v.cx === f.cx && v.cy === f.cy);
+  };
+
+  /* The view now, as dense.js takes it ({ s, tx, ty }): the fit itself while
+     nobody has moved the map, so that at rest it draws exactly as it did
+     before it could move. */
+  PolisTopicMap.prototype._denseViewNow = function () {
+    var dense = this._denseModel();
+    if (this._denseAtFit()) return Object.assign({}, dense.fit);
+    var s = Math.pow(2, this._view.zoom);
+    return { s: s, tx: this._w / 2 - this._view.cx * s, ty: this._h / 2 + this._view.cy * s };
+  };
+
+  /* While the view moves, the last placement is drawn moved with it; once it
+     has not moved for the settings' settleMs, the names are placed again. */
+  PolisTopicMap.prototype._denseScheduleSettle = function () {
+    var self = this;
+    clearTimeout(this._denseMoveTimer);
+    this._denseMoveTimer = setTimeout(function () {
+      self._denseMoveTimer = 0;
+      if (!self.drawing || !self._dense) return;
+      if (self._anim) return self._denseScheduleSettle();
+      self._dense.settleNow = true;
+      self._draw();
+    }, this.drawing.zoom.settleMs);
+  };
+
+  /* The dense picture for this document, these settings, this size and the
+     settled view: prepared once per document, laid out again when the size
+     changes, a face finishes loading or the view has settled somewhere new.
+     Names are measured on the map's canvas. */
+  PolisTopicMap.prototype._denseFrame = function () {
+    var D = denseRules(), dense = this._denseModel();
+    if (!dense.frame || dense.w !== this._w || dense.h !== this._h || this._remeasure || dense.settleNow) {
       this._remeasure = false;
+      dense.settleNow = false;
+      clearTimeout(this._denseMoveTimer);
+      this._denseMoveTimer = 0;
       var ctx = this.ctx;
       ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
       var measure = function (text, font) {
@@ -1097,38 +1209,102 @@
         ctx.letterSpacing = font.letterSpacing;
         return ctx.measureText(text).width;
       };
-      dense.frame = D.layout(dense.model, { width: this._w, height: this._h, measure: measure });
+      var opts = { width: this._w, height: this._h, measure: measure };
+      if (!this._denseAtFit()) opts.view = this._denseViewNow();
+      dense.frame = D.layout(dense.model, opts);
       ctx.letterSpacing = "0px";
       dense.shapes = D.zoneShapes(dense.model, dense.frame);
       dense.w = this._w;
       dense.h = this._h;
-      var f = dense.frame, st = f.stats;
+      var f = dense.frame, st = f.stats, zoom = f.view.s / f.fit.s;
       this._emit("densestats", {
         caption: D.caption(f), width: f.W, height: f.H,
         placed: f.placed.length, byLayer: Object.assign({}, st.byLayer), dropped: Object.assign({}, st.dropped),
         layerTotals: Object.assign({}, f.layerTotals), zoneCount: f.zoneCount, shrunk: st.shrunk,
-        shiftMedian: st.shiftMedian, shiftP90: st.shiftP90
+        shiftMedian: st.shiftMedian, shiftP90: st.shiftP90, zoom: zoom, comments: f.comments.length
       });
+      this._emit("densecomments", Object.assign({ zoom: zoom }, f.commentLevel, { comments: f.comments.map(commentOut) }));
     }
     return dense;
+  };
+
+  /* A placed comment label as the layout and the event report it: its point
+     (index and id), its text, its centre and size, the box it takes and the
+     box reserved beside it (null when the settings reserve none), in CSS px
+     at the settled view. */
+  function commentOut(c) {
+    return { point: c.point, id: c.id, text: c.text, cut: c.cut, lines: c.lines.slice(), x: c.x, y: c.y, w: c.w, h: c.h,
+      box: c.box.slice(), slot: c.slot ? Object.assign({}, c.slot) : null };
+  }
+
+  /* The settled placement: the view, the names and the comment labels with
+     their reserved boxes, in CSS px; null outside the dense drawing. */
+  PolisTopicMap.prototype.denseLayout = function () {
+    if (!this.drawing || !this._dense || !this._dense.frame) return null;
+    var f = this._dense.frame, T = this._dense.model.topics;
+    return {
+      width: f.W, height: f.H, view: Object.assign({}, f.view), fit: Object.assign({}, f.fit), zoom: f.view.s / f.fit.s,
+      names: f.placed.map(function (p) { return Object.assign({ id: T[p.ti].id }, p); }),
+      comments: f.comments.map(commentOut), commentLevel: Object.assign({}, f.commentLevel)
+    };
+  };
+
+  /* What is under a pixel in the dense drawing, as _hit answers it: a dot
+     first (the last drawn), then a comment label (its point), then a name
+     (its topic). A dot's topic is the finest topic that holds it. */
+  PolisTopicMap.prototype._hitDense = function (px, py) {
+    var dense = this._dense;
+    if (!dense || !dense.frame) return { point: -1, topic: null };
+    var D = denseRules(), model = dense.model, frame = dense.frame, T = model.topics, now = this._denseViewNow();
+    var r = Math.max(D.dotRadius(model, { view: now, fit: frame.fit }), this.drawing.zoom.hitRadiusMin);
+    var X = this.data.points.x, Y = this.data.points.y, i;
+    for (i = X.length - 1; i >= 0; i--) {
+      var dx = X[i] * now.s + now.tx - px, dy = -Y[i] * now.s + now.ty - py;
+      if (dx * dx + dy * dy <= r * r) {
+        var t = model.pointTopic[i];
+        return { point: i, topic: t >= 0 ? T[t].id : null };
+      }
+    }
+    var fv = frame.view, k = now.s / fv.s, ox = now.tx - fv.tx * k, oy = now.ty - fv.ty * k;
+    for (i = frame.comments.length - 1; i >= 0; i--) {
+      var c = frame.comments[i];
+      if (Math.abs(px - (ox + k * c.x)) <= c.w / 2 && Math.abs(py - (oy + k * c.y)) <= c.h / 2) {
+        var ct = model.pointTopic[c.point];
+        return { point: c.point, topic: ct >= 0 ? T[ct].id : null };
+      }
+    }
+    var order = D.drawOrder(frame.placed);
+    for (i = order.length - 1; i >= 0; i--) {
+      var p = order[i];
+      if (p.alpha > 0.5 && Math.abs(px - (ox + k * p.x)) <= p.w / 2 && Math.abs(py - (oy + k * p.y)) <= p.h / 2) return { point: -1, topic: T[p.ti].id };
+    }
+    return { point: -1, topic: null };
   };
 
   /* Paints as the dense map was first drawn: the ground; each zone's tint
      (its density grid as an image, scaled up by the cell with smoothing) and
      outline, zone by zone; every district's dashed outline; every point as a
-     dot; then the names, coarse first, each with its halo. */
+     dot; then the names, coarse first, each with its halo; then the comment
+     labels. While the view is moving, the zones and the names of the last
+     placement are drawn moved and scaled with it (names at their own size),
+     the dots where they are now. */
   PolisTopicMap.prototype._drawDense = function () {
     var started = this.onTiming ? performance.now() : 0;
     var D = denseRules(), dense = this._denseFrame();
     var model = dense.model, frame = dense.frame, shapes = dense.shapes, cfg = model.settings;
-    var pal = D.palette(cfg.scheme), ctx = this.ctx, w = this._w, h = this._h;
+    var pal = D.palette(cfg.scheme), ctx = this.ctx, w = this._w, h = this._h, dpr = this._dpr;
     var i, j, k, segs;
+    var fv = frame.view, now = this._denseViewNow();
+    var moving = now.s !== fv.s || now.tx !== fv.tx || now.ty !== fv.ty;
+    var mk = now.s / fv.s, ox = now.tx - fv.tx * mk, oy = now.ty - fv.ty * mk;
+    if (moving) this._denseScheduleSettle();
 
-    ctx.setTransform(this._dpr, 0, 0, this._dpr, 0, 0);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.fillStyle = pal.ground;
     ctx.fillRect(0, 0, w, h);
 
+    if (moving) ctx.setTransform(dpr * mk, 0, 0, dpr * mk, dpr * ox, dpr * oy);
     for (i = 0; i < shapes.zones.length; i++) {
       var z = shapes.zones[i], G = z.grid;
       if (z.alpha) {
@@ -1150,15 +1326,16 @@
       }
       if (z.outline) {
         ctx.strokeStyle = z.outline;
-        ctx.lineWidth = z.outlineWidth;
+        ctx.lineWidth = moving ? z.outlineWidth / mk : z.outlineWidth;
         ctx.beginPath();
         for (segs = z.segs, j = 0; j < segs.length; j++) { ctx.moveTo(segs[j][0], segs[j][1]); ctx.lineTo(segs[j][2], segs[j][3]); }
         ctx.stroke();
       }
     }
     if (shapes.districts.length) {
-      ctx.lineWidth = shapes.districts[0].width;
-      ctx.setLineDash(shapes.districts[0].dash);
+      var d0 = shapes.districts[0];
+      ctx.lineWidth = moving ? d0.width / mk : d0.width;
+      ctx.setLineDash(moving ? d0.dash.map(function (x) { return x / mk; }) : d0.dash);
       for (i = 0; i < shapes.districts.length; i++) {
         var d = shapes.districts[i];
         ctx.strokeStyle = d.stroke;
@@ -1168,10 +1345,11 @@
       }
       ctx.setLineDash([]);
     }
+    if (moving) ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     /* Every point, held back or not, in grey (or by its topic's or zone's hue
        when the settings say so), in one path per colour. */
-    var r = D.dotRadius(model, frame), v = frame.view, X = this.data.points.x, Y = this.data.points.y;
+    var r = D.dotRadius(model, { view: now, fit: frame.fit }), v = now, X = this.data.points.x, Y = this.data.points.y;
     var buckets = new Map(), W = frame.W, H = frame.H;
     for (i = 0; i < X.length; i++) {
       var col = pal.grey;
@@ -1193,21 +1371,30 @@
       ctx.fill();
     });
     ctx.globalAlpha = 1;
+    if (this._hoverPoint >= 0) {
+      /* The pointed-at comment, as the default drawing marks it. */
+      i = this._hoverPoint;
+      ctx.fillStyle = this.theme.point.hover;
+      ctx.beginPath();
+      ctx.arc(X[i] * v.s + v.tx, -Y[i] * v.s + v.ty, Math.max(r, this.drawing.zoom.hitRadiusMin), 0, 6.2832);
+      ctx.fill();
+    }
 
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    var order = D.drawOrder(frame.placed);
-    for (i = 0; i < order.length; i++) {
-      var p = order[i], y0 = p.y - p.h / 2 + p.lh / 2;
+    var labels = D.drawOrder(frame.placed).concat(frame.comments);
+    for (i = 0; i < labels.length; i++) {
+      var p = labels[i], px = moving ? ox + mk * p.x : p.x, py = moving ? oy + mk * p.y : p.y;
+      var y0 = py - p.h / 2 + p.lh / 2;
       ctx.font = p.weight + " " + p.f + "px " + p.fam;
       ctx.letterSpacing = p.letterSpacing;
       ctx.globalAlpha = p.alpha;
       ctx.strokeStyle = pal.halo;
       ctx.lineWidth = p.haloWidth;
-      for (j = 0; j < p.lines.length; j++) ctx.strokeText(p.lines[j], p.x, y0 + j * p.lh);
+      for (j = 0; j < p.lines.length; j++) ctx.strokeText(p.lines[j], px, y0 + j * p.lh);
       ctx.fillStyle = p.ink;
-      for (j = 0; j < p.lines.length; j++) ctx.fillText(p.lines[j], p.x, y0 + j * p.lh);
+      for (j = 0; j < p.lines.length; j++) ctx.fillText(p.lines[j], px, y0 + j * p.lh);
     }
     ctx.globalAlpha = 1;
     ctx.letterSpacing = "0px";
