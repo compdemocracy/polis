@@ -65,9 +65,15 @@ different frames, have different receipts, even when every number drawn is
 the same. The receipt has one canonical plain form (`Drawn::to_plain`, JSON
 with keys in a fixed order); `Drawn::from_plain` reads it back through the
 same constructors and refuses any other spelling. Reading a receipt back
-restores what was written; it does not re-run the draw. The weights in a
-receipt that come from the math engine are as trustworthy as the math result
-they were read from, and no more.
+checks the recorded rule's structural invariants and restores what was
+written; it does not re-run or authenticate the draw. A caller can write a
+plausible but false receipt, including false source names and parameter
+claims. Audit and experiment readers must trust or authenticate the record's
+origin separately. A parsed receipt cannot construct a computed weight map.
+The weights in a receipt that come from the math engine are as trustworthy
+as the math result they were read from, and no more. Signed-zero novelty
+amplitudes normalize to positive zero, so equal parameter sets have one
+canonical representation.
 
 Where this crate refuses, it gives no receipt and says why: an empty or
 repeated candidate list, a unit outside [0, 1), a stored weight that is

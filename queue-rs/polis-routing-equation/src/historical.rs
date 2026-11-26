@@ -138,7 +138,13 @@ impl HistoricalParams {
             pass_prior,
             seen_prior,
             extremity_offset,
-            novelty_amplitude,
+            // Signed zero has no mathematical distinction in this parameter.
+            // Keep one representation for equal parameter sets and receipts.
+            novelty_amplitude: if novelty_amplitude == 0.0 {
+                0.0
+            } else {
+                novelty_amplitude
+            },
             novelty_halving_votes,
             exponent,
             meta_inner,
@@ -245,10 +251,11 @@ impl Scored {
 }
 
 /// What produced a set of `historical/1` weights: the exact parameter set and
-/// the sources of the two frames it read. Only `historical_1` makes one (the
-/// fields are private and there is no public constructor), so a provenance
-/// that names `historical/1` always names the parameters and frames that
-/// really computed the weights it travels with.
+/// the sources of the two frames it read. Computed weight maps receive this
+/// only through `historical_1`; their provenance cannot be supplied by a caller.
+/// Reading a receipt also restores its claimed provenance, without computing
+/// weights or authenticating the claim. That receipt cannot construct a
+/// computed weight map.
 ///
 /// It comes from the weights:
 ///

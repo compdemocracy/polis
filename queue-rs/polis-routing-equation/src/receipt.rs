@@ -9,11 +9,12 @@
 //! exactly when their texts are. Reading a receipt back does not re-run or
 //! verify the draw; it restores what was written.
 
-use crate::draw::{DrawFlags, DrawMode, Drawn, Lane, WeightProvenance, WeightsUsed};
+use crate::draw::{Candidates, DrawFlags, DrawMode, Drawn, Lane, WeightProvenance, WeightsUsed};
 use crate::historical::HistoricalProvenance;
 use crate::registry::{ParamSet, exact_keys, number};
-use crate::types::{CommentId, Refusal, SourceId};
+use crate::types::{CommentId, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
 use serde_json::{Map, Value};
+use std::collections::BTreeSet;
 
 const RECEIPT_KEYS: [&str; 13] = [
     "comment",
@@ -290,7 +291,92 @@ impl Drawn {
         )
     }
 
-    /// Reads a receipt's canonical plain form back. Refused: malformed JSON,
+    // These checks require no input frames and do not re-run a draw. Keep
+    // validation specific to the recorded rule when further shapes are added.
+    fn validate_recorded_shape(&self) -> Result<(), Refusal> {
+        let fail = || plain_refusal("inconsistent stored-weights/1 receipt");
+        if self.rule != ParamSet::StoredWeights1
+            || self.candidate_count == 0
+            || self.candidate_count > MAX_CANDIDATES
+            || self.index >= self.candidate_count
+            || !self.probability.is_finite()
+            || self.probability.is_sign_negative()
+            || self.probability > 1.0
+            || !self.random_n.is_finite()
+            || self.random_n.is_sign_negative()
+            || self.sampled_lane.is_some()
+            || !self.flags.donations.is_empty()
+        {
+            return Err(fail());
+        }
+        let [lane] = self.lanes.as_slice() else {
+            return Err(fail());
+        };
+        if lane.lane != "weights"
+            || lane.share != 1.0
+            || !lane.normaliser.is_finite()
+            || lane.normaliser < crate::draw::MIN_TOTAL
+            || self.random_n >= lane.normaliser
+            || lane.contribution.to_bits() != self.probability.to_bits()
+            || (self.candidate_count == 1 && self.probability != 1.0)
+        {
+            return Err(fail());
+        }
+        let mapped = self
+            .flags
+            .zero_mapped_to_one
+            .checked_add(self.flags.null_or_false_mapped_to_one)
+            .and_then(|n| n.checked_add(self.flags.absent_mapped_to_one))
+            .ok_or_else(fail)?;
+        let absorbed: BTreeSet<_> = self.flags.absorbed.iter().copied().collect();
+        if mapped > self.candidate_count
+            || absorbed.len() != self.flags.absorbed.len()
+            || absorbed.len() >= self.candidate_count
+            || absorbed.contains(&self.comment)
+        {
+            return Err(fail());
+        }
+        if self.weights == WeightsUsed::NoMap
+            && (self.flags.absent_mapped_to_one != self.candidate_count
+                || self.flags.zero_mapped_to_one != 0
+                || self.flags.null_or_false_mapped_to_one != 0)
+        {
+            return Err(fail());
+        }
+        // Every candidate mapped to 1 (always so with no map): the running
+        // sums are exactly 1, 2, ..., n, so the total, the probability and the
+        // index follow from the count and random_n alone.
+        if mapped == self.candidate_count
+            && (!absorbed.is_empty()
+                || lane.normaliser != self.candidate_count as f64
+                || self.probability != 1.0 / self.candidate_count as f64
+                || self.index as f64 != self.random_n.floor())
+        {
+            return Err(fail());
+        }
+        // Each mapped candidate adds exactly 1 to a running sum of
+        // non-negative doubles, and no draw weight exceeds the ceiling, so the
+        // total lies between the mapped count and n times the ceiling (doubled
+        // to cover rounding).
+        let n = self.candidate_count as f64;
+        if lane.normaliser < mapped as f64 || lane.normaliser > 2.0 * n * WEIGHT_CEILING {
+            return Err(fail());
+        }
+        // One candidate: the candidate list is exactly the chosen comment, so
+        // its order digest is known.
+        if self.candidate_count == 1 {
+            let only = Candidates::new(vec![self.comment]).map_err(|_| fail())?;
+            if only.order_digest() != self.candidate_order_digest {
+                return Err(fail());
+            }
+        }
+        Ok(())
+    }
+
+    /// Reads a receipt's canonical plain form back. This validates the recorded
+    /// rule's structural invariants, not the truth of the draw or its sources.
+    /// Only the caller can authenticate the stored record and its input sources.
+    /// Refused: malformed JSON,
     /// a duplicate key anywhere, a missing or unknown key, a value of the
     /// wrong type or outside its constructor's domain, an unknown rule, draw
     /// mode, lane or provenance, and any text that is not exactly the
@@ -330,6 +416,7 @@ impl Drawn {
             candidate_order_digest,
             input_source: source(top, "input_source")?,
         };
+        drawn.validate_recorded_shape()?;
         if drawn.to_plain() != plain {
             return Err(plain_refusal(
                 "not the canonical form of the receipt it reads as",
