@@ -365,8 +365,8 @@
   };
 
   /* The share of the grey ground now, 0 (the topics in colour) to 1 (grey):
-     it turns over GREY_MS toward 1 while comments are shown and toward 0
-     while none are, eased; at once at the first draw, after settle() or
+     it becomes grey before comments are shown, and returns over GREY_MS
+     toward colour only after the last departing comment has gone; at once at the first draw, after settle() or
      resetView(), and for a reader who asks for less motion. */
   var GREY_MS = 360;
   function greyAt(G, t) {
@@ -376,7 +376,7 @@
   }
   PolisTopicMap.prototype._greyNow = function (want) {
     var to = want ? 1 : 0, G = this._grey, t = performance.now();
-    if (!G || this._denseQuick) G = this._grey = { from: to, to: to, t0: t, ms: 0 };
+    if (!G || this._denseQuick || want) G = this._grey = { from: to, to: to, t0: t, ms: 0 };
     else if (G.to !== to) G = this._grey = { from: greyAt(G, t), to: to, t0: t, ms: reducedMotion() ? 0 : GREY_MS };
     return greyAt(G, t);
   };
@@ -1382,7 +1382,10 @@
        the surface or at the deepest step, their first words, a comment's
        card), so the votes drawn with them are the only colour; off, the
        topics in colour, wherever none is shown. */
-    var want = this.ground !== "topics" && !!(frame.commentLevel && frame.commentLevel.on) && model.commentOrder.length > 0;
+    var labels = D.drawOrder(frame.placed).concat(frame.comments), drawn = this._denseLabelsNow(labels, now, moving, mk, ox, oy, frame);
+    // A departing comment may still be fading after its stage turns off.
+    var hasComment = drawn.some(function (d) { return d.p.point != null && d.alpha > 0; });
+    var want = this.ground !== "topics" && (!!(frame.commentLevel && frame.commentLevel.on) || hasComment);
     if (want !== this.grey) {
       this.grey = want;
       this._emit("groundchange", { grey: want, ground: this.ground });
@@ -1477,7 +1480,6 @@
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     ctx.lineJoin = "round";
-    var labels = D.drawOrder(frame.placed).concat(frame.comments), drawn = this._denseLabelsNow(labels, now, moving, mk, ox, oy, frame);
     for (i = 0; i < drawn.length; i++) {
       var p = drawn[i].p, px = drawn[i].x, py = drawn[i].y;
       var y0 = py - p.h / 2 + p.lh / 2;

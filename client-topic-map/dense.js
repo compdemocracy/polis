@@ -699,7 +699,11 @@
     var Z = cfg.zoom, zl = zoomStage(model, view, fit, W, H);
     var commentLevel = { on: false, inView: 0, spacing: null }, commentsOn = false, focusLevel = null, wayLayers = [];
     if (zl) {
-      if (Z.comments && zl.stage === zl.k && model.commentOrder.length) {
+      // the deepest stage opens for comments with text, or, with a list of
+      // comments to bring forward (comments.only, the deepest zoom's overlay),
+      // whether or not any of them has text: its first words and its cards
+      // need the stage even when no comment there stands out
+      if (Z.comments && zl.stage === zl.k && (model.commentOrder.length || Array.isArray(Z.comments.only))) {
         commentLevel = commentsInView(model, view, W, H, Z.comments);
         commentsOn = commentLevel.on;
       }
