@@ -9,12 +9,14 @@
 //! exactly when their texts are. Reading a receipt back does not re-run or
 //! verify the draw; it restores what was written.
 
+use crate::corrected::BaseCounts;
 use crate::draw::{
     Candidates, CorrectedProvenance, DrawFlags, DrawMode, Drawn, Lane, WeightProvenance,
     WeightsUsed,
 };
 use crate::floor::ZERO_MASS_DONATION;
 use crate::historical::HistoricalProvenance;
+use crate::latest::CountPolicy;
 use crate::registry::{ParamSet, exact_keys, number};
 use crate::types::{CommentId, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
 use serde_json::{Map, Value};
@@ -124,10 +126,20 @@ impl WeightProvenance {
                     Some(head) => format!("{head}\"terms\":[{}]}}", terms.join(",")),
                     None => base,
                 };
+                if let BaseCounts::Latest(latest) = &c.base_counts {
+                    return format!(
+                        "{{\"kind\":\"computed\",\"rule\":{},\"input_policy\":{},\"inputs\":{{\"latest_counts\":{},\"current_extremity\":{}{}}}}}",
+                        rule,
+                        text(CountPolicy::Lag0.name()),
+                        text(latest.as_str()),
+                        text(c.current_extremity.as_str()),
+                        groups,
+                    );
+                }
                 format!(
                     "{{\"kind\":\"computed\",\"rule\":{},\"inputs\":{{\"previous_counts\":{},\"current_extremity\":{}{}}}}}",
                     rule,
-                    text(c.previous_counts.as_str()),
+                    text(c.base_counts.source().as_str()),
                     text(c.current_extremity.as_str()),
                     groups,
                 )
@@ -143,7 +155,16 @@ impl WeightProvenance {
                 Ok(Self::MathEngineStored)
             }
             "computed" => {
-                exact_keys(top, &["kind", "rule", "inputs"], "produced_by")?;
+                let policy = top.get("input_policy");
+                if policy.is_some() {
+                    exact_keys(
+                        top,
+                        &["kind", "rule", "input_policy", "inputs"],
+                        "produced_by",
+                    )?;
+                } else {
+                    exact_keys(top, &["kind", "rule", "inputs"], "produced_by")?;
+                }
                 let mut rule_value = field(top, "rule")?.clone();
                 let terms: Vec<crate::importance::TermParams> = match rule_value.get("terms") {
                     Some(Value::Array(ts)) => ts
@@ -157,6 +178,15 @@ impl WeightProvenance {
                 }
                 let rule = ParamSet::from_plain(&rule_value.to_string())?;
                 let inputs = object(field(top, "inputs")?, "inputs")?;
+                if rule.rule().count_policy() == Some(CountPolicy::Lag0) {
+                    return latest_from(rule, policy, inputs, terms);
+                }
+                if policy.is_some() {
+                    return Err(plain_refusal(format!(
+                        "input_policy on {}, whose policy its id fixes",
+                        rule.rule().name()
+                    )));
+                }
                 if !terms.is_empty() {
                     let groups = matches!(rule, ParamSet::SymmetricGic1(_));
                     let mut keys = vec!["previous_counts", "current_extremity"];
@@ -177,7 +207,7 @@ impl WeightProvenance {
                     exact_keys(inputs, &keys, "inputs")?;
                     return Ok(Self::Corrected(CorrectedProvenance {
                         params: rule,
-                        previous_counts: source(inputs, "previous_counts")?,
+                        base_counts: BaseCounts::Previous(source(inputs, "previous_counts")?),
                         current_extremity: source(inputs, "current_extremity")?,
                         current_groups: if groups {
                             Some(source(inputs, "current_groups")?)
@@ -201,7 +231,7 @@ impl WeightProvenance {
                         exact_keys(inputs, &["previous_counts", "current_extremity"], "inputs")?;
                         Ok(Self::Corrected(CorrectedProvenance {
                             params: rule,
-                            previous_counts: source(inputs, "previous_counts")?,
+                            base_counts: BaseCounts::Previous(source(inputs, "previous_counts")?),
                             current_extremity: source(inputs, "current_extremity")?,
                             current_groups: None,
                             terms: vec![],
@@ -216,7 +246,7 @@ impl WeightProvenance {
                         )?;
                         Ok(Self::Corrected(CorrectedProvenance {
                             params: rule,
-                            previous_counts: source(inputs, "previous_counts")?,
+                            base_counts: BaseCounts::Previous(source(inputs, "previous_counts")?),
                             current_extremity: source(inputs, "current_extremity")?,
                             current_groups: Some(source(inputs, "current_groups")?),
                             terms: vec![],
@@ -232,6 +262,74 @@ impl WeightProvenance {
             other => Err(plain_refusal(format!("unknown provenance kind {other:?}"))),
         }
     }
+}
+
+/// A `base-counts:lag-0` producing rule's provenance: `input_policy` must be
+/// present and name the rule's own policy; the inputs are exactly
+/// `latest_counts`, `current_extremity` and `current_groups` (and
+/// `importance` with a term), the first three one source. Only `symmetric/2`
+/// and `symmetric-gic/2` compute weights.
+fn latest_from(
+    rule: ParamSet,
+    policy: Option<&Value>,
+    inputs: &Map<String, Value>,
+    terms: Vec<crate::importance::TermParams>,
+) -> Result<WeightProvenance, Refusal> {
+    let Some(policy) = policy else {
+        return Err(plain_refusal(format!(
+            "{} needs its input_policy",
+            rule.rule().name()
+        )));
+    };
+    let policy = policy
+        .as_str()
+        .ok_or_else(|| plain_refusal("input_policy is not a string"))?;
+    let asked = CountPolicy::from_name(policy).ok_or_else(|| Refusal::UnknownPolicy {
+        asked: policy.to_string(),
+    })?;
+    if Some(asked) != rule.rule().count_policy() {
+        return Err(Refusal::PolicyNotDefined {
+            rule: rule.rule().name(),
+            policy: asked,
+        });
+    }
+    if !matches!(rule, ParamSet::Symmetric2(_) | ParamSet::SymmetricGic2(_)) {
+        return Err(plain_refusal(format!(
+            "{} does not compute weights",
+            rule.rule().name()
+        )));
+    }
+    if terms.len() > 1 {
+        return Err(plain_refusal("terms the producing rule cannot carry"));
+    }
+    let mut keys = vec!["latest_counts", "current_extremity", "current_groups"];
+    if !terms.is_empty() {
+        keys.push("importance");
+    }
+    exact_keys(inputs, &keys, "inputs")?;
+    let latest = source(inputs, "latest_counts")?;
+    let extremity = source(inputs, "current_extremity")?;
+    let groups = source(inputs, "current_groups")?;
+    if latest != extremity || latest != groups {
+        return Err(Refusal::PolicySourceMismatch {
+            policy: asked,
+            counts: latest,
+            extremity,
+        });
+    }
+    let term_source = if terms.is_empty() {
+        None
+    } else {
+        Some(source(inputs, "importance")?)
+    };
+    Ok(WeightProvenance::Corrected(CorrectedProvenance {
+        params: rule,
+        base_counts: BaseCounts::Latest(latest),
+        current_extremity: extremity,
+        current_groups: Some(groups),
+        terms,
+        term_source,
+    }))
 }
 
 impl WeightsUsed {
@@ -396,7 +494,9 @@ impl Drawn {
         match self.rule {
             ParamSet::StoredWeights1 => self.validate_stored_weights(),
             ParamSet::Uniform1 => self.validate_uniform(),
-            ParamSet::SymmetricGicFloor1(_) => self.validate_floor(),
+            ParamSet::SymmetricGicFloor1(_) | ParamSet::SymmetricGicFloor2(_) => {
+                self.validate_floor()
+            }
             other => Err(plain_refusal(format!(
                 "{} does not draw",
                 other.rule().name()
@@ -461,10 +561,15 @@ impl Drawn {
     }
 
     fn validate_floor(&self) -> Result<(), Refusal> {
-        let fail = || plain_refusal("inconsistent symmetric-gic-floor/1 receipt");
+        let name = self.rule.rule().name();
+        let fail = || plain_refusal(format!("inconsistent {name} receipt"));
         self.validate_common_stable(&fail)?;
-        let ParamSet::SymmetricGicFloor1(params) = self.rule else {
-            return Err(fail());
+        // The drawing rule and the producing rule pair by version: floor /1
+        // over symmetric-gic/1, floor /2 over symmetric-gic/2.
+        let (params, producer) = match self.rule {
+            ParamSet::SymmetricGicFloor1(p) => (p, ParamSet::SymmetricGic1(*p.base())),
+            ParamSet::SymmetricGicFloor2(p) => (p, ParamSet::SymmetricGic2(*p.base())),
+            _ => return Err(fail()),
         };
         let WeightsUsed::Map {
             provenance: WeightProvenance::Corrected(c),
@@ -473,7 +578,10 @@ impl Drawn {
         else {
             return Err(fail());
         };
-        if c.params != ParamSet::SymmetricGic1(*params.base()) || c.current_groups.is_none() {
+        if c.params != producer
+            || c.current_groups.is_none()
+            || Some(c.base_counts.policy()) != self.rule.rule().count_policy()
+        {
             return Err(fail());
         }
         let [uniform, weights] = self.lanes.as_slice() else {
@@ -518,14 +626,17 @@ impl Drawn {
 
     fn validate_stored_weights(&self) -> Result<(), Refusal> {
         let fail = || plain_refusal("inconsistent stored-weights/1 receipt");
-        let foreign = matches!(
-            self.weights,
-            WeightsUsed::NotRead
-                | WeightsUsed::Map {
-                    provenance: WeightProvenance::Corrected(_),
-                    ..
-                }
-        );
+        // A corrected map is drawn by stored-weights/1 only when a /2 rule
+        // computed it (`StoredWeights::from_latest`); the /1 rules' corrected
+        // maps are drawn by their floor plan.
+        let foreign = match &self.weights {
+            WeightsUsed::NotRead => true,
+            WeightsUsed::Map {
+                provenance: WeightProvenance::Corrected(c),
+                ..
+            } => !matches!(c.base_counts, BaseCounts::Latest(_)),
+            _ => false,
+        };
         if foreign
             || self.draw_mode != DrawMode::LegacyCdf1
             || self.rule != ParamSet::StoredWeights1

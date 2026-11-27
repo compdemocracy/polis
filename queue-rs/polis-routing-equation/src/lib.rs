@@ -26,8 +26,9 @@ pub mod registry;
 pub mod types;
 
 pub use corrected::{
-    Consensus, ConsensusForm, CorrectedWeights, GicParams, MetaPolicy, SymmetricGicParams,
-    SymmetricParams, consensus, symmetric_1, symmetric_gic_1,
+    BaseCounts, Consensus, ConsensusForm, CorrectedWeights, GicParams, MetaPolicy,
+    SymmetricGicParams, SymmetricParams, consensus, symmetric_1, symmetric_2, symmetric_gic_1,
+    symmetric_gic_2,
 };
 pub use draw::{
     Candidates, Cdf, CorrectedProvenance, DrawFlags, DrawMode, Drawn, Lane, MIN_TOTAL,
@@ -35,7 +36,7 @@ pub use draw::{
 };
 pub use floor::{
     DEGENERACY_RATIO, FloorMarginals, FloorParams, FloorPlan, ZERO_MASS_DONATION, floor_marginals,
-    stable_cdf, symmetric_gic_floor_1, uniform_1,
+    stable_cdf, symmetric_gic_floor_1, symmetric_gic_floor_2, uniform_1,
 };
 pub use frames::{
     CommentMarks, CurrentFrames, CurrentGroupFrame, EveryoneFrame, GroupMarks, ImportanceMarks,
@@ -49,7 +50,7 @@ pub use importance::{
     importance_multipliers, issue217_voter_weight, with_importance,
 };
 pub use latest::{CountPolicy, LatestCountFrame};
-pub use registry::{ParamDoc, ParamSet, RuleDoc, RuleId, describe, lookup, params_table};
+pub use registry::{ParamDoc, ParamSet, RuleDoc, RuleId, describe, lookup, params_table, resolve};
 pub use types::{
     CommentId, Counts, DrawRefusal, Explanation, Extremity, ExtremityFrame, Factor, FactorName,
     GroupId, HistoricalCountFrame, MAX_CANDIDATES, ParamError, Refusal, SourceId, WEIGHT_CEILING,

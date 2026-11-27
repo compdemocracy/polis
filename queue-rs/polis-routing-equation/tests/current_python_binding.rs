@@ -54,6 +54,11 @@ fn the_bound_python_rule_exists_and_reproduces_its_grid() {
             RuleId::SymmetricGic1 => {
                 panic!("symmetric-gic/1 reads group cells, which a grid case does not hold")
             }
+            // No Python computes the base-counts:lag-0 rules; they cannot be
+            // bound.
+            RuleId::Symmetric2 | RuleId::SymmetricGic2 | RuleId::SymmetricGicFloor2 => {
+                panic!("no Python computes the base-counts:lag-0 rules")
+            }
         };
         if expected == 0.0 {
             assert_eq!(got.to_bits(), expected.to_bits());

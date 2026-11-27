@@ -205,6 +205,7 @@ fn no_corrected_rule_entry_point_panics() {
     let receipts: Vec<&str> = include_str!("golden/receipts-v1.txt")
         .lines()
         .chain(include_str!("golden/receipts-2.txt").lines())
+        .chain(include_str!("golden/receipts-5.txt").lines())
         .filter(|l| l.starts_with('{'))
         .collect();
     let policies = [MetaPolicy::Fixed, MetaPolicy::Ordinary, MetaPolicy::Exclude];
@@ -367,6 +368,49 @@ fn no_corrected_rule_entry_point_panics() {
                             built.push((p, w));
                         }
                     }
+                }
+            }
+        });
+        // The base-counts:lag-0 rules over the same group frame, with the
+        // extremity under the group frame's source and under another.
+        never_panics("lag-0 rules", || {
+            let _ = LatestCountFrame::from_groups(&gf);
+            let other = ExtremityFrame::new(SourceId::new("other").unwrap(), []).unwrap();
+            for e in [&ef, &other] {
+                for base in [SymmetricParams::default(), extreme, wide] {
+                    if let Ok(w) = symmetric_2(&base, &gf, e, &meta)
+                        && let Ok(map) = StoredWeights::from_latest(src.clone(), &w)
+                    {
+                        let ids: Vec<_> = (0..6).map(CommentId::new).collect();
+                        let c = Candidates::new(ids).unwrap();
+                        let u = Unit::new(rng.unit()).unwrap();
+                        if let Ok(d) = stored_weights_1(Some(&map), &c, u, &src) {
+                            let _ = Drawn::from_plain(&d.to_plain());
+                        }
+                    }
+                    for form in forms {
+                        let p = SymmetricGicParams::new(base, form, GicParams::default());
+                        let Ok(w) = symmetric_gic_2(&p, &gf, e, &meta) else {
+                            continue;
+                        };
+                        let _ = StoredWeights::from_latest(src.clone(), &w);
+                        let fp = FloorParams::new(p, 0.1).unwrap();
+                        let _ = symmetric_gic_floor_1(&fp, w.clone(), &meta);
+                        if let Ok(plan) = symmetric_gic_floor_2(&fp, w, &meta) {
+                            let ids: Vec<_> = (0..6).map(CommentId::new).collect();
+                            let c = Candidates::new(ids).unwrap();
+                            let _ = plan.probabilities(&c);
+                            if let Ok(d) = plan.draw(&c, Unit::new(rng.unit()).unwrap(), &src, &src)
+                            {
+                                let _ = Drawn::from_plain(&d.to_plain());
+                            }
+                        }
+                    }
+                }
+            }
+            for rule in ["symmetric/2", "symmetric-gic-floor/1", "uniform/1", "x"] {
+                for policy in ["base-counts:lag-0", "base-counts:lag-1", ""] {
+                    let _ = resolve(rule, policy);
                 }
             }
         });
