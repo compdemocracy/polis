@@ -153,16 +153,32 @@ before any frame is allocated:
 3. **The counts**, each checked as it grows, so a source over a limit stops
    being walked at the first entry over it: comments (`tids`, `meta-tids`,
    `pca.comment-extremity`, `comment-priorities`, each up to `max_comments`,
-   40,000 by default, and the union of `tids` and `meta-tids` when a read
-   decodes both), groups (`max_groups`, 64), cells (`max_cells`, every group's
+   40,000 by default), groups (`max_groups`, 64), cells (`max_cells`, every group's
    votes summed), memberships (`max_memberships`, every entry of the
    membership keys).
-4. **The reservation**: `Projection::reservation(needs)` is an upper bound, in
+4. **The union of comment ids**: the distinct ids of `tids` and `meta-tids`
+   together are at most `max_comments`, checked here, whatever frames a rule
+   needs later and before any is made. When the two counts together are
+   within the limit nothing is read; otherwise both arrays are read into one
+   vector given room for exactly their elements. An array that is not one of
+   integers adds no id, so a malformed unused key cannot refuse another rule.
+5. **The reservation**: `Projection::reservation(needs)` is an upper bound, in
    bytes, on everything `frames(needs)` allocates, computed from the walk's
    counts alone, never from the source's length. It is conservative on
    purpose: it assumes every vector doubled its way to its length and every
    ordered map node holds one entry. It is meant to be charged against a
    budget before the frames are built.
+
+Before any of this, `Projection::parse_reservation(len, limits)` is an upper
+bound on everything `parse` holds at any one time for a source of `len`
+bytes, whether it then refuses or not, known before `parse` is called: the
+walk's reader scratch, the escaped keys it keeps decoded, its spill of key
+values (grown by exact doubling), the text kept of each read key, and the
+union's vector, the largest phase counted, a reallocation counted as holding
+the old room and the new. It is made from lengths alone, so it is loose: on
+the constructed refused cases in the tests it is between about four and fifty times
+what was held. Once `parse` returns, `held()` bounds what the projection
+keeps (the read keys' text, the row's environment name, the source id).
 
 Count arithmetic is checked: a cell whose passes do not fit in 32 bits, or a
 reservation that does not fit in 64, is refused.
@@ -221,6 +237,16 @@ projections only.
   bytes, the same on every frame, unchanged by when the row was read).
 - Needs: `unneeded_frames_are_not_made`, `unused_malformed_field_does_not_refuse`.
 - One test per refusal, each from a constructed bad projection.
+- `comment_id_union_refused_at_parse`: four distinct comments over a limit of
+  three are refused at parse; an overlap counts once; an unused malformed
+  `meta-tids` refuses no other rule.
+- `refused_parse_holds_no_more_than_was_charged` (wide numeric keys refused
+  by count, an unread object spilled and refused at its end for a repeated
+  key, a long escaped string, eight long escaped keys, nesting past the
+  limit), `union_refused_at_parse_within_its_charge`, and
+  `accepted_parse_within_its_charge_and_keeps_no_more_than_held`: what
+  `parse` held at its peak is within `parse_reservation`, and what an
+  accepted projection keeps is within `held()`.
 - `limits_refuse_before_allocation`: a source over its length allocates
   nothing; a source over a count holds no more than its own size when it is
   refused. `expansion_reservation_is_upper_bound`: on constructed worst cases
