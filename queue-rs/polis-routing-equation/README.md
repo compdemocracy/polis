@@ -353,7 +353,159 @@ denominator** is the votes the caller counts as able to carry a mark: where
 the checkbox was not shown for part of a conversation's life, the caller
 must leave those votes out of `eligible`; the crate cannot tell.
 
-## 4. The parameters
+## 4. Each candidate rule, in plain words
+
+None of these rules is chosen. Nothing calls them. No rule here has been
+shown to be better for participants; they exist so that they can be compared
+honestly with today's equation. Every one keeps today's treatment of two
+cases: a comment the previous tick did not score (a new one) gets no weight
+and is drawn at 1, and a **meta** comment (one the moderator marks as being
+about the conversation itself) weighs 49 under the default `meta_policy`
+(`fixed`).
+
+**Extremity is not symmetric in any rule here.** E, the stored
+`pca.comment-extremity`, is how far from the centre of the opinion map a
+participant would land who *agreed* with the comment and voted on nothing
+else. Every rule built so far measures it that way. The one that would
+measure it the same way for agree and disagree, `symmetric-axis-gic-floor/1`,
+needs the PCA's component loadings for each comment as an input, which no
+frame of this crate carries yet; it is not built.
+
+### `symmetric/1`: agree and disagree count alike
+
+*In words:* today's equation, with the agree share and the not-pass share
+replaced by one share, the share of votes that took a side, whichever side.
+*Formula:* R = (A + D + 1) / (S + 2); weight = (R x R x (E + 1) x novelty)^2,
+novelty = 1 + 8 x 2^(-S/5) as today. *What it rewards that today's does
+not:* a comment people mostly disagree with is weighed like one they mostly
+agree with (one disagree: 12.53 here, 3.13 today). It punishes passes harder
+(R enters squared, then squared again). *Symmetric?* In the counts, exactly:
+swapping A and D leaves the weight bit for bit the same. Not in E (above).
+*A newcomer with no group:* the same weights as anyone. *On a conversation's
+first tick* the previous frame is empty, so every comment is unscored and
+drawn at 1 (uniform). *A scored comment with no votes* weighs
+81/16 x (1 + E)^2, as today, and that is not the largest weight: three votes
+that took a side give 16.14 at E = 0. *Two groups or five:* no difference;
+the counts arrive summed.
+
+### `symmetric-gic/1`: the same, times group-informed consensus
+
+*In words:* `symmetric/1`'s weight, raised for a comment every opinion group
+tends to agree with and lowered for one some group rejects. Group-informed
+consensus is Polis's own measure, from 2012, of what holds across opinion
+groups. *Formula:* weight = `symmetric/1`'s weight x (0.5 + G), G in section
+5. The factor is between 0.5 and 1.5, so it never removes a comment.
+*What it rewards:* agreement across groups. *Symmetric?* No, by design: the
+count term is, the factor and E are not. *A newcomer with no group:* the
+factor belongs to the comment, the same for everyone. *First tick:* every
+comment is unscored and drawn at 1. *A comment with no votes:* every group's
+share is 1/2, G = 1/2 and the factor is 1. *Two groups:* each group carries
+the same weight in G. *Five groups:* one dissenting group pulls harder under
+the geometric mean (the default) than under the report's mean: four groups
+at 0.9 and one at 0.1 give G = 0.74 under the mean and 0.58 under the
+geometric mean. With fewer than two groups the factor is exactly 1.
+
+### `uniform/1`: every candidate alike
+
+*In words:* each candidate has the same chance, 1/n. *What it is for:* the
+floor's lane on its own, and a baseline for replays. It reads no counts, so
+it is symmetric in every sense, and the newcomer, the first tick, a comment
+with no votes, and two or five groups all get 1/n.
+
+### `symmetric-gic-floor/1`: the consensus rule with a floor
+
+*In words:* a tenth of every draw's chance (`floor_share` = 0.1) is spread
+evenly over the candidates; the rest follows `symmetric-gic/1`'s weights.
+*Formula:* q_j = 0.1 / n + 0.9 x w_j / W, W the sum of the candidates'
+weights (an unscored comment counts 1). *What it rewards:* what
+`symmetric-gic/1` rewards, plus a guarantee: every comment keeps at least
+`floor_share / n` of the chance, however low its weight. Two comments
+weighing 1 and 3 get 0.275 and 0.725; a comment weighing 0 beside one
+weighing 2 still gets 0.05. *Symmetric?* As its base: the floor is the same
+for every comment. *Newcomer, first tick, no votes, two or five groups:* as
+`symmetric-gic/1`, with the floor added; on the first tick every comment is
+unscored, so the chances are exactly 1/n. An excluded meta comment
+(`meta_policy = exclude`) has no chance in either lane: a draw given one is
+refused.
+
+**Why the floor and the stable draw exist.** An honest A/B test needs every
+comment to keep a known, recorded chance of being shown, and the chance on
+the receipt to be the true one. The floor keeps every chance above zero and
+known in advance; the stable draw, `stable-cdf/1`, refuses to draw when a
+positive chance would be too small to land on (below 2^-40 of the total) or
+there is nothing to draw from, instead of silently dropping a comment as
+today's arithmetic can. If every weight were 0, the weighted lane's share
+would be given to the uniform lane and the receipt would record it
+(`weights->uniform:zero_mass`); under this rule's parameter ranges that
+cannot happen, and it is tested on the lane arithmetic itself.
+
+## 5. The terms
+
+**Group-informed consensus, G, in two forms.** For each opinion group, the
+group's share of agreement with the comment.
+- `gic-mean/1`, the report's form: the mean over the groups that have a
+  count for the comment of (A + 1) / (A + D + 2); passes do not enter; with
+  no counts, G = 0.5. One group at 9 agrees and 1 disagree and a second group
+  with no count: G = 0.833333. The second group present with zero votes:
+  0.666667.
+- `gic-geomean/1`, the form the corrected equation was studied with (the
+  default): the geometric mean over every group of (A + 1) / (S + 2), passes
+  counted in S, a missing count read as no votes. The same example gives
+  0.645497.
+- The math engine's own consensus multiplies the groups' shares over the
+  groups present. It ranks comments like the geometric mean only when every
+  comment has the same complete group coverage; with missing counts the
+  ranking can differ. Neither form here is the product.
+- Swapping every agree and disagree turns the mean's G into exactly 1 - G
+  (same cells, real arithmetic). The geometric mean has no such identity:
+  shares 0.9 and 0.1 give 0.3 before and after.
+
+**Importance (the checkbox on a vote).** A participant can mark a comment
+"important" as they vote. Public issue #217 (2019) proposed weighing a marked
+vote by (votes cast / comments) x (100 / marks used) + 1, an unmarked one by
+1. Its four worked numbers come out exactly in `issue217-voter-weight/1`:
+600 of 600 votes with 2 marks gives 51; 300 of 600 with 2 gives 26; 10 of
+600 with 2 gives 11/6 (the issue's "1.83"); 300 of 600 with 150 gives 4/3
+(the issue's "1.333"). The issue weighs the vote matrix; it does not say how
+routing should use the marks, so that formula is a helper, and two routing
+terms adapt it:
+- `importance-lift/1`, the bounded lift: rho is the conversation's share of
+  marked votes; a comment with M marks among n votes that could carry one
+  gets r = (M + 20 rho) / (n + 20) and multiplier clamp(r / rho, 1, 3). At
+  rho = 0.06, 5 of 10 marked gives 3.44, capped at 3; 1 of 10 gives 1.22; 0 of
+  10 gives exactly 1.
+- `importance-normalized-lift/1`: the comment's mean 2019 voter weight over
+  the conversation's mean, never below 1, uncapped unless a cap is given (one
+  constructed comment reaches 26/7 = 3.71; the issue's heaviest voter weighs
+  51).
+- A term multiplies a scored comment's weight. It never touches the floor, an
+  unscored comment or a fixed meta comment. With no marks anywhere, or no
+  usable totals, every multiplier is exactly 1 and the rule is its base rule
+  bit for bit. A cap of 3 is on the *weight*: it never means "shown three
+  times as often", because the chances are normalised and lifting other
+  comments can lower this one's chance.
+- The votes that "could carry a mark" are the caller's to count: where the
+  checkbox was not shown for part of a conversation's life, the caller must
+  leave those votes out; how to decide that is an open question.
+- The helper's handling of extreme inputs (counts near the largest 64-bit
+  integer, where its integer arithmetic overflows today, and very large
+  fractions, where it can miss the nearest double by one unit) is being
+  corrected; the issue's four numbers above are exact.
+
+**What is proven for these rules, and what is not.** Proven: each rule's
+documented numbers (the hand examples above) as tests; two cross-checks
+against statements of the formulas written again in NumPy from this README
+(`vectors-3.json` for the corrected rules, `vectors-4.json` for the floor
+and importance, both within 1e-12, section 9); the receipt's chance against
+the draw itself, by bisection over every double, within 2^-50; frequencies
+over 400,000 seeded draws; the symmetry of the count term (swapping A and D
+is bit for bit the same) and the counterexamples to symmetry kept as tests;
+no panic over a deterministic corpus of awkward inputs. Not proven: that any
+rule is better for participants; that a caller will feed the right tick's
+counts in the right fields; anything about meta comments outside the
+constructed cases. Nothing here is chosen, and nothing calls the crate.
+
+## 6. The parameters
 
 Every constant of a rule is a named, typed parameter with a range. The
 defaults are the constants in the source; **changing a default or the formula
@@ -457,7 +609,7 @@ version, and any value out of range. Running a non-default set (an A/B arm, for
 instance) is the rule plus this form; it is not a new rule. The parity promise
 below holds at the defaults only.
 
-## 5. What is proven, and how to see it
+## 9. What is proven, and how to see it
 
 **The equation against the real Python function.** `tests/fixtures/historical-1/make_grid.py`
 calls `priority_metric` itself, in the delphi image built from the source
@@ -588,8 +740,10 @@ groups; new comments the equation does not score; a fixed meta comment.
 `tests/crosscheck.rs` requires the crate to reproduce all 563 numbers within
 1e-12; the largest differences found are 1.9e-16 (factors and weights,
 relative) and 5.6e-17 (probabilities). A change of 1e-11 to the novelty or the
-factor, or of 1e-10 to one recorded number, turns it red. Importance, the floor
-and zero mass are not in this file yet.
+factor, or of 1e-10 to one recorded number, turns it red. The floor, importance and zero mass are in a second
+file: `make_crosscheck_4.py` writes `vectors-4.json` (11 rule cases, 7 lane
+cases), and `tests/crosscheck_floor.rs` reproduces all 385 numbers within
+1e-12 (largest difference 1.6e-16).
 
 ### The floor and the stable draw
 
@@ -612,7 +766,7 @@ refused. `tests/golden/receipts-2.txt` records the first receipts of the new
 shapes (and of the earlier shape with no map and with the engine's map); every
 receipt of the first golden file still reads back unchanged.
 
-## 6. What it does not do
+## 10. What it does not do
 
 No HTTP route or handler; no database, SQL, pool or connection; no cache or
 global state; no schedule, job, table or migration; no clock; no logging or
@@ -623,7 +777,7 @@ selectors or the Python math engine. The corrected rules (agree and disagree
 weighed alike, group-informed consensus, a uniform floor, importance) come
 later, each as its own named rule; none is chosen for anything.
 
-## 7. The vote sign
+## 11. The vote sign
 
 There is no vote in this crate. Its only vote input is **counts**: how many
 agreed, how many disagreed, how many passed, each by name and unsigned. No
@@ -637,7 +791,7 @@ What counts cannot catch is a caller that puts the disagrees in the agree
 field. Under `historical/1` that would reward disagreed comments in place of
 agreed ones; the caller's adapter must carry its own convention tests.
 
-## 8. How to run the checks
+## 12. How to run the checks
 
 ```
 make check-polis-routing-equation
