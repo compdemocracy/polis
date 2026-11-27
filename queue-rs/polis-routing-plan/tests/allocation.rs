@@ -8,7 +8,9 @@
     clippy::indexing_slicing
 )]
 
-use polis_routing_plan::{FrameNeeds, Limit, Projection, RowIdentity, SourceLimits, SourceRefusal};
+use polis_routing_plan::{
+    FrameNeeds, Key, Limit, Projection, RowIdentity, SourceLimits, SourceRefusal,
+};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 
@@ -251,4 +253,130 @@ fn positional_memberships_cannot_exceed_reservation() {
     );
     assert!(requested <= reserved, "allocation exceeded reservation");
     assert!(result.is_err(), "non-object base-clusters was accepted");
+}
+
+/// Runs `f` and gives back the peak of live bytes above the start and the
+/// live bytes still held when it returned.
+fn measured<T>(f: impl FnOnce() -> T) -> (T, i64, i64) {
+    let (out, _, peak) = counted(f);
+    (out, peak, LIVE.with(Cell::get))
+}
+
+/// Parses `b` under `limits` and checks that it is refused as `expected`
+/// having held no more than the charge known before it was called.
+fn refused_within_charge(name: &str, b: &[u8], limits: SourceLimits, expected: SourceRefusal) {
+    let charge = Projection::parse_reservation(b.len(), &limits).unwrap();
+    let r = row();
+    let (result, peak, _) = measured(|| Projection::parse(b, r, &limits));
+    eprintln!("{name}: source {} bytes, peak {peak}, charged {charge}", b.len());
+    assert_eq!(result.unwrap_err(), expected, "{name}");
+    assert!(
+        peak as u64 <= charge,
+        "{name}: peak {peak} above the {charge} charged"
+    );
+}
+
+#[test]
+fn refused_parse_holds_no_more_than_was_charged() {
+    let wide: String = (0..10_000).map(|i| format!("\"{i}\":0,")).collect();
+    // Wide numeric keys, refused at the first comment over the limit.
+    refused_within_charge(
+        "wide priorities",
+        format!("{{\"comment-priorities\":{{{}}}}}", wide.trim_end_matches(',')).as_bytes(),
+        SourceLimits {
+            max_comments: 9_999,
+            ..SourceLimits::default()
+        },
+        SourceRefusal::TooLarge {
+            what: Limit::Comments,
+        },
+    );
+    // An unread object with every key spilled, refused at its end for a
+    // repeated key.
+    refused_within_charge(
+        "spilled repeat",
+        format!("{{\"other\":{{{wide}\"9999\":1}}}}").as_bytes(),
+        SourceLimits::default(),
+        SourceRefusal::DuplicateKey {
+            key: Key::Projection,
+        },
+    );
+    // One long escaped string, then bytes that are not JSON.
+    let long = "\\u0061".repeat(20_000);
+    refused_within_charge(
+        "escaped string",
+        format!("{{\"other\":\"{long}\",]").as_bytes(),
+        SourceLimits::default(),
+        SourceRefusal::Malformed {
+            key: Key::Projection,
+        },
+    );
+    // Eight long escaped keys kept decoded in one open object, then bytes
+    // that are not JSON.
+    let keys: String = (0..8)
+        .map(|k| format!("\"{}{k}\":0,", "\\u0062".repeat(2_000)))
+        .collect();
+    refused_within_charge(
+        "escaped keys",
+        format!("{{\"other\":{{{keys}]").as_bytes(),
+        SourceLimits::default(),
+        SourceRefusal::Malformed {
+            key: Key::Projection,
+        },
+    );
+    // Nested past the depth limit.
+    refused_within_charge(
+        "depth",
+        format!("{{\"other\":{}0{}}}", "[".repeat(40), "]".repeat(40)).as_bytes(),
+        SourceLimits::default(),
+        SourceRefusal::TooLarge { what: Limit::Depth },
+    );
+}
+
+#[test]
+fn union_refused_at_parse_within_its_charge() {
+    // Five thousand tids and five thousand other meta comments, each within
+    // the limit, their union over it: refused at parse, before any frame.
+    let tids: Vec<String> = (0..5_000).map(|i| i.to_string()).collect();
+    let meta: Vec<String> = (5_000..10_000).map(|i| i.to_string()).collect();
+    let b = format!(
+        "{{\"tids\":[{}],\"meta-tids\":[{}]}}",
+        tids.join(","),
+        meta.join(",")
+    );
+    refused_within_charge(
+        "union",
+        b.as_bytes(),
+        SourceLimits {
+            max_comments: 9_999,
+            ..SourceLimits::default()
+        },
+        SourceRefusal::TooLarge {
+            what: Limit::Comments,
+        },
+    );
+}
+
+#[test]
+fn accepted_parse_within_its_charge_and_keeps_no_more_than_held() {
+    for (groups, comments, per) in [(1, 1, 1), (4, 500, 3), (64, 300, 1), (5, 4_000, 40)] {
+        let b = worst(groups, comments, per);
+        let limits = SourceLimits::default();
+        let charge = Projection::parse_reservation(b.len(), &limits).unwrap();
+        let r = row();
+        let (p, peak, live) = measured(|| Projection::parse(&b, r, &limits));
+        let p = p.unwrap();
+        assert!(peak as u64 <= charge, "{groups}x{comments}: peak {peak}, charged {charge}");
+        assert!(live as u64 <= p.held(), "{groups}x{comments}: kept {live}, held {}", p.held());
+    }
+}
+
+#[test]
+fn parse_reservation_overflow_refused() {
+    assert_eq!(
+        Projection::parse_reservation(usize::MAX, &SourceLimits::default()).unwrap_err(),
+        SourceRefusal::TooLarge {
+            what: Limit::Reservation
+        }
+    );
 }

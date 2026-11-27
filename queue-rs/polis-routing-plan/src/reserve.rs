@@ -4,6 +4,7 @@
 //! purpose; a tighter bound needs its own evidence.
 
 use crate::decode::sizes;
+use crate::limits::SourceLimits;
 use crate::projection::FrameNeeds;
 use crate::scan::Tally;
 use polis_routing_equation::{CommentId, Counts, Extremity, GroupId, StoredWeight};
@@ -94,4 +95,45 @@ pub(crate) fn reservation(t: &Tally, needs: FrameNeeds) -> Option<u64> {
         add(map(m, 4, 8))?;
     }
     Some(total)
+}
+
+/// An upper bound, in bytes, on what `Projection::parse` holds at any one
+/// time for a source of `len` bytes, known before it reads a byte, so that a
+/// caller can charge it first and a source that is then refused has held no
+/// more than was charged. It counts on the lengths alone (no count is known
+/// yet), so it is loose on purpose. A reallocation is counted as holding the
+/// old and the new room at once.
+///
+/// `parse` runs in three phases, each freeing what it used before the next:
+/// the walk; setting apart the keys this crate reads; the union of comment
+/// ids. The bound is the largest phase, plus what the read keys' text keeps
+/// across the last two, plus a fixed allowance for the source id.
+pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> {
+    // One reader's scratch (serde_json's): it holds one decoded string, or
+    // the open brackets of a value being skipped, so never more than the
+    // source; grown by doubling, it has room for at most twice that, and
+    // while it moves it holds the old room too.
+    let scratch = len.checked_mul(3)?.checked_add(64)?;
+    // Object keys written with escapes, kept decoded while their object is
+    // open: none is longer decoded than written, and no two share a byte.
+    let keys = len;
+    // The walk's spill (see `scan::Keys`): only pairs already read are in a
+    // spill, each pair takes at least four bytes (`"":0`), so at most len / 4
+    // are held at once; each in 8 bytes of room doubled to at most 16, plus 8
+    // more for each entry of the one spill being moved.
+    let spill = (len / 4).checked_mul(24)?;
+    let walk = scratch.checked_add(keys)?.checked_add(spill)?;
+    // The read keys' text, each kept as its own copy: no longer than the
+    // source together.
+    let raw = len;
+    let split = scratch.checked_add(raw)?;
+    // The union: one reserved vector of every element of `tids` and
+    // `meta-tids`, only when they could exceed the limit; each is at most
+    // `max_comments` (already checked), and each element takes at least two
+    // bytes (`1,`).
+    let ids = (len / 2 + 1).min(limits.max_comments.saturating_mul(2));
+    let union = raw
+        .checked_add(ids.checked_mul(8)?)?
+        .checked_add(scratch)?;
+    walk.max(split).max(union).checked_add(1024)
 }

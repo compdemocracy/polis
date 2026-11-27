@@ -465,25 +465,43 @@ fn count_limits_refused() {
     assert_eq!(tight(|l| l.max_groups = 1), too(Limit::Groups));
     assert_eq!(tight(|l| l.max_cells = 3), too(Limit::Cells));
     assert_eq!(tight(|l| l.max_memberships = 8), too(Limit::Memberships));
-    // The union of tids and meta-tids, when both are read.
-    let mut v = blob();
-    v["meta-tids"] = json!([4]);
+}
+
+#[test]
+fn comment_id_union_refused_at_parse() {
     let l = SourceLimits {
         max_comments: 3,
         ..SourceLimits::default()
     };
-    let p = Projection::parse(&bytes(&v), row(41), &l).unwrap();
+    // Four distinct comments over a limit of three: refused at parse, so no
+    // rule's frames are made, whichever it needs.
+    let mut v = blob();
+    v["meta-tids"] = json!([4]);
     assert_eq!(
-        p.frames(FrameNeeds::all()).unwrap_err(),
-        too(Limit::Comments)
+        Projection::parse(&bytes(&v), row(41), &l).unwrap_err(),
+        SourceRefusal::TooLarge {
+            what: Limit::Comments
+        }
     );
-    assert!(
+    // The union, not the sum: a meta comment that is also in `tids` counts
+    // once.
+    let mut v = blob();
+    v["meta-tids"] = json!([1, 2, 3]);
+    let p = Projection::parse(&bytes(&v), row(41), &l).unwrap();
+    assert!(p.frames(FrameNeeds::all()).is_ok());
+    // An array that is not one of integers adds no id, so an unused
+    // malformed key does not refuse another rule's build.
+    let mut v = blob();
+    v["meta-tids"] = json!([4, "x"]);
+    let p = Projection::parse(&bytes(&v), row(41), &l).unwrap();
+    assert!(p.frames(extremity_only()).is_ok());
+    assert!(matches!(
         p.frames(FrameNeeds {
             meta: true,
             ..FrameNeeds::default()
-        })
-        .is_ok()
-    );
+        }),
+        Err(SourceRefusal::Malformed { .. })
+    ));
 }
 
 #[test]

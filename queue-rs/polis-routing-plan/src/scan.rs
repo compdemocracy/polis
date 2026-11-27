@@ -289,12 +289,20 @@ impl<'de> Visitor<'de> for Walk<'_> {
                 ctx: child,
             })?;
             st.one(which)?;
-            if !keys.insert(k) {
-                let key = match ctx.top {
-                    Top::Root => keys.last_top,
-                    Top::Is(k) => k,
-                };
-                return Err(st.refuse(SourceRefusal::DuplicateKey { key }));
+            match keys.insert(k) {
+                Some(true) => {}
+                Some(false) => {
+                    let key = match ctx.top {
+                        Top::Root => keys.last_top,
+                        Top::Is(k) => k,
+                    };
+                    return Err(st.refuse(SourceRefusal::DuplicateKey { key }));
+                }
+                None => {
+                    return Err(st.refuse(SourceRefusal::TooLarge {
+                        what: Limit::Reservation,
+                    }));
+                }
             }
         }
         if keys.spilled_duplicate() {
@@ -318,6 +326,10 @@ const SMALL: usize = 8;
 /// equal values refuse the object as repeating a key; two different keys
 /// whose hashes collide are refused too, which is safe (the read is refused,
 /// never misread).
+///
+/// The spill is grown by exact doubling from sixteen entries, so it never
+/// holds room for more than twice the keys in it; `parse_reservation`
+/// counts on that.
 struct Keys<'de> {
     small: [Option<Cow<'de, str>>; SMALL],
     len: usize,
@@ -351,25 +363,30 @@ impl<'de> Keys<'de> {
         }
     }
 
-    /// False when the key repeats one already seen among the first eight.
-    fn insert(&mut self, k: Cow<'de, str>) -> bool {
+    /// False when the key repeats one already seen among the first eight;
+    /// `None` when the spill could not be given room.
+    fn insert(&mut self, k: Cow<'de, str>) -> Option<bool> {
         self.last_top = top_key(&k);
         if self.small.iter().flatten().any(|s| *s == k) {
-            return false;
+            return Some(false);
         }
         if self.len < SMALL {
             if let Some(slot) = self.small.get_mut(self.len) {
                 *slot = Some(k);
             }
         } else {
-            if self.spill.is_empty() {
-                let firsts: Vec<u64> = self.small.iter().flatten().map(|s| key_value(s)).collect();
-                self.spill = firsts;
+            if self.spill.capacity() == 0 {
+                self.spill.try_reserve_exact(2 * SMALL).ok()?;
+                for s in self.small.iter().flatten() {
+                    self.spill.push(key_value(s));
+                }
+            } else if self.spill.len() == self.spill.capacity() {
+                self.spill.try_reserve_exact(self.spill.len()).ok()?;
             }
             self.spill.push(key_value(&k));
         }
         self.len += 1;
-        true
+        Some(true)
     }
 
     /// True when the keys past the first eight repeat a value.

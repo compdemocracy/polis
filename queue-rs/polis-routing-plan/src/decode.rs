@@ -245,3 +245,30 @@ impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
         d.deserialize_map(V(std::marker::PhantomData))
     }
 }
+
+/// Appends an array of integers to a vector already given room for them,
+/// and never grows it: more elements than its room is an error.
+pub(crate) struct IdsInto<'a>(pub(crate) &'a mut Vec<i64>);
+
+impl<'de> serde::de::DeserializeSeed<'de> for IdsInto<'_> {
+    type Value = ();
+    fn deserialize<D: Deserializer<'de>>(self, d: D) -> Result<(), D::Error> {
+        d.deserialize_seq(self)
+    }
+}
+
+impl<'de> Visitor<'de> for IdsInto<'_> {
+    type Value = ();
+    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("an array of integers")
+    }
+    fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<(), A::Error> {
+        while let Some(id) = seq.next_element::<i64>()? {
+            if self.0.len() == self.0.capacity() {
+                return Err(serde::de::Error::custom("more ids than counted"));
+            }
+            self.0.push(id);
+        }
+        Ok(())
+    }
+}

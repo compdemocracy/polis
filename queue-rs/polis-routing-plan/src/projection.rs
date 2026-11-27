@@ -4,7 +4,7 @@ use crate::decode;
 use crate::identity::{ContentId, RowIdentity, source_id};
 use crate::limits::{Limit, SourceLimits};
 use crate::refusal::{Key, SourceRefusal};
-use crate::reserve::reservation;
+use crate::reserve::{parse_reservation, reservation};
 use crate::scan::{State, Tally, Walk};
 use polis_routing_equation::{
     CommentId, Counts, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments,
@@ -143,12 +143,53 @@ fn need(raw: &Option<Box<RawValue>>, key: Key) -> Result<&str, SourceRefusal> {
         .ok_or(SourceRefusal::Missing { key })
 }
 
+/// The comments limit counts the union of `tids` and `meta-tids`: checked
+/// here, at parse, whatever frames are needed later and before any is made.
+/// When the two counts together are within the limit there is nothing to
+/// do; otherwise both arrays are read into one vector reserved for exactly
+/// their elements, and the distinct ids counted. An array that is not one
+/// of integers adds no id (its own frame is refused as malformed if it is
+/// ever needed), so a malformed unused key cannot refuse another rule.
+fn union_within(raw: &Raw, t: &Tally, limits: &SourceLimits) -> Result<(), SourceRefusal> {
+    let sum = t
+        .tids
+        .checked_add(t.meta)
+        .ok_or(SourceRefusal::CountOverflow)?;
+    if sum <= limits.max_comments {
+        return Ok(());
+    }
+    let room = SourceRefusal::TooLarge {
+        what: Limit::Reservation,
+    };
+    let mut ids: Vec<i64> = Vec::new();
+    ids.try_reserve_exact(usize::try_from(sum).map_err(|_| room)?)
+        .map_err(|_| room)?;
+    for text in [&raw.tids, &raw.meta_tids].into_iter().flatten() {
+        let start = ids.len();
+        let mut de = serde_json::Deserializer::from_str(text.get());
+        let read = decode::IdsInto(&mut ids)
+            .deserialize(&mut de)
+            .and_then(|()| de.end());
+        if read.is_err() {
+            ids.truncate(start);
+        }
+    }
+    ids.sort_unstable();
+    ids.dedup();
+    check(ids.len() as u64, limits.max_comments, Limit::Comments)
+}
+
 fn tid(v: i64, key: Key) -> Result<CommentId, SourceRefusal> {
     CommentId::try_from(v).map_err(|_| SourceRefusal::Malformed { key })
 }
 
 impl Projection {
-    /// Checks the bytes and keeps their keys; decodes nothing.
+    /// Checks the bytes and keeps their keys; decodes no frame.
+    ///
+    /// While it runs it holds no more than
+    /// `Projection::parse_reservation(bytes.len(), limits)`, whether it then
+    /// refuses or not; once it returns, the projection keeps no more than
+    /// `held()`.
     ///
     /// In order: the length; then one walk over the original bytes that
     /// refuses anything that is not one JSON object, any depth over the
@@ -163,18 +204,26 @@ impl Projection {
         let len = u64::try_from(bytes.len())
             .map_err(|_| SourceRefusal::TooLarge { what: Limit::Bytes })?;
         check(len, limits.max_bytes, Limit::Bytes)?;
-
-        let mut state = State::new(limits);
-        let mut de = serde_json::Deserializer::from_slice(bytes);
-        let walked = Walk::root(&mut state)
-            .deserialize(&mut de)
-            .and_then(|()| de.end());
-        if let Some(r) = state.refusal {
-            return Err(r);
+        if parse_reservation(len, limits).is_none() {
+            return Err(SourceRefusal::TooLarge {
+                what: Limit::Reservation,
+            });
         }
-        walked.map_err(malformed(Key::Projection))?;
 
-        let t = state.tally;
+        // The walk, in its own scope, so its reader's scratch is freed
+        // before the next phase (`parse_reservation` counts on it).
+        let t = {
+            let mut state = State::new(limits);
+            let mut de = serde_json::Deserializer::from_slice(bytes);
+            let walked = Walk::root(&mut state)
+                .deserialize(&mut de)
+                .and_then(|()| de.end());
+            if let Some(r) = state.refusal {
+                return Err(r);
+            }
+            walked.map_err(malformed(Key::Projection))?;
+            state.tally
+        };
         check(t.tids, limits.max_comments, Limit::Comments)?;
         check(t.meta, limits.max_comments, Limit::Comments)?;
         check(t.extremity, limits.max_comments, Limit::Comments)?;
@@ -189,6 +238,7 @@ impl Projection {
         }
 
         let raw: Raw = serde_json::from_slice(bytes).map_err(malformed(Key::Projection))?;
+        union_within(&raw, &t, limits)?;
         let content = ContentId::of(bytes);
         let source = source_id(&row, &content)?;
         Ok(Projection {
@@ -213,6 +263,46 @@ impl Projection {
     pub fn tally(&self) -> &Tally {
         &self.tally
     }
+    /// The limits it was checked under.
+    pub fn limits(&self) -> &SourceLimits {
+        &self.limits
+    }
+
+    /// An upper bound, in bytes, on what `parse` holds at any one time for
+    /// a source of `len` bytes under `limits`, known before it is called.
+    /// A length whose bound does not fit in 64 bits is refused, as `parse`
+    /// refuses it.
+    pub fn parse_reservation(len: usize, limits: &SourceLimits) -> Result<u64, SourceRefusal> {
+        u64::try_from(len)
+            .ok()
+            .and_then(|len| parse_reservation(len, limits))
+            .ok_or(SourceRefusal::TooLarge {
+                what: Limit::Reservation,
+            })
+    }
+
+    /// An upper bound, in bytes, on what this projection keeps while it is
+    /// held: the text of each key it read, the row's environment name and the
+    /// source id.
+    pub fn held(&self) -> u64 {
+        let r = &self.raw;
+        let text: usize = [
+            &r.group_votes,
+            &r.pca,
+            &r.tids,
+            &r.meta_tids,
+            &r.priorities,
+            &r.clusters,
+            &r.base_clusters,
+        ]
+        .into_iter()
+        .flatten()
+        .map(|v| v.get().len())
+        .sum();
+        (text as u64)
+            .saturating_add(self.row.math_env.capacity() as u64)
+            .saturating_add(256)
+    }
 
     /// An upper bound, in bytes, on what `frames(needs)` allocates, from the
     /// walk's counts alone.
@@ -236,14 +326,7 @@ impl Projection {
         };
         let meta = if needs.meta {
             let ids = self.meta_ids()?;
-            let meta = MetaComments::new(ids.iter().copied()).map_err(library(Key::MetaTids))?;
-            if let Some(e) = &extremity {
-                // The union of `tids` and `meta-tids`, when both are read.
-                let extra = ids.iter().filter(|id| e.get(**id).is_none()).count();
-                let union = (e.ids().count() as u64).saturating_add(extra as u64);
-                check(union, self.limits.max_comments, Limit::Comments)?;
-            }
-            Some(meta)
+            Some(MetaComments::new(ids.iter().copied()).map_err(library(Key::MetaTids))?)
         } else {
             None
         };
