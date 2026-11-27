@@ -281,6 +281,12 @@ impl Fallback {
     /// The library's refusal as a fallback reason. A `match` with no
     /// wildcard: a refusal the library adds does not compile here until it
     /// is given its own reason.
+    // Keep future library refusals a compile error, even when a wildcard
+    // would currently return the same reason as the last named variant.
+    #[deny(
+        clippy::wildcard_enum_match_arm,
+        clippy::match_wildcard_for_single_variants
+    )]
     pub fn from_refusal(refusal: DrawRefusal) -> Self {
         match refusal {
             DrawRefusal::UnitOutOfRange => Fallback::UnitOutOfRange,
