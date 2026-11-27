@@ -15,8 +15,9 @@ one read carries the same source id, made from the row and a SHA-256 of the
 bytes. What it cannot read exactly, it refuses; it never repairs.
 
 It is a pure library, and nothing in Polis calls it yet. It opens no file,
-reaches no database or network, reads no clock and keeps no state; it reads
-the bytes it is handed. It is the one crate the routing equation allows to
+reaches no database or network, reads no clock and keeps nothing beyond the
+values its caller holds (the plan cache of section 12 is one such value, in
+memory only); it reads the bytes it is handed. It is the one crate the routing equation allows to
 depend on it, and assumptions about the shape of the stored math result live
 here, never in the equation crate.
 
@@ -367,7 +368,7 @@ and three groups held 2,035,552 bytes against a charge of 11,291,440). The
 budget that charges them, the try-reservation before a draw, and holding a
 draw's reservation until its computation has finished and released its
 memory (also after a request's deadline has passed) are the server's, not this
-crate's; so are the cache's own entries and bookkeeping.
+crate's; the cache's own entries and bookkeeping are section 12's.
 
 **What is proven, and how** (`tests/plan.rs`, `tests/plan_allocation.rs`):
 two builds from the same bytes give identical receipts for 10,000 units; each
@@ -385,3 +386,107 @@ within its reservation; a plan's retained bytes stay within its charge; and
 the floor's draw makes the same allocations of its size as one direct draw,
 so no `probabilities` call precedes it.
 
+## 12. The plan cache
+
+`src/cache.rs`. `PlanCache<H>` holds the plans one process has built, in
+memory, as a pure state machine: every method takes `&mut self` or `&self`.
+The caller owns the lock around it (a `try_lock`; contention and poison are
+the misses `lock_busy` and `lock_poisoned`, which the caller returns), the
+shared handle each plan lives in (`PlanHandle`, an `Arc<CachedPlan>` in the
+caller: cloning it allocates nothing, `sole_owner` says whether it is the last
+reference), the clock (every reading arrives as a `Monotonic`, from the
+caller's monotonic clock, never the wall clock) and the jitter (a number). The
+crate's source scan forbids `std::sync`, so no lock, atomic or `Arc` is named
+under `src/`.
+
+**A cache, nothing more.** Losing it, wholly or in part, makes no answer
+incorrect and stops nothing: a lookup that finds no plan misses at once with
+its reason, and the caller serves today's draw. It can change which lawful
+rule answers: with candidates `[10, 20]`, stored weights `[9, 1]` and unit
+0.75, a `uniform/1` plan chooses 20; with the cache emptied, today's rule
+chooses 10, as the labelled fallback. Nothing here is needed to be correct or
+to continue, and nothing is kept anywhere but in memory: a new process starts
+empty, answers through the fallback and rebuilds from the stored math result.
+
+**Keys and fencing.** A `BundleKey` is everything a plan was built from: the
+conversation, the row's environment, `math_tick`, content id and
+`last_vote_timestamp`, the source id, the count policy, where the meta
+comments came from (the same read), the rule's canonical text, the
+configuration digest and the arm (one variant, `Default`).
+`CachedPlan::new` refuses a plan whose source id or rule is not the key's, so
+a plan from another math update, rule or read cannot be filed under it. One
+plan is ready per `(conversation, configuration digest, arm, environment)`.
+Publication moves the pointer only forward by tick: an older tick, or the
+same key again, is `Superseded`; a second content for one tick is
+`GenerationConflict`, counted, and the existing plan stays; a configuration
+that is no longer current is `Discarded`. A refused publication leaves the
+ready plan where it was.
+
+**Freshness.** Lookups and the loader's `note_seen` advance the newest seen
+tick by maximum; a lookup with no tick advances nothing and starts no clock.
+The head-lag clock starts at the first sight of a tick ahead of the ready
+plan, is not reset by repeats or by a partial catch-up, and clears only on
+full catch-up. A hit is `Current` when the plan's tick is the newest seen,
+`AheadOfRequest` when it is newer than the request's own snapshot (served
+under its own, newer identity), and `Lagging` while a newer tick has been
+seen for less than the captured `head_lag_bound`; after that the lookup
+misses with `head_lag`. A lookup under a configuration digest that is not
+current misses with `config_disabled`; with no plan it misses with `no_plan`,
+or `refused_source` when the request's tick was refused as a source.
+
+**Bytes.** One `Budget` (default `DEFAULT_CACHE_BYTES`, 256 MiB) is charged
+for everything the cache holds while anything holds it: its fixed part and
+the retired list's capacity (allocated when the cache is made, so retiring
+never allocates), each resident and retired plan (`CachedPlan::charge`: the
+plan's `charged_bytes`, its key's text and a fixed overhead), each slot and
+each negative-cache entry. `try_reserve` takes bytes before they are
+allocated, or refuses at once; a `Reservation` is linear and returns its bytes
+only through `release` or by becoming a published plan's charge (one dropped
+instead stays charged: an over-charge, never an under-charge). A publication
+whose reservation is smaller than its charge is `Undercharged`.
+`admit_build(len, limits, allowance)` reserves a build before it starts: the
+receive buffer, the parse charge for `len` bytes (`Projection::parse_reservation`)
+and the caller's allowance for the build; a source over `max_bytes`, or whose
+charge does not fit a share, is refused. The parse charge is loose (about ten
+times the source), so the default 64 MiB `max_bytes` is not an admission
+promise: a source that large is refused by its charge.
+
+**Eviction and fairness.** No conversation's resident plans may charge more
+than a quarter of the budget (`OverShare`), and no single reservation may be
+larger than that. `evict_lru` moves the least recently looked-up plan across
+every conversation to the retired list; ties fall to the key order, so
+eviction is deterministic.
+
+**Retirement and reclamation.** A replaced, evicted, cleared or
+disabled-configuration plan moves to the retired list with its charge. The
+list is bounded (64 entries, half the budget in bytes); when it is full a
+newer publication is `Busy`, and an eviction, a clear or a configuration
+change keeps the plan resident rather than discarding its last owner. A
+retired plan is unreachable from any lookup. `reclaim_one` hands one back only
+when the cache's reference is the last; `Reclaim::destroy` drops it (on the
+builder's thread, which calls it, while otherwise idle too) and `credit`
+returns its bytes. A request never drops the last reference. Shutdown is
+`set_config(None)`: lookups miss, publications are discarded, plans retire,
+and each is destroyed once its last borrower has let go.
+
+**The negative cache.** Source refusals keyed by `(conversation, environment,
+tick, content)`; build refusals by that and the configuration digest;
+failures before anything was read by `(conversation, environment, wanted
+tick)`. Each kind holds at most 1,024 entries, forgetting the oldest first.
+Retries back off from 30 s, doubling to a cap of 30 minutes, plus up to a
+quarter from the caller's jitter. A newer source forgets older failures; a new
+configuration forgets build refusals made under another.
+
+**What is proven, and how** (`tests/cache.rs`, `tests/cache_allocation.rs`):
+an independent rebuild in a new cache from the same bytes, configuration,
+candidates and units gives identical receipts; a clear, an eviction and a
+stale entry each miss at once with their reason (the `[10, 20]` witness above);
+each fencing rule and each bound has a test that fails when its check is
+removed; a lookup allocates and frees nothing on every outcome; what the cache
+holds, counted by the allocator, stays within what it charges; a request's
+dropped reference is never the last, and only reclamation destroys a plan.
+
+**What it does not do.** The lock, the shared handle and the process's
+reading of the budget's size are the server's. A pre-build bound on a plan
+build's own memory is not computed here: `admit_build` takes it as the
+caller's allowance.
