@@ -1063,6 +1063,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "polis-routing-plan"
+version = "0.1.0"
+dependencies = [
+ "polis-routing-equation",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "polis-topic-map"
 version = "0.1.0"
 dependencies = [

@@ -1,0 +1,33 @@
+[package]
+name = "polis-routing-plan"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "The frames adapter for comment routing: one stored math result, handed in as bytes, read into the routing equation's typed input frames under one source id, with every bound checked before anything is expanded."
+
+[lib]
+name = "polis_routing_plan"
+path = "src/lib.rs"
+
+# No features: a feature would be a way to switch something on.
+
+[dependencies]
+polis-routing-equation = { path = "../polis-routing-equation" }
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: every number is read correctly rounded, as the equation
+# crate reads its own. raw_value: each top-level key is kept as its own text
+# and decoded only when a rule needs it.
+serde_json = { version = "1", features = ["float_roundtrip", "raw_value"] }
+# The SHA-256 implementation the workspace already locks.
+sha2 = "0.10"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
