@@ -42,9 +42,9 @@ use polis_routing_equation::{
     Candidates, CommentId, CommentMarks, ConsensusForm, CorrectedWeights, Counts,
     CurrentGroupFrame, Extremity, ExtremityFrame, FloorParams, FloorPlan, GicParams, GroupId,
     HistoricalCountFrame, HistoricalParams, LiftParams, MarkTotals, Marks, MetaComments,
-    NormalizedLiftParams, SourceId, StoredWeights, SymmetricGicParams, SymmetricParams, TermInputs,
-    TermParams, Unit, VoterWeightFrame, historical_1, stable_cdf, stored_weights_1, symmetric_1,
-    symmetric_gic_1, symmetric_gic_floor_1, uniform_1, with_importance,
+    MetaPolicy, NormalizedLiftParams, SourceId, StoredWeights, SymmetricGicParams, SymmetricParams,
+    TermInputs, TermParams, Unit, VoterWeightFrame, historical_1, stable_cdf, stored_weights_1,
+    symmetric_1, symmetric_gic_1, symmetric_gic_floor_1, uniform_1, with_importance,
 };
 use serde_json::{Value, json};
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -941,6 +941,37 @@ fn bench_unscored(out: &mut Out, n: usize) {
             meta: MetaComments::none(),
         };
         let plan = floor_plan(&f, ConsensusForm::GicGeomean1);
+        let c = Candidates::new(ids.clone()).unwrap();
+        let src = sid("bench:request");
+        let base = with(tag("M8", "", &conv.label, n, 5), "set", json!(label));
+        let s = measure(|| plan.probabilities(&c).unwrap());
+        out.emit(with(base.clone(), "what", json!("probabilities")), &s);
+        let mut rng = Rng(9);
+        let s = measure(|| {
+            let u = Unit::new(rng.unit()).unwrap();
+            plan.draw(&c, u, &src, &src).unwrap()
+        });
+        out.emit(with(base, "what", json!("draw")), &s);
+    }
+    // Large excluded sets: every candidate scored, and 10% or 50% as many
+    // declared meta comments, none of them candidates, excluded under
+    // meta_policy = exclude.
+    let exclude = SymmetricGicParams::new(
+        SymmetricParams::new(1.0, 2.0, 1.0, 8.0, 5.0, 2, 7.0, MetaPolicy::Exclude).unwrap(),
+        ConsensusForm::GicGeomean1,
+        GicParams::default(),
+    );
+    for (label, tenths) in [
+        ("all scored, excluded 10%", 1usize),
+        ("all scored, excluded 50%", 5),
+    ] {
+        let meta =
+            MetaComments::new((0..n * tenths / 10).map(|i| CommentId::new(7 * i as u32 + 5)))
+                .unwrap();
+        let w =
+            symmetric_gic_1(&exclude, &full.counts, &full.extremity, &full.groups, &meta).unwrap();
+        let plan =
+            symmetric_gic_floor_1(&FloorParams::new(exclude, 0.1).unwrap(), w, &meta).unwrap();
         let c = Candidates::new(ids.clone()).unwrap();
         let src = sid("bench:request");
         let base = with(tag("M8", "", &conv.label, n, 5), "set", json!(label));

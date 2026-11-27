@@ -618,6 +618,7 @@ mod tests {
     /// candidates.
     fn constructed_case(rng: &mut XorShift, n: usize, mode: u64) -> (FloorPlan, Vec<CommentId>) {
         let policy = match rng.below(3) {
+            _ if mode == 6 => MetaPolicy::Exclude,
             0 => MetaPolicy::Exclude,
             1 => MetaPolicy::Fixed,
             _ => MetaPolicy::Ordinary,
@@ -639,9 +640,16 @@ mod tests {
             1 => 1e6 * (1.0 + rng.unit()),
             _ => (rng.below(1000) + 1) as f64 / 7.0,
         };
-        let kind = |rng: &mut XorShift| -> Kind {
+        // Under mode 6 a large share of the comments that are not candidates
+        // are excluded (a tenth, half or all of as many as the candidates).
+        let excluded_share = [10, 50, 100][rng.below(3) as usize];
+        let kind = |rng: &mut XorShift, candidate: bool| -> Kind {
             let r = rng.below(100);
             match mode {
+                6 if candidate && r < 50 => Kind::Scored(weight(rng)),
+                6 if candidate => Kind::Unscored,
+                6 if r < excluded_share => Kind::Excluded,
+                6 => Kind::Scored(weight(rng)),
                 0 => Kind::Scored((rng.below(1000) + 1) as f64 / 7.0),
                 1 => Kind::Unscored,
                 2 => Kind::Scored(0.0),
@@ -657,18 +665,22 @@ mod tests {
                 _ => Kind::Unscored,
             }
         };
-        // Sparse, distinct ids; a fifth more comments than candidates.
-        let known = n + n / 5;
-        let mut all: Vec<(CommentId, Kind)> = (0..known)
-            .map(|i| {
-                let id = CommentId::new((i as u32) * 3 + rng.below(3) as u32);
-                (id, kind(rng))
-            })
+        // Sparse, distinct ids; a fifth more comments than candidates (as
+        // many again under mode 6), in a shuffled order; the first n are the
+        // candidates.
+        let known = if mode == 6 { 2 * n } else { n + n / 5 };
+        let mut ids: Vec<CommentId> = (0..known)
+            .map(|i| CommentId::new((i as u32) * 3 + rng.below(3) as u32))
             .collect();
-        for i in (1..all.len()).rev() {
+        for i in (1..ids.len()).rev() {
             let j = rng.below(i as u64 + 1) as usize;
-            all.swap(i, j);
+            ids.swap(i, j);
         }
+        let all: Vec<(CommentId, Kind)> = ids
+            .into_iter()
+            .enumerate()
+            .map(|(i, id)| (id, kind(rng, i < n)))
+            .collect();
         let mut scored = vec![];
         let mut unscored = vec![];
         let mut meta = vec![];
@@ -712,8 +724,8 @@ mod tests {
         let mut rng = XorShift(0x9e37_79b9_7f4a_7c15);
         let (ws, input) = (src("weights"), src("participant"));
         let largest_below_one = 1.0 - f64::EPSILON / 2.0;
-        let mut seen = [0usize; 7];
-        let cases = 1200;
+        let mut seen = [0usize; 8];
+        let cases = 1400;
         for case in 0..cases {
             let n = match case {
                 0 => 0,
@@ -721,7 +733,7 @@ mod tests {
                 _ if case % 20 == 0 => rng.below(3001) as usize,
                 _ => rng.below(300) as usize,
             };
-            let mode = case as u64 % 6;
+            let mode = case as u64 % 7;
             let (plan, ids) = constructed_case(&mut rng, n, mode);
             let Ok(candidates) = Candidates::new(ids) else {
                 assert_eq!(n, 0, "only an empty list is refused here");
@@ -746,6 +758,9 @@ mod tests {
                     }
                     if b.iter().all(|w| *w == 0.0) {
                         seen[5] += 1;
+                    }
+                    if mode == 6 && plan.weights.excluded().count() >= n / 10 {
+                        seen[7] += 1;
                     }
                 }
             }
@@ -773,7 +788,8 @@ mod tests {
         }
         // Every kind of case was met: an empty list, a refusal for an
         // excluded and for an unknown candidate, resolutions with unscored
-        // candidates and with no mass in the weighted lane, and draws.
+        // candidates, with no mass in the weighted lane and beside a large
+        // excluded set, and draws.
         assert!(seen.iter().all(|s| *s > 0), "coverage {seen:?}");
     }
 
