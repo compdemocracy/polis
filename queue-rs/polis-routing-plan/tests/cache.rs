@@ -508,9 +508,14 @@ fn budget_full_refuses_reservation() {
     let share = c.max_share();
     assert!(c.try_reserve(share + 1).is_none(), "more than a share");
     let mut held = Vec::new();
-    while let Some(r) = c.try_reserve(share) {
-        held.push(r);
+    // Bounded, so a budget that refuses nothing fails here, not by running on.
+    for _ in 0..16 {
+        if let Some(r) = c.try_reserve(share) {
+            held.push(r);
+        }
     }
+    // The fixed charge is taken, so three shares fit and the fourth does not.
+    assert_eq!(held.len(), 3);
     assert!(c.budget().used() <= c.budget().limit());
     assert!(c.try_reserve(c.budget().available() + 1).is_none());
     let used = c.budget().used();
