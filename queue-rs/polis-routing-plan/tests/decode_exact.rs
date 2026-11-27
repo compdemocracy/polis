@@ -511,6 +511,8 @@ fn floor_allowance_per_byte_at_the_loader_length() {
         println!("floor {policy:?}: allowance {allowance} at {len} bytes, {per_byte} per byte");
         per.push(per_byte);
     }
-    // About 290 times the length at this head.
-    assert!(per.iter().all(|p| (250..=300).contains(p)), "{per:?}");
+    // About 310 times the length at this head: the readers' term from the
+    // keys' text carries one error message (18 bytes for each byte), since
+    // a string of 0x7f bytes where a number is expected showed it is needed.
+    assert!(per.iter().all(|p| (250..=330).contains(p)), "{per:?}");
 }

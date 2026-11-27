@@ -288,7 +288,7 @@ the old room and the new; plus one error message serde formats (a type or
 field error holds one string, written by `Debug` at up to six bytes for each
 byte, in a `String` grown by doubling: three times `6 x len + 512`), and an
 allowance of 16 KiB for the float conversion of a long number. It is made
-from lengths alone, so it is loose (about 28 times the source): on
+from lengths alone, so it is loose (about 22 to 26 times the source): on
 constructed inputs it deliberately overcharges; it is not a measured memory
 requirement. The allocation tests force reallocations to move, counting old
 and new buffers together. Compact repeated keys exercise the spill term even
@@ -651,7 +651,7 @@ whose reservation is smaller than its charge is `Undercharged`.
 receive buffer, the parse charge for `len` bytes (`Projection::parse_reservation`)
 and the caller's allowance for the build; a source over `max_bytes`, or whose
 charge does not fit a share, is refused. That parse charge is the pre-read
-form, loose (about 28 times the source), so the default 64 MiB `max_bytes`
+form, loose (about 22 to 26 times the source), so the default 64 MiB `max_bytes`
 is not an admission promise: a source that large is refused by its charge.
 The measured form (`Projection::measured_parse_reservation`, from
 `Projection::measure` over the received bytes) is close to the source's
