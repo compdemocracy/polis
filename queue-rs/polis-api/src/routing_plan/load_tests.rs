@@ -595,4 +595,3 @@ mod db {
         handle.join().unwrap();
     }
 }
-}
