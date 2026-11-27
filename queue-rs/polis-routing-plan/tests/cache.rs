@@ -946,13 +946,20 @@ fn sighting_with_no_plan_starts_the_clock() {
         (11, Freshness::Lagging { behind_ns: 20 })
     );
     assert_eq!(miss(&mut c, A, 7, None, 50 + BOUND), MissReason::HeadLag);
-    // The loader's sighting with no plan counts too.
-    assert_eq!(c.evict_lru(), Some(true));
-    c.note_seen(7, "example", 20, t(60 + BOUND));
-    publish(&mut c, m.uniform(7, 12, A), 61 + BOUND).unwrap();
+    // Full catch-up clears the clock; then the loader's sighting with no
+    // plan starts it again, and the rebuilt plan lags from that sighting.
+    publish(&mut c, m.uniform(7, 21, A), 60 + BOUND).unwrap();
     assert_eq!(
-        hit(&mut c, A, 7, None, 62 + BOUND),
-        (12, Freshness::Lagging { behind_ns: 2 })
+        hit(&mut c, A, 7, None, 61 + BOUND),
+        (21, Freshness::Current)
+    );
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    c.note_seen(7, "example", 22, t(70 + BOUND));
+    publish(&mut c, m.uniform(7, 21, A), 71 + BOUND).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, None, 72 + BOUND),
+        (21, Freshness::Lagging { behind_ns: 2 })
     );
 }
 
