@@ -131,13 +131,21 @@ fn handle(zid: i32, env: &str, tick: i64, n: usize, rule: &RuleConfig) -> H {
     let p = Projection::parse(&bytes(&v), r, &SourceLimits::default()).unwrap();
     let plan = Plan::build(&p.frames(rule.needs()).unwrap(), rule).unwrap();
     H(Arc::new(
-        CachedPlan::new(BundleKey::of(&p, rule, None, D), plan, Monotonic::from_nanos(0)).unwrap(),
+        CachedPlan::new(
+            BundleKey::of(&p, rule, None, D),
+            plan,
+            Monotonic::from_nanos(0),
+        )
+        .unwrap(),
     ))
 }
 
 fn publish(c: &mut PlanCache<H>, h: H) {
     let r = c.try_reserve(h.cached().charge() + 4096).unwrap();
-    assert!(matches!(c.publish(h, r, Monotonic::from_nanos(0)), Published::Ready));
+    assert!(matches!(
+        c.publish(h, r, Monotonic::from_nanos(0)),
+        Published::Ready
+    ));
 }
 
 /// A lookup allocates nothing and frees nothing, on every outcome: a hit,
@@ -149,7 +157,10 @@ fn no_alloc_or_drop_under_lookup() {
     for zid in 0..50 {
         publish(&mut c, handle(zid, "example", 41, 8, &stored()));
     }
-    let content = *handle(99, "example", 41, 2, &uniform()).cached().key().content();
+    let content = *handle(99, "example", 41, 2, &uniform())
+        .cached()
+        .key()
+        .content();
     for tick in 0..1000 {
         c.record_failure(
             Failure::Source(SourceKey {
@@ -213,15 +224,25 @@ fn charge_covers_metadata() {
 
     let ((), _, _, live) = counted(|| {
         for zid in 0..40 {
-            for (e, env) in ["a", "a-much-longer-environment-name", "b"].iter().enumerate() {
-                let rule = if (zid + e as i32) % 2 == 0 { stored() } else { uniform() };
+            for (e, env) in ["a", "a-much-longer-environment-name", "b"]
+                .iter()
+                .enumerate()
+            {
+                let rule = if (zid + e as i32) % 2 == 0 {
+                    stored()
+                } else {
+                    uniform()
+                };
                 let n = [1, 64, 2_000][(zid as usize + e) % 3];
                 publish(&mut c, handle(zid, env, 41, n, &rule));
             }
         }
     });
     let charged = c.budget().used() - fixed;
-    assert!(live > 0 && live as u64 <= charged, "plans: {live} live, {charged} charged");
+    assert!(
+        live > 0 && live as u64 <= charged,
+        "plans: {live} live, {charged} charged"
+    );
 
     let before = c.budget().used();
     let content = *handle(1, "a", 1, 1, &uniform()).cached().key().content();
@@ -238,5 +259,8 @@ fn charge_covers_metadata() {
         }
     });
     let charged = c.budget().used() - before;
-    assert!(live as u64 <= charged, "negatives: {live} live, {charged} charged");
+    assert!(
+        live as u64 <= charged,
+        "negatives: {live} live, {charged} charged"
+    );
 }

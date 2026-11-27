@@ -132,7 +132,13 @@ fn publish(c: &mut PlanCache<H>, h: H, now: u64) -> Result<(), Rejection> {
     }
 }
 
-fn hit(c: &mut PlanCache<H>, d: [u8; 32], zid: i32, seen: Option<i64>, now: u64) -> (i64, Freshness) {
+fn hit(
+    c: &mut PlanCache<H>,
+    d: [u8; 32],
+    zid: i32,
+    seen: Option<i64>,
+    now: u64,
+) -> (i64, Freshness) {
     match c.lookup(&cap(d), zid, "example", seen, t(now)) {
         Lookup::Hit { plan, freshness } => (plan.cached().key().math_tick(), freshness),
         Lookup::Miss(r) => panic!("expected a hit, got {}", r.name()),
@@ -212,12 +218,18 @@ fn cache_loss_falls_back_without_waiting() {
     let Lookup::Hit { plan, .. } = c.lookup(&cap(A), 7, "example", Some(41), t(1)) else {
         panic!()
     };
-    assert_eq!(plan.cached().plan().draw(&[10, 20], 0.75).unwrap().tid(), 20);
+    assert_eq!(
+        plan.cached().plan().draw(&[10, 20], 0.75).unwrap().tid(),
+        20
+    );
     drop(plan);
     assert_eq!(todays_choice(&[10, 20], &[9.0, 1.0], 0.75), 10);
     // The stored-weights plan, the library's form of today's rule, agrees.
     let today = m.plan(7, "example", 41, &source(9.0, 1.0), &stored(), A);
-    assert_eq!(today.cached().plan().draw(&[10, 20], 0.75).unwrap().tid(), 10);
+    assert_eq!(
+        today.cached().plan().draw(&[10, 20], 0.75).unwrap().tid(),
+        10
+    );
 
     // Cleared and reclaimed: no plan, at once.
     assert_eq!(c.clear().retired, 1);
@@ -232,8 +244,14 @@ fn cache_loss_falls_back_without_waiting() {
     // Stale: a newer tick seen for longer than the bound misses, and the
     // older plan is never served as current.
     publish(&mut c, m.uniform(7, 50, A), 5).unwrap();
-    assert!(matches!(hit(&mut c, A, 7, Some(51), 10).1, Freshness::Lagging { .. }));
-    assert_eq!(miss(&mut c, A, 7, Some(51), 10 + BOUND), MissReason::HeadLag);
+    assert!(matches!(
+        hit(&mut c, A, 7, Some(51), 10).1,
+        Freshness::Lagging { .. }
+    ));
+    assert_eq!(
+        miss(&mut c, A, 7, Some(51), 10 + BOUND),
+        MissReason::HeadLag
+    );
 }
 
 // ---- Keys and fencing ----
@@ -276,12 +294,18 @@ fn pointer_moves_forward_only() {
     let mut c = cache(Some(A));
     publish(&mut c, m.uniform(7, 45, A), 0).unwrap();
     // A late, older completion is refused and lowers nothing.
-    assert_eq!(publish(&mut c, m.uniform(7, 43, A), 1), Err(Rejection::Superseded));
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 43, A), 1),
+        Err(Rejection::Superseded)
+    );
     assert_eq!(hit(&mut c, A, 7, Some(45), 2), (45, Freshness::Current));
     publish(&mut c, m.uniform(7, 46, A), 3).unwrap();
     assert_eq!(hit(&mut c, A, 7, Some(46), 4), (46, Freshness::Current));
     // The same key again is not a second publication.
-    assert_eq!(publish(&mut c, m.uniform(7, 46, A), 5), Err(Rejection::Superseded));
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 46, A), 5),
+        Err(Rejection::Superseded)
+    );
 }
 
 #[test]
@@ -292,7 +316,10 @@ fn conflicting_identity_for_one_tick() {
     let other = m.plan(7, "example", 41, &source(8.0, 1.0), &uniform(), A);
     let first_content = *first.cached().key().content();
     publish(&mut c, first, 0).unwrap();
-    assert_eq!(publish(&mut c, other, 1), Err(Rejection::GenerationConflict));
+    assert_eq!(
+        publish(&mut c, other, 1),
+        Err(Rejection::GenerationConflict)
+    );
     assert_eq!(c.generation_conflicts(), 1);
     let Lookup::Hit { plan, .. } = c.lookup(&cap(A), 7, "example", Some(41), t(2)) else {
         panic!()
@@ -304,11 +331,21 @@ fn conflicting_identity_for_one_tick() {
 fn disabled_revision_discarded() {
     let m = Maker::new();
     let mut c = cache(Some(A));
-    assert_eq!(publish(&mut c, m.uniform(7, 41, B), 0), Err(Rejection::Discarded));
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 41, B), 0),
+        Err(Rejection::Discarded)
+    );
     publish(&mut c, m.uniform(7, 41, A), 0).unwrap();
     c.set_config(Some(B));
-    assert_eq!(publish(&mut c, m.uniform(7, 42, A), 1), Err(Rejection::Discarded));
-    assert_eq!(c.resident_len(), 0, "the old configuration's plan was retired");
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 42, A), 1),
+        Err(Rejection::Discarded)
+    );
+    assert_eq!(
+        c.resident_len(),
+        0,
+        "the old configuration's plan was retired"
+    );
 }
 
 #[test]
@@ -342,7 +379,10 @@ fn loader_generation_ahead_of_request() {
     let m = Maker::new();
     let mut c = cache(Some(A));
     publish(&mut c, m.uniform(7, 42, A), 0).unwrap();
-    assert_eq!(hit(&mut c, A, 7, Some(41), 1), (42, Freshness::AheadOfRequest));
+    assert_eq!(
+        hit(&mut c, A, 7, Some(41), 1),
+        (42, Freshness::AheadOfRequest)
+    );
 }
 
 #[test]
@@ -367,15 +407,26 @@ fn head_lag_expiry_on_the_monotonic_clock() {
     );
     assert_eq!(
         hit(&mut c, A, 7, Some(42), 100 + BOUND - 1).1,
-        Freshness::Lagging { behind_ns: BOUND - 1 }
+        Freshness::Lagging {
+            behind_ns: BOUND - 1
+        }
     );
-    assert_eq!(miss(&mut c, A, 7, Some(42), 100 + BOUND), MissReason::HeadLag);
+    assert_eq!(
+        miss(&mut c, A, 7, Some(42), 100 + BOUND),
+        MissReason::HeadLag
+    );
     // Even a request that read the older tick misses once the newer one
     // has been seen for the bound.
-    assert_eq!(miss(&mut c, A, 7, Some(41), 100 + BOUND), MissReason::HeadLag);
+    assert_eq!(
+        miss(&mut c, A, 7, Some(41), 100 + BOUND),
+        MissReason::HeadLag
+    );
     // Full catch-up clears it.
     publish(&mut c, m.uniform(7, 42, A), 200 + BOUND).unwrap();
-    assert_eq!(hit(&mut c, A, 7, Some(42), 300 + BOUND), (42, Freshness::Current));
+    assert_eq!(
+        hit(&mut c, A, 7, Some(42), 300 + BOUND),
+        (42, Freshness::Current)
+    );
     // The module reads no clock of its own.
     let src = include_str!("../src/cache.rs");
     for word in ["SystemTime", "Instant", "clock::now_ms", "std::time"] {
@@ -391,7 +442,10 @@ fn partial_catch_up_keeps_the_clock() {
     hit(&mut c, A, 7, Some(44), 10); // the clock starts at 10
     publish(&mut c, m.uniform(7, 42, A), 20).unwrap(); // partial
     hit(&mut c, A, 7, Some(44), 30); // repeated: no reset
-    assert_eq!(miss(&mut c, A, 7, Some(44), 10 + BOUND), MissReason::HeadLag);
+    assert_eq!(
+        miss(&mut c, A, 7, Some(44), 10 + BOUND),
+        MissReason::HeadLag
+    );
     // The loader's sight of a tick counts like a request's.
     publish(&mut c, m.uniform(7, 44, A), 20 + BOUND).unwrap();
     c.note_seen(7, "example", 45, t(30 + BOUND));
@@ -419,7 +473,10 @@ fn sustained_rapid_updates() {
             served_until = now;
         }
     }
-    assert!(served_until < BOUND / 4 + BOUND, "served until {served_until}");
+    assert!(
+        served_until < BOUND / 4 + BOUND,
+        "served until {served_until}"
+    );
 }
 
 // ---- Bytes ----
@@ -450,7 +507,9 @@ fn undercharged_publication_refused() {
     let r = c.try_reserve(h.cached().charge()).unwrap(); // no room for the slot
     match c.publish(h, r, t(0)) {
         Published::Rejected {
-            reason, reservation, ..
+            reason,
+            reservation,
+            ..
         } => {
             assert_eq!(reason, Rejection::Undercharged);
             c.release(reservation);
@@ -464,7 +523,10 @@ fn large_source_refused_by_its_charge() {
     let mut c: PlanCache<H> = cache(Some(A));
     let limits = SourceLimits::default();
     let max = limits.max_bytes as usize;
-    assert!(c.admit_build(max, &limits, 0).is_none(), "the 64 MiB limit is not admission");
+    assert!(
+        c.admit_build(max, &limits, 0).is_none(),
+        "the 64 MiB limit is not admission"
+    );
     let small = c.admit_build(1 << 20, &limits, 1 << 20).unwrap();
     assert!(small.bytes() >= Projection::parse_reservation(1 << 20, &limits).unwrap());
     c.release(small);
@@ -472,7 +534,10 @@ fn large_source_refused_by_its_charge() {
         max_bytes: 1 << 20,
         ..limits
     };
-    assert!(c.admit_build((1 << 20) + 1, &lower, 0).is_none(), "over a lower max_bytes");
+    assert!(
+        c.admit_build((1 << 20) + 1, &lower, 0).is_none(),
+        "over a lower max_bytes"
+    );
 }
 
 #[test]
@@ -489,7 +554,10 @@ fn charges_return_to_baseline() {
         math_tick: 3,
         content: *projection(9, "example", 3, &source(1.0, 1.0)).content(),
     });
-    assert!(matches!(c.record_failure(k, t(0), 0), Recorded::Held { .. }));
+    assert!(matches!(
+        c.record_failure(k, t(0), 0),
+        Recorded::Held { .. }
+    ));
     assert!(c.budget().used() > baseline);
     c.set_config(None);
     drain(&mut c);
@@ -583,12 +651,19 @@ fn retired_list_bounded_and_charged() {
     assert!(c.retired_bytes() > 0 && c.retired_bytes() <= c.retired_max_bytes());
     // Full: a newer publication is refused and the existing plan stays.
     let last = RETIRED_ENTRIES as i64 + 1;
-    assert_eq!(publish(&mut c, m.uniform(7, last + 1, A), 0), Err(Rejection::Busy));
+    assert_eq!(
+        publish(&mut c, m.uniform(7, last + 1, A), 0),
+        Err(Rejection::Busy)
+    );
     assert_eq!(hit(&mut c, A, 7, None, 0).0, last);
     // Full-list eviction keeps the owner; a clear keeps it too.
     assert_eq!(c.evict_lru(), Some(false));
     assert_eq!(c.clear().kept, 1);
-    assert_eq!(c.budget().used(), before, "nothing freed, nothing uncharged");
+    assert_eq!(
+        c.budget().used(),
+        before,
+        "nothing freed, nothing uncharged"
+    );
     // Idle reclamation, with no build: once the readers are gone.
     assert!(c.reclaim_one().is_none());
     drop(readers);
@@ -679,7 +754,10 @@ fn negative_cache_keys_and_bounds() {
         c.record_failure(Failure::Source(sk(1000 + tick)), t(0), 0);
     }
     assert_eq!(c.negative_counts().0, polis_routing_plan::NEGATIVE_ENTRIES);
-    assert!(c.retry_allowed(&Failure::Source(sk(1000)), t(1)), "the oldest went");
+    assert!(
+        c.retry_allowed(&Failure::Source(sk(1000)), t(1)),
+        "the oldest went"
+    );
     assert!(!c.retry_allowed(&Failure::Source(sk(1100)), t(1)));
 }
 

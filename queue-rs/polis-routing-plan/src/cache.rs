@@ -533,7 +533,9 @@ pub enum Recorded {
 /// thousandths, clamped to 1,000).
 pub fn retry_delay_ns(failures: u32, jitter_permille: u16) -> u64 {
     let shift = failures.saturating_sub(1).min(16);
-    let delay = RETRY_BASE_NS.saturating_mul(1u64 << shift).min(RETRY_CAP_NS);
+    let delay = RETRY_BASE_NS
+        .saturating_mul(1u64 << shift)
+        .min(RETRY_CAP_NS);
     let jitter = (delay / 4).saturating_mul(u64::from(jitter_permille.min(1000))) / 1000;
     delay.saturating_add(jitter)
 }
@@ -717,11 +719,9 @@ impl<H: PlanHandle> PlanCache<H> {
             }
         } else {
             match slot.first_seen_ahead {
-                Some(start) if now.since(start) < capture.head_lag_bound_ns => {
-                    Freshness::Lagging {
-                        behind_ns: now.since(start),
-                    }
-                }
+                Some(start) if now.since(start) < capture.head_lag_bound_ns => Freshness::Lagging {
+                    behind_ns: now.since(start),
+                },
                 _ => return Lookup::Miss(MissReason::HeadLag),
             }
         };
@@ -764,7 +764,12 @@ impl<H: PlanHandle> PlanCache<H> {
     pub fn publish(&mut self, handle: H, reservation: Reservation, now: Monotonic) -> Published<H> {
         let (zid, digest, tick, env_len) = {
             let key = &handle.cached().key;
-            (key.zid, key.config_digest, key.math_tick, key.math_env.len())
+            (
+                key.zid,
+                key.config_digest,
+                key.math_tick,
+                key.math_env.len(),
+            )
         };
         let reject = |handle, reservation, reason| Published::Rejected {
             handle,
@@ -800,7 +805,11 @@ impl<H: PlanHandle> PlanCache<H> {
                 if retired_room == 0 || slot.ready_charge > retired_bytes_room {
                     return reject(handle, reservation, Rejection::Busy);
                 }
-                if resident.saturating_sub(slot.ready_charge).saturating_add(charge) > max_share {
+                if resident
+                    .saturating_sub(slot.ready_charge)
+                    .saturating_add(charge)
+                    > max_share
+                {
                     return reject(handle, reservation, Rejection::OverShare);
                 }
                 if reservation.bytes < charge {
@@ -981,10 +990,8 @@ impl<H: PlanHandle> PlanCache<H> {
                 .filter(|(f, _)| std::mem::discriminant(*f) == kind)
                 .min_by_key(|(_, n)| n.seq)
                 .map(|(f, _)| f.clone());
-            if let Some(oldest) = oldest {
-                if let Some(n) = self.negatives.remove(&oldest) {
-                    self.budget.give_back(n.charge);
-                }
+            if let Some(n) = oldest.and_then(|o| self.negatives.remove(&o)) {
+                self.budget.give_back(n.charge);
             }
         }
         let charge = failure.charge();
