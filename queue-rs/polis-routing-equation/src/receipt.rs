@@ -310,7 +310,12 @@ fn latest_from(
     let latest = source(inputs, "latest_counts")?;
     let extremity = source(inputs, "current_extremity")?;
     let groups = source(inputs, "current_groups")?;
-    if latest != extremity || latest != groups {
+    if latest != groups {
+        return Err(plain_refusal(
+            "latest_counts and current_groups must name the same update",
+        ));
+    }
+    if latest != extremity {
         return Err(Refusal::PolicySourceMismatch {
             policy: asked,
             counts: latest,

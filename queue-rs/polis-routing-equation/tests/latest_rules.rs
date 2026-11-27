@@ -984,7 +984,12 @@ fn the_reader_refuses_every_wrong_lag0_form() {
         ),
     ];
     for (i, bad) in refused.iter().enumerate() {
-        assert_ne!(bad, floor, "mutation {i} changed nothing");
+        let original = match i {
+            12 => lifted,
+            17 | 18 => stored,
+            _ => floor,
+        };
+        assert_ne!(bad, original, "mutation {i} changed nothing");
         assert!(
             Drawn::from_plain(bad).is_err(),
             "mutation {i} was read: {bad}"
