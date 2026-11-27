@@ -764,6 +764,27 @@ impl<H: PlanHandle> PlanCache<H> {
         self.budget.give_back(reservation.bytes);
     }
 
+    /// Cuts `reservation` down to `keep` bytes and gives the rest back,
+    /// keeping when it was taken. A build reserves before it reads, and
+    /// hands [`PlanCache::publish`] this reservation cut down to the plan's
+    /// charge: never one released and taken again after the read, which
+    /// would let a build that began before a fence was forgotten publish
+    /// into the gap. Handed back unchanged if `keep` is more than it holds.
+    pub fn shrink(
+        &mut self,
+        reservation: Reservation,
+        keep: u64,
+    ) -> Result<Reservation, Reservation> {
+        if keep > reservation.bytes {
+            return Err(reservation);
+        }
+        self.budget.give_back(reservation.bytes - keep);
+        Ok(Reservation {
+            bytes: keep,
+            taken: reservation.taken,
+        })
+    }
+
     /// A build's admission, before anything is read or allocated: the
     /// receive buffer for a source of `len` bytes, the parse charge for it
     /// under `limits`, and `allowance` for the build's own scratch and the

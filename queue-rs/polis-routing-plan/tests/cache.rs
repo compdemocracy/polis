@@ -1185,3 +1185,63 @@ fn disable_forgets_like_a_restart() {
     publish(&mut c, m.uniform(7, 10, A), 2).unwrap();
     assert_eq!(hit(&mut c, A, 7, None, 3), (10, Freshness::Current));
 }
+
+/// A reservation cut down to the plan's charge keeps when it was taken, so
+/// a build that began before its conversation's fence was forgotten is
+/// still refused after `shrink`; a cut larger than the reservation is
+/// handed back unchanged.
+#[test]
+fn shrunk_reservation_keeps_when_it_was_taken() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 5, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    let older = m.uniform(7, 4, A);
+    let keep = older.cached().charge() + 4096;
+    let whole = c.try_reserve(keep + (1 << 20)).unwrap();
+    assert!(c.fenced(7, "example"));
+    c.set_config(None);
+    c.set_config(Some(A));
+    assert!(!c.fenced(7, "example"));
+    let held = c.budget().used();
+    let whole = c.shrink(whole, keep + (2 << 20)).unwrap_err();
+    assert_eq!(whole.bytes(), keep + (1 << 20));
+    let cut = c.shrink(whole, keep).unwrap();
+    assert_eq!(cut.bytes(), keep);
+    assert_eq!(c.budget().used(), held - (1 << 20));
+    match c.publish(older, cut, t(1)) {
+        Published::Rejected {
+            reason,
+            reservation,
+            ..
+        } => {
+            assert_eq!(reason, Rejection::FenceForgotten);
+            c.release(reservation);
+        }
+        Published::Ready => panic!("an older update published into a forgotten fence"),
+    }
+    assert_eq!(c.budget().used(), held - (1 << 20) - keep);
+}
+
+/// At the bound, the fence forgotten for a newcomer is the one least
+/// recently looked up or published: a lookup keeps a fence with no plan.
+#[test]
+fn fence_forgotten_least_recently_looked_up_first() {
+    use polis_routing_plan::FENCE_ENTRIES;
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(0, 5, A), 0).unwrap();
+    publish(&mut c, m.uniform(1, 5, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    assert_eq!(miss(&mut c, A, 0, None, 1), MissReason::NoPlan);
+    for zid in 2..FENCE_ENTRIES as i32 {
+        publish(&mut c, m.uniform(zid, 5, A), 2).unwrap();
+    }
+    assert_eq!(c.fence_len(), FENCE_ENTRIES);
+    publish(&mut c, m.uniform(90_000, 1, A), 3).unwrap();
+    assert!(c.fenced(0, "example"));
+    assert!(!c.fenced(1, "example"));
+}

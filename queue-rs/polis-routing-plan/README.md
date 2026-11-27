@@ -451,6 +451,11 @@ one more rule: a reservation taken before the cache last forgot a fence
 cannot publish into a conversation that has none (`FenceForgotten`), so a
 build that began before the forgetting cannot publish an older update into
 the gap; a fresh reservation, for a fresh read, can.
+The reservation handed to `publish` is that build's own, taken before
+`fenced` is read and before the source is read, cut down to the plan's
+charge with `shrink`, which keeps when it was taken; one released and taken
+again after the read would let a build that began before the forgetting
+through. On `FenceFull` the builder evicts one plan and retries once.
 
 **Freshness.** Lookups and the loader's `note_seen` advance the fence's newest
 seen tick by maximum; a lookup with no tick advances nothing and starts no
