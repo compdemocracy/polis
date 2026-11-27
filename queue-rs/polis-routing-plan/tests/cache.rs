@@ -976,10 +976,7 @@ fn time_going_backwards_misses() {
         hit(&mut c, A, 7, None, 5_001),
         (10, Freshness::Lagging { behind_ns: 1 })
     );
-    assert_eq!(
-        miss(&mut c, A, 7, None, 5_000 + BOUND),
-        MissReason::HeadLag
-    );
+    assert_eq!(miss(&mut c, A, 7, None, 5_000 + BOUND), MissReason::HeadLag);
 }
 
 /// One conversation under two rules: the new rule's configuration cannot

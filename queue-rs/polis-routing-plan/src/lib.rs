@@ -36,10 +36,11 @@ mod scan;
 
 pub use cache::{
     Arm, Budget, BundleKey, CACHE_FIXED, CachedPlan, ConfigCapture, DEFAULT_CACHE_BYTES,
-    ENTRY_OVERHEAD, FENCE_ENTRIES, FENCE_OVERHEAD, Failure, Freed, Freshness, KeyMismatch, Lookup, MAX_SHARE_DIVISOR, MetaSource,
-    MissReason, Monotonic, Moved, NEGATIVE_ENTRIES, NEGATIVE_OVERHEAD, PlanCache, PlanHandle,
-    Published, RETIRED_BYTES_DIVISOR, RETIRED_ENTRIES, RETRY_BASE_NS, RETRY_CAP_NS, Reclaim,
-    Recorded, Rejection, Reservation, SLOT_OVERHEAD, SourceKey, WantedKey, retry_delay_ns,
+    ENTRY_OVERHEAD, FENCE_ENTRIES, FENCE_OVERHEAD, Failure, Freed, Freshness, KeyMismatch, Lookup,
+    MAX_SHARE_DIVISOR, MetaSource, MissReason, Monotonic, Moved, NEGATIVE_ENTRIES,
+    NEGATIVE_OVERHEAD, PlanCache, PlanHandle, Published, RETIRED_BYTES_DIVISOR, RETIRED_ENTRIES,
+    RETRY_BASE_NS, RETRY_CAP_NS, Reclaim, Recorded, Rejection, Reservation, SLOT_OVERHEAD,
+    SourceKey, WantedKey, retry_delay_ns,
 };
 pub use identity::{ContentId, RowIdentity, SOURCE_ID_PREFIX, source_id};
 pub use limits::{Limit, SourceLimits};
