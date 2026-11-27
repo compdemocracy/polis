@@ -119,6 +119,19 @@ rule runs (`src/frames.rs`):
   group whose members have voted on nothing; a group with no count for a
   comment. An absent count is not a zero count, and each rule says how it
   treats the two.
+- **The latest counts** (`LatestCountFrame`, `src/latest.rs`): the group
+  frame's counts summed over its groups, per comment, so the counts of the
+  update being read rather than of the one before it. The two ways of reading
+  base counts have names: `base-counts:lag-1` (the update before, today's
+  equation and every `/1` rule) and `base-counts:lag-0` (the update read). The
+  frame is made only from a group frame and carries that frame's source; it
+  cannot be built from a list of counts, read from JSON, or turned into the
+  lagged frame or back. A comment is present when any group has a count for it,
+  even a count of zeros. Refused: a group frame with no groups (there are no
+  latest counts), and any comment whose summed agrees, disagrees or passes go
+  above 4,294,967,295; the whole frame is checked, including comments a rule
+  would leave out. Defined: groups whose members have voted on nothing give a
+  frame with no comments. No rule reads this frame yet.
 - **Everyone's frame** (`EveryoneFrame`): every participant's latest votes per
   comment, grouped or not. When both frames are given (`CurrentFrames`), the
   groups' agrees, disagrees and passes for each comment, summed over groups,

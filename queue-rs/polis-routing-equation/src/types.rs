@@ -546,6 +546,8 @@ pub enum Refusal {
     TermInputsMismatch,
     /// A term composed twice.
     RepeatedTerm,
+    /// A group frame with no groups has no latest counts.
+    NoLatestCounts,
 }
 
 impl fmt::Display for Refusal {
@@ -624,6 +626,9 @@ impl fmt::Display for Refusal {
             Self::InvalidVoterMarks => f.write_str("impossible issue-217 voter inputs"),
             Self::TermInputsMismatch => f.write_str("a term was given the other term's inputs"),
             Self::RepeatedTerm => f.write_str("a term is composed twice"),
+            Self::NoLatestCounts => {
+                f.write_str("the group frame has no groups, so it has no latest counts")
+            }
             Self::BaseMismatch => {
                 f.write_str("the weights were not computed by the plan's base rule and parameters")
             }
