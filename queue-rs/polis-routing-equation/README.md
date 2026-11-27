@@ -296,6 +296,42 @@ being shown, and the chance written on the receipt to be the true one.
   guarantees exposure. It is symmetric in the sense its base is: the floor is
   the same for every comment.
 
+### Importance (the checkbox on a vote)
+
+Polis lets a participant mark a comment "important" as they vote. Three things
+here use those marks; none is chosen.
+
+- **`issue217-voter-weight/1`** is the formula of public issue #217 (2019):
+  a marked vote weighs `(votes cast / comments) * (100 / marks used) + 1`,
+  an unmarked one 1. Its worked numbers come out exactly: 600 of 600 with 2
+  marks gives 51; 300 of 600 with 2 gives 26; 10 of 600 with 2 gives 11/6
+  (the issue's "1.83"); 300 of 600 with 150 gives 4/3 (the issue's "1.333").
+  The issue multiplies the vote matrix by these weights; it does not say how
+  routing should use them, so this is a helper, not a routing factor.
+- **`importance-lift/1`**, the bounded pooled lift: with rho the
+  conversation's own share of marked votes, a comment with M marks among n
+  votes that could carry one gets `r = (M + k * rho) / (n + k)` (k = 20, the
+  smoothing toward the conversation's rate) and the multiplier
+  `clamp(r / rho, 1, cap)` (cap = 3). Example: rho = 0.06 and 5 of 10 marked
+  gives 3.44, capped at 3; 1 of 10 gives 1.22; 0 of 10 gives exactly 1.
+- **`importance-normalized-lift/1`**, the issue's weights adapted: a comment's
+  mean voter weight over the conversation's mean, never below 1, with no cap
+  unless one is given (a comment marked by the issue's heaviest voters can be
+  lifted far: one witness is 26/7 = 3.71).
+
+A term multiplies a scored comment's weight outside the power, and is named
+with its parameters in the receipt (`symmetric-gic/1` with `terms`
+`importance-lift/1`, inside what produced the weights). It never touches the
+uniform floor, an unscored comment or a fixed meta comment. A comment with no
+marks gets exactly 1; a conversation with no marks at all, or whose totals
+are unavailable, gives every comment exactly 1, so the rule is its base rule
+bit for bit (tested). **What a cap of 3 means:** at most three times the
+comment's *weight*; because chances are normalised, it is never "shown three
+times as often", and lifting others can lower this comment's chance. **The
+denominator** is the votes the caller counts as able to carry a mark: where
+the checkbox was not shown for part of a conversation's life, the caller
+must leave those votes out of `eligible`; the crate cannot tell.
+
 ## 4. The parameters
 
 Every constant of a rule is a named, typed parameter with a range. The

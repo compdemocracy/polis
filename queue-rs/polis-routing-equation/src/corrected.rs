@@ -11,7 +11,8 @@
 //! change a bit of the result.
 
 use crate::frames::CurrentGroupFrame;
-use crate::historical::{MetaComments, Scored};
+use crate::historical::{HistoricalWeights, MetaComments, Scored};
+use crate::importance::TermParams;
 use crate::registry::ParamSet;
 use crate::types::{
     CommentId, Counts, Explanation, Extremity, ExtremityFrame, Factor, FactorName,
@@ -402,9 +403,47 @@ pub struct CorrectedWeights {
     scored: BTreeMap<CommentId, Scored>,
     unscored: BTreeSet<CommentId>,
     excluded: BTreeSet<CommentId>,
+    terms: Vec<TermParams>,
+    term_source: Option<SourceId>,
 }
 
 impl CorrectedWeights {
+    /// `historical/1`'s weights in this form, so that a term can be composed
+    /// with today's equation too. Nothing about them changes.
+    pub fn from_historical(weights: &HistoricalWeights) -> Self {
+        Self {
+            params: ParamSet::Historical1(*weights.params()),
+            previous_counts: weights.counts_source().clone(),
+            current_extremity: weights.extremity_source().clone(),
+            current_groups: None,
+            scored: weights.scored().map(|(id, s)| (id, s.clone())).collect(),
+            unscored: weights.unscored().collect(),
+            excluded: BTreeSet::new(),
+            terms: vec![],
+            term_source: None,
+        }
+    }
+    /// The terms composed with the base rule, in order (at most one today).
+    pub fn terms(&self) -> &[TermParams] {
+        &self.terms
+    }
+    /// The source of the terms' input frame.
+    pub fn term_source(&self) -> Option<&SourceId> {
+        self.term_source.as_ref()
+    }
+    pub(crate) fn with_term(
+        mut self,
+        term: TermParams,
+        source: SourceId,
+        rescored: Vec<(CommentId, Scored)>,
+    ) -> Self {
+        for (id, s) in rescored {
+            self.scored.insert(id, s);
+        }
+        self.terms.push(term);
+        self.term_source = Some(source);
+        self
+    }
     pub fn params(&self) -> &ParamSet {
         &self.params
     }
@@ -495,6 +534,8 @@ pub fn symmetric_1(
         scored,
         unscored,
         excluded,
+        terms: vec![],
+        term_source: None,
     })
 }
 
@@ -521,5 +562,7 @@ pub fn symmetric_gic_1(
         scored,
         unscored,
         excluded,
+        terms: vec![],
+        term_source: None,
     })
 }

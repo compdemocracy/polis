@@ -112,12 +112,21 @@ impl WeightProvenance {
                 text(h.current_extremity().as_str()),
             ),
             Self::Corrected(c) => {
-                let groups = c.current_groups.as_ref().map_or_else(String::new, |g| {
+                let mut groups = c.current_groups.as_ref().map_or_else(String::new, |g| {
                     format!(",\"current_groups\":{}", text(g.as_str()))
                 });
+                if let Some(t) = &c.term_source {
+                    groups.push_str(&format!(",\"importance\":{}", text(t.as_str())));
+                }
+                let terms: Vec<String> = c.terms.iter().map(|t| t.to_plain()).collect();
+                let base = c.params.to_plain();
+                let rule = match base.strip_suffix("\"terms\":[]}") {
+                    Some(head) => format!("{head}\"terms\":[{}]}}", terms.join(",")),
+                    None => base,
+                };
                 format!(
                     "{{\"kind\":\"computed\",\"rule\":{},\"inputs\":{{\"previous_counts\":{},\"current_extremity\":{}{}}}}}",
-                    c.params.to_plain(),
+                    rule,
                     text(c.previous_counts.as_str()),
                     text(c.current_extremity.as_str()),
                     groups,
@@ -135,8 +144,50 @@ impl WeightProvenance {
             }
             "computed" => {
                 exact_keys(top, &["kind", "rule", "inputs"], "produced_by")?;
-                let rule = ParamSet::from_plain(&field(top, "rule")?.to_string())?;
+                let mut rule_value = field(top, "rule")?.clone();
+                let terms: Vec<crate::importance::TermParams> = match rule_value.get("terms") {
+                    Some(Value::Array(ts)) => ts
+                        .iter()
+                        .map(crate::importance::TermParams::from_value)
+                        .collect::<Result<_, _>>()?,
+                    _ => return Err(plain_refusal("terms is not an array")),
+                };
+                if let Some(t) = rule_value.get_mut("terms") {
+                    *t = Value::Array(vec![]);
+                }
+                let rule = ParamSet::from_plain(&rule_value.to_string())?;
                 let inputs = object(field(top, "inputs")?, "inputs")?;
+                if !terms.is_empty() {
+                    let groups = matches!(rule, ParamSet::SymmetricGic1(_));
+                    let mut keys = vec!["previous_counts", "current_extremity"];
+                    if groups {
+                        keys.push("current_groups");
+                    }
+                    keys.push("importance");
+                    if terms.len() > 1
+                        || !matches!(
+                            rule,
+                            ParamSet::Historical1(_)
+                                | ParamSet::Symmetric1(_)
+                                | ParamSet::SymmetricGic1(_)
+                        )
+                    {
+                        return Err(plain_refusal("terms the producing rule cannot carry"));
+                    }
+                    exact_keys(inputs, &keys, "inputs")?;
+                    return Ok(Self::Corrected(CorrectedProvenance {
+                        params: rule,
+                        previous_counts: source(inputs, "previous_counts")?,
+                        current_extremity: source(inputs, "current_extremity")?,
+                        current_groups: if groups {
+                            Some(source(inputs, "current_groups")?)
+                        } else {
+                            None
+                        },
+                        terms,
+                        term_source: Some(source(inputs, "importance")?),
+                    }));
+                }
                 match rule {
                     ParamSet::Historical1(params) => {
                         exact_keys(inputs, &["previous_counts", "current_extremity"], "inputs")?;
@@ -153,6 +204,8 @@ impl WeightProvenance {
                             previous_counts: source(inputs, "previous_counts")?,
                             current_extremity: source(inputs, "current_extremity")?,
                             current_groups: None,
+                            terms: vec![],
+                            term_source: None,
                         }))
                     }
                     ParamSet::SymmetricGic1(_) => {
@@ -166,6 +219,8 @@ impl WeightProvenance {
                             previous_counts: source(inputs, "previous_counts")?,
                             current_extremity: source(inputs, "current_extremity")?,
                             current_groups: Some(source(inputs, "current_groups")?),
+                            terms: vec![],
+                            term_source: None,
                         }))
                     }
                     other => Err(plain_refusal(format!(

@@ -537,6 +537,13 @@ pub enum Refusal {
     /// A floor plan was given weights not computed by its base rule with its
     /// base parameters.
     BaseMismatch,
+    /// Issue #217 inputs that cannot be: a mark with no marks used, more
+    /// marks than votes, more votes than comments, or no comments.
+    InvalidVoterMarks,
+    /// A term given the other term's kind of inputs.
+    TermInputsMismatch,
+    /// A term composed twice.
+    RepeatedTerm,
 }
 
 impl fmt::Display for Refusal {
@@ -609,6 +616,9 @@ impl fmt::Display for Refusal {
             Self::VoterWeightAboveTotal => {
                 f.write_str("the comments' voter weights exceed the totals")
             }
+            Self::InvalidVoterMarks => f.write_str("impossible issue-217 voter inputs"),
+            Self::TermInputsMismatch => f.write_str("a term was given the other term's inputs"),
+            Self::RepeatedTerm => f.write_str("a term is composed twice"),
             Self::BaseMismatch => {
                 f.write_str("the weights were not computed by the plan's base rule and parameters")
             }

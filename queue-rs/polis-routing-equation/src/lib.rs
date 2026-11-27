@@ -19,6 +19,7 @@ mod dupkeys;
 pub mod floor;
 pub mod frames;
 pub mod historical;
+pub mod importance;
 mod receipt;
 pub mod registry;
 pub mod types;
@@ -41,6 +42,10 @@ pub use frames::{
 };
 pub use historical::{
     HistoricalParams, HistoricalProvenance, HistoricalWeights, MetaComments, Scored, historical_1,
+};
+pub use importance::{
+    ISSUE217_SCALING, Issue217Voter, LiftParams, NormalizedLiftParams, TermInputs, TermParams,
+    importance_multipliers, issue217_voter_weight, with_importance,
 };
 pub use registry::{ParamDoc, ParamSet, RuleDoc, RuleId, describe, lookup, params_table};
 pub use types::{

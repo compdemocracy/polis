@@ -113,6 +113,8 @@ pub struct CorrectedProvenance {
     pub(crate) previous_counts: SourceId,
     pub(crate) current_extremity: SourceId,
     pub(crate) current_groups: Option<SourceId>,
+    pub(crate) terms: Vec<crate::importance::TermParams>,
+    pub(crate) term_source: Option<SourceId>,
 }
 
 impl CorrectedProvenance {
@@ -122,6 +124,8 @@ impl CorrectedProvenance {
             previous_counts: weights.previous_counts().clone(),
             current_extremity: weights.current_extremity().clone(),
             current_groups: weights.current_groups().cloned(),
+            terms: weights.terms().to_vec(),
+            term_source: weights.term_source().cloned(),
         }
     }
     pub fn params(&self) -> &ParamSet {
@@ -135,6 +139,10 @@ impl CorrectedProvenance {
     }
     pub fn current_groups(&self) -> Option<&SourceId> {
         self.current_groups.as_ref()
+    }
+    /// The terms composed with the producing rule, e.g. `importance-lift/1`.
+    pub fn terms(&self) -> &[crate::importance::TermParams] {
+        &self.terms
     }
 }
 
@@ -414,6 +422,8 @@ impl DrawFlags {
 }
 
 /// The weights a draw read, as its receipt names them.
+// One per receipt, built once per draw: its size does not matter.
+#[allow(clippy::large_enum_variant)]
 #[derive(Clone, Debug, PartialEq)]
 pub enum WeightsUsed {
     /// No map was given (the conversation has none): every candidate drew
