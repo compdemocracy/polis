@@ -18,8 +18,9 @@ use std::mem::size_of;
 /// ordered map's nodes hold at least five entries each but the root, and a
 /// node is laid out as `node` says (`map`, `maps`); a vector grown one push
 /// at a time doubles its capacity (`vecs`, and the reader scratch of
-/// `parse_reservation`). Compiled by any other release, each of those
-/// returns `None`, so every reservation made from them is refused and the
+/// `parse_reservation`). The decode's exact vectors (`exact`) rest on a
+/// run-time check of their capacity instead, and are gated with the rest.
+/// Compiled by any other release, each of those returns `None`, so every reservation made from them is refused and the
 /// caller keeps today's draw: never a smaller charge.
 ///
 /// To move to another release: run `cargo test -p polis-routing-plan --test
@@ -56,6 +57,20 @@ pub(crate) fn vecs(n: u64, k: u64, elem: u64) -> Option<u64> {
     n.checked_mul(4)?
         .checked_add(k.checked_mul(16)?)?
         .checked_mul(elem)
+}
+
+/// A vector the decode gives its room once, for exactly the `n` elements
+/// the walk counted, and never grows: `n` elements of `elem` bytes. It
+/// rests on the decode's own code (`decode::Exact`): the room is taken with
+/// `try_reserve_exact`, and the vector is refused unless its capacity is
+/// then exactly `n`, since neither that nor `with_capacity` is documented
+/// to be exact; an element past `n` is refused, never pushed. The
+/// allocation of a vector of capacity `n` is `n * size_of::<T>()` bytes.
+/// Gated by `REVIEWED_RUSTC` with the rest, so that every bound this module
+/// gives was checked under one release.
+pub(crate) fn exact(n: u64, elem: u64) -> Option<u64> {
+    reviewed()?;
+    n.checked_mul(elem)
 }
 
 /// One node of an ordered map, internal or leaf, with room for padding: a
@@ -163,10 +178,13 @@ pub(crate) fn reservation_terms(
         term(name, x?);
         Some(())
     };
+    // The vectors the decode fills from a counted key are given exactly
+    // their count (`exact`); the membership keys' vectors are read by
+    // serde's own decoders, which grow them.
     if needs.stored_weights {
         add(
             "frames: priorities decoded",
-            vecs(t.priorities, 1, d.priority),
+            exact(t.priorities, d.priority),
         )?;
         add(
             "frames: stored weights map",
@@ -174,40 +192,25 @@ pub(crate) fn reservation_terms(
         )?;
     }
     if needs.extremity {
-        add("frames: tids decoded", vecs(t.tids, 1, d.tid))?;
-        add(
-            "frames: extremity decoded",
-            vecs(t.extremity, 1, d.extremity),
-        )?;
+        add("frames: tids decoded", exact(t.tids, d.tid))?;
+        add("frames: extremity decoded", exact(t.extremity, d.extremity))?;
         add(
             "frames: extremity pairs",
-            vecs(
-                t.tids,
-                1,
-                id.checked_add(sz::<Extremity>())?.checked_add(8)?,
-            ),
+            exact(t.tids, sz::<(CommentId, Extremity)>()),
         )?;
         add("frames: extremity map", map(t.tids, id, sz::<Extremity>()))?;
     }
     if needs.meta {
-        add("frames: meta tids decoded", vecs(t.meta, 1, d.tid))?;
-        add("frames: meta ids", vecs(t.meta, 1, id))?;
+        add("frames: meta tids decoded", exact(t.meta, d.tid))?;
+        add("frames: meta ids", exact(t.meta, id))?;
         add("frames: meta set", map(t.meta, id, 0))?;
     }
     if needs.groups {
         let g = sz::<GroupId>();
-        add("frames: groups decoded", vecs(t.groups, 1, d.group))?;
-        add("frames: cells decoded", vecs(t.cells, t.groups, d.cell))?;
-        add(
-            "frames: cells gathered",
-            vecs(
-                t.cells,
-                1,
-                g.checked_add(id)?
-                    .checked_add(sz::<Counts>())?
-                    .checked_add(8)?,
-            ),
-        )?;
+        add("frames: groups decoded", exact(t.groups, d.group))?;
+        // `group-votes` is decoded straight into the one vector of cells
+        // the group frame is made from.
+        add("frames: cells decoded", exact(t.cells, d.cell))?;
         add("frames: group members map", map(t.groups, g, 4))?;
         add("frames: group cells outer map", map(t.groups, g, 24))?;
         // The cells: one inner map per group, `cells` entries in all.

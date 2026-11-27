@@ -166,9 +166,19 @@ before any frame is allocated:
    integers adds no id, so a malformed unused key cannot refuse another rule.
 5. **The reservation**: `Projection::reservation(needs)` is an upper bound, in
    bytes, on everything `frames(needs)` allocates, computed from the walk's
-   counts alone, never from the source's length. It is conservative on
-   purpose: it assumes every vector doubled its way to its length, and
-   charges every ordered map a fifth of a node per entry plus one node (see
+   counts alone, never from the source's length. Each vector `frames` fills
+   from a counted key (`tids`, the extremity values and pairs, `meta-tids`
+   and the meta ids, `comment-priorities`, the groups and the cells) is
+   given its room once, with `try_reserve_exact`, for exactly the walk's
+   count, and is refused unless its capacity is then exactly that count
+   (neither `with_capacity` nor `try_reserve_exact` is documented to be
+   exact); an element past the count refuses the read (`TooLarge {
+   Reservation }`) and is never pushed, so these vectors never reallocate
+   and each is charged its exact size, `n` elements. `group-votes` is
+   decoded straight into the one vector of cells the group frame is made
+   from. The membership keys' vectors, which serde's own decoders read and
+   grow, are charged as if each doubled its way to its length. Every
+   ordered map is charged a fifth of a node per entry plus one node (see
    **Ordered maps** below). Its readers' scratch is charged at four
    times the length of the read keys' text (`Projection::raw_len`), which
    covers long strings and long numbers alike. It is meant to be charged
@@ -245,7 +255,7 @@ reservation that does not fit in 64, is refused.
 
 | Refusal | When |
 |---|---|
-| `TooLarge { what }` | a limit is exceeded: bytes, depth, comments, groups, cells, memberships, or the reservation |
+| `TooLarge { what }` | a limit is exceeded: bytes, depth, comments, groups, cells, memberships, or the reservation (which a decode meeting more elements than the walk counted also gives) |
 | `Malformed { key }` | not JSON, not the key's shape, an id that is negative or not written as a decimal id, a number too large for a double |
 | `DuplicateKey { key }` | an object gives a key twice |
 | `Missing { key }` | a key a needed frame is made from is absent or `null` |

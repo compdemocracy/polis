@@ -7,8 +7,8 @@ use crate::refusal::{Key, SourceRefusal};
 use crate::reserve::{parse_reservation, reservation};
 use crate::scan::{State, Tally, Walk};
 use polis_routing_equation::{
-    CommentId, Counts, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments,
-    Refusal, SourceId, StoredWeights,
+    CommentId, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments, Refusal,
+    SourceId, StoredWeights,
 };
 use serde::Deserialize;
 use serde::de::DeserializeSeed;
@@ -198,6 +198,40 @@ fn union_within(raw: &Raw, t: &Tally, limits: &SourceLimits) -> Result<(), Sourc
     check(ids.len() as u64, limits.max_comments, Limit::Comments)
 }
 
+/// The refusal for a decode that would need more room than the walk's
+/// counts gave it, or room the allocator would not give exactly: the
+/// reservation was made from those counts, so nothing past them is decoded.
+fn room() -> SourceRefusal {
+    SourceRefusal::TooLarge {
+        what: Limit::Reservation,
+    }
+}
+
+/// A vector of room for exactly `n` elements, allocated once (`Exact`).
+fn exact<T>(n: u64) -> Result<decode::Exact<T>, SourceRefusal> {
+    decode::Exact::new(n).ok_or_else(room)
+}
+
+/// Reads one key's text through `seed`, as `serde_json::from_str` would.
+fn read<'de, S: DeserializeSeed<'de>>(text: &'de str, seed: S) -> serde_json::Result<S::Value> {
+    let mut de = serde_json::Deserializer::from_str(text);
+    let value = seed.deserialize(&mut de)?;
+    de.end()?;
+    Ok(value)
+}
+
+/// A decode's failure as a refusal: past the room its count gave, `room`;
+/// anything else, `Malformed`.
+fn decoded<T>(read: serde_json::Result<T>, over: bool, key: Key) -> Result<T, SourceRefusal> {
+    read.map_err(|_| {
+        if over {
+            room()
+        } else {
+            SourceRefusal::Malformed { key }
+        }
+    })
+}
+
 fn tid(v: i64, key: Key) -> Result<CommentId, SourceRefusal> {
     CommentId::try_from(v).map_err(|_| SourceRefusal::Malformed { key })
 }
@@ -385,7 +419,10 @@ impl Projection {
         if text.trim_start().starts_with('[') {
             return Err(SourceRefusal::ArrayPriorities);
         }
-        let decode::Priorities(entries) = serde_json::from_str(text).map_err(malformed(key))?;
+        let mut entries = exact(self.tally.priorities)?;
+        let read = read(text, decode::PrioritiesInto(&mut entries));
+        decoded(read, entries.over(), key)?;
+        let entries = entries.into_vec();
         let count = entries.len();
         let entries = entries.into_iter().map(|(tid, w)| (CommentId::new(tid), w));
         StoredWeights::new(self.source.clone(), entries)
@@ -394,50 +431,69 @@ impl Projection {
     }
 
     fn extremity(&self) -> Result<ExtremityFrame, SourceRefusal> {
-        let tids: Vec<i64> =
-            serde_json::from_str(need(&self.raw.tids, Key::Tids)?).map_err(malformed(Key::Tids))?;
+        let text = need(&self.raw.tids, Key::Tids)?;
+        let mut tids = exact::<i64>(self.tally.tids)?;
+        let read_tids = read(text, decode::Seq(&mut tids));
+        decoded(read_tids, tids.over(), Key::Tids)?;
         let key = Key::CommentExtremity;
-        let decode::Object(pca): decode::Object<decode::Pca> =
-            serde_json::from_str(need(&self.raw.pca, key)?).map_err(malformed(key))?;
-        let values = pca.extremity.ok_or(SourceRefusal::Missing { key })?;
+        let text = need(&self.raw.pca, key)?;
+        let mut values = exact::<f64>(self.tally.extremity)?;
+        let found = read(text, decode::PcaInto(&mut values));
+        if !decoded(found, values.over(), key)? {
+            return Err(SourceRefusal::Missing { key });
+        }
+        let (tids, values) = (tids.into_vec(), values.into_vec());
         if values.len() != tids.len() {
             return Err(SourceRefusal::ExtremityLengthMismatch);
         }
-        let mut pairs = Vec::with_capacity(tids.len());
+        let mut pairs = exact(tids.len() as u64)?;
         for (t, v) in tids.into_iter().zip(values) {
             // The stored value, as the engine wrote it; never recomputed.
             let e = Extremity::new(v).map_err(library(key))?;
-            pairs.push((tid(t, Key::Tids)?, e));
+            if !pairs.put((tid(t, Key::Tids)?, e)) {
+                return Err(room());
+            }
         }
-        ExtremityFrame::new(self.source.clone(), pairs).map_err(library(Key::Tids))
+        ExtremityFrame::new(self.source.clone(), pairs.into_vec()).map_err(library(Key::Tids))
     }
 
     fn meta_ids(&self) -> Result<Vec<CommentId>, SourceRefusal> {
         let key = Key::MetaTids;
-        let ids: Vec<i64> =
-            serde_json::from_str(need(&self.raw.meta_tids, key)?).map_err(malformed(key))?;
-        let mut out = Vec::with_capacity(ids.len());
+        let text = need(&self.raw.meta_tids, key)?;
+        let mut ids = exact::<i64>(self.tally.meta)?;
+        let read_ids = read(text, decode::Seq(&mut ids));
+        decoded(read_ids, ids.over(), key)?;
+        let ids = ids.into_vec();
+        let mut out = exact(ids.len() as u64)?;
         for v in ids {
-            out.push(tid(v, key)?);
+            if !out.put(tid(v, key)?) {
+                return Err(room());
+            }
         }
-        Ok(out)
+        Ok(out.into_vec())
     }
 
     fn groups(&self) -> Result<CurrentGroupFrame, SourceRefusal> {
         let key = Key::GroupVotes;
-        let decode::GroupVotes(groups) =
-            serde_json::from_str(need(&self.raw.group_votes, key)?).map_err(malformed(key))?;
+        let text = need(&self.raw.group_votes, key)?;
+        let mut groups = exact(self.tally.groups)?;
+        let mut cells = exact(self.tally.cells)?;
+        let mut fault = None;
+        let read_groups = read(
+            text,
+            decode::GroupVotesInto {
+                groups: &mut groups,
+                cells: &mut cells,
+                fault: &mut fault,
+            },
+        );
+        decoded(read_groups, groups.over() || cells.over(), key)?;
+        let (groups, cells) = (groups.into_vec(), cells.into_vec());
         self.memberships(&groups)?;
-        let total: usize = groups.iter().map(|g| g.body.votes.0.len()).sum();
-        let mut cells = Vec::with_capacity(total);
-        for g in &groups {
-            for c in &g.body.votes.0 {
-                let counts = Counts::from_seen(c.counts.agreed, c.counts.disagreed, c.counts.seen)
-                    .map_err(library(key))?;
-                cells.push((GroupId::new(g.id), CommentId::new(c.tid), counts));
-            }
+        if let Some(r) = fault {
+            return Err(library(key)(r));
         }
-        let members = groups.iter().map(|g| (GroupId::new(g.id), g.body.members));
+        let members = groups.iter().map(|&(id, n)| (GroupId::new(id), n));
         CurrentGroupFrame::new(self.source.clone(), members, cells, None).map_err(library(key))
     }
 
@@ -445,7 +501,7 @@ impl Projection {
     /// joined to `base-clusters` to count each group's participants, which
     /// must be the group's `n-members`. Nothing about any participant is
     /// kept: the first policy makes every participant's group unknown.
-    fn memberships(&self, groups: &[decode::Group]) -> Result<(), SourceRefusal> {
+    fn memberships(&self, groups: &[(u32, u32)]) -> Result<(), SourceRefusal> {
         let gk = Key::GroupClusters;
         let bk = Key::BaseClusters;
         let clusters: Vec<decode::Object<decode::GroupCluster>> =
@@ -480,12 +536,105 @@ impl Projection {
                 return Err(SourceRefusal::Malformed { key: gk });
             }
         }
-        for g in groups {
-            match participants.get(&g.id) {
-                Some(&n) if n == u64::from(g.body.members) => {}
+        for &(id, members) in groups {
+            match participants.get(&id) {
+                Some(&n) if n == u64::from(members) => {}
                 _ => return Err(SourceRefusal::MembersMismatch),
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::panic)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn source() -> Vec<u8> {
+        let cell = json!({"A": 2, "D": 1, "S": 4});
+        let votes = json!({"10": cell, "20": cell, "30": cell});
+        let value = json!({
+            "tids": [10, 20, 30],
+            "pca": {"comment-extremity": [0.5, 1.0, 1.5]},
+            "meta-tids": [20, 40],
+            "comment-priorities": {"10": 1.5, "20": null, "30": false},
+            "group-votes": {
+                "0": {"id": 0, "n-members": 5, "votes": votes},
+                "1": {"id": 1, "n-members": 6, "votes": votes}
+            },
+            "group-clusters": [
+                {"id": 0, "members": [100]},
+                {"id": 1, "members": [101]}
+            ],
+            "base-clusters": {
+                "id": [100, 101],
+                "members": [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10, 11]]
+            }
+        });
+        serde_json::to_vec(&value).unwrap()
+    }
+
+    fn parsed() -> Projection {
+        let row = RowIdentity {
+            zid: 7,
+            math_env: "example".into(),
+            math_tick: 41,
+            last_vote_timestamp: Some(1_700_000_000_000),
+            db_now_ms: 1_700_000_100_000,
+        };
+        Projection::parse(&source(), row, &SourceLimits::default()).unwrap()
+    }
+
+    /// A decode that meets one element more than the walk counted, which
+    /// would have grown its vector, refuses with the closed reason instead,
+    /// for every counted key the decode fills a vector from; with the
+    /// walk's own counts, it succeeds.
+    #[test]
+    fn decode_past_its_count_refuses() {
+        let p = parsed();
+        assert_eq!(p.tally.tids, 3);
+        assert_eq!(p.tally.cells, 6);
+        assert!(p.frames(FrameNeeds::all()).is_ok());
+        type Slot = fn(&mut Tally) -> &mut u64;
+        let slots: [(&str, Slot); 6] = [
+            ("tids", |t| &mut t.tids),
+            ("extremity", |t| &mut t.extremity),
+            ("meta", |t| &mut t.meta),
+            ("priorities", |t| &mut t.priorities),
+            ("groups", |t| &mut t.groups),
+            ("cells", |t| &mut t.cells),
+        ];
+        for (name, slot) in slots {
+            let mut short = parsed();
+            *slot(&mut short.tally) -= 1;
+            assert_eq!(
+                short.frames(FrameNeeds::all()).err(),
+                Some(room()),
+                "{name} one below its count"
+            );
+            // One more than counted is room to spare: never refused for it.
+            let mut long = parsed();
+            *slot(&mut long.tally) += 1;
+            assert!(long.frames(FrameNeeds::all()).is_ok(), "{name} one above");
+        }
+    }
+
+    /// The vector that would hold more than it was given never grows: put
+    /// refuses at its room, and the room is exactly what was asked.
+    #[test]
+    fn exact_vector_refuses_past_its_room() {
+        let mut v = decode::Exact::<u64>::new(2).unwrap();
+        assert!(v.put(1) && v.put(2));
+        assert!(!v.over());
+        assert!(!v.put(3));
+        assert!(v.over());
+        let v = v.into_vec();
+        assert_eq!((v.len(), v.capacity()), (2, 2));
+        let none = decode::Exact::<u64>::new(0).unwrap().into_vec();
+        assert_eq!(none.capacity(), 0);
+        // Room the allocator cannot give is refused, not panicked on.
+        assert!(decode::Exact::<u64>::new(u64::MAX).is_none());
     }
 }

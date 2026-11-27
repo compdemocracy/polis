@@ -2432,7 +2432,7 @@ setting is read.
   bound, the largest whose admission fits one conversation's share of the
   default budget (64 MiB): 2 MiB for stored weights and uniform (an
   admission of 63.5 MB), 54 KiB for the floor, whose build allowance at the
-  densest encoding is about 1,200 times the length. A longer projection is
+  densest encoding is about 290 times the length. A longer projection is
   `Oversized` (only its length is read) and keeps today's draw.
 - **Its own thread and its own connection.** The loader runs on one OS
   thread of its own and holds at most one connection, opened by its own
