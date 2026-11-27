@@ -621,6 +621,106 @@ version, and any value out of range. Running a non-default set (an A/B arm, for
 instance) is the rule plus this form; it is not a new rule. The parity promise
 below holds at the defaults only.
 
+## 7. Changing a parameter or a rule safely
+
+**"A published rule never changes its numbers"**, in practice: once a rule
+such as `historical/1` is in this crate with its defaults listed in a
+manifest, the same inputs and the same parameters give the same weights and
+the same chances, bit for bit, in every later version of the crate. A receipt
+written today can be read back, and checked against its rule, years from now.
+What holds it there: the golden files, the defaults manifests, the fixtures
+and the recorded vectors are never modified, deleted or renamed (the check
+of section 12 compares them with the base branch); `tests/fixtures/SHA256SUMS`
+lists every fixture with its SHA-256 digest and may only grow; the tests
+reproduce every recorded number; and every receipt in the first golden
+receipt file still reads back unchanged.
+
+**To try a different constant** whose new value is inside the parameter's
+allowed range (section 6), nothing in the crate changes: it is a **parameter
+set** under the same rule, for example `symmetric-gic-floor/1` with
+`floor_share` 0.2 in place of 0.1. A parameter set is identified by the rule
+and its **canonical plain form**: the JSON of section 6, every parameter
+written out, keys in a fixed order. `ParamSet::is_default()` says whether it
+is the published default. Every receipt names the rule and the complete
+parameter set (and, for weights the crate computed, the rule and parameters
+that produced them), so a receipt from that arm says `"floor_share":0.2` and
+differs from a default receipt even where every drawn number is the same.
+Which participants were given which parameter set is recorded by the caller
+that stores the receipts; no caller exists yet. The agreement with today's
+Python equation (section 9) is promised at the defaults only. An A/B arm is
+a parameter set, not a new rule.
+
+**A new version** (`symmetric-gic-floor/2` beside `symmetric-gic-floor/1`) is
+needed to change a rule's formula, a default, or what a parameter means. The
+old version stays registered with its numbers, files and tests untouched;
+the new one gets its own manifest entry in a new manifest file, its own
+fixtures and its own tests. A change to the Python formula is a new version
+of `historical`, with its grid made once by the real Python function, and
+the binding moved in the same change (section 12). Whether changing an
+allowed range needs a new version is not settled; until it is, treat it as
+one. Old receipts keep their reader: a new rule shape adds a receipt form, it
+never rewrites the old ones.
+
+None of this chooses anything. Which rule and which parameter set Polis
+should use is a decision not yet made.
+
+## 8. How to add a rule
+
+A new rule (a new candidate, or a new version of an old one) arrives in one
+change with all of the following:
+
+1. **The formula**, in words and as a formula, written down before the code:
+   what it changes from today's equation, what it rewards, whether it is
+   symmetric in agree and disagree (and, if it reads E, that E is measured
+   toward an agree), and what it does for a newcomer, on the first tick, for a
+   comment with no votes, and with two and with five groups.
+2. **Its parameters**, each a named, typed field with a default, an allowed
+   range, a meaning and a source, built only through the constructor that
+   refuses a value out of range (`ParamError` names the parameter, the value
+   and the range), and written in the canonical plain form. The rule gets a
+   name with its version (`name/1`) as a new variant of `RuleId`, a closed
+   list: the compiler then points at every place that must handle it.
+3. **Its entry in the registry** (`registry::describe`): the summary, the
+   formula and the parameter table. Section 6 of this README is generated
+   from it, and a test fails if the README's table differs.
+4. **Its manifest entry**: its default parameter set in a new file
+   `tests/golden/defaults-manifest-N.json`. Earlier manifests are never
+   edited; a test requires every rule to be listed exactly once across them.
+5. **Fixtures or vectors from an independent generator**: a script written
+   from the formula, not from the Rust (NumPy, or the real Python function
+   when the rule exists in Python), whose output the Rust test reproduces
+   within 1e-12, exact zeros exact. The script and its output are new files
+   under `tests/fixtures`, appended to `SHA256SUMS`; an existing generator is
+   never edited.
+6. **Its properties**, each checked against the formula before it is
+   written: algebraic statements for real numbers, non-strict checks over
+   grids for floating point with strict examples at well-separated values,
+   and the counterexamples to what the rule does not promise kept as tests.
+7. **Its mutations**: a constant or an operator in the rule's code changed
+   on purpose, the tests shown failing, the change reverted, and the list
+   written down where reviewers can see it.
+8. **No panic**: its constructors and entry points added to the corpus of
+   awkward inputs (`tests/no_panic.rs`).
+9. **Its README paragraph**, in the form of section 4, and any term in the
+   form of section 5.
+10. **The binding**, only when the Python engine is to match the rule:
+    `tests/current_python_binding.rs` handles every `RuleId` explicitly, so a
+    new weight-producing rule adds its own evaluator there; the binding
+    (`tests/fixtures/CURRENT_PYTHON_RULE`) moves only in a change that also
+    changes the Python formula.
+
+**What the checks refuse** (section 12): code that is not formatted or that
+clippy warns about; a modified, deleted or renamed file under `tests/golden`
+or `tests/fixtures`; a fixture missing from `SHA256SUMS` or not matching its
+digest, or a digest removed; a README parameter table that differs from the
+registry; a rule missing from the manifests or listed twice; anything under
+`src/` that reaches files, the network, the clock, the environment, threads,
+processes, output or global state; a dependency other than `serde` and
+`serde_json`, or another crate in the workspace depending on this one; a
+binding that does not name an implemented weight-producing rule reproducing
+its grid; and, through the repository's vote-sign lint, any new comparison
+against a literal vote value.
+
 ## 9. What is proven, and how to see it
 
 **The equation against the real Python function.** `tests/fixtures/historical-1/make_grid.py`
