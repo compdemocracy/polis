@@ -7,8 +7,8 @@
 //! today's draw instead. Nothing here reads a clock, a database or a random
 //! source; the unit is an argument.
 
-use crate::projection::{FrameNeeds, Frames};
 use crate::limits::SourceLimits;
+use crate::projection::{FrameNeeds, Frames};
 use crate::reserve::{map, reservation, vecs};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;

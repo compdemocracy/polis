@@ -225,7 +225,11 @@ pub(crate) fn read_source(
     let max = i64::try_from(max_bytes).unwrap_or(i64::MAX);
     let rows = client.query_typed(
         SOURCE_STATEMENT,
-        &[(&zid, Type::INT4), (&math_env, Type::TEXT), (&max, Type::INT8)],
+        &[
+            (&zid, Type::INT4),
+            (&math_env, Type::TEXT),
+            (&max, Type::INT8),
+        ],
     )?;
     let Some(row) = rows.into_iter().next() else {
         return Ok(None);

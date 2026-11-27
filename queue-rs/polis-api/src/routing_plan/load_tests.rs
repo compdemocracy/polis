@@ -164,13 +164,13 @@ mod db {
                     "jsonb",
                     "zid integer NOT NULL, math_env varchar(999) NOT NULL, data jsonb NOT NULL, \
                      last_vote_timestamp bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, \
-                     math_tick bigint NOT NULL DEFAULT -1, modified bigint, UNIQUE (zid, math_env)",
+                     math_tick bigint NOT NULL, modified bigint, UNIQUE (zid, math_env)",
                 ),
                 Shape::Older => (
                     "json",
                     "zid integer NOT NULL, math_env varchar(999) NOT NULL, data json NOT NULL, \
                      last_vote_timestamp bigint NOT NULL, modified bigint, \
-                     math_tick bigint NOT NULL DEFAULT -1, caching_tick bigint NOT NULL DEFAULT 0, \
+                     math_tick bigint NOT NULL, caching_tick bigint NOT NULL DEFAULT 0, \
                      UNIQUE (zid, math_env)",
                 ),
             };
@@ -233,10 +233,8 @@ mod db {
             .iter()
             .map(|t| (t.to_string(), json!({"A": 2, "D": 1, "S": 4})))
             .collect();
-        let priorities: serde_json::Map<String, Value> = tids
-            .iter()
-            .map(|t| (t.to_string(), json!(1.5)))
-            .collect();
+        let priorities: serde_json::Map<String, Value> =
+            tids.iter().map(|t| (t.to_string(), json!(1.5))).collect();
         json!({
             "tids": tids,
             "meta-tids": [],
@@ -316,7 +314,11 @@ mod db {
             let c = cache();
             let mut loader = Loader::new(db.connector(), None);
             let j = job(2, STORED, None, 5);
-            assert_eq!(loader.load(&c, &j, &mut NoHooks), Outcome::NoRow, "{shape:?}");
+            assert_eq!(
+                loader.load(&c, &j, &mut NoHooks),
+                Outcome::NoRow,
+                "{shape:?}"
+            );
             assert_eq!(loader.load(&c, &j, &mut NoHooks), Outcome::BackingOff);
         }
     }
@@ -385,10 +387,17 @@ mod db {
                 .get(0);
             db.put(6, 2, &json!({"tids": [2]}));
             let tids: String = naive
-                .query_one("select (data -> 'tids')::text from math_main where zid = 6", &[])
+                .query_one(
+                    "select (data -> 'tids')::text from math_main where zid = 6",
+                    &[],
+                )
                 .unwrap()
                 .get(0);
-            assert_ne!(format!("[{tick}]"), tids.replace(' ', ""), "the witness mixes");
+            assert_ne!(
+                format!("[{tick}]"),
+                tids.replace(' ', ""),
+                "the witness mixes"
+            );
 
             let stop = Arc::new(std::sync::atomic::AtomicBool::new(false));
             let start = Arc::new(Barrier::new(2));
@@ -481,7 +490,11 @@ mod db {
                 }),
             );
             assert_eq!(inner, Some(Outcome::Published), "{shape:?}");
-            assert_eq!(outcome, Outcome::Refused(Rejection::Superseded), "{shape:?}");
+            assert_eq!(
+                outcome,
+                Outcome::Refused(Rejection::Superseded),
+                "{shape:?}"
+            );
         }
     }
 
@@ -516,7 +529,11 @@ mod db {
                 }),
             );
             assert_eq!(loader.open_target(), Some(Target::Replica), "{shape:?}");
-            assert_eq!(outcome, Outcome::Refused(Rejection::FenceForgotten), "{shape:?}");
+            assert_eq!(
+                outcome,
+                Outcome::Refused(Rejection::FenceForgotten),
+                "{shape:?}"
+            );
         }
     }
 
@@ -542,7 +559,8 @@ mod db {
             let cached = CachedPlan::new(key, plan, c.reading()).unwrap();
             let need = cached.charge() + 8192;
             let r = c.try_reserve(need).unwrap();
-            r.publish(super::super::cache::PlanRef::new(cached)).unwrap();
+            r.publish(super::super::cache::PlanRef::new(cached))
+                .unwrap();
         }
         let mut loader = Loader::new(db.connector(), None);
         let outcome = loader.load(&c, &job(50_000, UNIFORM, None, 1), &mut NoHooks);
@@ -581,7 +599,9 @@ mod db {
         let db = Db::new(Shape::Older);
         db.put(11, 1, &doc(&[1, 2], 1));
         let connector = db.connector();
-        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
         let (handle, outcome) = rt.block_on(async move {
             let (jobs, rx) = mpsc::sync_channel(1);
             let (tx, outcomes) = mpsc::sync_channel(1);
@@ -591,7 +611,10 @@ mod db {
             (handle, outcomes.recv().unwrap())
         });
         assert_eq!(outcome, Outcome::Published);
-        assert_eq!(handle.thread().name(), Some("polis-api-routing-plan-loader"));
+        assert_eq!(
+            handle.thread().name(),
+            Some("polis-api-routing-plan-loader")
+        );
         handle.join().unwrap();
     }
 }
