@@ -522,16 +522,20 @@ fn historical_and_stored_draw_is_the_librarys() {
         let n = 20 + (seed as usize % 7) * 9;
         let tids: Vec<u32> = (0..n as u32).map(|i| 3 * i + 2).collect();
         let source = SourceId::new("constructed:previous").unwrap();
-        let cells = tids.iter().filter(|_| rng.below(5) > 0).map(|t| {
+        let mut cells = vec![];
+        for t in &tids {
+            if rng.below(5) == 0 {
+                continue;
+            }
             let seen = rng.below(200);
             let agreed = rng.below(seen + 1);
             let disagreed = rng.below(seen - agreed + 1);
-            (
+            cells.push((
                 CommentId::new(*t),
                 Counts::from_seen(agreed as u32, disagreed as u32, seen).unwrap(),
-            )
-        });
-        let counts = HistoricalCountFrame::new(source.clone(), cells.collect::<Vec<_>>()).unwrap();
+            ));
+        }
+        let counts = HistoricalCountFrame::new(source.clone(), cells).unwrap();
         let extremity = ExtremityFrame::new(
             source.clone(),
             tids.iter()
