@@ -8,7 +8,9 @@
 //! source; the unit is an argument.
 
 use crate::projection::{FrameNeeds, Frames};
-use crate::reserve::{map, vecs};
+use crate::limits::SourceLimits;
+use crate::reserve::{map, reservation, vecs};
+use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
     Candidates, CommentId, DrawRefusal, Drawn, Factor, FloorParams, FloorPlan, Lane, MetaPolicy,
@@ -565,5 +567,46 @@ impl Plan {
         total = total.checked_add(SOURCE_ID_BYTES.checked_mul(RECEIPT_SOURCE_IDS)?)?;
         total = total.checked_add(terms)?;
         total.checked_add(DRAW_FIXED)
+    }
+
+    /// An upper bound, in bytes, on what building `config`'s plan from a
+    /// projection checked under `limits` allocates beyond the projection
+    /// itself: the frames the rule needs, at every count the limits allow,
+    /// held while the build runs, and the plan the build returns (its
+    /// `charged_bytes` at those counts). Known before anything is read, so a
+    /// build can be admitted before its source is fetched. Allocation free.
+    ///
+    /// `None`: the arithmetic overflows, or no bound is calibrated for the
+    /// rule. The floor's weights are computed by the library with scratch
+    /// this crate does not yet bound or measure, so a floor build has no
+    /// allowance and a caller refuses it before reading anything.
+    pub fn build_allowance(config: &RuleConfig, limits: &SourceLimits) -> Option<u64> {
+        let worst = Tally {
+            groups: limits.max_groups,
+            cells: limits.max_cells,
+            tids: limits.max_comments,
+            meta: limits.max_comments,
+            extremity: limits.max_comments,
+            priorities: limits.max_comments,
+            memberships: limits.max_memberships,
+            longest_string: limits.max_bytes,
+        };
+        let frames = reservation(&worst, config.needs())?;
+        // The Arc's two counters, the plan inline and its source id.
+        let inline = sz::<usize>()
+            .checked_mul(2)?
+            .checked_add(sz::<Plan>())?
+            .checked_add(SOURCE_ID_BYTES)?;
+        let plan = match config {
+            RuleConfig::Uniform1 => inline,
+            // The stored map, cloned from the frame: its source id and one
+            // node per entry plus one.
+            RuleConfig::StoredWeights1 => add(
+                inline.checked_add(SOURCE_ID_BYTES)?,
+                map(limits.max_comments, sz::<CommentId>(), sz::<StoredWeight>()),
+            )?,
+            RuleConfig::SymmetricGicFloor2(_) => return None,
+        };
+        frames.checked_add(plan)
     }
 }

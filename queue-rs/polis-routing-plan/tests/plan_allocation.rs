@@ -12,7 +12,8 @@ mod support;
 
 use polis_routing_equation::{Candidates, CommentId, MetaPolicy, Unit};
 use polis_routing_plan::{
-    Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, Plan, RuleConfig,
+    Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, Plan, Projection, RuleConfig,
+    SourceLimits,
 };
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
@@ -261,4 +262,47 @@ fn draw_is_one_call_never_probabilities() {
     assert_eq!(got.unwrap().drawn().to_plain(), direct.unwrap().to_plain());
     assert!(direct_hits >= 5, "{direct_hits}");
     assert_eq!(plan_hits, direct_hits);
+}
+
+/// What a build allocates beyond its projection (the frames it reads and the
+/// plan it returns) stays within `build_allowance`, known before the source
+/// is read, at the largest admitted stored map and for uniform; the floor
+/// has no allowance, so a caller refuses it before reading anything.
+#[test]
+fn build_within_allowance() {
+    let limits = SourceLimits::default();
+    for (name, config, c) in [
+        (
+            "stored 40000",
+            stored(),
+            conversation(12, 40_000, 1, 0, 0, Priorities::Absorbing),
+        ),
+        (
+            "stored none",
+            stored(),
+            conversation(13, 100, 1, 0, 0, Priorities::Absent),
+        ),
+        (
+            "uniform 40000",
+            uniform(),
+            conversation(14, 40_000, 1, 0, 0, Priorities::Absorbing),
+        ),
+    ] {
+        let allowance = Plan::build_allowance(&config, &limits).unwrap();
+        let projection = Projection::parse(&bytes(&c.value), row(), &limits).unwrap();
+        let (plan, _, peak, _) = counted(|| {
+            let f = projection.frames(config.needs()).unwrap();
+            Plan::build(&f, &config).unwrap()
+        });
+        println!("{name}: peak {peak}, allowance {allowance}");
+        assert!(
+            peak >= 0 && peak as u64 <= allowance,
+            "{name}: peak {peak} over {allowance}"
+        );
+        assert!(plan.charged_bytes() as u64 <= allowance, "{name}");
+    }
+    assert_eq!(
+        Plan::build_allowance(&floor(MetaPolicy::Fixed, 0.1), &limits),
+        None
+    );
 }
