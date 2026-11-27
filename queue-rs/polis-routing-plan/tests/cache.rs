@@ -17,30 +17,44 @@ use polis_routing_plan::{
     SourceLimits, WantedKey, retry_delay_ns,
 };
 use serde_json::{Value, json};
-use std::sync::{Arc, Mutex};
-use std::thread::ThreadId;
+use std::cell::Cell;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use support::*;
 
 const A: [u8; 32] = [1; 32];
 const B: [u8; 32] = [2; 32];
 const BOUND: u64 = 1_000;
 
-/// The caller's shared handle, as polis-api would hold it, with a record
-/// of the thread each plan was destroyed on.
+/// The caller's shared handle, as polis-api would hold it, counting each
+/// plan's destruction as inside or outside the builder's reclamation.
 #[derive(Clone)]
 struct H(Arc<Tracked>);
 
 struct Tracked {
     cached: CachedPlan,
-    dropped_on: Arc<Mutex<Vec<ThreadId>>>,
+    drops: Arc<Drops>,
+}
+
+#[derive(Default)]
+struct Drops {
+    reclaiming: AtomicUsize,
+    elsewhere: AtomicUsize,
+}
+
+thread_local! {
+    /// Set only around `Reclaim::destroy` on the thread that reclaims.
+    static RECLAIMING: Cell<bool> = const { Cell::new(false) };
 }
 
 impl Drop for Tracked {
     fn drop(&mut self) {
-        self.dropped_on
-            .lock()
-            .unwrap()
-            .push(std::thread::current().id());
+        let which = if RECLAIMING.with(Cell::get) {
+            &self.drops.reclaiming
+        } else {
+            &self.drops.elsewhere
+        };
+        which.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -86,13 +100,13 @@ fn projection(zid: i32, env: &str, tick: i64, v: &Value) -> Projection {
 }
 
 struct Maker {
-    dropped_on: Arc<Mutex<Vec<ThreadId>>>,
+    drops: Arc<Drops>,
 }
 
 impl Maker {
     fn new() -> Self {
         Self {
-            dropped_on: Arc::new(Mutex::new(Vec::new())),
+            drops: Arc::default(),
         }
     }
     fn plan(&self, zid: i32, env: &str, tick: i64, v: &Value, rule: &RuleConfig, d: [u8; 32]) -> H {
@@ -101,14 +115,18 @@ impl Maker {
         let cached = CachedPlan::new(BundleKey::of(&p, rule, None, d), plan, t(0)).unwrap();
         H(Arc::new(Tracked {
             cached,
-            dropped_on: self.dropped_on.clone(),
+            drops: self.drops.clone(),
         }))
     }
     fn uniform(&self, zid: i32, tick: i64, d: [u8; 32]) -> H {
         self.plan(zid, "example", tick, &source(9.0, 1.0), &uniform(), d)
     }
-    fn drops(&self) -> Vec<ThreadId> {
-        self.dropped_on.lock().unwrap().clone()
+    /// Plans destroyed by the builder's reclamation, and anywhere else.
+    fn drops(&self) -> (usize, usize) {
+        (
+            self.drops.reclaiming.load(Ordering::SeqCst),
+            self.drops.elsewhere.load(Ordering::SeqCst),
+        )
     }
 }
 
@@ -155,7 +173,10 @@ fn miss(c: &mut PlanCache<H>, d: [u8; 32], zid: i32, seen: Option<i64>, now: u64
 fn drain(c: &mut PlanCache<H>) -> usize {
     let mut n = 0;
     while let Some(r) = c.reclaim_one() {
-        c.credit(r.destroy());
+        RECLAIMING.with(|f| f.set(true));
+        let freed = r.destroy();
+        RECLAIMING.with(|f| f.set(false));
+        c.credit(freed);
         n += 1;
     }
     n
@@ -563,7 +584,7 @@ fn charges_return_to_baseline() {
     drain(&mut c);
     c.note_newer_source(9, "example", 4);
     assert_eq!(c.budget().used(), baseline);
-    assert_eq!(m.drops().len(), 3);
+    assert_eq!(m.drops().0, 3);
 }
 
 // ---- Eviction and fairness ----
@@ -618,19 +639,22 @@ fn request_never_drops_last_reference() {
     assert_eq!(c.retired_len(), 1);
     assert!(c.reclaim_one().is_none(), "a reader still holds it");
     // The request drops its reference on its own thread: not the last.
-    std::thread::spawn(move || drop(borrowed)).join().unwrap();
-    assert!(m.drops().is_empty());
+    std::thread::scope(|s| {
+        s.spawn(move || drop(borrowed));
+    });
+    assert_eq!(m.drops(), (0, 0));
     // Evicted while a reader holds the newer plan: the same.
     let Lookup::Hit { plan: borrowed, .. } = c.lookup(&cap(A), 7, "example", Some(42), t(3)) else {
         panic!()
     };
     assert_eq!(c.evict_lru(), Some(true));
-    std::thread::spawn(move || drop(borrowed)).join().unwrap();
-    assert!(m.drops().is_empty());
+    std::thread::scope(|s| {
+        s.spawn(move || drop(borrowed));
+    });
+    assert_eq!(m.drops(), (0, 0));
     // Only the builder's reclamation destroys, on the builder's thread.
     assert_eq!(drain(&mut c), 2);
-    let me = std::thread::current().id();
-    assert_eq!(m.drops(), vec![me, me]);
+    assert_eq!(m.drops(), (2, 0));
 }
 
 #[test]
@@ -706,10 +730,10 @@ fn clear_disable_and_shutdown_with_a_borrower() {
     assert_eq!((moved.retired, moved.kept), (2, 0));
     assert_eq!(miss(&mut c, A, 7, None, 2), MissReason::ConfigDisabled);
     assert_eq!(drain(&mut c), 1);
-    assert_eq!(m.drops().len(), 1);
+    assert_eq!(m.drops(), (1, 0));
     drop(borrowed);
     assert_eq!(drain(&mut c), 1);
-    assert_eq!(m.drops().len(), 2);
+    assert_eq!(m.drops(), (2, 0));
 }
 
 // ---- The negative cache ----
