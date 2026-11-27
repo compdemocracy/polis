@@ -461,7 +461,7 @@ fn mutate(r: &mut Rng, b: &[u8]) -> Vec<u8> {
         }
         3 => v.extend_from_slice(r.pick(&[&b"x"[..], b"{}", b" ,", b"0", b"\0"])),
         4 => {
-            let ins = r.pick(&[
+            let ins: &[u8] = *r.pick(&[
                 &b"\"\\ud800\""[..],
                 b"\"\\udc00\"",
                 b"\"\\x\"",

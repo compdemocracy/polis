@@ -140,14 +140,11 @@ fn sz<T>() -> u64 {
 /// group clusters and base clusters), with one to spare.
 const READERS: u64 = 8;
 
-/// `raw` is the length, in bytes, of the text of the keys `frames` may
-/// decode (at most the source's length: the keys are disjoint parts of it).
-pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64> {
-    sum_terms(|term| reservation_terms(t, raw, needs, term))
-}
-
-/// `reservation`, with the readers' scratch charged from the longest token
-/// the measuring pass found (`Measure::token`) instead of the keys' text.
+/// What `frames` allocates, with the readers' scratch charged from the
+/// longest token the measuring pass found (`Measure::token`) instead of
+/// the keys' text. `raw` is the length, in bytes, of the text of the keys
+/// `frames` may decode (at most the source's length: the keys are disjoint
+/// parts of it).
 pub(crate) fn measured_reservation(
     t: &Tally,
     raw: u64,
