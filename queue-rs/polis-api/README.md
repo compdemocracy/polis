@@ -2402,3 +2402,43 @@ the budget, the digest, the lock hold, shutdown) and
 the module on its own under a counting allocator: nothing is allocated or
 freed between taking and releasing the lock on any lookup outcome, and the
 wrapper's charge covers what it holds.
+
+## Comment routing plans: the source loader (dormant)
+
+`src/routing_plan/load.rs` reads one conversation's stored math result and
+turns it into a plan in the cache above. Nothing calls it: no route, no
+startup step, no thread is started and no connection is opened, and no
+setting is read.
+
+- **One statement.** `SOURCE_STATEMENT` reads, from the conversation's
+  current `math_main` row, the `math_env`, `math_tick` and
+  `last_vote_timestamp` columns, the database's `now()`, and a projection of
+  the stored result: its own values under `group-votes`,
+  `pca.comment-extremity`, `tids`, `meta-tids`, `comment-priorities`,
+  `group-clusters` and `base-clusters`, nothing derived. One statement is one
+  snapshot, so the row's identity and its content cannot come from two math
+  updates. The projection's length is checked in the statement: past the
+  loader's bound only the length is sent. Every value is cast to `json` and
+  every column is named, so the statement is the same on a `jsonb` column and
+  on a `json` one, in any column order. Read only; it reads no vote (the
+  group counts are the math engine's).
+- **Reserve, then read, then publish with the same reservation.** A build is
+  admitted (receive buffer, parse charge, the plan crate's build allowance)
+  before anything is read; the fence is read after that; an unfenced
+  conversation is read from the primary, never a replica; the plan is
+  published with the admission's reservation cut down to the plan's charge.
+  Admission refused: reclaim, evict one plan, try once more. A full fence
+  table: evict one plan, publish once more. A rule with no build allowance
+  (the floor, for now) is refused before anything is read.
+- **Its own thread and its own connection.** The loader runs on one OS
+  thread of its own and holds at most one connection, opened by its own
+  connector, read only, with a 5 s statement timeout and bounded setup and
+  I/O; it shares no pool with votes, comments or the next comment. A failure
+  drops the connection and is remembered by the cache's negative cache, so
+  a load is never retried in a loop.
+- **Closed outcomes.** Every load ends in one `Outcome`; none carries a
+  comment id, a participant, comment text or a vote.
+
+The database tests (`--features db-tests`) build their own `math_main` in a
+schema of their own in both shapes, `jsonb` in the migrations' column order
+and `json` in an older one.

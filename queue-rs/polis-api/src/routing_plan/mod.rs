@@ -3,6 +3,9 @@
 //! handler, no startup step); the switch that would is not built yet.
 
 pub(crate) mod cache;
+pub(crate) mod load;
 
 #[cfg(test)]
 mod cache_tests;
+#[cfg(test)]
+mod load_tests;
