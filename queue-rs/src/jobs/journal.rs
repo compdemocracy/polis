@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
+    os::fd::AsRawFd,
     path::{Path, PathBuf},
 };
 
@@ -34,8 +35,23 @@ pub const SCHEMA: &str = "polis_jobs.journal/1";
 
 pub struct Journal {
     dir: PathBuf,
-    /// Held for the process lifetime: one daemon per journal directory.
-    _lock: File,
+    /// Held for the journal lifetime: one daemon per journal directory.
+    _lock: JournalLock,
+}
+
+struct JournalLock(File);
+
+impl Drop for JournalLock {
+    fn drop(&mut self) {
+        // A concurrently forked child can retain this open file description
+        // until exec, even with CLOEXEC. Closing only our descriptor would
+        // leave the lock held in that window. Release it when its owner drops,
+        // including on an error while opening the journal.
+        // SAFETY: the descriptor is still owned and open until File drops.
+        unsafe {
+            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        }
+    }
 }
 
 fn fsync_dir(dir: &Path) -> std::io::Result<()> {
@@ -54,16 +70,12 @@ impl Journal {
             .write(true)
             .open(dir.join(".lock"))?;
         // SAFETY: flock on a file descriptor we own.
-        let rc = unsafe {
-            libc::flock(
-                std::os::fd::AsRawFd::as_raw_fd(&lock),
-                libc::LOCK_EX | libc::LOCK_NB,
-            )
-        };
+        let rc = unsafe { libc::flock(lock.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) };
         anyhow::ensure!(
             rc == 0,
             "journal directory is locked by another polis-jobs process"
         );
+        let lock = JournalLock(lock);
         let probe = dir.join(format!(".probe-{}", std::process::id()));
         {
             let mut f = OpenOptions::new()
@@ -235,6 +247,30 @@ mod tests {
         drop(first);
         assert!(Journal::open(&dir).is_ok(), "free again once released");
         let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn drop_releases_lock_with_an_inherited_file_description() -> anyhow::Result<()> {
+        let dir = std::env::temp_dir().join(format!("polis-jobs-lock-{}", uuid::Uuid::new_v4()));
+        let first = Journal::open(&dir)?;
+        // SAFETY: F_GETFD only reads the flags of our live descriptor.
+        let flags = unsafe { libc::fcntl(first._lock.0.as_raw_fd(), libc::F_GETFD) };
+        assert!(flags >= 0 && flags & libc::FD_CLOEXEC != 0);
+        // dup and fork share the same open file description. Keep a duplicate
+        // alive to exercise the fork-to-exec window without scheduling a race.
+        let inherited = first._lock.0.try_clone()?;
+        assert!(Journal::open(&dir).is_err(), "second holder refused");
+        drop(first);
+        let replacement = Journal::open(&dir)?;
+        drop(inherited);
+        assert!(
+            Journal::open(&dir).is_err(),
+            "replacement still owns the lock"
+        );
+        drop(replacement);
+        drop(Journal::open(&dir)?);
+        fs::remove_dir_all(dir)?;
+        Ok(())
     }
 
     #[test]
