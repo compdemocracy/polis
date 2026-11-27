@@ -6,6 +6,7 @@
 //! running sums in the candidates' order, `random_n = unit * total`, and the
 //! first candidate whose running sum is greater than `random_n`.
 
+use crate::corrected::CorrectedWeights;
 use crate::historical::{HistoricalProvenance, HistoricalWeights};
 use crate::registry::{ParamSet, RuleId};
 use crate::types::{CommentId, DrawRefusal, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
@@ -98,6 +99,43 @@ pub enum WeightProvenance {
     /// Computed here by `historical/1`, with these parameters, from these
     /// frames.
     Historical1(HistoricalProvenance),
+    /// Computed here by a corrected rule (`symmetric/1` or
+    /// `symmetric-gic/1`), with these parameters, from these frames.
+    Corrected(CorrectedProvenance),
+}
+
+/// What computed a corrected rule's weights: the rule with its complete
+/// parameter set and the source of every frame it read. Obtained only from
+/// the computed weights (or read back from a receipt).
+#[derive(Clone, Debug, PartialEq)]
+pub struct CorrectedProvenance {
+    pub(crate) params: ParamSet,
+    pub(crate) previous_counts: SourceId,
+    pub(crate) current_extremity: SourceId,
+    pub(crate) current_groups: Option<SourceId>,
+}
+
+impl CorrectedProvenance {
+    pub(crate) fn of(weights: &CorrectedWeights) -> Self {
+        Self {
+            params: *weights.params(),
+            previous_counts: weights.previous_counts().clone(),
+            current_extremity: weights.current_extremity().clone(),
+            current_groups: weights.current_groups().cloned(),
+        }
+    }
+    pub fn params(&self) -> &ParamSet {
+        &self.params
+    }
+    pub fn previous_counts(&self) -> &SourceId {
+        &self.previous_counts
+    }
+    pub fn current_extremity(&self) -> &SourceId {
+        &self.current_extremity
+    }
+    pub fn current_groups(&self) -> Option<&SourceId> {
+        self.current_groups.as_ref()
+    }
 }
 
 /// A map of weights a draw reads: the math result's `comment-priorities` or
@@ -302,12 +340,16 @@ pub fn cdf(draw_weights: &[f64], unit: Unit) -> Result<Cdf, DrawRefusal> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DrawMode {
     LegacyCdf1,
+    /// The same arithmetic, after `ZeroMass`, `TotalBelowNormal` and
+    /// `NumericDegeneracy` are checked (`floor::stable_cdf`).
+    StableCdf1,
 }
 
 impl DrawMode {
     pub fn name(self) -> &'static str {
         match self {
             Self::LegacyCdf1 => "legacy-cdf/1",
+            Self::StableCdf1 => "stable-cdf/1",
         }
     }
 }
@@ -377,6 +419,8 @@ pub enum WeightsUsed {
     /// No map was given (the conversation has none): every candidate drew
     /// at 1.
     NoMap,
+    /// The rule reads no weights (`uniform/1`).
+    NotRead,
     /// This map, named by its source, produced as its provenance says.
     Map {
         source: SourceId,

@@ -44,7 +44,11 @@ fn the_bound_python_rule_exists_and_reproduces_its_grid() {
                 support::symmetric_weight_of(counts, extremity, case["meta"].as_bool().unwrap())
                     .unwrap()
             }
-            RuleId::StoredWeights1 | RuleId::GicMean1 | RuleId::GicGeomean1 => {
+            RuleId::StoredWeights1
+            | RuleId::GicMean1
+            | RuleId::GicGeomean1
+            | RuleId::Uniform1
+            | RuleId::SymmetricGicFloor1 => {
                 panic!("the Python binding must name a weight-producing rule")
             }
             RuleId::SymmetricGic1 => {

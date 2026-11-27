@@ -9,7 +9,11 @@
 //! exactly when their texts are. Reading a receipt back does not re-run or
 //! verify the draw; it restores what was written.
 
-use crate::draw::{Candidates, DrawFlags, DrawMode, Drawn, Lane, WeightProvenance, WeightsUsed};
+use crate::draw::{
+    Candidates, CorrectedProvenance, DrawFlags, DrawMode, Drawn, Lane, WeightProvenance,
+    WeightsUsed,
+};
+use crate::floor::ZERO_MASS_DONATION;
 use crate::historical::HistoricalProvenance;
 use crate::registry::{ParamSet, exact_keys, number};
 use crate::types::{CommentId, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
@@ -107,6 +111,18 @@ impl WeightProvenance {
                 text(h.previous_counts().as_str()),
                 text(h.current_extremity().as_str()),
             ),
+            Self::Corrected(c) => {
+                let groups = c.current_groups.as_ref().map_or_else(String::new, |g| {
+                    format!(",\"current_groups\":{}", text(g.as_str()))
+                });
+                format!(
+                    "{{\"kind\":\"computed\",\"rule\":{},\"inputs\":{{\"previous_counts\":{},\"current_extremity\":{}{}}}}}",
+                    c.params.to_plain(),
+                    text(c.previous_counts.as_str()),
+                    text(c.current_extremity.as_str()),
+                    groups,
+                )
+            }
         }
     }
 
@@ -130,6 +146,28 @@ impl WeightProvenance {
                             source(inputs, "current_extremity")?,
                         )))
                     }
+                    ParamSet::Symmetric1(_) => {
+                        exact_keys(inputs, &["previous_counts", "current_extremity"], "inputs")?;
+                        Ok(Self::Corrected(CorrectedProvenance {
+                            params: rule,
+                            previous_counts: source(inputs, "previous_counts")?,
+                            current_extremity: source(inputs, "current_extremity")?,
+                            current_groups: None,
+                        }))
+                    }
+                    ParamSet::SymmetricGic1(_) => {
+                        exact_keys(
+                            inputs,
+                            &["previous_counts", "current_extremity", "current_groups"],
+                            "inputs",
+                        )?;
+                        Ok(Self::Corrected(CorrectedProvenance {
+                            params: rule,
+                            previous_counts: source(inputs, "previous_counts")?,
+                            current_extremity: source(inputs, "current_extremity")?,
+                            current_groups: Some(source(inputs, "current_groups")?),
+                        }))
+                    }
                     other => Err(plain_refusal(format!(
                         "{} does not compute weights",
                         other.rule().name()
@@ -147,6 +185,7 @@ impl WeightsUsed {
     pub fn to_plain(&self) -> String {
         match self {
             Self::NoMap => "{\"kind\":\"no-map\"}".to_string(),
+            Self::NotRead => "{\"kind\":\"not-read\"}".to_string(),
             Self::Map { source, provenance } => format!(
                 "{{\"kind\":\"map\",\"source\":{},\"produced_by\":{}}}",
                 text(source.as_str()),
@@ -161,6 +200,10 @@ impl WeightsUsed {
             "no-map" => {
                 exact_keys(top, &["kind"], "weights")?;
                 Ok(Self::NoMap)
+            }
+            "not-read" => {
+                exact_keys(top, &["kind"], "weights")?;
+                Ok(Self::NotRead)
             }
             "map" => {
                 exact_keys(top, &["kind", "source", "produced_by"], "weights")?;
@@ -193,6 +236,7 @@ fn lane_from_value(value: &Value) -> Result<Lane, Refusal> {
     )?;
     let lane = match string(top, "lane")? {
         "weights" => "weights",
+        "uniform" => "uniform",
         other => return Err(plain_refusal(format!("unknown lane {other:?}"))),
     };
     Ok(Lane {
@@ -291,11 +335,145 @@ impl Drawn {
         )
     }
 
-    // These checks require no input frames and do not re-run a draw. Keep
-    // validation specific to the recorded rule when further shapes are added.
+    // These checks require no input frames and do not re-run a draw; each
+    // recorded rule has its own.
     fn validate_recorded_shape(&self) -> Result<(), Refusal> {
+        match self.rule {
+            ParamSet::StoredWeights1 => self.validate_stored_weights(),
+            ParamSet::Uniform1 => self.validate_uniform(),
+            ParamSet::SymmetricGicFloor1(_) => self.validate_floor(),
+            other => Err(plain_refusal(format!(
+                "{} does not draw",
+                other.rule().name()
+            ))),
+        }
+    }
+
+    /// The checks every new-shape receipt shares: its count, index, unit
+    /// scale, no sampled lane, no legacy mapping and nothing absorbed (the
+    /// stable draw refuses absorption), and the one-candidate case.
+    fn validate_common_stable(&self, fail: &dyn Fn() -> Refusal) -> Result<(), Refusal> {
+        if self.draw_mode != DrawMode::StableCdf1
+            || self.candidate_count == 0
+            || self.candidate_count > MAX_CANDIDATES
+            || self.index >= self.candidate_count
+            || !self.probability.is_finite()
+            || self.probability <= 0.0
+            || self.probability > 1.0
+            || !self.random_n.is_finite()
+            || self.random_n.is_sign_negative()
+            || self.sampled_lane.is_some()
+            || self.flags.zero_mapped_to_one != 0
+            || self.flags.null_or_false_mapped_to_one != 0
+            || !self.flags.absorbed.is_empty()
+            || self.flags.absent_mapped_to_one > self.candidate_count
+            || (self.candidate_count == 1 && self.probability != 1.0)
+        {
+            return Err(fail());
+        }
+        if self.candidate_count == 1 {
+            let only = Candidates::new(vec![self.comment]).map_err(|_| fail())?;
+            if only.order_digest() != self.candidate_order_digest {
+                return Err(fail());
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_uniform(&self) -> Result<(), Refusal> {
+        let fail = || plain_refusal("inconsistent uniform/1 receipt");
+        self.validate_common_stable(&fail)?;
+        let n = self.candidate_count as f64;
+        let [lane] = self.lanes.as_slice() else {
+            return Err(fail());
+        };
+        // Every draw weight is 1: the total is n exactly, q is 1/n and the
+        // index is the floor of random_n.
+        if self.weights != WeightsUsed::NotRead
+            || self.flags.absent_mapped_to_one != 0
+            || !self.flags.donations.is_empty()
+            || lane.lane != "uniform"
+            || lane.share != 1.0
+            || lane.normaliser != n
+            || self.probability != 1.0 / n
+            || lane.contribution.to_bits() != self.probability.to_bits()
+            || self.random_n >= n
+            || self.index as f64 != self.random_n.floor()
+        {
+            return Err(fail());
+        }
+        Ok(())
+    }
+
+    fn validate_floor(&self) -> Result<(), Refusal> {
+        let fail = || plain_refusal("inconsistent symmetric-gic-floor/1 receipt");
+        self.validate_common_stable(&fail)?;
+        let ParamSet::SymmetricGicFloor1(params) = self.rule else {
+            return Err(fail());
+        };
+        let WeightsUsed::Map {
+            provenance: WeightProvenance::Corrected(c),
+            ..
+        } = &self.weights
+        else {
+            return Err(fail());
+        };
+        if c.params != ParamSet::SymmetricGic1(*params.base()) || c.current_groups.is_none() {
+            return Err(fail());
+        }
+        let [uniform, weights] = self.lanes.as_slice() else {
+            return Err(fail());
+        };
+        let n = self.candidate_count as f64;
+        let donated = match self.flags.donations.as_slice() {
+            [] => false,
+            [d] if d == ZERO_MASS_DONATION => true,
+            _ => return Err(fail()),
+        };
+        let shares_ok = if donated {
+            uniform.share == 1.0
+                && weights.share == 0.0
+                && weights.normaliser == 0.0
+                && weights.contribution == 0.0
+        } else {
+            uniform.share.to_bits() == params.floor_share().to_bits()
+                && weights.share.to_bits() == (1.0 - params.floor_share()).to_bits()
+                && weights.normaliser.is_finite()
+                && weights.normaliser > 0.0
+        };
+        // q = (u + w) / T with T the computed sum of the d's, within n
+        // roundings of 1: q is within (4n + 8) 2^-53 of u + w.
+        let d = uniform.contribution + weights.contribution;
+        let slack = (4.0 * n + 8.0) * f64::EPSILON / 2.0;
+        if uniform.lane != "uniform"
+            || weights.lane != "weights"
+            || !shares_ok
+            || uniform.normaliser != n
+            || uniform.contribution.to_bits() != (uniform.share / n).to_bits()
+            || !weights.contribution.is_finite()
+            || weights.contribution.is_sign_negative()
+            || weights.contribution > weights.share
+            || (self.probability - d).abs() > slack
+            || self.random_n >= 1.0 + slack
+        {
+            return Err(fail());
+        }
+        Ok(())
+    }
+
+    fn validate_stored_weights(&self) -> Result<(), Refusal> {
         let fail = || plain_refusal("inconsistent stored-weights/1 receipt");
-        if self.rule != ParamSet::StoredWeights1
+        let foreign = matches!(
+            self.weights,
+            WeightsUsed::NotRead
+                | WeightsUsed::Map {
+                    provenance: WeightProvenance::Corrected(_),
+                    ..
+                }
+        );
+        if foreign
+            || self.draw_mode != DrawMode::LegacyCdf1
+            || self.rule != ParamSet::StoredWeights1
             || self.candidate_count == 0
             || self.candidate_count > MAX_CANDIDATES
             || self.index >= self.candidate_count
@@ -392,6 +570,7 @@ impl Drawn {
         exact_keys(top, &RECEIPT_KEYS, "the receipt")?;
         let draw_mode = match string(top, "draw_mode")? {
             "legacy-cdf/1" => DrawMode::LegacyCdf1,
+            "stable-cdf/1" => DrawMode::StableCdf1,
             other => return Err(plain_refusal(format!("unknown draw mode {other:?}"))),
         };
         let digest = string(top, "candidate_order_digest")?;

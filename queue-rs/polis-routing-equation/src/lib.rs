@@ -16,6 +16,7 @@
 pub mod corrected;
 pub mod draw;
 mod dupkeys;
+pub mod floor;
 pub mod frames;
 pub mod historical;
 mod receipt;
@@ -27,8 +28,12 @@ pub use corrected::{
     SymmetricParams, consensus, symmetric_1, symmetric_gic_1,
 };
 pub use draw::{
-    Candidates, Cdf, DrawFlags, DrawMode, Drawn, Lane, MIN_TOTAL, StoredWeight, StoredWeights,
-    Unit, WeightProvenance, WeightsUsed, cdf, stored_weights_1,
+    Candidates, Cdf, CorrectedProvenance, DrawFlags, DrawMode, Drawn, Lane, MIN_TOTAL,
+    StoredWeight, StoredWeights, Unit, WeightProvenance, WeightsUsed, cdf, stored_weights_1,
+};
+pub use floor::{
+    DEGENERACY_RATIO, FloorMarginals, FloorParams, FloorPlan, ZERO_MASS_DONATION, floor_marginals,
+    stable_cdf, symmetric_gic_floor_1, uniform_1,
 };
 pub use frames::{
     CommentMarks, CurrentFrames, CurrentGroupFrame, EveryoneFrame, GroupMarks, ImportanceMarks,

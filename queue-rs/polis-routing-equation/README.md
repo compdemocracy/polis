@@ -240,6 +240,62 @@ gives it 1 without the factor; a meta comment weighs 49 without the factor, as
 today (`meta_policy`). It is not symmetric: the count term is, the factor and E
 are not.
 
+### The floor, the uniform rule and the stable draw
+
+These exist for one purpose: an honest comparison of rules (an A/B test).
+Such a comparison needs every comment to keep a known, recorded chance of
+being shown, and the chance written on the receipt to be the true one.
+
+- **`uniform/1`** gives every candidate the same chance, 1/n. It reads no
+  weights. It is the floor's lane on its own, and a baseline for replays.
+- **The floor** (`symmetric-gic-floor/1`) mixes two lanes. A stated share,
+  `floor_share` (default 0.1), of the chance is spread evenly over the
+  candidates; the rest follows `symmetric-gic/1`'s weights. A comment's chance
+  is
+
+  ```text
+  q_j = floor_share / n  +  (1 - floor_share) * w_j / W
+  ```
+
+  where n is the number of candidates and W the sum of their weights. So every
+  comment has at least `floor_share / n`, however small its weight: with two
+  candidates weighing 1 and 3 and a floor of 0.1, the chances are
+  0.05 + 0.225 = 0.275 and 0.05 + 0.675 = 0.725; a comment of weight 0 beside
+  one of weight 2 still has 0.05. An unscored comment (a new one, in only one
+  of the two frames) draws at weight 1, not multiplied by any factor, as the
+  corrected equation was studied.
+- **Zero-mass donation.** If every candidate's weight is 0, the weighted lane
+  has nothing to share out; its share is given to the uniform lane, so every
+  candidate gets 1/n, and the receipt records the donation
+  (`weights->uniform:zero_mass`). Under `symmetric-gic/1`'s parameter ranges
+  every scored weight is positive and an unscored one is 1, so this cannot
+  happen in `symmetric-gic-floor/1` itself; it is proven on the lane
+  arithmetic the rule uses (`floor_marginals`).
+- **Exclusion.** Under `meta_policy = exclude` a meta comment has no chance in
+  any lane, the uniform floor included: a draw given one is refused, whether or
+  not the comment could have been scored. A candidate the plan knows nothing
+  about is refused too (`NeedsBaseline`): the crate never invents a row.
+- **The stable draw, `stable-cdf/1`.** The same arithmetic as today's draw,
+  over the mixture's chances, with three checks first: a list with no mass is
+  refused; a total too small to draw from is refused; and a comment whose
+  positive chance is below 2^-40 of the total is refused
+  (`NumericDegeneracy`). What it promises: every comment that has a chance has
+  a real interval of random numbers (at least 2^-40 less 2^-50 of them), none
+  is silently unreachable, and a small change in the weights moves the
+  boundaries between comments only a little, so the outcome for a given random
+  number changes only near a boundary that moved. It does not promise that
+  the same random number picks the same comment after the weights change.
+- **The receipt** reports, for the chosen comment, both lanes: each one's
+  effective share after any donation, its normaliser (n, and W), and its part
+  of the chance; the reported probability is the comment's true marginal
+  chance under the mixture, `q_j` above, as computed (`d_j / T`, T the computed
+  sum of the chances, within a few roundings of 1). No lane is drawn first:
+  the draw is over the marginal chances, so the receipt never names "the lane
+  it fell in".
+- **What it rewards that today's equation does not:** nothing by itself; it
+  guarantees exposure. It is symmetric in the sense its base is: the floor is
+  the same for every comment.
+
 ## 4. The parameters
 
 Every constant of a rule is a named, typed parameter with a range. The
@@ -304,6 +360,27 @@ This rule has no parameters.
 | `consensus_form` | `gic-geomean/1` | `gic-geomean/1` or `gic-mean/1` | which form of the group-informed consensus factor multiplies the weight | the geometric mean is the form the corrected equation was studied with |
 | `gic_offset` | 0.5 | [1e-3, 100] | added to G, so the factor is always positive | the factor `(0.5 + G)` of the corrected equation |
 | `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
+
+**`uniform/1`**
+
+This rule has no parameters.
+
+**`symmetric-gic-floor/1`**
+
+| Name | Default | Allowed | Meaning | Source |
+|---|---|---|---|---|
+| `side_prior` | 1 | [1e-3, 1000], and at most `seen_prior` | added to the agrees plus disagrees in the side share | `historical/1`'s `(A + 1)` and `(P + 1)` read as one term `(A + D + 1)` |
+| `seen_prior` | 2 | [1e-3, 1000] | added to the votes seen in the side share | `importance_metric`: `(S + 2)` |
+| `extremity_offset` | 1 | [1e-3, 100] | added to the extremity, so a comment at the centre still counts | `importance_metric`: `(E + 1)` |
+| `novelty_amplitude` | 8 | [0, 1000] | how much larger a comment with no votes is made | `priority_metric`: `1 + 8 * (2 ** (-S / 5))` |
+| `novelty_halving_votes` | 5 | [1e-3, 1e6] | votes seen after which the novelty boost has halved | `priority_metric`: `-S / 5` |
+| `exponent` | 2 | an integer from 1 to 4 | the power the product is raised to | `priority_metric`: `inner ** 2` |
+| `meta_inner` | 7 | [1e-3, 1e6] | a meta comment's value before the power ("TODO TUNE" in the source) | `META_PRIORITY = 7` |
+| `meta_policy` | `fixed` | `fixed`, `ordinary` or `exclude` | a meta comment weighs `meta_inner^exponent`, is scored like any comment, or is excluded | `fixed` is today's behaviour (`META_PRIORITY`) |
+| `consensus_form` | `gic-geomean/1` | `gic-geomean/1` or `gic-mean/1` | which form of the group-informed consensus factor multiplies the weight | the geometric mean is the form the corrected equation was studied with |
+| `gic_offset` | 0.5 | [1e-3, 100] | added to G, so the factor is always positive | the factor `(0.5 + G)` of the corrected equation |
+| `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
+| `floor_share` | 0.1 | [0, 1) | the share of the chance spread evenly over the candidates; the rest follows the weights | the uniform floor of the corrected equation (`alpha = 0.10`) |
 
 The defaults of these four rules are listed in `tests/golden/defaults-manifest-3.json`.
 The first manifest, `tests/golden/defaults-manifest.json`, is a published golden
@@ -456,6 +533,27 @@ groups; new comments the equation does not score; a fixed meta comment.
 relative) and 5.6e-17 (probabilities). A change of 1e-11 to the novelty or the
 factor, or of 1e-10 to one recorded number, turns it red. Importance, the floor
 and zero mass are not in this file yet.
+
+### The floor and the stable draw
+
+`tests/floor.rs` checks every reported chance three ways. **By hand**, in plain
+arithmetic written in the test: [1, 3] at 0.1 gives 0.275 and 0.725 (lanes
+0.05 and 0.225 / 0.675); [0, 2] gives 0.05 and 0.95; [1, 5e-324] gives the tiny
+comment 0.05; [0, 0] donates and gives 0.5 each; three comments [2, 0, 6] at
+0.25 give 13/48, 4/48 and 31/48; one candidate gives exactly 1 for every
+random number. **Against what the draw does**: the random numbers that pick
+each comment are found by bisection over every double in [0, 1), and their
+measure equals the reported chance within 2^-50. **Statistically**: 400,000
+draws from a fixed seeded source land on each comment with a frequency
+within five standard errors of the reported chance. Also: every chance is at
+least `floor_share / n` up to rounding; the uniform lane's parts add up to the
+floor share; the stable draw refuses no mass, a total below 2^-1021, and a
+positive chance below 2^-40 of the total, where today's arithmetic would
+silently absorb it; an excluded meta comment is refused whether scored, in one
+frame or in neither; receipts read back byte for byte, and altered ones are
+refused. `tests/golden/receipts-2.txt` records the first receipts of the new
+shapes (and of the earlier shape with no map and with the engine's map); every
+receipt of the first golden file still reads back unchanged.
 
 ## 6. What it does not do
 

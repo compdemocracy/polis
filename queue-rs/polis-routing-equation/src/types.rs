@@ -534,6 +534,9 @@ pub enum Refusal {
     /// The per-comment voter-weight aggregates exceed the conversation's
     /// totals.
     VoterWeightAboveTotal,
+    /// A floor plan was given weights not computed by its base rule with its
+    /// base parameters.
+    BaseMismatch,
 }
 
 impl fmt::Display for Refusal {
@@ -606,6 +609,9 @@ impl fmt::Display for Refusal {
             Self::VoterWeightAboveTotal => {
                 f.write_str("the comments' voter weights exceed the totals")
             }
+            Self::BaseMismatch => {
+                f.write_str("the weights were not computed by the plan's base rule and parameters")
+            }
         }
     }
 }
@@ -634,6 +640,19 @@ pub enum DrawRefusal {
     /// No running sum exceeded the scaled unit. Proven impossible on the
     /// accepted domain; reported rather than assumed.
     NoInterval,
+    /// Every draw weight is zero after donations (`stable-cdf/1`).
+    ZeroMass,
+    /// `stable-cdf/1`: a positive draw weight below 2^-40 of the total (its
+    /// position in the list).
+    NumericDegeneracy(usize),
+    /// A floor share outside [0, 1).
+    InvalidShare,
+    /// The candidate is a meta comment excluded by `meta_policy = exclude`;
+    /// it has no chance in any lane, and the caller must not pass it.
+    ExcludedCandidate(CommentId),
+    /// The plan has no facts for this candidate (neither scored nor
+    /// unscored); the crate never invents a row for it.
+    NeedsBaseline(CommentId),
 }
 
 impl fmt::Display for DrawRefusal {
@@ -649,6 +668,16 @@ impl fmt::Display for DrawRefusal {
             Self::InvalidDrawWeight(i) => write!(f, "draw weight {i} outside [0, 1e150]"),
             Self::TotalBelowNormal => f.write_str("the total weight is below 2^-1021"),
             Self::NoInterval => f.write_str("no candidate's interval holds the unit"),
+            Self::ZeroMass => f.write_str("every draw weight is zero"),
+            Self::NumericDegeneracy(i) => {
+                write!(
+                    f,
+                    "draw weight {i} is positive but below 2^-40 of the total"
+                )
+            }
+            Self::InvalidShare => f.write_str("a floor share must be in [0, 1)"),
+            Self::ExcludedCandidate(id) => write!(f, "candidate {id} is an excluded meta comment"),
+            Self::NeedsBaseline(id) => write!(f, "candidate {id} has no facts in the plan"),
         }
     }
 }

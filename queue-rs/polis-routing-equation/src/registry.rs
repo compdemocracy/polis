@@ -6,6 +6,7 @@
 //! is the rule plus its complete canonical parameter form.
 
 use crate::corrected::{ConsensusForm, GicParams, MetaPolicy, SymmetricGicParams, SymmetricParams};
+use crate::floor::FloorParams;
 use crate::historical::HistoricalParams;
 use crate::types::Refusal;
 use serde::Serialize;
@@ -21,16 +22,20 @@ pub enum RuleId {
     GicMean1,
     GicGeomean1,
     SymmetricGic1,
+    Uniform1,
+    SymmetricGicFloor1,
 }
 
 impl RuleId {
-    pub const ALL: [RuleId; 6] = [
+    pub const ALL: [RuleId; 8] = [
         RuleId::Historical1,
         RuleId::StoredWeights1,
         RuleId::Symmetric1,
         RuleId::GicMean1,
         RuleId::GicGeomean1,
         RuleId::SymmetricGic1,
+        RuleId::Uniform1,
+        RuleId::SymmetricGicFloor1,
     ];
 
     /// The rule's `name/version`.
@@ -42,6 +47,8 @@ impl RuleId {
             Self::GicMean1 => "gic-mean/1",
             Self::GicGeomean1 => "gic-geomean/1",
             Self::SymmetricGic1 => "symmetric-gic/1",
+            Self::Uniform1 => "uniform/1",
+            Self::SymmetricGicFloor1 => "symmetric-gic-floor/1",
         }
     }
 }
@@ -208,6 +215,27 @@ const SYMMETRIC_GIC_PARAMS: [ParamDoc; 11] = [
     GIC_PARAMS[1],
 ];
 
+const FLOOR_PARAMS: [ParamDoc; 12] = [
+    SYMMETRIC_GIC_PARAMS[0],
+    SYMMETRIC_GIC_PARAMS[1],
+    SYMMETRIC_GIC_PARAMS[2],
+    SYMMETRIC_GIC_PARAMS[3],
+    SYMMETRIC_GIC_PARAMS[4],
+    SYMMETRIC_GIC_PARAMS[5],
+    SYMMETRIC_GIC_PARAMS[6],
+    SYMMETRIC_GIC_PARAMS[7],
+    SYMMETRIC_GIC_PARAMS[8],
+    SYMMETRIC_GIC_PARAMS[9],
+    SYMMETRIC_GIC_PARAMS[10],
+    ParamDoc {
+        name: "floor_share",
+        default: "0.1",
+        allowed: "[0, 1)",
+        meaning: "the share of the chance spread evenly over the candidates; the rest follows the weights",
+        source: "the uniform floor of the corrected equation (`alpha = 0.10`)",
+    },
+];
+
 /// The documentation of a rule: summary, formula and every parameter.
 pub fn describe(rule: RuleId) -> RuleDoc {
     match rule {
@@ -255,6 +283,19 @@ pub fn describe(rule: RuleId) -> RuleDoc {
                       an unscored comment and a fixed meta comment are not multiplied",
             params: &SYMMETRIC_GIC_PARAMS,
         },
+        RuleId::Uniform1 => RuleDoc {
+            rule,
+            summary: "Every candidate has the same chance: the uniform lane on its own.",
+            formula: "d_j = 1 for every candidate; q = 1/n",
+            params: &[],
+        },
+        RuleId::SymmetricGicFloor1 => RuleDoc {
+            rule,
+            summary: "symmetric-gic/1 with a uniform floor: a stated share of the chance is spread evenly, the rest follows the weights (a candidate, not chosen).",
+            formula: "d_j = floor_share / n + (1 - floor_share) * w_j / W, w the symmetric-gic/1 weights with unscored read as 1, W their sum over the candidates; \
+                      W = 0 donates the weighted share to the uniform lane; drawn with stable-cdf/1",
+            params: &FLOOR_PARAMS,
+        },
     }
 }
 
@@ -284,6 +325,8 @@ pub enum ParamSet {
     GicMean1(GicParams),
     GicGeomean1(GicParams),
     SymmetricGic1(SymmetricGicParams),
+    Uniform1,
+    SymmetricGicFloor1(FloorParams),
 }
 
 const SYMMETRIC_KEYS: [&str; 8] = [
@@ -311,6 +354,21 @@ const SYMMETRIC_GIC_KEYS: [&str; 11] = [
     "consensus_form",
     "gic_offset",
     "gic_min_groups",
+];
+
+const FLOOR_KEYS: [&str; 12] = [
+    "side_prior",
+    "seen_prior",
+    "extremity_offset",
+    "novelty_amplitude",
+    "novelty_halving_votes",
+    "exponent",
+    "meta_inner",
+    "meta_policy",
+    "consensus_form",
+    "gic_offset",
+    "gic_min_groups",
+    "floor_share",
 ];
 
 fn symmetric_plain(p: &SymmetricParams) -> String {
@@ -421,6 +479,8 @@ impl ParamSet {
             RuleId::GicMean1 => Self::GicMean1(GicParams::default()),
             RuleId::GicGeomean1 => Self::GicGeomean1(GicParams::default()),
             RuleId::SymmetricGic1 => Self::SymmetricGic1(SymmetricGicParams::default()),
+            RuleId::Uniform1 => Self::Uniform1,
+            RuleId::SymmetricGicFloor1 => Self::SymmetricGicFloor1(FloorParams::default()),
         }
     }
 
@@ -432,6 +492,8 @@ impl ParamSet {
             Self::GicMean1(_) => RuleId::GicMean1,
             Self::GicGeomean1(_) => RuleId::GicGeomean1,
             Self::SymmetricGic1(_) => RuleId::SymmetricGic1,
+            Self::Uniform1 => RuleId::Uniform1,
+            Self::SymmetricGicFloor1(_) => RuleId::SymmetricGicFloor1,
         }
     }
 
@@ -472,6 +534,14 @@ impl ParamSet {
                 symmetric_plain(p.base()),
                 p.form().name(),
                 gic_plain(p.gic())
+            ),
+            Self::Uniform1 => "{\"rule\":\"uniform/1\",\"params\":{},\"terms\":[]}".to_string(),
+            Self::SymmetricGicFloor1(p) => format!(
+                "{{\"rule\":\"symmetric-gic-floor/1\",\"params\":{{{},\"consensus_form\":\"{}\",{},\"floor_share\":{}}},\"terms\":[]}}",
+                symmetric_plain(p.base().base()),
+                p.base().form().name(),
+                gic_plain(p.base().gic()),
+                number(p.floor_share())
             ),
         }
     }
@@ -559,6 +629,21 @@ impl ParamSet {
                     form,
                     gic_from(params)?,
                 )))
+            }
+            RuleId::Uniform1 => {
+                exact_keys(params, &[], "params")?;
+                Ok(Self::Uniform1)
+            }
+            RuleId::SymmetricGicFloor1 => {
+                exact_keys(params, &FLOOR_KEYS, "params")?;
+                let form = name_of(params, "consensus_form")?;
+                let form = ConsensusForm::from_name(form)
+                    .ok_or_else(|| Refusal::Plain(format!("unknown consensus_form {form:?}")))?;
+                let base =
+                    SymmetricGicParams::new(symmetric_from(params)?, form, gic_from(params)?);
+                FloorParams::new(base, float_of(params, "floor_share")?)
+                    .map(Self::SymmetricGicFloor1)
+                    .map_err(Refusal::Param)
             }
         }
     }
