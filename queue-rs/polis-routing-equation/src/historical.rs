@@ -235,6 +235,10 @@ impl MetaComments {
     pub(crate) fn ids(&self) -> impl Iterator<Item = CommentId> + '_ {
         self.0.iter().copied()
     }
+    /// The meta comments as the ordered set a draw looks them up in.
+    pub(crate) fn set(&self) -> &BTreeSet<CommentId> {
+        &self.0
+    }
 }
 
 /// One scored comment: its weight and how it was made.
