@@ -132,8 +132,6 @@ pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> 
     // `max_comments` (already checked), and each element takes at least two
     // bytes (`1,`).
     let ids = (len / 2 + 1).min(limits.max_comments.saturating_mul(2));
-    let union = raw
-        .checked_add(ids.checked_mul(8)?)?
-        .checked_add(scratch)?;
+    let union = raw.checked_add(ids.checked_mul(8)?)?.checked_add(scratch)?;
     walk.max(split).max(union).checked_add(1024)
 }

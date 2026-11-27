@@ -268,7 +268,10 @@ fn refused_within_charge(name: &str, b: &[u8], limits: SourceLimits, expected: S
     let charge = Projection::parse_reservation(b.len(), &limits).unwrap();
     let r = row();
     let (result, peak, _) = measured(|| Projection::parse(b, r, &limits));
-    eprintln!("{name}: source {} bytes, peak {peak}, charged {charge}", b.len());
+    eprintln!(
+        "{name}: source {} bytes, peak {peak}, charged {charge}",
+        b.len()
+    );
     assert_eq!(result.unwrap_err(), expected, "{name}");
     assert!(
         peak as u64 <= charge,
@@ -282,7 +285,11 @@ fn refused_parse_holds_no_more_than_was_charged() {
     // Wide numeric keys, refused at the first comment over the limit.
     refused_within_charge(
         "wide priorities",
-        format!("{{\"comment-priorities\":{{{}}}}}", wide.trim_end_matches(',')).as_bytes(),
+        format!(
+            "{{\"comment-priorities\":{{{}}}}}",
+            wide.trim_end_matches(',')
+        )
+        .as_bytes(),
         SourceLimits {
             max_comments: 9_999,
             ..SourceLimits::default()
@@ -366,8 +373,15 @@ fn accepted_parse_within_its_charge_and_keeps_no_more_than_held() {
         let r = row();
         let (p, peak, live) = measured(|| Projection::parse(&b, r, &limits));
         let p = p.unwrap();
-        assert!(peak as u64 <= charge, "{groups}x{comments}: peak {peak}, charged {charge}");
-        assert!(live as u64 <= p.held(), "{groups}x{comments}: kept {live}, held {}", p.held());
+        assert!(
+            peak as u64 <= charge,
+            "{groups}x{comments}: peak {peak}, charged {charge}"
+        );
+        assert!(
+            live as u64 <= p.held(),
+            "{groups}x{comments}: kept {live}, held {}",
+            p.held()
+        );
     }
 }
 
