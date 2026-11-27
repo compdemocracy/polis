@@ -280,8 +280,10 @@ impl RoutingPlanCache {
         }))
     }
 
-    /// The monotonic reading, from this cache's origin.
-    fn reading(&self) -> Monotonic {
+    /// The monotonic reading, from this cache's origin: what a builder
+    /// stamps a plan's `built_at` with, so a plan and the cache it is
+    /// published into read one clock.
+    pub(crate) fn reading(&self) -> Monotonic {
         Monotonic::from_nanos(u64::try_from(self.origin.elapsed().as_nanos()).unwrap_or(u64::MAX))
     }
 
