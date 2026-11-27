@@ -41,6 +41,9 @@ polis-auth = { path = "../polis-auth" }
 # again from what that reader is sent (delphi_topic_map.rs, `recolor`).
 polis-topic-map = { path = "../polis-topic-map" }
 polis-queue-adapter = { path = ".." }
+# Comment routing's plans and their cache (src/routing_plan/); polis-api
+# reaches the routing equation library only through this crate.
+polis-routing-plan = { path = "../polis-routing-plan" }
 postgres = "0.19"
 ryu-js = "1"
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "signal", "sync", "time"] }

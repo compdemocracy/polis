@@ -994,6 +994,7 @@ dependencies = [
  "polis-auth",
  "polis-migrate",
  "polis-queue-adapter",
+ "polis-routing-plan",
  "polis-topic-map",
  "postgres",
  "rand",
