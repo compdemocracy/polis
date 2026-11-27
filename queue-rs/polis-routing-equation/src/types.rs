@@ -506,10 +506,12 @@ pub enum Refusal {
     },
     /// The groups' members add up to more than the declared participants.
     MembersAboveParticipants,
+    /// Current frames declare different whole-conversation participant totals.
+    ParticipantsMismatch,
     /// More participants saw a comment than the conversation has.
     SeenAboveParticipants(CommentId),
     /// Two frames of one tick disagree: the groups' counts for a comment
-    /// exceed everyone's in the named field.
+    /// exceed everyone's in the named field (including `not_seen`).
     FrameInconsistent {
         comment: CommentId,
         field: &'static str,
@@ -519,7 +521,7 @@ pub enum Refusal {
     /// Importance inputs that must come from one frame name different sources
     /// or cohorts.
     MarksSourceMismatch,
-    /// The per-comment marks add up to more than the conversation's total.
+    /// Marked or eligible-but-unmarked counts exceed a covering aggregate.
     MarksAboveTotal,
     /// Group marks were given without a current group frame of their source.
     GroupMarksWithoutGroups,
@@ -532,7 +534,7 @@ pub enum Refusal {
     /// is non-zero with no voters (the comment, or none for the totals).
     InvalidVoterWeight(Option<CommentId>),
     /// The per-comment voter-weight aggregates exceed the conversation's
-    /// totals.
+    /// totals, or leave an impossible residual voter/weight population.
     VoterWeightAboveTotal,
     /// A floor plan was given weights not computed by its base rule with its
     /// base parameters.
@@ -588,6 +590,7 @@ impl fmt::Display for Refusal {
             Self::MembersAboveParticipants => {
                 f.write_str("the groups' members exceed the participants")
             }
+            Self::ParticipantsMismatch => f.write_str("current participant totals disagree"),
             Self::SeenAboveParticipants(c) => {
                 write!(f, "comment {c}: seen by more than the participants")
             }
@@ -601,7 +604,9 @@ impl fmt::Display for Refusal {
             Self::MarksSourceMismatch => {
                 f.write_str("importance inputs name different sources or cohorts")
             }
-            Self::MarksAboveTotal => f.write_str("the comments' marks exceed the total"),
+            Self::MarksAboveTotal => {
+                f.write_str("marks or unmarked counts exceed a covering total")
+            }
             Self::GroupMarksWithoutGroups => {
                 f.write_str("group marks need a current group frame of their source")
             }
@@ -614,7 +619,7 @@ impl fmt::Display for Refusal {
             Self::InvalidVoterWeight(Some(c)) => write!(f, "comment {c}: invalid voter weights"),
             Self::InvalidVoterWeight(None) => f.write_str("invalid voter-weight totals"),
             Self::VoterWeightAboveTotal => {
-                f.write_str("the comments' voter weights exceed the totals")
+                f.write_str("the voter-weight aggregates do not fit the totals")
             }
             Self::InvalidVoterMarks => f.write_str("impossible issue-217 voter inputs"),
             Self::TermInputsMismatch => f.write_str("a term was given the other term's inputs"),

@@ -185,7 +185,8 @@ impl EveryoneFrame {
 /// everyone's participants, and for every comment the groups' agreed,
 /// disagreed and passed, each summed over groups, are at most everyone's
 /// (group members are a subset of all participants), or the pair is refused
-/// with `FrameInconsistent` naming the comment and the field.
+/// with `FrameInconsistent` naming the comment and the field. Coverage also
+/// holds for non-voters; declared participant totals must agree.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct CurrentFrames {
     groups: Option<CurrentGroupFrame>,
@@ -201,7 +202,12 @@ impl CurrentFrames {
             if g.total_members() > e.participants() {
                 return Err(Refusal::MembersAboveParticipants);
             }
-            for comment in g.comment_ids() {
+            if g.participants().is_some_and(|n| n != e.participants()) {
+                return Err(Refusal::ParticipantsMismatch);
+            }
+            let ungrouped = e.participants() - g.total_members();
+            let ids: BTreeSet<_> = g.comment_ids().into_iter().chain(e.ids()).collect();
+            for &comment in &ids {
                 let sum = g.summed(comment);
                 let all = e.get(comment);
                 let fields = [
@@ -213,6 +219,19 @@ impl CurrentFrames {
                     if *s > u64::from(a) {
                         return Err(Refusal::FrameInconsistent { comment, field });
                     }
+                }
+            }
+            for comment in ids {
+                let sum = g.summed(comment);
+                let all = e.get(comment);
+                // Coverage also applies to non-voters: residual votes must
+                // belong to the participants outside the group partition.
+                let grouped_seen: u64 = sum.iter().sum();
+                if all.seen() - grouped_seen > ungrouped {
+                    return Err(Refusal::FrameInconsistent {
+                        comment,
+                        field: "not_seen",
+                    });
                 }
             }
         }
@@ -348,14 +367,35 @@ impl MarkTotals {
     }
 }
 
+// A subset must fit both complementary populations, not just its marks.
+fn marks_covered(values: impl IntoIterator<Item = Marks>, total: Marks) -> Result<(), Refusal> {
+    let (mut marked, mut unmarked) = (0u64, 0u64);
+    for m in values {
+        marked = marked
+            .checked_add(m.marked())
+            .ok_or(Refusal::CountOverflow)?;
+        unmarked = unmarked
+            .checked_add(m.eligible() - m.marked())
+            .ok_or(Refusal::CountOverflow)?;
+    }
+    if marked > total.marked() || unmarked > total.eligible() - total.marked() {
+        return Err(Refusal::MarksAboveTotal);
+    }
+    Ok(())
+}
+
 /// The importance-mark inputs, validated together and against the current
 /// frames. Any part may be unavailable (`None`), which is never a zero.
 ///
 /// When per-comment marks and totals are both given they come from one frame
 /// (equal source and cohort) and the comments' marks add up to at most the
-/// total marked. Group marks are accepted only with a current group frame of
-/// the same source; each cell's group must be one of its member groups, and
-/// its eligible votes at most that group's members.
+/// total marked, and likewise for eligible-but-unmarked votes. Group marks
+/// need the same cohort as other supplied marks, and are covered by available
+/// per-comment marks and conversation totals in both categories. They are
+/// accepted only with a current group frame of the same source; each cell's
+/// group must be one of its member groups, and its eligible votes at most
+/// that group's members. Source labels for group and pooled frames may differ;
+/// as for count frames, the caller certifies that they describe the same tick.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ImportanceMarks {
     comments: Option<CommentMarks>,
@@ -374,12 +414,7 @@ impl ImportanceMarks {
             if c.source() != t.source() || c.cohort() != t.cohort() {
                 return Err(Refusal::MarksSourceMismatch);
             }
-            let marked = c.iter().try_fold(0u64, |sum, (_, m)| {
-                sum.checked_add(m.marked()).ok_or(Refusal::CountOverflow)
-            })?;
-            if marked > t.totals().marked() {
-                return Err(Refusal::MarksAboveTotal);
-            }
+            marks_covered(c.iter().map(|(_, m)| m), t.totals())?;
         }
         if let Some(gm) = &groups {
             let Some(frame) = current.groups() else {
@@ -388,6 +423,15 @@ impl ImportanceMarks {
             if frame.source() != gm.source() {
                 return Err(Refusal::GroupMarksWithoutGroups);
             }
+            if comments.as_ref().is_some_and(|c| c.cohort() != gm.cohort())
+                || totals.as_ref().is_some_and(|t| t.cohort() != gm.cohort())
+            {
+                return Err(Refusal::MarksSourceMismatch);
+            }
+            if let Some(t) = &totals {
+                marks_covered(gm.iter().map(|(_, m)| m), t.totals())?;
+            }
+            let mut by_comment: BTreeMap<CommentId, Vec<Marks>> = BTreeMap::new();
             for ((group, comment), marks) in gm.iter() {
                 let Some(n) = frame.members(group) else {
                     return Err(Refusal::UnknownGroup { group, comment });
@@ -395,6 +439,26 @@ impl ImportanceMarks {
                 if marks.eligible() > u64::from(n) {
                     return Err(Refusal::MarksAboveMembers { group, comment });
                 }
+                by_comment.entry(comment).or_default().push(marks);
+            }
+            if let Some(c) = &comments {
+                for (&comment, marks) in &by_comment {
+                    // Missing marks are unavailable, not fabricated zeroes.
+                    if let Some(all) = c.get(comment) {
+                        marks_covered(marks.iter().copied(), all)?;
+                    }
+                }
+            }
+            if let Some(t) = &totals {
+                // Pooled records cover their groups. For comments without a
+                // pooled record, the group records still constrain the same
+                // total. Check the union without counting any record twice.
+                let pooled = comments.iter().flat_map(|c| c.iter().map(|(_, m)| m));
+                let remaining_groups = by_comment
+                    .iter()
+                    .filter(|(id, _)| comments.as_ref().and_then(|c| c.get(**id)).is_none())
+                    .flat_map(|(_, marks)| marks.iter().copied());
+                marks_covered(pooled.chain(remaining_groups), t.totals())?;
             }
         }
         Ok(Self {
@@ -455,7 +519,9 @@ impl VoterWeightSum {
 /// Refused: an invalid aggregate (see `VoterWeightSum`); a comment given
 /// twice; per-comment voters adding up to more than the total voters; or
 /// per-comment weight sums adding up to more than the total weight sum by
-/// more than a relative 2^-40 (the two sums are rounded separately).
+/// more than a relative 2^-40 (the two sums are rounded separately). The
+/// residual weight must also cover each omitted voter with at least one;
+/// no omitted voters means no residual weight, within the same slack.
 #[derive(Clone, Debug, PartialEq)]
 pub struct VoterWeightFrame {
     source: SourceId,
@@ -473,19 +539,31 @@ impl VoterWeightFrame {
         let totals = VoterWeightSum::checked(total_voters, total_weight_sum, None)?;
         let mut map = BTreeMap::new();
         let mut voters = 0u64;
-        let mut sum = 0.0f64;
+        let mut sums = Vec::new();
         for (comment, v, s) in per_comment {
             if map.contains_key(&comment) {
                 return Err(Refusal::DuplicateComment(comment));
             }
             let agg = VoterWeightSum::checked(v, s, Some(comment))?;
             voters = voters.checked_add(v).ok_or(Refusal::CountOverflow)?;
-            sum += s;
+            sums.push(s);
             map.insert(comment, agg);
         }
-        if voters > totals.voters
-            || !sum.is_finite()
-            || sum > totals.weight_sum * (1.0 + TOTAL_SLACK)
+        // Make validation independent of input order and comment ids too.
+        sums.sort_by(f64::total_cmp);
+        let sum: f64 = sums.into_iter().sum();
+        if voters > totals.voters || !sum.is_finite() {
+            return Err(Refusal::VoterWeightAboveTotal);
+        }
+        let remaining = totals.voters - voters;
+        let scale = totals.weight_sum.max(sum);
+        let slack = scale * TOTAL_SLACK;
+        // Every omitted voter contributes at least one. With no omitted
+        // voters, no unexplained weight may remain. Compare differences to
+        // avoid overflowing a near-MAX total multiplied by (1 + slack).
+        if sum - totals.weight_sum > slack
+            || (remaining == 0 && totals.weight_sum - sum > slack)
+            || (remaining != 0 && (remaining as f64) - (totals.weight_sum - sum) > slack)
         {
             return Err(Refusal::VoterWeightAboveTotal);
         }

@@ -466,7 +466,8 @@ impl CorrectedWeights {
     pub fn unscored(&self) -> impl Iterator<Item = CommentId> + '_ {
         self.unscored.iter().copied()
     }
-    /// Scored meta comments under `meta_policy = exclude`.
+    /// All declared meta comments under `meta_policy = exclude`, whether
+    /// scoring inputs exist or not.
     pub fn excluded(&self) -> impl Iterator<Item = CommentId> + '_ {
         self.excluded.iter().copied()
     }
@@ -488,9 +489,16 @@ fn weigh(
 ) -> Result<Weighed, Refusal> {
     let mut scored = BTreeMap::new();
     let mut unscored = BTreeSet::new();
-    let mut excluded = BTreeSet::new();
+    let excluded: BTreeSet<_> = if base.meta_policy == MetaPolicy::Exclude {
+        meta.ids().collect()
+    } else {
+        BTreeSet::new()
+    };
     let ids: BTreeSet<CommentId> = counts.ids().chain(extremity.ids()).collect();
     for id in ids {
+        if excluded.contains(&id) {
+            continue;
+        }
         let (Some(c), Some(e)) = (counts.get(id), extremity.get(id)) else {
             unscored.insert(id);
             continue;
@@ -498,7 +506,6 @@ fn weigh(
         let explanation = match (meta.contains(id), base.meta_policy) {
             (true, MetaPolicy::Fixed) => base.meta(),
             (true, MetaPolicy::Exclude) => {
-                excluded.insert(id);
                 continue;
             }
             (true, MetaPolicy::Ordinary) | (false, _) => base.ordinary(c, e, outer(id)),
@@ -516,7 +523,8 @@ fn weigh(
 }
 
 /// `symmetric/1` over a conversation. Its decision table is `historical/1`'s:
-/// a comment absent from either frame gets no weight (unscored); a scored
+/// exclusion is applied first; otherwise a comment absent from either frame
+/// gets no weight (unscored); a scored
 /// meta comment follows `meta_policy`; every other scored comment gets the
 /// formula. A weight that would leave `[0, 1e150]` is `WeightOutOfRange`.
 pub fn symmetric_1(

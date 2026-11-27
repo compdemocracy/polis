@@ -102,18 +102,23 @@ rule runs (`src/frames.rs`):
   comment, grouped or not. When both frames are given (`CurrentFrames`), the
   groups' agrees, disagrees and passes for each comment, summed over groups,
   must each be at most everyone's, and the groups' members at most the
-  participants, or the pair is refused as inconsistent, naming the comment and
-  the field.
+  participants. The residual votes must fit the ungrouped participants too,
+  including comments absent from all group cells. Declared participant totals
+  must agree. A contradictory pair is refused.
 - **Importance marks** (`Marks`, `CommentMarks`, `MarkTotals`, `GroupMarks`,
   `ImportanceMarks`): of the votes that could carry an importance mark, how many
   did, per comment, per group and comment, and for the whole conversation, each
   with its source and cohort. Per-comment marks and totals must come from one
-  frame, and the comments' marks may not add up to more than the total. Group
-  marks are taken only with a group frame of the same source. Anything not
-  supplied is unavailable, never a zero.
+  frame; both marked and eligible-but-unmarked sums must fit the totals.
+  Group marks need the same cohort as pooled marks, must fit available pooled
+  counts and totals, and need a group frame of their source. Missing per-comment
+  marks remain unavailable, never zero. As with count frames, the caller
+  certifies that differently labelled group and pooled sources share a tick.
 - **The 2019 voter weights, aggregated** (`VoterWeightFrame`): per comment, the
   voters and the sum of their weights (each at least 1), and the totals over
-  the whole conversation.
+  the whole conversation. Residual voters each require at least one residual
+  weight; no residual voters means no residual weight, within the documented
+  rounding slack. Validation reduces weight sums in sorted value order.
 
 What counts alone cannot show stays the caller's to certify: that groups do not
 overlap, that a source id names its source, and that two frames said to be one
@@ -206,31 +211,40 @@ symmetric:** the extremity E is still measured toward a hypothetical agree vote
 and voted on nothing else). Swapping every agree and disagree leaves the count
 term bit for bit the same, but in a real conversation it would also change E.
 *A newcomer with no group* gets the same weights as anyone: the rule does not
-look at the participant. *On a conversation's first tick* and *for a comment
-with no votes*, R = 1/2 and the weight is 81/16 x (1 + E)^2, the same as
-today. As today, no votes is not the largest weight: at E = 0, three agrees (or
+look at the participant. *For a scored comment with zero counts*, R = 1/2 and the weight is 81/16 x (1 + E)^2, the same as
+today. An empty previous frame instead leaves every comment unscored, so
+its draw weight is 1. As today, no votes is not the largest weight: at E = 0, three agrees (or
 three disagrees, or any three votes that took a side) give 16.14. *Two groups or
 five* make no difference: the counts arrive summed over the groups.
 
 **The group-informed consensus factor, `gic-mean/1` and `gic-geomean/1`.**
 Group-informed consensus is Polis's own measure of what holds across opinion
-groups. Each group's agreement with a comment is (A + 1) / (A + D + 2) for that
-group's votes, and G combines the groups. `gic-mean/1` is the form the report
-computes: the mean over the groups that have votes on the comment (passes do
-not count; a group with no votes on it is left out; with none, G = 0.5).
-`gic-geomean/1` is the geometric mean over every group, with passes counted in
-the votes seen and a group with no votes read as no votes. The factor is
+groups. `gic-mean/1` is the report's arithmetic mean of
+(A + 1) / (A + D + 2) over groups with a cell for the comment. Passes do
+not enter that fraction. An absent cell is left out; a present zero cell
+contributes 0.5, as does a passes-only cell. With no cells, G = 0.5.
+`gic-geomean/1` is the geometric mean of (A + 1) / (S + 2) over every
+member group, with passes included in S and an absent cell filled as zero votes.
+The engine's product uses the latter fractions over present cells. It has the
+same ranking as this geometric mean when every comment has the same complete
+group coverage, but a different magnitude; sparse missing cells can also
+change the ranking. Neither factor is the product itself. The factor is
 0.5 + G, between 0.5 and 1.5, so it lifts a comment most groups agree with and
 lowers one that some group rejects, and never removes a comment. **It is not
 symmetric in agree and disagree, by design:** it rewards agreement across
-groups; swapping every agree and disagree turns G into roughly 1 - G. The order
+groups. Swapping agrees and disagrees gives exactly 1 - G in real arithmetic
+for the arithmetic mean with unchanged cells. There is no complement identity
+for the geometric mean: group fractions 0.9 and 0.1 give 0.3 before and after
+swapping; passes further distinguish the forms. The order
 groups arrive in and their ids cannot change a bit: the values are added in
 sorted order. *A newcomer with no group:* the factor is a property of the
 comment, the same for everyone. *On a conversation's first tick*, with no
 groups yet (or one), the factor is exactly 1. *For a comment with no votes*,
-every group's value is 1/2, so G = 0.5 and the factor is 1. *With two groups*
-each group is half of G; *with five*, a fifth, and one dissenting group counts
-for more under the geometric mean: four groups at 0.9 and one at 0.1 give
+every group's value is 1/2, so G = 0.5 and the factor is 1 mathematically
+(the logarithmic implementation may round). With complete cells, each group
+has equal weight in the arithmetic mean, or in the mean of logs for the
+geometric mean. Missing cells change the arithmetic mean's denominator.
+One dissenting group counts for more under the geometric mean: four groups at 0.9 and one at 0.1 give
 G = 0.74 under the mean and 0.58 under the geometric mean.
 
 **`symmetric-gic/1`** is `symmetric/1`'s weight times that factor (the
@@ -238,7 +252,14 @@ geometric mean by default; `consensus_form` chooses the mean). A comment
 today's equation does not score keeps no weight here either, and the draw
 gives it 1 without the factor; a meta comment weighs 49 without the factor, as
 today (`meta_policy`). It is not symmetric: the count term is, the factor and E
-are not.
+are not. The default is an experimental parameter choice, not a production
+selection. Both consensus forms are named explicitly in the complete parameter
+form; changing the published default requires a new version.
+
+`meta_policy = exclude` takes precedence over scoring readiness: every declared
+meta id is excluded, even when absent from both scoring frames. A draw must
+refuse any such id (the floor's draw does). The unscored-to-1 rule applies only
+to other ids.
 
 ### The floor, the uniform rule and the stable draw
 

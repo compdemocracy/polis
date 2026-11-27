@@ -232,6 +232,9 @@ impl MetaComments {
     pub fn contains(&self, id: CommentId) -> bool {
         self.0.contains(&id)
     }
+    pub(crate) fn ids(&self) -> impl Iterator<Item = CommentId> + '_ {
+        self.0.iter().copied()
+    }
 }
 
 /// One scored comment: its weight and how it was made.
