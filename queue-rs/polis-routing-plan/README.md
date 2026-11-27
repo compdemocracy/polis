@@ -406,9 +406,10 @@ is an upper bound on everything one draw over `n` ids allocates, held all at
 once until its result is dropped: the converted ids, the duplicate check, the
 variant's scratch vectors, the receipt, and a fixed allowance per call. Both
 are pure, allocation free and checked; an overflow charges `usize::MAX` or
-gives `None`. On the constructed cases of `tests/plan_allocation.rs` both are
-loose, about five times what was measured (a floor plan over 10,000 comments
-and three groups held 2,035,552 bytes against a charge of 11,291,440). The
+gives `None`. On the constructed cases of `tests/plan_allocation.rs` the
+charge is about a quarter above what was measured (a floor plan over 10,000
+comments and three groups held 2,035,552 bytes against a charge of
+2,532,524; one node per map entry had charged it 11,291,440). The
 budget that charges them, the try-reservation before a draw, and holding a
 draw's reservation until its computation has finished and released its
 memory (also after a request's deadline has passed) are the server's, not this
