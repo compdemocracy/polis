@@ -159,16 +159,37 @@ fn no_public_entry_point_panics() {
 /// importance helper and terms, every rule's plain form, and the receipt
 /// reader over both golden receipt files with bytes altered.
 ///
-/// TEMPORARY BOUND, to be removed when the importance helper's overflow
-/// correction lands: the counts given to `Issue217Voter::new` and
-/// `issue217_voter_weight` are drawn from `ISSUE217_COUNTS` below, all at
-/// most 2^62, because at u64 maxima the helper's integer numerator overflows
-/// and panics today. Every other count in this test uses the full range,
-/// u32::MAX and u64::MAX included.
+/// The counts given to `Issue217Voter::new` and `issue217_voter_weight` span
+/// the whole u64 range: the named values below, u64::MAX - 1 and u64::MAX
+/// included, and raw 64-bit draws.
 #[test]
 fn no_corrected_rule_entry_point_panics() {
     use polis_routing_equation::*;
-    const ISSUE217_COUNTS: [u64; 7] = [0, 1, 2, 100, 600, u32::MAX as u64, 1 << 62];
+    const ISSUE217_COUNTS: [u64; 10] = [
+        0,
+        1,
+        2,
+        100,
+        600,
+        u32::MAX as u64,
+        1 << 62,
+        1 << 63,
+        u64::MAX - 1,
+        u64::MAX,
+    ];
+    // Every triple of the named counts, marked and unmarked, once; the
+    // random loop below adds raw 64-bit draws.
+    for v in ISSUE217_COUNTS {
+        for u in ISSUE217_COUNTS {
+            for s in ISSUE217_COUNTS {
+                for marked in [true, false] {
+                    if let Ok(voter) = Issue217Voter::new(v, u, marked) {
+                        let _ = issue217_voter_weight(voter, s);
+                    }
+                }
+            }
+        }
+    }
     let mut rng = XorShift::new(0x5EED_F100);
     let u32s = [0u32, 1, 2, 3, u32::MAX - 1, u32::MAX];
     let u64s = [
@@ -378,12 +399,14 @@ fn no_corrected_rule_entry_point_panics() {
                     }
                 }
             }
-            let n = ISSUE217_COUNTS;
-            let (v, u, s) = (
-                n[rng.below(7) as usize],
-                n[rng.below(7) as usize],
-                n[rng.below(7) as usize],
-            );
+            let mut count = || {
+                if rng.below(4) == 0 {
+                    rng.next()
+                } else {
+                    ISSUE217_COUNTS[rng.below(10) as usize]
+                }
+            };
+            let (v, u, s) = (count(), count(), count());
             if let Ok(voter) = Issue217Voter::new(v, u, rng.below(2) == 0) {
                 let _ = issue217_voter_weight(voter, s);
             }
