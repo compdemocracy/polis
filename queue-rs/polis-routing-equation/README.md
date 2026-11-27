@@ -7,7 +7,7 @@ This crate holds that choice as named, versioned rules with typed inputs, so
 the equation can be read, changed under a new version, and compared, without
 touching the code that serves participants.
 
-It holds two rules today:
+It holds today's two rules and the candidates for the next equation:
 
 - **`historical/1`**, today's equation: the weight the math engine (the Python
   `priority_metric` in `delphi/polismath/conversation/conversation.py`) gives
@@ -16,10 +16,31 @@ It holds two rules today:
   (`selectProbabilistically` in `server/src/nextComment.ts`) and the Rust
   selector (`select` in `queue-rs/polis-api/src/next_comment.rs`) make from those
   weights.
+- **Candidates**: `symmetric/1`, `symmetric-gic/1` (with the group-informed
+  consensus factor in one of two forms, `gic-mean/1` or `gic-geomean/1`),
+  `uniform/1` and `symmetric-gic-floor/1`, and the importance terms
+  `importance-lift/1` and `importance-normalized-lift/1` (with the 2019 helper
+  `issue217-voter-weight/1`). Sections 4 and 5.
 
 **Nothing calls it.** It has no route, no database, no cache, no clock, no
 logging, no switch and no randomness of its own: it is a library of pure
 functions. No participant sees anything different because it exists.
+
+**No rule here has been shown to be better for participants, and none is
+chosen.** Which rule, and which parameters, Polis should use is a decision not
+yet made. The crate exists so that the candidates can be read, and compared
+honestly with today's equation.
+
+**At a glance.** Today's equation is in section 3, in words and as a formula.
+
+| Rule | What it changes from today | What it rewards |
+|---|---|---|
+| `historical/1` (today) | nothing | agrees more than disagrees; few passes; extremity (far from the centre of the opinion map, measured toward an agree); being new; all squared. Meta comments weigh 49 |
+| `symmetric/1` | agree and disagree count alike: one "took a side" share replaces the agree and not-pass shares | taking a side, either side; passes are punished harder; extremity is still measured toward an agree |
+| `symmetric-gic/1` | `symmetric/1` times 0.5 + G, group-informed consensus | agreement across opinion groups |
+| `uniform/1` | every candidate has the same chance | nothing; a baseline |
+| `symmetric-gic-floor/1` | a tenth of the chance spread evenly, the rest as `symmetric-gic/1` | as `symmetric-gic/1`, and every comment keeps a known share of the chance |
+| with `importance-lift/1` or `importance-normalized-lift/1` | a scored comment's weight multiplied by a term from the importance marks | comments participants marked important (at most 3 times the weight under `importance-lift/1`) |
 
 ## 2. How Polis chooses the next comment
 
@@ -373,7 +394,10 @@ honestly with today's equation. Every one keeps today's treatment of two
 cases: a comment the previous tick did not score (a new one) gets no weight
 and is drawn at 1, and a **meta** comment (one the moderator marks as being
 about the conversation itself) weighs 49 under the default `meta_policy`
-(`fixed`).
+(`fixed`). Below, "the first tick" means a previous frame with no counts, so
+every comment is unscored and drawn at 1; an adapter that instead supplies an
+explicit zero cell for each comment gets each rule's no-votes weight (section
+3 describes the same choice for today's equation).
 
 **Extremity is not symmetric in any rule here.** E, the stored
 `pca.comment-extremity`, is how far from the centre of the opinion map a
@@ -381,7 +405,8 @@ participant would land who *agreed* with the comment and voted on nothing
 else. Every rule built so far measures it that way. The one that would
 measure it the same way for agree and disagree, `symmetric-axis-gic-floor/1`,
 needs the PCA's component loadings for each comment as an input, which no
-frame of this crate carries yet; it is not built.
+frame of this crate carries yet; it is not built, and becomes a later piece
+of work that first defines a frame for those loadings.
 
 ### `symmetric/1`: agree and disagree count alike
 
@@ -411,8 +436,8 @@ groups. *Formula:* weight = `symmetric/1`'s weight x (0.5 + G), G in section
 count term is, the factor and E are not. *A newcomer with no group:* the
 factor belongs to the comment, the same for everyone. *First tick:* every
 comment is unscored and drawn at 1. *A comment with no votes:* every group's
-share is 1/2, G = 1/2 and the factor is 1. *Two groups:* each group carries
-the same weight in G. *Five groups:* one dissenting group pulls harder under
+share is 1/2, G = 1/2 and the factor is 1. *Two groups:* each group counts equally,
+in the mean, or in the mean of logs for the geometric mean. *Five groups:* one dissenting group pulls harder under
 the geometric mean (the default) than under the report's mean: four groups
 at 0.9 and one at 0.1 give G = 0.74 under the mean and 0.58 under the
 geometric mean. With fewer than two groups the factor is exactly 1.
@@ -431,7 +456,8 @@ evenly over the candidates; the rest follows `symmetric-gic/1`'s weights.
 *Formula:* q_j = 0.1 / n + 0.9 x w_j / W, W the sum of the candidates'
 weights (an unscored comment counts 1). *What it rewards:* what
 `symmetric-gic/1` rewards, plus a guarantee: every comment keeps at least
-`floor_share / n` of the chance, however low its weight. Two comments
+`floor_share / n` of the chance, however low its weight (in exact arithmetic;
+the computed bound is in section 3, under the floor). Two comments
 weighing 1 and 3 get 0.275 and 0.725; a comment weighing 0 beside one
 weighing 2 still gets 0.05. *Symmetric?* As its base: the floor is the same
 for every comment. *Newcomer, first tick, no votes, two or five groups:* as
@@ -495,7 +521,10 @@ terms adapt it:
   usable totals, every multiplier is exactly 1 and the rule is its base rule
   bit for bit. A cap of 3 is on the *weight*: it never means "shown three
   times as often", because the chances are normalised and lifting other
-  comments can lower this one's chance.
+  comments can lower this one's chance. The cap compares with the same base
+  and no term: under two different patterns of marks, the weighted part of
+  one comment's chance can differ by up to about 3 x 3 = 9 times (its
+  multiplier rising from 1 to 3 while its competitors' fall from 3 to 1).
 - The votes that "could carry a mark" are the caller's to count: where the
   checkbox was not shown for part of a conversation's life, the caller must
   leave those votes out; how to decide that is an open question.
@@ -511,7 +540,11 @@ against statements of the formulas written again in NumPy from this README
 and importance, both within 1e-12, section 9); the receipt's chance against
 the draw itself, by bisection over every double, within 2^-50; frequencies
 over 400,000 seeded draws; the symmetry of the count term (swapping A and D
-is bit for bit the same) and the counterexamples to symmetry kept as tests;
+is bit for bit the same) and the counterexamples to symmetry kept as tests,
+including the floor rule's chances changing when every agree and disagree is
+swapped; two weaknesses of the consensus factor kept as tests (a brigade
+inside one fixed group lifts a comment, and splitting one group with no vote
+changed moves G either way; `tests/counterexamples.rs`);
 no panic over a deterministic corpus of awkward inputs. Not proven: that any
 rule is better for participants; that a caller will feed the right tick's
 counts in the right fields; anything about meta comments outside the
@@ -603,10 +636,13 @@ This rule has no parameters.
 | `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
 | `floor_share` | 0.1 | [0, 1) | the share of the chance spread evenly over the candidates; the rest follows the weights | the uniform floor of the corrected equation (`alpha = 0.10`) |
 
-The defaults of these four rules are listed in `tests/golden/defaults-manifest-3.json`.
-The first manifest, `tests/golden/defaults-manifest.json`, is a published golden
-file and is never edited; a test requires the two files together to list every
-rule exactly once.
+The defaults of `symmetric/1`, `gic-mean/1`, `gic-geomean/1` and
+`symmetric-gic/1` are listed in `tests/golden/defaults-manifest-3.json`, and
+those of `uniform/1` and `symmetric-gic-floor/1` in
+`tests/golden/defaults-manifest-4.json`. The first manifest,
+`tests/golden/defaults-manifest.json`, is a published golden file and is never
+edited, nor are the later ones; a test requires the files together to list
+every rule exactly once.
 
 A parameter set is written in one **canonical plain form**, JSON with keys in a
 fixed order and every parameter written out, for example the defaults of
@@ -718,8 +754,9 @@ registry; a rule missing from the manifests or listed twice; anything under
 processes, output or global state; a dependency other than `serde` and
 `serde_json`, or another crate in the workspace depending on this one; a
 binding that does not name an implemented weight-producing rule reproducing
-its grid; and, through the repository's vote-sign lint, any new comparison
-against a literal vote value.
+its grid. Separately, the repository's vote-sign lint
+(`make check-vote-sign-lint`) refuses any new comparison against a literal
+vote value.
 
 ## 9. What is proven, and how to see it
 
@@ -889,8 +926,9 @@ printing; no feature, switch, environment variable or configuration file; no
 randomness of its own (the caller passes the unit); no network, model call or
 file reading at run time. It changes nothing in the Node server, the Rust
 selectors or the Python math engine. The corrected rules (agree and disagree
-weighed alike, group-informed consensus, a uniform floor, importance) come
-later, each as its own named rule; none is chosen for anything.
+weighed alike, group-informed consensus, a uniform floor, importance) are here
+only as named candidate rules; none is chosen for anything, and nothing calls
+them.
 
 ## 11. The vote sign
 
