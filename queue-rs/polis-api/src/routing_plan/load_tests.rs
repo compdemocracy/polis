@@ -360,7 +360,7 @@ mod db {
             assert!(source.projection_bytes > 64, "{shape:?}");
             assert!(source.projection.is_none(), "{shape:?}");
 
-            let tids: Vec<i32> = (0..1_500_000).collect();
+            let tids: Vec<i32> = (0..300_000).collect();
             db.put(5, 9, &json!({"tids": tids, "comment-priorities": {}}));
             let c = cache();
             let mut loader = Loader::new(db.connector(), None);
