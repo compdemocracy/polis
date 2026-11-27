@@ -195,7 +195,63 @@ the byte that ends it), so the counts together are at most half the length,
 and each stays within its limit; the counts are filled greedily from the one
 that costs most per entry (the bound is a sum of terms linear in one count
 each, which a test checks). `Plan::build_bound_terms` hands out the same
-bound one named term at a time.
+bound one named term at a time. Both are known before the source is read,
+so neither can know which comment ids repeat: they charge every cell as a
+distinct comment and none of them in the extremity frame, and they add the
+two stages below together.
+
+**By stage, once the frames are read.** A build holds at most the larger of
+two stages, not their sum, because what each allocates beyond the frames is
+freed before the other begins:
+
+| what | alive | charged in |
+|---|---|---|
+| readers' scratch | one key's decode at a time, inside `frames` | frames stage |
+| decoded vectors (tids, extremity values and pairs, meta tids and ids, priorities, groups, cells) | locals of the function that makes each frame; the pairs and the cells are moved into the library and freed when its frame is made | frames stage |
+| membership check (its vectors and its two maps) | inside the group frame's function | frames stage |
+| the frames' maps (stored map, extremity map, meta set, group members and cells) and their source ids | from when each is made until the frames are dropped, so across both stages | both |
+| the floor's scratch (latest counts, collected id sets, scored map, factors, unscored set, group-informed consensus's per-group vectors) and the returned plan | inside `Plan::build`; the plan from then on | build stage |
+| the projection (its keys' text, `held()`) and the buffer it was parsed from | the caller's: `Frames` borrows nothing from them | neither: the caller charges them, or drops both before the build |
+
+`Plan::frames_stage_bound(config, tally, raw)` is the frames stage, the same
+number as `Projection::reservation(config.needs())`. `Plan::build_stage_bound(
+config, counts)` is the build stage, from `Frames::counts()`: the frames' real
+lengths, and two counts taken while the frames are made, with no allocation
+(the group frame's cells are sorted in place by comment with `sort_unstable`
+before the library's frame is made from them, and merged once with the
+extremity frame's ordered ids): d, the distinct comments among the cells (the
+latest counts' keys), and u, their union with the extremity's ids (the ids
+the floor weighs). The latest counts and the set of the cells' ids are
+charged at d entries, the vector that set is gathered into at one per cell;
+the weighed ids' vector at d + e (e the extremity frame's length), their set,
+the scored map, the factors and the unscored set at u. The order of the cells
+changes no frame and no acceptance; for a source with two faults it can
+change which is named. `Frames::retained_bound()` is the frames' maps alone.
+`Plan::staged_build_bound` is the larger of the two stages. A test measures
+each stage under the counting allocator (`tests/stage_bounds.rs`).
+
+At the two constructed witnesses (5 groups, meta every 20th comment, the
+floor with meta fixed), measured:
+
+| | 10,000 comments | 40,000 comments |
+|---|---:|---:|
+| projection | 1,567,252 | 6,398,757 |
+| parse peak / charge | 1,567,322 / 15,673,608 | 6,734,685 / 63,988,652 |
+| frames stage peak / bound | 2,715,096 / 10,975,438 | 10,845,596 / 43,985,668 |
+| build stage peak / bound | 4,213,606 / 9,754,230 | 16,846,206 / 38,935,560 |
+| staged bound (the larger) | 10,975,438 | 43,985,668 |
+| summed `build_bound` | 36,730,216 | 146,799,896 |
+| plan held / charged | 2,062,864 / 2,548,064 | 8,252,320 / 10,186,504 |
+
+Both staged bounds fit one conversation's share of the default budget
+(67,108,864). The frames stage is the larger, because the readers' scratch is
+still charged at four times the keys' text. The receive buffer and the parse
+charge at 40,000 comments (70,387,409 together) do not fit a share: that is
+the parse's charge, not the build's. Over a share, and so refused by the
+cache's `try_reserve` (the caller keeps today's draw): 64 fully voted groups
+from about 5,350 comments (about 342,000 cells, the frames stage), and a
+membership-dense source of 5 groups over 10,000 comments from about 100,000
+membership entries (the membership keys' vectors, still charged as doubled).
 
 **Ordered maps.** Every `BTreeMap` and `BTreeSet` the frames and the build
 make is charged `n * ceil(node / 5) + node` bytes for `n` entries
@@ -242,7 +298,11 @@ metadata are outside these heap-payload bounds. Once `parse` returns,
 the row's environment capacity, the source id). Transfer the row's charge
 into that retained charge without an uncharged ownership gap; do not charge
 the same row twice. Keep charging the original byte buffer until it is freed,
-and reserve `reservation(needs)` separately while building frames. A caller
+and reserve `reservation(needs)` separately while building frames. The build
+stage does not include the buffer or the projection: a caller that keeps
+either alive through `Plan::build` charges it beside the build stage;
+otherwise it drops both once the frames are read (taking anything it needs
+from the projection, such as its row and content ids, first). A caller
 whose budget cannot cover the parse charge must refuse before parsing (or
 use a lower `max_bytes`); the default size limit is not an admission promise.
 
