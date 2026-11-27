@@ -17,6 +17,26 @@ const STORED: &str = r#"{"rule":"stored-weights/1","params":{},"terms":[]}"#;
 const FLOOR_POLICY: &str = "base-counts:lag-0";
 const ENV: &str = "example";
 
+/// Runs `probe` on its own thread while the caller holds the lock, and fails
+/// the test, rather than hanging it, if the probe has not finished within
+/// `limit`: a probe that waits on the lock never finishes while it is held.
+fn finishes_within<T: Send + 'static>(
+    limit: Duration,
+    probe: impl FnOnce() -> T + Send + 'static,
+) -> T {
+    let (done, finished) = std::sync::mpsc::channel();
+    std::thread::spawn(move || {
+        let _ = done.send(probe());
+    });
+    match finished.recv_timeout(limit) {
+        Ok(value) => value,
+        Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+            panic!("the probe waited on the held lock for more than {limit:?}")
+        }
+        Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => panic!("the probe panicked"),
+    }
+}
+
 fn floor_text(share: f64) -> String {
     format!(
         r#"{{"rule":"symmetric-gic-floor/2","params":{{"side_prior":1.0,"seen_prior":2.0,"extremity_offset":1.0,"novelty_amplitude":8.0,"novelty_halving_votes":5.0,"exponent":2,"meta_inner":7.0,"meta_policy":"exclude","consensus_form":"gic-geomean/1","gic_offset":0.5,"gic_min_groups":2,"floor_share":{share}}},"terms":[]}}"#
@@ -131,20 +151,19 @@ fn lookup_never_waits() {
     }
     let bound = (baseline * 10).max(Duration::from_millis(10));
     let held = cache.hold_lock_for_test();
-    let worst = std::thread::scope(|scope| {
-        scope
-            .spawn(|| {
-                let mut worst = Duration::ZERO;
-                for _ in 0..10_000 {
-                    let started = Instant::now();
-                    let found = cache.lookup(&capture, 7, ENV, Some(41));
-                    worst = worst.max(started.elapsed());
-                    assert!(matches!(found, Lookup::Miss(MissReason::LockBusy)));
-                }
-                worst
-            })
-            .join()
-            .unwrap()
+    let worst = finishes_within(Duration::from_secs(10), {
+        let cache = cache.clone();
+        let capture = s.capture();
+        move || {
+            let mut worst = Duration::ZERO;
+            for _ in 0..10_000 {
+                let started = Instant::now();
+                let found = cache.lookup(&capture, 7, ENV, Some(41));
+                worst = worst.max(started.elapsed());
+                assert!(matches!(found, Lookup::Miss(MissReason::LockBusy)));
+            }
+            worst
+        }
     });
     drop(held);
     eprintln!(
@@ -156,11 +175,9 @@ fn lookup_never_waits() {
     );
     // The same holds for a request's reservation.
     let held = cache.hold_lock_for_test();
-    let refused = std::thread::scope(|scope| {
-        scope
-            .spawn(|| cache.try_reserve(64).map(|_| ()))
-            .join()
-            .unwrap()
+    let refused = finishes_within(Duration::from_secs(10), {
+        let cache = cache.clone();
+        move || cache.try_reserve(64).map(|_| ())
     });
     drop(held);
     assert_eq!(refused, Err(NotReserved::LockBusy));
@@ -223,13 +240,11 @@ fn reservation_released_on_error_and_unwind() {
 
     let reservation = cache.try_reserve(1000).unwrap();
     let held = cache.hold_lock_for_test();
-    let took = std::thread::spawn(move || {
+    let took = finishes_within(Duration::from_secs(10), move || {
         let started = Instant::now();
         drop(reservation);
         started.elapsed()
-    })
-    .join()
-    .unwrap();
+    });
     drop(held);
     assert!(took < Duration::from_millis(100), "a drop waited: {took:?}");
     assert_eq!(
@@ -245,13 +260,47 @@ fn reservation_released_on_error_and_unwind() {
     assert_eq!(cache.returns_lost(), 0);
 
     let mut reservation = cache.try_reserve(5000).unwrap();
-    reservation.shrink(1000).unwrap();
+    assert_eq!(reservation.shrink(1000), Ok(true));
     assert_eq!(reservation.bytes(), 1000);
     assert_eq!(cache.used_for_test(), base + 1000);
-    reservation.shrink(2000).unwrap();
+    assert_eq!(
+        reservation.shrink(2000),
+        Ok(false),
+        "a shrink that would grow it is refused, and says so"
+    );
     assert_eq!(reservation.bytes(), 1000, "a shrink cannot grow it");
     drop(reservation);
     assert_eq!(cache.used_for_test(), base);
+}
+
+/// A reservation dropped while the lock is held and the return channel is
+/// full is lost: it is counted, and its bytes stay charged (an over-charge of
+/// exactly its size, never an under-charge). The drop still does not wait,
+/// and the channel takes returns again once a builder-side call drains it.
+#[test]
+fn a_lost_return_is_counted_and_stays_charged() {
+    let cache = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, None).unwrap();
+    let base = cache.used_for_test();
+    let reservations: Vec<Reserved> = (0..=RETURN_SLOTS)
+        .map(|_| cache.try_reserve(1).unwrap())
+        .collect();
+    assert_eq!(cache.used_for_test(), base + RETURN_SLOTS as u64 + 1);
+    let held = cache.hold_lock_for_test();
+    finishes_within(Duration::from_secs(10), move || drop(reservations));
+    drop(held);
+    assert_eq!(cache.returns_lost(), 1);
+    assert_eq!(
+        cache.budget().unwrap().0,
+        base + 1,
+        "the lost byte stays charged"
+    );
+
+    let reservation = cache.try_reserve(1).unwrap();
+    let held = cache.hold_lock_for_test();
+    finishes_within(Duration::from_secs(10), move || drop(reservation));
+    drop(held);
+    assert_eq!(cache.returns_lost(), 1, "drained, the channel takes it");
+    assert_eq!(cache.budget().unwrap().0, base + 1);
 }
 
 /// A reservation holds the one cache it came from: its bytes go back there and

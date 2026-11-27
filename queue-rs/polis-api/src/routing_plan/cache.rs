@@ -44,7 +44,7 @@ pub(crate) const MAX_CACHE_BYTES: u64 = DEFAULT_CACHE_BYTES;
 
 /// Reservations a dropped reservation can hand back while the lock is held, before
 /// one is lost (an over-charge, counted). Drained by every builder-side call.
-const RETURN_SLOTS: usize = 1024;
+pub(crate) const RETURN_SLOTS: usize = 1024;
 /// What the return channel is charged for its whole life: each slot (the
 /// token and the channel's stamp), and the channel's own state.
 const RETURNS_CHARGE: u64 =
@@ -483,16 +483,20 @@ impl Reserved {
     }
 
     /// Cuts the reservation down to `keep` bytes, giving the rest back and
-    /// keeping when it was taken (the core's `shrink`). Refused, unchanged,
-    /// when `keep` is more than it holds or the lock is poisoned.
-    pub(crate) fn shrink(&mut self, keep: u64) -> Result<(), Poisoned> {
+    /// keeping when it was taken (the core's `shrink`). `Ok(true)`: cut
+    /// down. `Ok(false)`: refused, unchanged, because `keep` is more than it
+    /// holds. `Err(Poisoned)`: refused, unchanged.
+    pub(crate) fn shrink(&mut self, keep: u64) -> Result<bool, Poisoned> {
         let mut inner = self.cache.locked()?;
-        if let Some(token) = self.token.take() {
-            self.token = Some(match inner.core.shrink(token, keep) {
-                Ok(token) | Err(token) => token,
-            });
-        }
-        Ok(())
+        let Some(token) = self.token.take() else {
+            return Ok(false);
+        };
+        let (token, cut) = match inner.core.shrink(token, keep) {
+            Ok(token) => (token, true),
+            Err(token) => (token, false),
+        };
+        self.token = Some(token);
+        Ok(cut)
     }
 
     /// Publishes `plan` under this reservation, into this reservation's own
