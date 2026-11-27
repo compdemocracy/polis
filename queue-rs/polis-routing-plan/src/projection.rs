@@ -281,7 +281,7 @@ impl Projection {
         let tids: Vec<i64> =
             serde_json::from_str(need(&self.raw.tids, Key::Tids)?).map_err(malformed(Key::Tids))?;
         let key = Key::CommentExtremity;
-        let pca: decode::Pca =
+        let decode::Object(pca): decode::Object<decode::Pca> =
             serde_json::from_str(need(&self.raw.pca, key)?).map_err(malformed(key))?;
         let values = pca.extremity.ok_or(SourceRefusal::Missing { key })?;
         if values.len() != tids.len() {
@@ -332,9 +332,9 @@ impl Projection {
     fn memberships(&self, groups: &[decode::Group]) -> Result<(), SourceRefusal> {
         let gk = Key::GroupClusters;
         let bk = Key::BaseClusters;
-        let clusters: Vec<decode::GroupCluster> =
+        let clusters: Vec<decode::Object<decode::GroupCluster>> =
             serde_json::from_str(need(&self.raw.clusters, gk)?).map_err(malformed(gk))?;
-        let base: decode::BaseClusters =
+        let decode::Object(base): decode::Object<decode::BaseClusters> =
             serde_json::from_str(need(&self.raw.base_clusters, bk)?).map_err(malformed(bk))?;
         if base.id.len() != base.members.len() {
             return Err(SourceRefusal::Malformed { key: bk });
@@ -348,7 +348,7 @@ impl Projection {
             }
         }
         let mut participants: BTreeMap<u32, u64> = BTreeMap::new();
-        for g in &clusters {
+        for decode::Object(g) in &clusters {
             let mut sum = 0u64;
             for b in &g.members {
                 let entry = bases.get_mut(b).ok_or(SourceRefusal::UnknownBaseCluster)?;

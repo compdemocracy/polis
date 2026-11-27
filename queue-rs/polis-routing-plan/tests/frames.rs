@@ -527,3 +527,91 @@ fn missing_and_malformed_keys_refused() {
         );
     }
 }
+
+#[test]
+fn positional_structs_are_refused() {
+    let variants = [
+        (
+            "group-votes",
+            json!({"0": [3, {"1": {"A": 1, "D": 0, "S": 1}}]}),
+            groups_only(),
+        ),
+        (
+            "group-votes",
+            json!({"0": {"n-members": 3, "votes": {"1": [1, 0, 1]}}}),
+            groups_only(),
+        ),
+        (
+            "group-clusters",
+            json!([[0, [100]], [1, [101, 102]]]),
+            groups_only(),
+        ),
+        (
+            "base-clusters",
+            json!([[100, 101, 102], [[7, 8, 9], [10], [11]]]),
+            groups_only(),
+        ),
+        ("pca", json!([[0.5, 1.25, 0.0]]), extremity_only()),
+    ];
+    let mut accepted = Vec::new();
+    for (key, value, needs) in variants {
+        let mut v = blob();
+        v[key] = value;
+        if !matches!(frames(&v, needs), Err(SourceRefusal::Malformed { .. })) {
+            accepted.push(key);
+        }
+    }
+    assert!(
+        accepted.is_empty(),
+        "positional records accepted: {accepted:?}"
+    );
+}
+
+#[test]
+fn missing_membership_sources_refuse_only_groups() {
+    for key in ["group-clusters", "base-clusters"] {
+        for value in [None, Some(Value::Null)] {
+            let mut v = blob();
+            if let Some(value) = value {
+                v[key] = value;
+            } else {
+                v.as_object_mut().unwrap().remove(key);
+            }
+            let expected = if key == "group-clusters" {
+                Key::GroupClusters
+            } else {
+                Key::BaseClusters
+            };
+            assert_eq!(
+                refused(&v, groups_only()),
+                SourceRefusal::Missing { key: expected }
+            );
+            assert!(frames(&v, FrameNeeds::default()).is_ok());
+            assert!(frames(&v, extremity_only()).is_ok());
+        }
+    }
+}
+
+#[test]
+fn escaped_duplicate_keys_are_refused() {
+    let text = br#"{"tids":[],"\u0074ids":[]}"#;
+    assert_eq!(
+        Projection::parse(text, row(41), &SourceLimits::default()).unwrap_err(),
+        SourceRefusal::DuplicateKey { key: Key::Tids }
+    );
+}
+
+#[test]
+fn empty_and_partial_group_frames_keep_their_meaning() {
+    let mut v = blob();
+    v["group-votes"]["0"]["votes"] = json!({});
+    let f = frames(&v, groups_only()).unwrap();
+    assert_eq!(f.groups().unwrap().members(GroupId::new(0)), Some(3));
+    assert_eq!(cell(&f, 0, 1), None);
+    assert_eq!(cell(&f, 1, 1), Some(Counts::new(0, 0, 0)));
+    v["group-votes"] = json!({});
+    v["group-clusters"] = json!([]);
+    v["base-clusters"] = json!({"id": [], "members": []});
+    let f = frames(&v, groups_only()).unwrap();
+    assert_eq!(f.groups().unwrap().group_count(), 0);
+}

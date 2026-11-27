@@ -70,7 +70,7 @@ impl<'de> Deserialize<'de> for Votes {
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<Votes, A::Error> {
                 let mut cells = Vec::new();
                 while let Some(IdKey(tid)) = map.next_key()? {
-                    let counts: CellCounts = map.next_value()?;
+                    let Object(counts): Object<CellCounts> = map.next_value()?;
                     cells.push(Cell { tid, counts });
                 }
                 Ok(Votes(cells))
@@ -107,7 +107,7 @@ impl<'de> Deserialize<'de> for GroupVotes {
             fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<GroupVotes, A::Error> {
                 let mut groups = Vec::new();
                 while let Some(IdKey(id)) = map.next_key()? {
-                    let body: GroupBody = map.next_value()?;
+                    let Object(body): Object<GroupBody> = map.next_value()?;
                     groups.push(Group { id, body });
                 }
                 Ok(GroupVotes(groups))
@@ -223,4 +223,25 @@ pub(crate) struct DecodedSizes {
     pub(crate) tid: u64,
     pub(crate) extremity: u64,
     pub(crate) priority: u64,
+}
+
+/// Serde's derived struct decoder also accepts positional sequences. These
+/// stored records are objects: accepting a sequence would bypass the named
+/// paths counted by the preflight walk and understate the reservation.
+pub(crate) struct Object<T>(pub(crate) T);
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for Object<T> {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct V<T>(std::marker::PhantomData<T>);
+        impl<'de, T: Deserialize<'de>> Visitor<'de> for V<T> {
+            type Value = Object<T>;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str("an object")
+            }
+            fn visit_map<A: MapAccess<'de>>(self, map: A) -> Result<Self::Value, A::Error> {
+                T::deserialize(serde::de::value::MapAccessDeserializer::new(map)).map(Object)
+            }
+        }
+        d.deserialize_map(V(std::marker::PhantomData))
+    }
 }

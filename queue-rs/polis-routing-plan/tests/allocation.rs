@@ -228,3 +228,27 @@ fn expansion_reservation_is_upper_bound() {
         }
     }
 }
+
+#[test]
+fn positional_memberships_cannot_exceed_reservation() {
+    let members = (0..10_000)
+        .map(|p| p.to_string())
+        .collect::<Vec<_>>()
+        .join(",");
+    let b = format!(
+        r#"{{"group-votes":{{"0":{{"n-members":10000,"votes":{{}}}}}},"group-clusters":[{{"id":0,"members":[100]}}],"base-clusters":[[100],[[{members}]] ]}}"#
+    );
+    let p = Projection::parse(b.as_bytes(), row(), &SourceLimits::default()).unwrap();
+    let needs = FrameNeeds {
+        groups: true,
+        ..FrameNeeds::default()
+    };
+    let reserved = p.reservation(needs).unwrap();
+    let (result, requested, peak) = counted(|| p.frames(needs));
+    eprintln!(
+        "positional membership: reservation={reserved} requested={requested} peak={peak}, refused={}",
+        result.is_err()
+    );
+    assert!(requested <= reserved, "allocation exceeded reservation");
+    assert!(result.is_err(), "non-object base-clusters was accepted");
+}
