@@ -156,7 +156,7 @@ fn limits_refuse_before_allocation() {
         ..SourceLimits::default()
     };
     let r0 = row();
-    let (r, requested, _) = counted(move || Projection::parse(&b, r0, &short));
+    let (r, requested, _) = counted(|| Projection::parse(&b, r0, &short));
     assert_eq!(
         r.unwrap_err(),
         SourceRefusal::TooLarge { what: Limit::Bytes }
