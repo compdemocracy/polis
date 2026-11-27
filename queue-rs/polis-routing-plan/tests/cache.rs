@@ -544,6 +544,33 @@ fn undercharged_publication_refused() {
     }
 }
 
+/// The replacement path refuses an undercharged reservation too, and keeps
+/// the plan it would have replaced; a charge below the entry would
+/// otherwise give back more than it took.
+#[test]
+fn undercharged_replacement_refused() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 41, A), 0).unwrap();
+    let used = c.budget().used();
+    let h = m.uniform(7, 42, A);
+    let r = c.try_reserve(h.cached().charge() - 1).unwrap();
+    match c.publish(h, r, t(1)) {
+        Published::Rejected {
+            reason,
+            reservation,
+            handle,
+        } => {
+            assert_eq!(reason, Rejection::Undercharged);
+            drop(handle);
+            c.release(reservation);
+        }
+        Published::Ready => panic!("replaced under its charge"),
+    }
+    assert_eq!(c.budget().used(), used);
+    assert_eq!(hit(&mut c, A, 7, Some(41), 2), (41, Freshness::Current));
+}
+
 #[test]
 fn large_source_refused_by_its_charge() {
     let mut c: PlanCache<H> = cache(Some(A));
