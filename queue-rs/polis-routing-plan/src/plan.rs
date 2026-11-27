@@ -9,7 +9,7 @@
 
 use crate::limits::SourceLimits;
 use crate::projection::{FrameNeeds, Frames};
-use crate::reserve::{map, reservation, vecs};
+use crate::reserve::{map, reservation, vecs, worst_tally};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
@@ -571,42 +571,100 @@ impl Plan {
 
     /// An upper bound, in bytes, on what building `config`'s plan from a
     /// projection checked under `limits` allocates beyond the projection
-    /// itself: the frames the rule needs, at every count the limits allow,
-    /// held while the build runs, and the plan the build returns (its
-    /// `charged_bytes` at those counts). Known before anything is read, so a
-    /// build can be admitted before its source is fetched. Allocation free.
-    ///
-    /// `None`: the arithmetic overflows, or no bound is calibrated for the
-    /// rule. The floor's weights are computed by the library with scratch
-    /// this crate does not yet bound or measure, so a floor build has no
-    /// allowance and a caller refuses it before reading anything.
+    /// itself, at once: `build_bound` at the worst tally a source of
+    /// `limits.max_bytes` bytes can reach (every count at most its limit,
+    /// and all of them together at most what that many bytes can hold), with
+    /// every key's text as long as the source. Known before anything is
+    /// read, so a build can be admitted before its source is fetched.
+    /// Allocation free apart from a small fixed table; `None` on overflow.
     pub fn build_allowance(config: &RuleConfig, limits: &SourceLimits) -> Option<u64> {
-        let worst = Tally {
-            groups: limits.max_groups,
-            cells: limits.max_cells,
-            tids: limits.max_comments,
-            meta: limits.max_comments,
-            extremity: limits.max_comments,
-            priorities: limits.max_comments,
-            memberships: limits.max_memberships,
-            longest_string: limits.max_bytes,
-        };
-        let frames = reservation(&worst, config.needs())?;
+        let len = limits.max_bytes;
+        let worst = worst_tally(len, limits, |t| Self::build_bound(config, t, len))?;
+        Self::build_bound(config, &worst, len)
+    }
+
+    /// An upper bound, in bytes, on what `frames` and `Plan::build` for
+    /// `config` allocate at once, held while the build runs, from a parsed
+    /// source's tally and the length of the keys' text it kept (`raw`,
+    /// `Projection::raw_len`): the frames the rule needs, the build's
+    /// scratch, and the plan the build returns (its `charged_bytes` is
+    /// within it). Each term is a sum of terms linear in one count, which
+    /// `build_allowance` relies on. Checked arithmetic; `None` on overflow.
+    pub fn build_bound(config: &RuleConfig, t: &Tally, raw: u64) -> Option<u64> {
+        let frames = reservation(t, raw, config.needs())?;
         // The Arc's two counters, the plan inline and its source id.
         let inline = sz::<usize>()
             .checked_mul(2)?
             .checked_add(sz::<Plan>())?
             .checked_add(SOURCE_ID_BYTES)?;
-        let plan = match config {
+        let build = match config {
             RuleConfig::Uniform1 => inline,
             // The stored map, cloned from the frame: its source id and one
             // node per entry plus one.
             RuleConfig::StoredWeights1 => add(
                 inline.checked_add(SOURCE_ID_BYTES)?,
-                map(limits.max_comments, sz::<CommentId>(), sz::<StoredWeight>()),
+                map(t.priorities, sz::<CommentId>(), sz::<StoredWeight>()),
             )?,
-            RuleConfig::SymmetricGicFloor2(_) => return None,
+            RuleConfig::SymmetricGicFloor2(_) => add(inline, floor_build(t))?,
         };
-        frames.checked_add(plan)
+        frames.checked_add(build)
     }
+}
+
+/// A fixed allowance for the floor's build: what the formula does not name
+/// (the parameters' small vectors, the library's refusal values).
+const FLOOR_BUILD_FIXED: u64 = 4096;
+
+/// The factors one scored comment's explanation holds: four inner (two
+/// side shares, the extremity boost, novelty) and one outer (group-informed
+/// consensus), or one inner for a fixed meta comment.
+const FACTORS_PER_SCORED: u64 = 5;
+
+/// A set collected from an iterator: the vector it is gathered into (grown
+/// by doubling), the sort's scratch (at most as long), and the set's nodes.
+fn collected(n: u64, elem: u64) -> Option<u64> {
+    vecs(n, 1, elem)?
+        .checked_mul(2)?
+        .checked_add(map(n, elem, 0)?)
+}
+
+/// What the floor's build allocates beyond its frames, all of it counted as
+/// held at once, from the tally: `symmetric_gic_2` (the latest counts summed
+/// over the groups, with the comment ids it collects; the ids of the counts
+/// and the extremity, collected; the excluded meta ids, collected; the scored
+/// map and every explanation's factors; the unscored set; group-informed
+/// consensus's two per-group vectors for one comment at a time; three
+/// cloned source ids), then `symmetric_gic_floor_2` (the meta set, cloned).
+/// A comment the plan knows is one of a group's cells or of the extremity,
+/// so at most `cells + extremity` of them; a meta comment, at most `meta`.
+fn floor_build(t: &Tally) -> Option<u64> {
+    let id = sz::<CommentId>();
+    let f = sz::<f64>();
+    let known = t.cells.checked_add(t.extremity)?;
+    let mut total = FLOOR_BUILD_FIXED;
+    let mut add_up = |x: Option<u64>| -> Option<()> {
+        total = total.checked_add(x?)?;
+        Some(())
+    };
+    // The latest counts and the comment ids collected to sum them.
+    add_up(map(t.cells, id, sz::<Counts>()))?;
+    add_up(collected(t.cells, id))?;
+    // The ids of the counts and the extremity, and the excluded meta ids.
+    add_up(collected(known, id))?;
+    add_up(collected(t.meta, id))?;
+    // The scored map, its factors, and the unscored set.
+    add_up(map(known, id, sz::<Scored>()))?;
+    add_up(
+        known
+            .checked_mul(FACTORS_PER_SCORED)?
+            .checked_mul(sz::<Factor>()),
+    )?;
+    add_up(map(known, id, 0))?;
+    // Group-informed consensus for one comment: values and logs per group.
+    add_up(vecs(t.groups, 2, f))?;
+    // Source ids: the latest counts', the weights' three, the floor's own.
+    add_up(SOURCE_ID_BYTES.checked_mul(5))?;
+    // The meta set the floor plan keeps.
+    add_up(map(t.meta, id, 0))?;
+    Some(total)
 }

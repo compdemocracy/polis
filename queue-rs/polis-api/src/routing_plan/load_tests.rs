@@ -8,7 +8,7 @@
 use super::cache::{MAX_CACHE_BYTES, RoutingPlanCache};
 use super::load::*;
 use polis_routing_plan::{
-    DEFAULT_CACHE_BYTES, MAX_SHARE_DIVISOR, Plan, Projection, Rejection, RuleConfig,
+    DEFAULT_CACHE_BYTES, MAX_SHARE_DIVISOR, Plan, Projection, Rejection, RuleConfig, SourceLimits,
 };
 
 const STORED: &str = r#"{"rule":"stored-weights/1","params":{},"terms":[]}"#;
@@ -40,40 +40,64 @@ fn cache() -> std::sync::Arc<RoutingPlanCache> {
 #[test]
 fn loader_admission_fits_one_share() {
     assert_eq!(MAX_CACHE_BYTES, DEFAULT_CACHE_BYTES);
+    assert!(FLOOR_MAX_BYTES <= LIMITS.max_bytes);
     let share = DEFAULT_CACHE_BYTES / MAX_SHARE_DIVISOR;
-    for text in [STORED, UNIFORM] {
-        let j = job(1, text, None, 0);
+    let ask = |j: &Job, max_bytes: u64| -> u64 {
+        let l = SourceLimits {
+            max_bytes,
+            ..limits(&j.rule)
+        };
+        let build = Plan::build_allowance(&j.rule, &l).unwrap();
+        let fixed = allowance(&j.rule, j).unwrap()
+            - Plan::build_allowance(&j.rule, &limits(&j.rule)).unwrap();
+        Projection::parse_reservation(max_bytes as usize, &l).unwrap() + max_bytes + build + fixed
+    };
+    for (text, policy) in [(STORED, None), (UNIFORM, None), (FLOOR, Some(FLOOR_POLICY))] {
+        let j = job(1, text, policy, 0);
+        let l = limits(&j.rule);
         let allowance = allowance(&j.rule, &j).unwrap();
-        let wanted = Projection::parse_reservation(LIMITS.max_bytes as usize, &LIMITS).unwrap()
-            + LIMITS.max_bytes
-            + allowance;
-        println!("{text}: admission asks {wanted} of share {share}");
+        let wanted = ask(&j, l.max_bytes);
+        // The largest length (to 1 KiB) whose admission fits the share.
+        let (mut lo, mut hi) = (0u64, 64 * 1024 * 1024);
+        while hi - lo > 1024 {
+            let mid = (lo + hi) / 2;
+            if ask(&j, mid) <= share {
+                lo = mid
+            } else {
+                hi = mid
+            }
+        }
+        println!(
+            "{text}: max_bytes {}, admission asks {wanted} of share {share}; largest fitting {lo}",
+            l.max_bytes
+        );
         let c = cache();
         let admitted = c
-            .admit_build(LIMITS.max_bytes as usize, &LIMITS, allowance)
+            .admit_build(l.max_bytes as usize, &l, allowance)
             .unwrap()
             .expect("admitted at the default budget");
-        println!("{text}: admitted {} of share {share}", admitted.bytes());
+        assert_eq!(admitted.bytes(), wanted);
         assert!(admitted.bytes() <= share);
         let connection = c.try_reserve(LIMITS.max_bytes + CONNECTION_FIXED).unwrap();
         assert!(connection.bytes() <= share);
     }
 }
 
-/// A rule with no calibrated build allowance (the floor) is refused before
-/// anything is reserved or read: the loader never connects.
+/// The floor has a calibrated allowance now: it is admitted and goes on to
+/// connect; an unreachable server ends `DatabaseUnavailable`, with nothing
+/// left reserved.
 #[test]
-fn rule_without_allowance_reads_nothing() {
+fn floor_is_admitted_and_reads() {
     let primary = polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(
         "host=127.0.0.1 port=1 user=nobody".parse().unwrap(),
     ));
     let mut loader = Loader::new(primary, None);
     let c = cache();
-    let before = c.used_for_test();
-    let outcome = loader.load(&c, &job(1, FLOOR, Some(FLOOR_POLICY), 0), &mut NoHooks);
-    assert_eq!(outcome, Outcome::NoAllowance);
+    let j = job(1, FLOOR, Some(FLOOR_POLICY), 0);
+    assert!(allowance(&j.rule, &j).is_some());
+    let outcome = loader.load(&c, &j, &mut NoHooks);
+    assert_eq!(outcome, Outcome::DatabaseUnavailable);
     assert_eq!(loader.open_target(), None);
-    assert_eq!(c.used_for_test(), before);
 }
 
 /// A full budget admits nothing: no connection is opened and no statement
@@ -119,6 +143,9 @@ fn allowance_is_the_crates() {
     let j = job(1, STORED, None, 0);
     let build = Plan::build_allowance(&j.rule, &LIMITS).unwrap();
     assert!(allowance(&j.rule, &j).unwrap() > build);
+    let f = job(1, FLOOR, Some(FLOOR_POLICY), 0);
+    let floor = Plan::build_allowance(&f.rule, &limits(&f.rule)).unwrap();
+    assert!(allowance(&f.rule, &f).unwrap() > floor);
     let _ = Projection::parse_reservation(LIMITS.max_bytes as usize, &LIMITS).unwrap();
 }
 

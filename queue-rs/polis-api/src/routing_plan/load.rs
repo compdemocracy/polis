@@ -58,18 +58,51 @@ pub(crate) const SETUP_TIMEOUT: Duration = Duration::from_secs(5);
 /// loader past its own deadline.
 pub(crate) const IO_TIMEOUT: Duration = Duration::from_secs(6);
 
-/// What a projection is held to. Its `max_bytes` is the loader's own, small
-/// enough that one build's admission fits one conversation's share of the
-/// default budget (`loader_admission_fits_one_share`); the counts are the
-/// adapter's defaults.
+/// What a projection is held to: the adapter's default counts, and a
+/// `max_bytes` of the loader's own per rule, the largest for which one
+/// build's admission (the receive buffer, the parse charge and the rule's
+/// build allowance at that length, `admit_build`) fits one conversation's
+/// share of the default budget (`loader_admission_fits_one_share` checks
+/// it and prints the ask). The bounds are made from the length alone:
+///
+/// - parse: about 10 x the length (the walk's scratch, kept keys and
+///   spill);
+/// - frames: 4 x the length for their readers' scratch, and the counts a
+///   source of that length can hold (every counted entry owns two bytes);
+/// - stored weights and uniform: the counts' limits bind first (40,000
+///   comments), about 24 MB for the stored map read and cloned;
+/// - the floor: the counts bind by length; the most a byte can cost is a
+///   membership entry (about 1 KB per two bytes in the frames' bound), so
+///   its admission is about 520 x the length.
+///
+/// With a 64 MiB share: stored weights and uniform admit 2 MiB
+/// (`STORED_MAX_BYTES`), the floor 96 KiB (`FLOOR_MAX_BYTES`). A larger
+/// projection is `Oversized` and keeps today's draw.
 pub(crate) const LIMITS: SourceLimits = SourceLimits {
-    max_bytes: 512 * 1024,
+    max_bytes: STORED_MAX_BYTES,
     max_depth: 32,
     max_comments: 40_000,
     max_groups: 64,
     max_cells: 40_000 * 64,
     max_memberships: 4_000_000,
 };
+
+/// The longest projection a stored-weights or uniform build reads.
+pub(crate) const STORED_MAX_BYTES: u64 = 2 * 1024 * 1024;
+
+/// The longest projection a floor build reads.
+pub(crate) const FLOOR_MAX_BYTES: u64 = 96 * 1024;
+
+/// The limits a build of `rule` is held to.
+pub(crate) fn limits(rule: &RuleConfig) -> SourceLimits {
+    match rule {
+        RuleConfig::SymmetricGicFloor2(_) => SourceLimits {
+            max_bytes: FLOOR_MAX_BYTES,
+            ..LIMITS
+        },
+        RuleConfig::StoredWeights1 | RuleConfig::Uniform1 => LIMITS,
+    }
+}
 
 /// Charged for the connection's own buffers while it is open: the driver
 /// reads a whole row into its buffer, so it can hold one projection of
@@ -135,7 +168,7 @@ select m.math_env::text as math_env,
 pub(crate) enum Outcome {
     /// The plan is published.
     Published,
-    /// The rule has no calibrated build allowance: nothing was read.
+    /// The rule's build allowance overflows: nothing was reserved or read.
     NoAllowance,
     /// The cache's negative cache holds this load back: nothing was read.
     BackingOff,
@@ -255,9 +288,9 @@ pub(crate) fn read_source(
 
 /// The bytes a build of `rule` in `math_env` is admitted with beside its
 /// receive buffer and parse charge: the rule's build allowance, and the
-/// plan's entry, slot and fence. `None`: the rule has no allowance.
+/// plan's entry, slot and fence. `None`: the arithmetic overflows.
 pub(crate) fn allowance(rule: &RuleConfig, job: &Job) -> Option<u64> {
-    let build = Plan::build_allowance(rule, &LIMITS)?;
+    let build = Plan::build_allowance(rule, &limits(rule))?;
     let env = job.math_env.len() as u64;
     let key = env
         .checked_add(job.rule_plain.len() as u64)?
@@ -326,14 +359,15 @@ impl Loader {
             Ok(false) => return Outcome::BackingOff,
             Err(_) => return Outcome::CachePoisoned,
         }
-        let max = LIMITS.max_bytes as usize;
-        let mut reserved = match cache.admit_build(max, &LIMITS, allowance) {
+        let limits = limits(&job.rule);
+        let max = limits.max_bytes as usize;
+        let mut reserved = match cache.admit_build(max, &limits, allowance) {
             Ok(Some(r)) => r,
             Ok(None) => {
                 if cache.reclaim().is_err() || cache.evict_lru().is_err() {
                     return Outcome::CachePoisoned;
                 }
-                match cache.admit_build(max, &LIMITS, allowance) {
+                match cache.admit_build(max, &limits, allowance) {
                     Ok(Some(r)) => r,
                     Ok(None) => return Outcome::NotAdmitted,
                     Err(_) => return Outcome::CachePoisoned,
@@ -386,7 +420,7 @@ impl Loader {
         let built = {
             let bytes = text.into_bytes();
             let content = ContentId::of(&bytes);
-            match Projection::parse(&bytes, source.row.clone(), &LIMITS) {
+            match Projection::parse(&bytes, source.row.clone(), &limits) {
                 Err(_) => Err((Outcome::SourceRefused, Failure::Source(source_key(content)))),
                 Ok(projection) => match projection.frames(job.rule.needs()) {
                     Err(_) => Err((Outcome::SourceRefused, Failure::Source(source_key(content)))),
@@ -479,7 +513,12 @@ impl Loader {
         };
         open.client
             .set_deadline(Some(Instant::now() + STATEMENT_TIMEOUT + IO_TIMEOUT));
-        let read = read_source(&mut open.client, job.zid, &job.math_env, LIMITS.max_bytes);
+        let read = read_source(
+            &mut open.client,
+            job.zid,
+            &job.math_env,
+            limits(&job.rule).max_bytes,
+        );
         open.client.set_deadline(None);
         read.map_err(|e| {
             self.open = None;
@@ -497,6 +536,7 @@ impl Loader {
             Target::Replica => self.replica.as_ref().unwrap_or(&self.primary),
         };
         let charge = cache
+            // `LIMITS` has the largest byte bound of any rule.
             .try_reserve(LIMITS.max_bytes + CONNECTION_FIXED)
             .map_err(|_| Outcome::ConnectionNotReserved)?;
         let deadline = Instant::now() + SETUP_TIMEOUT;

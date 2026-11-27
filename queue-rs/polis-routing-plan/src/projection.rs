@@ -251,7 +251,7 @@ impl Projection {
         check(t.groups, limits.max_groups, Limit::Groups)?;
         check(t.cells, limits.max_cells, Limit::Cells)?;
         check(t.memberships, limits.max_memberships, Limit::Memberships)?;
-        if reservation(&t, FrameNeeds::all()).is_none() {
+        if reservation(&t, len, FrameNeeds::all()).is_none() {
             return Err(SourceRefusal::TooLarge {
                 what: Limit::Reservation,
             });
@@ -308,6 +308,14 @@ impl Projection {
     /// the inline Projection value, stack and allocator metadata; it includes
     /// the environment allocation transferred into parse by the caller.
     pub fn held(&self) -> u64 {
+        self.raw_len()
+            .saturating_add(self.row.math_env.capacity() as u64)
+            .saturating_add(256)
+    }
+
+    /// The length of the text of the keys it read, kept for `frames`: at
+    /// most the source's length.
+    pub fn raw_len(&self) -> u64 {
         let r = &self.raw;
         let text: usize = [
             &r.group_votes,
@@ -322,15 +330,13 @@ impl Projection {
         .flatten()
         .map(|v| v.get().len())
         .sum();
-        (text as u64)
-            .saturating_add(self.row.math_env.capacity() as u64)
-            .saturating_add(256)
+        text as u64
     }
 
     /// An upper bound, in bytes, on what `frames(needs)` allocates, from the
-    /// walk's counts alone.
+    /// walk's counts and the length of the keys' text it read.
     pub fn reservation(&self, needs: FrameNeeds) -> Result<u64, SourceRefusal> {
-        reservation(&self.tally, needs).ok_or(SourceRefusal::TooLarge {
+        reservation(&self.tally, self.raw_len(), needs).ok_or(SourceRefusal::TooLarge {
             what: Limit::Reservation,
         })
     }

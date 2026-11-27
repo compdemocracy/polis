@@ -1,7 +1,8 @@
 //! The expanded-size reservation: an upper bound, in bytes, on everything
-//! `Projection::frames` allocates, computed from the walk's counts before any
-//! of it is allocated. It is meant to be charged, so it is conservative on
-//! purpose; a tighter bound needs its own evidence.
+//! `Projection::frames` allocates, computed from the walk's counts and the
+//! read keys' length before any of it is allocated; and the counts a source
+//! of a given length can reach at most. It is meant to be charged, so it is
+//! conservative on purpose; a tighter bound needs its own evidence.
 
 use crate::decode::sizes;
 use crate::limits::SourceLimits;
@@ -36,17 +37,24 @@ fn sz<T>() -> u64 {
     size_of::<T>() as u64
 }
 
-pub(crate) fn reservation(t: &Tally, needs: FrameNeeds) -> Option<u64> {
+/// The most readers `frames` opens: one per key it decodes (comment
+/// priorities; tids and the projection's `pca`; meta tids; group votes,
+/// group clusters and base clusters), with one to spare.
+const READERS: u64 = 8;
+
+/// `raw` is the length, in bytes, of the text of the keys `frames` may
+/// decode (at most the source's length: the keys are disjoint parts of it).
+pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64> {
     let d = sizes();
     let id = sz::<CommentId>();
-    // Each key decoded has its own reader, whose scratch for an escaped
-    // string grows to the longest string; the source ids are cloned once per
-    // frame; a fixed allowance covers the rest.
-    let mut total = t
-        .longest_string
-        .checked_mul(4)?
-        .checked_add(64)?
-        .checked_mul(8)?;
+    // Each key decoded has its own reader, whose scratch holds one decoded
+    // string, one long numeric significand or one skipped value's brackets
+    // from that key's own text, so never more than that text; grown by
+    // doubling and counted while it moves, below four times it plus a
+    // little. The readers' texts are disjoint, so all of them together are
+    // below four times `raw`, plus a little per reader. The source ids are
+    // cloned once per frame; a fixed allowance covers the rest.
+    let mut total = raw.checked_mul(4)?.checked_add(READERS.checked_mul(64)?)?;
     total = total.checked_add(4096)?;
     let mut add = |x: Option<u64>| -> Option<()> {
         total = total.checked_add(x?)?;
@@ -137,4 +145,64 @@ pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> 
     let ids = (len / 2 + 1).min(limits.max_comments.saturating_mul(2));
     let union = raw.checked_add(ids.checked_mul(8)?)?.checked_add(scratch)?;
     walk.max(split).max(union).checked_add(1024)
+}
+
+/// The bytes a counted entry takes in the source, at least. Every entry the
+/// walk counts is a value inside an array or an object, and owns two bytes
+/// no other counted entry owns: its first byte (a digit, a sign, a quote or
+/// a bracket), and the byte that ends it (the next `,`, `]` or `}`). Two
+/// values that end before the same byte end at the same byte, so they are
+/// the same value; a byte that ends a value never starts one. So the
+/// entries of a complete source of `len` bytes, all counters together, are
+/// at most `len / 2`. (An object entry also owns its key and colon; that is
+/// not used, because the walk counts entries whatever their container.)
+pub(crate) const ENTRY_BYTES: u64 = 2;
+
+/// The tally that makes `bound` largest among every tally a complete source
+/// of `len` bytes can have under `limits`, or above it: for a `bound` that
+/// is affine in the counts (each a sum of terms linear in one count), the
+/// counts are filled greedily from the one that adds most per entry, each
+/// up to its limit, and the last one filled is rounded up, so the result is
+/// at least the fractional optimum of the knapsack, which is at least any
+/// real tally's. Each count also stays within its own limit, which the walk
+/// refuses past. `longest_string` is `len`.
+pub(crate) fn worst_tally(
+    len: u64,
+    limits: &SourceLimits,
+    bound: impl Fn(&Tally) -> Option<u64>,
+) -> Option<Tally> {
+    let zero = Tally::default();
+    let base = bound(&zero)?;
+    type Slot = fn(&mut Tally) -> &mut u64;
+    let slots: [(Slot, u64); 7] = [
+        (|t| &mut t.groups, limits.max_groups),
+        (|t| &mut t.cells, limits.max_cells),
+        (|t| &mut t.tids, limits.max_comments),
+        (|t| &mut t.meta, limits.max_comments),
+        (|t| &mut t.extremity, limits.max_comments),
+        (|t| &mut t.priorities, limits.max_comments),
+        (|t| &mut t.memberships, limits.max_memberships),
+    ];
+    let mut gains = Vec::new();
+    for (i, (slot, _)) in slots.iter().enumerate() {
+        let mut one = Tally::default();
+        *slot(&mut one) = 1;
+        gains.push((bound(&one)?.checked_sub(base)?, i));
+    }
+    gains.sort_unstable_by(|a, b| b.cmp(a));
+    let mut left = len;
+    let mut worst = Tally {
+        longest_string: len,
+        ..Tally::default()
+    };
+    for (gain, i) in gains {
+        let &(slot, limit) = slots.get(i)?;
+        if gain == 0 || left == 0 {
+            continue;
+        }
+        let n = left.div_ceil(ENTRY_BYTES).min(limit);
+        *slot(&mut worst) = n;
+        left = left.saturating_sub(n.checked_mul(ENTRY_BYTES)?);
+    }
+    Some(worst)
 }

@@ -10,11 +10,15 @@
 
 mod support;
 
-use polis_routing_equation::{Candidates, CommentId, MetaPolicy, Unit};
+use polis_routing_equation::{
+    Candidates, CommentId, ConsensusForm, FloorParams, GicParams, MetaPolicy, ParamSet,
+    SymmetricGicParams, SymmetricParams, Unit,
+};
 use polis_routing_plan::{
     Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, Plan, Projection, RuleConfig,
     SourceLimits,
 };
+use serde_json::{Value, json};
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 use support::*;
@@ -266,8 +270,8 @@ fn draw_is_one_call_never_probabilities() {
 
 /// What a build allocates beyond its projection (the frames it reads and the
 /// plan it returns) stays within `build_allowance`, known before the source
-/// is read, at the largest admitted stored map and for uniform; the floor
-/// has no allowance, so a caller refuses it before reading anything.
+/// is read, at the largest admitted stored map, for uniform and for the
+/// floor under every meta policy.
 #[test]
 fn build_within_allowance() {
     let limits = SourceLimits::default();
@@ -287,6 +291,16 @@ fn build_within_allowance() {
             uniform(),
             conversation(14, 40_000, 1, 0, 0, Priorities::Absorbing),
         ),
+        (
+            "floor fixed 40000",
+            floor(MetaPolicy::Fixed, 0.1),
+            conversation(15, 40_000, 5, 10, 0, Priorities::Absent),
+        ),
+        (
+            "floor exclude 10000",
+            floor(MetaPolicy::Exclude, 0.1),
+            conversation(16, 10_000, 5, 10, 0, Priorities::Absent),
+        ),
     ] {
         let allowance = Plan::build_allowance(&config, &limits).unwrap();
         let projection = Projection::parse(&bytes(&c.value), row(), &limits).unwrap();
@@ -301,8 +315,185 @@ fn build_within_allowance() {
         );
         assert!(plan.charged_bytes() as u64 <= allowance, "{name}");
     }
-    assert_eq!(
-        Plan::build_allowance(&floor(MetaPolicy::Fixed, 0.1), &limits),
-        None
-    );
+}
+
+fn floor_form(policy: MetaPolicy, form: ConsensusForm) -> RuleConfig {
+    let base = SymmetricParams::new(1.0, 2.0, 1.0, 8.0, 5.0, 2, 7.0, policy).unwrap();
+    let params = FloorParams::new(
+        SymmetricGicParams::new(base, form, GicParams::default()),
+        0.1,
+    )
+    .unwrap();
+    let plain = ParamSet::SymmetricGicFloor2(params).to_plain();
+    RuleConfig::parse(&plain, Some("base-counts:lag-0")).unwrap()
+}
+
+/// The frames and the floor's build, measured together, never above
+/// `build_bound` for the parsed tally, and the plan they leave never above
+/// its `charged_bytes`: every meta policy, both forms of group-informed
+/// consensus, the most groups the limits admit, many comments, many meta
+/// comments, and meta comments in no other key.
+#[test]
+fn floor_build_within_its_bound() {
+    let limits = SourceLimits::default();
+    let shapes: [(&str, u64, usize, u32, usize, usize); 5] = [
+        ("64 groups", 41, 600, 64, 7, 0),
+        ("5 groups 10000", 42, 10_000, 5, 10, 0),
+        ("all meta", 43, 3000, 3, 1, 0),
+        ("meta only", 44, 2000, 2, 3, 5000),
+        ("one group", 45, 5000, 1, 0, 0),
+    ];
+    for policy in [MetaPolicy::Fixed, MetaPolicy::Exclude, MetaPolicy::Ordinary] {
+        for form in [ConsensusForm::GicMean1, ConsensusForm::GicGeomean1] {
+            let config = floor_form(policy, form);
+            for (name, seed, n, groups, every, only) in shapes {
+                let c = conversation(seed, n, groups, every, only, Priorities::Absent);
+                let projection = Projection::parse(&bytes(&c.value), row(), &limits).unwrap();
+                let bound =
+                    Plan::build_bound(&config, projection.tally(), projection.raw_len()).unwrap();
+                let (built, _, peak, held) = counted(|| {
+                    let f = projection.frames(config.needs()).unwrap();
+                    Plan::build(&f, &config)
+                });
+                let label = format!("{name} {policy:?} {form:?}");
+                assert!(
+                    peak >= 0 && peak as u64 <= bound,
+                    "{label}: peak {peak} over {bound}"
+                );
+                if let Ok(plan) = built {
+                    let charge = plan.charged_bytes();
+                    assert!(
+                        held >= 0 && held as usize <= charge,
+                        "{label}: held {held} over {charge}"
+                    );
+                    assert!(charge as u64 <= bound, "{label}");
+                    println!("{label}: peak {peak}, bound {bound}, held {held}, charged {charge}");
+                } else {
+                    println!("{label}: refused {built:?}; peak {peak}, bound {bound}");
+                }
+            }
+        }
+    }
+}
+
+/// The four numbers at size, for constructed conversations of 10,000 and
+/// 40,000 comments in five groups (the floor, meta policy fixed): the
+/// projection's length; the parse's peak against its charge; the frames and
+/// build's peak against `build_bound` and against `build_allowance` at a
+/// byte limit of that length; the plan's held bytes against its charge.
+#[test]
+fn witnesses_at_size() {
+    let config = floor(MetaPolicy::Fixed, 0.1);
+    for (n, seed) in [(10_000usize, 51u64), (40_000, 52)] {
+        let c = conversation(seed, n, 5, 20, 0, Priorities::Absent);
+        let source = bytes(&c.value);
+        let len = source.len();
+        let limits = SourceLimits {
+            max_bytes: len as u64,
+            ..SourceLimits::default()
+        };
+        let charge = Projection::parse_reservation(len, &limits).unwrap();
+        let (parsed, _, parse_peak, _) = counted(|| Projection::parse(&source, row(), &limits));
+        let projection = parsed.unwrap();
+        let bound = Plan::build_bound(&config, projection.tally(), projection.raw_len()).unwrap();
+        let allowance = Plan::build_allowance(&config, &limits).unwrap();
+        let (plan, _, build_peak, held) = counted(|| {
+            let f = projection.frames(config.needs()).unwrap();
+            Plan::build(&f, &config).unwrap()
+        });
+        let charged = plan.charged_bytes();
+        println!(
+            "{n} comments: projection {len} bytes; parse peak {parse_peak} of charge {charge}; \
+             build peak {build_peak} of bound {bound} (allowance at {len} bytes: {allowance}); \
+             plan held {held} of charged {charged}"
+        );
+        assert!(parse_peak >= 0 && parse_peak as u64 <= charge);
+        assert!(build_peak >= 0 && build_peak as u64 <= bound);
+        assert!(bound <= allowance);
+        assert!(held >= 0 && held as usize <= charged);
+    }
+}
+
+/// Every counted entry owns two bytes of a complete source, so all the
+/// counts together are at most half its length (`build_allowance` caps the
+/// counts so). The densest sources reach it: arrays of one-digit numbers,
+/// lists of one-element lists, and objects of the shortest entries.
+#[test]
+fn counted_entries_within_half_the_source() {
+    let n = 5000;
+    let zeros = || vec![json!(0); n];
+    let lists: Vec<Value> = (0..n).map(|_| json!([0])).collect();
+    let short: serde_json::Map<String, Value> = (0..n)
+        .map(|i| (format!("{}", i % 10_000), json!(0)))
+        .collect();
+    let sources = [
+        json!({"tids": zeros(), "meta-tids": zeros(), "pca": {"comment-extremity": zeros()}}),
+        json!({"base-clusters": {"id": zeros(), "members": lists}}),
+        json!({"group-clusters": lists_of_lists(n)}),
+        json!({"comment-priorities": short}),
+        json!({"group-votes": {"0": {"votes": short_votes(n)}}}),
+    ];
+    let limits = SourceLimits {
+        max_comments: 1_000_000,
+        max_cells: 1_000_000,
+        ..SourceLimits::default()
+    };
+    for v in sources {
+        let b = bytes(&v);
+        let p = Projection::parse(&b, row(), &limits).unwrap();
+        let t = p.tally();
+        let all = t.groups + t.cells + t.tids + t.meta + t.extremity + t.priorities + t.memberships;
+        println!("{} bytes: {all} entries", b.len());
+        assert!(
+            2 * all <= b.len() as u64,
+            "{all} entries in {} bytes",
+            b.len()
+        );
+        assert!(all >= 1000);
+    }
+}
+
+fn lists_of_lists(n: usize) -> Value {
+    Value::Array((0..n).map(|_| json!({"members": [0]})).collect())
+}
+
+fn short_votes(n: usize) -> Value {
+    Value::Object((0..n).map(|i| (i.to_string(), json!(0))).collect())
+}
+
+/// `build_allowance` fills the counts greedily, which finds the largest
+/// bound only when the bound is a sum of terms linear in one count each:
+/// for every rule, the bound at a sum of two tallies plus the bound at zero
+/// is the sum of the bounds at each.
+#[test]
+fn build_bound_is_affine_in_the_counts() {
+    use polis_routing_plan::Tally;
+    let mut rng = XorShift(7);
+    let tally = |rng: &mut XorShift| Tally {
+        groups: rng.below(64),
+        cells: rng.below(100_000),
+        tids: rng.below(40_000),
+        meta: rng.below(40_000),
+        extremity: rng.below(40_000),
+        priorities: rng.below(40_000),
+        memberships: rng.below(1_000_000),
+        longest_string: 0,
+    };
+    for config in [stored(), uniform(), floor(MetaPolicy::Fixed, 0.1)] {
+        for _ in 0..50 {
+            let (a, b) = (tally(&mut rng), tally(&mut rng));
+            let sum = Tally {
+                groups: a.groups + b.groups,
+                cells: a.cells + b.cells,
+                tids: a.tids + b.tids,
+                meta: a.meta + b.meta,
+                extremity: a.extremity + b.extremity,
+                priorities: a.priorities + b.priorities,
+                memberships: a.memberships + b.memberships,
+                longest_string: 0,
+            };
+            let f = |t: &Tally| Plan::build_bound(&config, t, 1000).unwrap();
+            assert_eq!(f(&sum) + f(&Tally::default()), f(&a) + f(&b));
+        }
+    }
 }
