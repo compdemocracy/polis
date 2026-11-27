@@ -168,6 +168,7 @@ enum Variant {
     },
     Floor {
         plan: FloorPlan,
+        meta_entries: usize,
         source: SourceId,
     },
 }
@@ -362,7 +363,11 @@ impl Plan {
                 }
                 let plan = symmetric_gic_floor_2(params, weights, meta)
                     .map_err(|_| BuildRefusal::BaseMismatch)?;
-                Variant::Floor { plan, source }
+                Variant::Floor {
+                    plan,
+                    meta_entries: frames.meta_entries(),
+                    source,
+                }
             }
         };
         Ok(Plan { variant })
@@ -447,7 +452,7 @@ impl Plan {
                 stored_weights_1(map.as_ref(), &candidates, unit, source)
             }
             Variant::Uniform { source } => uniform_1(&candidates, unit, source),
-            Variant::Floor { plan, source } => plan.draw(&candidates, unit, source, source),
+            Variant::Floor { plan, source, .. } => plan.draw(&candidates, unit, source, source),
         }
         .map_err(Fallback::from_refusal)?;
         let tid =
@@ -484,7 +489,9 @@ impl Plan {
                     )?;
                 }
             }
-            Variant::Floor { plan, .. } => {
+            Variant::Floor {
+                plan, meta_entries, ..
+            } => {
                 let w = plan.weights();
                 // Base counts, extremity, groups and term source ids.
                 total = total.checked_add(SOURCE_ID_BYTES.checked_mul(4)?)?;
@@ -497,7 +504,7 @@ impl Plan {
                 }
                 total = add(total, map(w.unscored().count() as u64, id, 0))?;
                 total = add(total, map(w.excluded().count() as u64, id, 0))?;
-                total = add(total, map(plan_meta_count(plan) as u64, id, 0))?;
+                total = add(total, map(*meta_entries as u64, id, 0))?;
                 total =
                     total.checked_add((w.terms().len() as u64).checked_mul(sz::<TermParams>())?)?;
             }
@@ -553,15 +560,4 @@ impl Plan {
         total = total.checked_add(terms)?;
         total.checked_add(DRAW_FIXED)
     }
-}
-
-fn plan_meta_count(plan: &FloorPlan) -> usize {
-    // The plan keeps its own copy of the meta set it was built with; under
-    // `meta_policy = exclude` the weights' excluded set is that same set, and
-    // otherwise the weights' scored entries cover it. Counted as the larger
-    // of the two the plan exposes, so the copy is never under-charged.
-    let w = plan.weights();
-    w.excluded()
-        .count()
-        .max(w.scored().count() + w.unscored().count())
 }
