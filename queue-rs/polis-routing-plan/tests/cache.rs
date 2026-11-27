@@ -836,3 +836,318 @@ fn retry_backoff_capped_with_jitter() {
     };
     assert_eq!(retry_at, t(2 * RETRY_BASE_NS));
 }
+
+// ---- The fence outlives its plans ----
+
+/// A late, older update is refused after an eviction, a clear and a
+/// configuration change, exactly as it is while the plan is resident; the
+/// same update rebuilt after an eviction is taken back.
+#[test]
+fn pointer_backward_after_eviction_refused() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(hit(&mut c, A, 7, Some(10), 1), (10, Freshness::Current));
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 8, A), 2),
+        Err(Rejection::Superseded)
+    );
+    assert_eq!(miss(&mut c, A, 7, None, 3), MissReason::NoPlan);
+    assert_eq!(miss(&mut c, A, 7, Some(10), 4), MissReason::NoPlan);
+    // Reinsertion of the same update, then a late older one after a clear.
+    publish(&mut c, m.uniform(7, 10, A), 5).unwrap();
+    assert_eq!(hit(&mut c, A, 7, None, 6), (10, Freshness::Current));
+    assert_eq!(c.clear().retired, 1);
+    drain(&mut c);
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 9, A), 7),
+        Err(Rejection::Superseded)
+    );
+    // And after a configuration change.
+    c.set_config(Some(B));
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 8, B), 8),
+        Err(Rejection::Superseded)
+    );
+    publish(&mut c, m.uniform(7, 10, B), 9).unwrap();
+    assert_eq!(hit(&mut c, B, 7, None, 10), (10, Freshness::Current));
+}
+
+/// One `(conversation, environment, tick)` keeps one content after an
+/// eviction and under a new configuration.
+#[test]
+fn generation_fence_kept_after_eviction() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    let first = |m: &Maker, d| m.plan(7, "example", 10, &source(9.0, 1.0), &uniform(), d);
+    let other = |m: &Maker, d| m.plan(7, "example", 10, &source(8.0, 1.0), &uniform(), d);
+    publish(&mut c, first(&m, A), 0).unwrap();
+    assert_eq!(
+        publish(&mut c, other(&m, A), 1),
+        Err(Rejection::GenerationConflict)
+    );
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    assert_eq!(
+        publish(&mut c, other(&m, A), 2),
+        Err(Rejection::GenerationConflict)
+    );
+    assert_eq!(c.generation_conflicts(), 2);
+    publish(&mut c, first(&m, A), 3).unwrap();
+    c.set_config(Some(B));
+    assert_eq!(
+        publish(&mut c, other(&m, B), 4),
+        Err(Rejection::GenerationConflict)
+    );
+    publish(&mut c, first(&m, B), 5).unwrap();
+    let Lookup::Hit { plan, .. } = c.lookup(&cap(B), 7, "example", Some(10), t(6)) else {
+        panic!()
+    };
+    assert_eq!(
+        plan.cached().key().content(),
+        first(&m, B).cached().key().content()
+    );
+}
+
+/// The head-lag clock keeps its start across an eviction and a rebuild of
+/// the same update, and a sighting while no plan is held still counts.
+#[test]
+fn head_lag_clock_kept_across_eviction() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, Some(11), 100).1,
+        Freshness::Lagging { behind_ns: 0 }
+    );
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    assert_eq!(miss(&mut c, A, 7, Some(11), 150), MissReason::NoPlan);
+    publish(&mut c, m.uniform(7, 10, A), 200).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, Some(11), 300).1,
+        Freshness::Lagging { behind_ns: 200 }
+    );
+    assert_eq!(miss(&mut c, A, 7, None, 100 + BOUND), MissReason::HeadLag);
+}
+
+#[test]
+fn sighting_with_no_plan_starts_the_clock() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    assert_eq!(miss(&mut c, A, 7, Some(12), 50), MissReason::NoPlan);
+    publish(&mut c, m.uniform(7, 11, A), 60).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, Some(12), 70),
+        (11, Freshness::Lagging { behind_ns: 20 })
+    );
+    assert_eq!(miss(&mut c, A, 7, None, 50 + BOUND), MissReason::HeadLag);
+    // The loader's sighting with no plan counts too.
+    assert_eq!(c.evict_lru(), Some(true));
+    c.note_seen(7, "example", 20, t(60 + BOUND));
+    publish(&mut c, m.uniform(7, 12, A), 61 + BOUND).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, None, 62 + BOUND),
+        (12, Freshness::Lagging { behind_ns: 2 })
+    );
+}
+
+/// A reading earlier than the clock's start cannot show the bound has not
+/// passed: it misses. An equal reading is served, behind zero.
+#[test]
+fn time_going_backwards_misses() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(
+        hit(&mut c, A, 7, Some(11), 5_000),
+        (10, Freshness::Lagging { behind_ns: 0 })
+    );
+    assert_eq!(miss(&mut c, A, 7, Some(11), 10), MissReason::HeadLag);
+    assert_eq!(
+        hit(&mut c, A, 7, Some(11), 5_000),
+        (10, Freshness::Lagging { behind_ns: 0 })
+    );
+    assert_eq!(
+        hit(&mut c, A, 7, None, 5_001),
+        (10, Freshness::Lagging { behind_ns: 1 })
+    );
+    assert_eq!(
+        miss(&mut c, A, 7, None, 5_000 + BOUND),
+        MissReason::HeadLag
+    );
+}
+
+/// One conversation under two rules: the new rule's configuration cannot
+/// publish an update older than the old rule's, and serves only its own.
+#[test]
+fn one_conversation_under_two_rules() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    c.set_config(Some(B));
+    let older = m.plan(7, "example", 9, &source(9.0, 1.0), &stored(), B);
+    assert_eq!(publish(&mut c, older, 1), Err(Rejection::Superseded));
+    let same = m.plan(7, "example", 10, &source(9.0, 1.0), &stored(), B);
+    publish(&mut c, same, 2).unwrap();
+    assert_eq!(miss(&mut c, A, 7, None, 3), MissReason::ConfigDisabled);
+    let Lookup::Hit { plan, freshness } = c.lookup(&cap(B), 7, "example", None, t(4)) else {
+        panic!()
+    };
+    assert_eq!(freshness, Freshness::Current);
+    assert_eq!(plan.cached().key().rule_canonical(), stored().to_plain());
+}
+
+/// A parameter change is a new configuration: the same.
+#[test]
+fn parameter_change_keeps_the_fence() {
+    use polis_routing_equation::MetaPolicy;
+    let m = Maker::new();
+    let policy = Some("base-counts:lag-0");
+    let make = |tick, share, d| {
+        let rule = floor(MetaPolicy::Exclude, share);
+        let p = projection(7, "example", tick, &source(9.0, 1.0));
+        let plan = Plan::build(&p.frames(rule.needs()).unwrap(), &rule).unwrap();
+        let cached = CachedPlan::new(BundleKey::of(&p, &rule, policy, d), plan, t(0)).unwrap();
+        H(Arc::new(Tracked {
+            cached,
+            drops: m.drops.clone(),
+        }))
+    };
+    let mut c = cache(Some(A));
+    publish(&mut c, make(10, 0.1, A), 0).unwrap();
+    c.set_config(Some(B));
+    assert_eq!(
+        publish(&mut c, make(9, 0.2, B), 1),
+        Err(Rejection::Superseded)
+    );
+    publish(&mut c, make(10, 0.2, B), 2).unwrap();
+    let Lookup::Hit { plan, .. } = c.lookup(&cap(B), 7, "example", Some(10), t(3)) else {
+        panic!()
+    };
+    assert_eq!(
+        plan.cached().key().rule_canonical(),
+        floor(MetaPolicy::Exclude, 0.2).to_plain()
+    );
+}
+
+/// A plan kept under a configuration while a newer update was published
+/// under another is never served when its configuration returns, even
+/// inside a running head-lag clock.
+#[test]
+fn plan_kept_under_an_older_configuration_not_served() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    // Fill the retired list with plans readers hold, so plans are kept.
+    let mut readers = Vec::new();
+    publish(&mut c, m.uniform(9, 1, A), 0).unwrap();
+    for tick in 2..=(RETIRED_ENTRIES as i64 + 1) {
+        let Lookup::Hit { plan, .. } = c.lookup(&cap(A), 9, "example", None, t(0)) else {
+            panic!()
+        };
+        readers.push(plan);
+        publish(&mut c, m.uniform(9, tick, A), 0).unwrap();
+    }
+    assert_eq!(c.set_config(Some(B)).kept, 2);
+    publish(&mut c, m.uniform(7, 11, B), 1).unwrap();
+    assert_eq!(c.set_config(Some(A)).kept, 1);
+    assert_eq!(miss(&mut c, A, 7, Some(12), 2), MissReason::HeadLag);
+    assert_eq!(miss(&mut c, A, 7, None, 3), MissReason::HeadLag);
+    drop(readers);
+}
+
+/// Each fence is charged while held, outlives its plan, and is forgotten,
+/// with its charge, only when the cache is disabled with no plan left to
+/// cover.
+#[test]
+fn fence_charged_and_outlives_its_plan() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    let base = c.budget().used();
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    c.set_config(Some(B));
+    assert_eq!((c.fence_len(), c.fenced(7, "example")), (1, true));
+    let fence = polis_routing_plan::FENCE_OVERHEAD + "example".len() as u64;
+    assert_eq!(c.budget().used(), base + fence);
+    c.set_config(None);
+    assert_eq!((c.fence_len(), c.fenced(7, "example")), (0, false));
+    assert_eq!(c.budget().used(), base);
+}
+
+/// At the fence bound the cache fails safe. With every fence covering a
+/// resident plan, a conversation that needs a new fence is refused and
+/// misses `no_plan`. After an eviction the idle fence is forgotten to
+/// make room, and a build whose reservation predates that forgetting
+/// cannot publish into a conversation with no fence; a fresh one can.
+#[test]
+fn fence_table_full_fails_safe() {
+    use polis_routing_plan::FENCE_ENTRIES;
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    for zid in 0..FENCE_ENTRIES as i32 {
+        publish(&mut c, m.uniform(zid, 5, A), 0).unwrap();
+    }
+    assert_eq!(c.fence_len(), FENCE_ENTRIES);
+    let early = m.uniform(0, 4, A);
+    let early_r = c.try_reserve(early.cached().charge() + 4096).unwrap();
+    let late_new = m.uniform(90_001, 1, A);
+    let late_new_r = c.try_reserve(late_new.cached().charge() + 4096).unwrap();
+    assert_eq!(
+        publish(&mut c, m.uniform(90_000, 1, A), 1),
+        Err(Rejection::FenceFull)
+    );
+    assert_eq!(miss(&mut c, A, 90_000, Some(1), 2), MissReason::NoPlan);
+    assert!(!c.fenced(90_000, "example"));
+    // Conversation 0 was looked up least recently: evicted, its fence now
+    // covers nothing and is forgotten for the newcomer.
+    assert_eq!(c.evict_lru(), Some(true));
+    publish(&mut c, m.uniform(90_000, 1, A), 3).unwrap();
+    assert_eq!(c.fence_len(), FENCE_ENTRIES);
+    assert!(!c.fenced(0, "example") && c.fenced(90_000, "example"));
+    for (h, r) in [(early, early_r), (late_new, late_new_r)] {
+        match c.publish(h, r, t(4)) {
+            Published::Rejected {
+                handle,
+                reservation,
+                reason,
+            } => {
+                assert_eq!(reason, Rejection::FenceForgotten);
+                drop(handle);
+                c.release(reservation);
+            }
+            Published::Ready => panic!("published into a forgotten fence"),
+        }
+    }
+    // A fresh reservation, for a fresh read, is taken on the caller's word.
+    assert_eq!(c.evict_lru(), Some(true));
+    publish(&mut c, m.uniform(0, 4, A), 5).unwrap();
+    assert_eq!(hit(&mut c, A, 0, None, 6), (4, Freshness::Current));
+}
+
+/// A restart loses every plan and every fence: everything misses until it
+/// is rebuilt, and the first publication of a conversation is taken on the
+/// caller's word that it is current; later ones are fenced by it.
+#[test]
+fn restart_is_a_cold_cache() {
+    let m = Maker::new();
+    let mut before = cache(Some(A));
+    publish(&mut before, m.uniform(7, 10, A), 0).unwrap();
+    drop(before);
+    let mut c = cache(Some(A));
+    assert_eq!(miss(&mut c, A, 7, None, 0), MissReason::NoPlan);
+    assert_eq!(miss(&mut c, A, 7, Some(10), 0), MissReason::NoPlan);
+    assert!(!c.fenced(7, "example"));
+    publish(&mut c, m.uniform(7, 10, A), 1).unwrap();
+    assert_eq!(
+        publish(&mut c, m.uniform(7, 9, A), 2),
+        Err(Rejection::Superseded)
+    );
+    assert_eq!(hit(&mut c, A, 7, None, 3), (10, Freshness::Current));
+}

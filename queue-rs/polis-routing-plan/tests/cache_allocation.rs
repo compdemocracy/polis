@@ -264,3 +264,22 @@ fn charge_covers_metadata() {
         "negatives: {live} live, {charged} charged"
     );
 }
+
+/// A lookup that finds a fence and no plan takes the seen tick in place:
+/// nothing allocated, nothing freed.
+#[test]
+fn no_alloc_or_drop_when_a_fence_has_no_plan() {
+    let mut c: PlanCache<H> = PlanCache::new(64 << 20, Some(D)).unwrap();
+    publish(&mut c, handle(3, "example", 41, 8, &stored()));
+    assert_eq!(c.evict_lru(), Some(true));
+    let cap = ConfigCapture::new(D, 1_000);
+    let mut out: Vec<bool> = Vec::with_capacity(4);
+    let ((), allocs, frees, _) = counted(|| {
+        for (seen, now) in [(Some(42), 1), (Some(43), 2), (None, 3)] {
+            let r = c.lookup(&cap, 3, "example", seen, Monotonic::from_nanos(now));
+            out.push(matches!(r, Lookup::Miss(MissReason::NoPlan)));
+        }
+    });
+    assert_eq!((allocs, frees), (0, 0));
+    assert_eq!(out, vec![true; 3]);
+}

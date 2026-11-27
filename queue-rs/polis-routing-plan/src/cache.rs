@@ -23,6 +23,19 @@
 //! charge, and only [`PlanCache::reclaim_one`], which the builder calls,
 //! hands one back for destruction, and only once the cache's reference is
 //! the last.
+//!
+//! The forward-only pointer lives in a fence per `(conversation,
+//! environment)`, kept apart from the plans and across every
+//! configuration: the newest tick seen, the tick last published as ready
+//! and its content, and the head-lag clock. Eviction, a clear and a
+//! configuration change retire plans and keep their fences, so a plan from
+//! an older math update, or a second content for a tick, is refused after
+//! any of them exactly as before. Fences are bounded ([`FENCE_ENTRIES`])
+//! and charged ([`FENCE_OVERHEAD`]); only a fence that covers no resident
+//! plan is forgotten, least recently used first, and disabling the cache
+//! forgets every such fence, as a restart does. A conversation with no
+//! fence is one the cache knows nothing about: see [`PlanCache::publish`]
+//! for what it then requires of the caller.
 
 use crate::identity::{ContentId, RowIdentity};
 use crate::plan::{Plan, RuleConfig};
@@ -76,6 +89,16 @@ pub const NEGATIVE_OVERHEAD: u64 = 1536;
 /// What the cache itself is charged when made, beyond the retired list's
 /// capacity: its maps' roots and its counters.
 pub const CACHE_FIXED: u64 = 4096;
+
+/// How many fences the cache remembers at once. A fence outlives its
+/// conversation's plans; at this bound the least recently used fence that
+/// covers no resident plan is forgotten to make room, and if every fence
+/// covers one, a publication that needs a new fence is refused.
+pub const FENCE_ENTRIES: usize = 4096;
+
+/// What one fence is charged beyond its environment's text: its own
+/// fields, its share of the fence map's node and of its list's capacity.
+pub const FENCE_OVERHEAD: u64 = 512;
 
 /// A reading of the caller's monotonic clock, in nanoseconds from an origin
 /// the caller chose. Never the wall clock: the head-lag bound is a duration
@@ -315,11 +338,14 @@ impl ConfigCapture {
 /// cannot be cloned, and its bytes return only through [`PlanCache::release`]
 /// or by becoming a published plan's charge. One that is dropped instead
 /// keeps its bytes charged for the cache's life: an over-charge, never an
-/// under-charge.
+/// under-charge. It remembers when it was taken, so a build that began
+/// before the cache forgot a fence cannot publish into a conversation the
+/// cache no longer holds a fence for.
 #[must_use = "a reservation's bytes return only through PlanCache::release"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct Reservation {
     bytes: u64,
+    taken: u64,
 }
 
 impl Reservation {
@@ -423,8 +449,20 @@ pub enum Rejection {
     Busy,
     /// The conversation would hold more than its share.
     OverShare,
-    /// The reservation is smaller than the entry's charge.
+    /// The reservation is smaller than the entry's charge (with its fence's,
+    /// when the conversation has none yet).
     Undercharged,
+    /// The cache holds no fence for the conversation and the reservation
+    /// was taken before the cache last forgot one: the plan could be older
+    /// than what that fence held. A fresh reservation, for a fresh read,
+    /// may publish.
+    FenceForgotten,
+    /// The cache holds no fence for the conversation and cannot remember
+    /// one: [`FENCE_ENTRIES`] are held and every one covers a resident plan.
+    /// Nothing is published that the cache could not fence; the
+    /// conversation misses `no_plan` until a plan is evicted and a later
+    /// publication finds room.
+    FenceFull,
 }
 
 #[derive(Debug)]
@@ -546,8 +584,6 @@ struct Slot<H> {
     ready: H,
     ready_charge: u64,
     meta_charge: u64,
-    newest_seen: i64,
-    first_seen_ahead: Option<Monotonic>,
     stamp: u64,
 }
 
@@ -555,15 +591,37 @@ impl<H: PlanHandle> Slot<H> {
     fn ready_tick(&self) -> i64 {
         self.ready.cached().key.math_tick
     }
+}
+
+/// What the cache remembers of one `(conversation, environment)`, across
+/// every configuration and for longer than any of its plans.
+#[derive(Debug)]
+struct Fence {
+    env: Box<str>,
+    /// The newest tick ever published as ready, and its content.
+    ready_tick: i64,
+    ready_content: ContentId,
+    ready_vote_timestamp: Option<i64>,
+    newest_seen: i64,
+    first_seen_ahead: Option<Monotonic>,
+    stamp: u64,
+    charge: u64,
+}
+
+impl Fence {
+    /// Whether `key` is the content this fence holds for its ready tick.
+    fn holds(&self, key: &BundleKey) -> bool {
+        self.ready_content == key.content && self.ready_vote_timestamp == key.last_vote_timestamp
+    }
     /// Advances the newest seen tick by maximum and keeps the head-lag
-    /// clock: started at the first sight of a tick ahead of the ready plan,
+    /// clock: started at the first sight of a tick ahead of the ready tick,
     /// never reset by repeats or partial catch-up, cleared only when the
-    /// ready plan has caught up.
+    /// ready tick has caught up.
     fn see(&mut self, tick: i64, now: Monotonic) {
         if tick > self.newest_seen {
             self.newest_seen = tick;
         }
-        if self.newest_seen > self.ready_tick() {
+        if self.newest_seen > self.ready_tick {
             if self.first_seen_ahead.is_none() {
                 self.first_seen_ahead = Some(now);
             }
@@ -571,6 +629,29 @@ impl<H: PlanHandle> Slot<H> {
             self.first_seen_ahead = None;
         }
     }
+    fn mark_ready(&mut self, ready: Ready, now: Monotonic, stamp: u64) {
+        self.ready_tick = ready.tick;
+        self.ready_content = ready.content;
+        self.ready_vote_timestamp = ready.vote_timestamp;
+        self.stamp = stamp;
+        self.see(ready.tick, now);
+    }
+}
+
+/// The part of a key a fence keeps.
+#[derive(Clone, Copy, Debug)]
+struct Ready {
+    tick: i64,
+    content: ContentId,
+    vote_timestamp: Option<i64>,
+}
+
+/// Whether a resident plan of `(zid, env)`, under any configuration, is
+/// covered by its fence.
+fn covers_a_plan<H>(slots: &BTreeMap<SlotId, Vec<Slot<H>>>, zid: i32, env: &str) -> bool {
+    slots
+        .range((zid, [0u8; 32], Arm::Default)..=(zid, [u8::MAX; 32], Arm::Default))
+        .any(|(_, list)| list.iter().any(|s| &*s.env == env))
 }
 
 #[derive(Debug)]
@@ -590,6 +671,10 @@ pub struct PlanCache<H> {
     retired: Vec<Retired<H>>,
     retired_bytes: u64,
     negatives: BTreeMap<Failure, Negative>,
+    fences: BTreeMap<i32, Vec<Fence>>,
+    fence_count: usize,
+    /// The sequence number at which a fence was last forgotten (0: never).
+    forgot_at: u64,
     seq: u64,
     conflicts: u64,
 }
@@ -611,9 +696,25 @@ impl<H: PlanHandle> PlanCache<H> {
             retired: Vec::with_capacity(RETIRED_ENTRIES),
             retired_bytes: 0,
             negatives: BTreeMap::new(),
+            fences: BTreeMap::new(),
+            fence_count: 0,
+            forgot_at: 0,
             seq: 0,
             conflicts: 0,
         })
+    }
+
+    /// How many fences are held.
+    pub fn fence_len(&self) -> usize {
+        self.fence_count
+    }
+    /// Whether the cache holds a fence for `(zid, env)`. With none, the
+    /// first publication is taken on the caller's word that it is current
+    /// (see [`PlanCache::publish`]).
+    pub fn fenced(&self, zid: i32, env: &str) -> bool {
+        self.fences
+            .get(&zid)
+            .is_some_and(|l| l.iter().any(|f| &*f.env == env))
     }
 
     pub fn budget(&self) -> &Budget {
@@ -651,7 +752,11 @@ impl<H: PlanHandle> PlanCache<H> {
         if n > self.max_share() || !self.budget.try_take(n) {
             return None;
         }
-        Some(Reservation { bytes: n })
+        self.seq = self.seq.saturating_add(1);
+        Some(Reservation {
+            bytes: n,
+            taken: self.seq,
+        })
     }
 
     /// Gives a reservation's bytes back.
@@ -685,8 +790,13 @@ impl<H: PlanHandle> PlanCache<H> {
     /// captured configuration. `seen_tick` is the math tick the request
     /// read, if it read one; `None` advances nothing and starts no clock.
     ///
-    /// It reads the slot, updates its counters and clones one handle:
-    /// nothing is allocated or freed.
+    /// It reads the fence and the slot, updates their counters and clones
+    /// one handle: nothing is allocated or freed. A fence with no plan
+    /// still takes the seen tick, in place, so its clock runs while the
+    /// plan is rebuilt. A plan older than its fence's ready tick (one kept
+    /// under another configuration while a newer one was published) is
+    /// never served, and a reading earlier than the head-lag clock's start
+    /// cannot show that the bound has not passed, so both miss `head_lag`.
     pub fn lookup(
         &mut self,
         capture: &ConfigCapture,
@@ -700,6 +810,18 @@ impl<H: PlanHandle> PlanCache<H> {
         }
         self.seq = self.seq.saturating_add(1);
         let stamp = self.seq;
+        let fence = self
+            .fences
+            .get_mut(&zid)
+            .and_then(|list| list.iter_mut().find(|f| &*f.env == env));
+        let Some(fence) = fence else {
+            // No fence: no plan either (a resident plan always has one).
+            return Lookup::Miss(self.no_plan_reason(zid, env, seen_tick));
+        };
+        fence.stamp = stamp;
+        if let Some(tick) = seen_tick {
+            fence.see(tick, now);
+        }
         let slot = self
             .slots
             .get_mut(&(zid, capture.digest, Arm::Default))
@@ -708,20 +830,22 @@ impl<H: PlanHandle> PlanCache<H> {
             return Lookup::Miss(self.no_plan_reason(zid, env, seen_tick));
         };
         slot.stamp = stamp;
-        if let Some(tick) = seen_tick {
-            slot.see(tick, now);
-        }
         let ready_tick = slot.ready_tick();
-        let freshness = if ready_tick >= slot.newest_seen {
+        if ready_tick < fence.ready_tick {
+            return Lookup::Miss(MissReason::HeadLag);
+        }
+        let freshness = if ready_tick >= fence.newest_seen {
             match seen_tick {
                 Some(t) if ready_tick > t => Freshness::AheadOfRequest,
                 _ => Freshness::Current,
             }
         } else {
-            match slot.first_seen_ahead {
-                Some(start) if now.since(start) < capture.head_lag_bound_ns => Freshness::Lagging {
-                    behind_ns: now.since(start),
-                },
+            match fence.first_seen_ahead {
+                Some(start) if now >= start && now.since(start) < capture.head_lag_bound_ns => {
+                    Freshness::Lagging {
+                        behind_ns: now.since(start),
+                    }
+                }
                 _ => return Lookup::Miss(MissReason::HeadLag),
             }
         };
@@ -746,14 +870,16 @@ impl<H: PlanHandle> PlanCache<H> {
         }
     }
 
-    /// The loader saw `tick` for `(zid, env)`: the newest seen tick
-    /// advances by maximum under every current slot of that conversation.
+    /// The loader saw `tick` for `(zid, env)`: the newest seen tick of its
+    /// fence advances by maximum, whatever plans it holds. A conversation
+    /// with no fence records nothing.
     pub fn note_seen(&mut self, zid: i32, env: &str, tick: i64, now: Monotonic) {
-        let Some(digest) = self.current else { return };
-        if let Some(list) = self.slots.get_mut(&(zid, digest, Arm::Default)) {
-            for slot in list.iter_mut().filter(|s| &*s.env == env) {
-                slot.see(tick, now);
-            }
+        if let Some(fence) = self
+            .fences
+            .get_mut(&zid)
+            .and_then(|list| list.iter_mut().find(|f| &*f.env == env))
+        {
+            fence.see(tick, now);
         }
     }
 
@@ -761,16 +887,33 @@ impl<H: PlanHandle> PlanCache<H> {
     /// The pointer moves only forward by tick; a plan from an older tick, a
     /// configuration no longer current, or a second content for one tick is
     /// refused, and the existing plan stays in place.
+    ///
+    /// The tick and content checks are made against the conversation's
+    /// fence, which outlives its plans, so they hold after an eviction, a
+    /// clear or a configuration change. A conversation with no fence (new,
+    /// or forgotten, or after a restart) is one the cache knows nothing
+    /// about, and its first publication sets the fence: the cache takes it
+    /// on the caller's word that the plan was built from a read of the
+    /// newest math update (the primary, never a replica that may lag),
+    /// taken after the plan's reservation. A reservation taken before the
+    /// cache last forgot a fence is refused for such a conversation
+    /// ([`Rejection::FenceForgotten`]), so a build that began before the
+    /// forgetting cannot publish an older update into the gap.
     pub fn publish(&mut self, handle: H, reservation: Reservation, now: Monotonic) -> Published<H> {
-        let (zid, digest, tick, env_len) = {
+        let (zid, digest, ready, env_len) = {
             let key = &handle.cached().key;
             (
                 key.zid,
                 key.config_digest,
-                key.math_tick,
+                Ready {
+                    tick: key.math_tick,
+                    content: key.content,
+                    vote_timestamp: key.last_vote_timestamp,
+                },
                 key.math_env.len(),
             )
         };
+        let tick = ready.tick;
         let reject = |handle, reservation, reason| Published::Rejected {
             handle,
             reservation,
@@ -779,6 +922,31 @@ impl<H: PlanHandle> PlanCache<H> {
         if self.current != Some(digest) {
             return reject(handle, reservation, Rejection::Discarded);
         }
+        let fence_at = self.fences.get(&zid).and_then(|list| {
+            list.iter()
+                .position(|f| *f.env == *handle.cached().key.math_env)
+        });
+        let fence_need = match fence_at.and_then(|i| self.fences.get(&zid)?.get(i)) {
+            Some(fence) => {
+                if tick < fence.ready_tick {
+                    return reject(handle, reservation, Rejection::Superseded);
+                }
+                if tick == fence.ready_tick && !fence.holds(&handle.cached().key) {
+                    self.conflicts = self.conflicts.saturating_add(1);
+                    return reject(handle, reservation, Rejection::GenerationConflict);
+                }
+                0
+            }
+            None => {
+                if reservation.taken < self.forgot_at {
+                    return reject(handle, reservation, Rejection::FenceForgotten);
+                }
+                if self.fence_count >= FENCE_ENTRIES && self.forgettable_fence().is_none() {
+                    return reject(handle, reservation, Rejection::FenceFull);
+                }
+                FENCE_OVERHEAD + env_len as u64
+            }
+        };
         let charge = handle.cached().charge();
         let resident = self.resident_charge(zid);
         let max_share = self.max_share();
@@ -812,44 +980,139 @@ impl<H: PlanHandle> PlanCache<H> {
                 {
                     return reject(handle, reservation, Rejection::OverShare);
                 }
-                if reservation.bytes < charge {
+                let need = charge.saturating_add(fence_need);
+                if reservation.bytes < need {
                     return reject(handle, reservation, Rejection::Undercharged);
                 }
-                let excess = reservation.bytes - charge;
+                let excess = reservation.bytes - need;
+                let new_env = fence_at
+                    .is_none()
+                    .then(|| handle.cached().key.math_env.clone());
                 let old = std::mem::replace(&mut slot.ready, handle);
                 let old_bytes = std::mem::replace(&mut slot.ready_charge, charge);
-                slot.see(tick, now);
                 self.budget.give_back(excess);
                 self.retire(old, old_bytes);
+                self.seq = self.seq.saturating_add(1);
+                let stamp = self.seq;
+                self.fence_ready(zid, fence_at, new_env, ready, fence_need, now, stamp);
                 Published::Ready
             }
             None => {
                 let meta = SLOT_OVERHEAD + env_len as u64;
-                let need = charge.saturating_add(meta);
-                if resident.saturating_add(need) > max_share {
+                let entry = charge.saturating_add(meta);
+                if resident.saturating_add(entry) > max_share {
                     return reject(handle, reservation, Rejection::OverShare);
                 }
+                let need = entry.saturating_add(fence_need);
                 if reservation.bytes < need {
                     return reject(handle, reservation, Rejection::Undercharged);
                 }
                 let excess = reservation.bytes - need;
                 self.budget.give_back(excess);
                 let env: Box<str> = handle.cached().key.math_env.clone();
-                let mut slot = Slot {
+                let new_env = fence_at.is_none().then(|| env.clone());
+                self.seq = self.seq.saturating_add(1);
+                let stamp = self.seq;
+                self.slots.entry(id).or_default().push(Slot {
                     env,
                     ready: handle,
                     ready_charge: charge,
                     meta_charge: meta,
-                    newest_seen: tick,
-                    first_seen_ahead: None,
-                    stamp: 0,
-                };
-                slot.see(tick, now);
-                self.seq = self.seq.saturating_add(1);
-                slot.stamp = self.seq;
-                self.slots.entry(id).or_default().push(slot);
+                    stamp,
+                });
+                self.fence_ready(zid, fence_at, new_env, ready, fence_need, now, stamp);
                 Published::Ready
             }
+        }
+    }
+
+    /// Moves the fence of `(zid, env)` to a newly ready plan, or makes it,
+    /// forgetting the least recently used idle fence first if the
+    /// fence table is full (the caller has checked that one exists).
+    #[allow(clippy::too_many_arguments)]
+    fn fence_ready(
+        &mut self,
+        zid: i32,
+        at: Option<usize>,
+        new_env: Option<Box<str>>,
+        ready: Ready,
+        charge: u64,
+        now: Monotonic,
+        stamp: u64,
+    ) {
+        if let Some(fence) = at.and_then(|i| self.fences.get_mut(&zid)?.get_mut(i)) {
+            fence.mark_ready(ready, now, stamp);
+            return;
+        }
+        let Some(env) = new_env else { return };
+        if self.fence_count >= FENCE_ENTRIES {
+            if let Some((z, i)) = self.forgettable_fence() {
+                self.forget_fence(z, i);
+            }
+        }
+        let mut fence = Fence {
+            env,
+            ready_tick: ready.tick,
+            ready_content: ready.content,
+            ready_vote_timestamp: ready.vote_timestamp,
+            newest_seen: ready.tick,
+            first_seen_ahead: None,
+            stamp,
+            charge,
+        };
+        fence.see(ready.tick, now);
+        self.fences.entry(zid).or_default().push(fence);
+        self.fence_count += 1;
+    }
+
+    /// The least recently used fence that covers no resident plan.
+    fn forgettable_fence(&self) -> Option<(i32, usize)> {
+        let slots = &self.slots;
+        self.fences
+            .iter()
+            .flat_map(|(z, list)| list.iter().enumerate().map(move |(i, f)| (*z, i, f)))
+            .filter(|(z, _, f)| !covers_a_plan(slots, *z, &f.env))
+            .min_by_key(|(z, i, f)| (f.stamp, *z, *i))
+            .map(|(z, i, _)| (z, i))
+    }
+
+    fn forget_fence(&mut self, zid: i32, index: usize) {
+        let Some(list) = self.fences.get_mut(&zid) else {
+            return;
+        };
+        if index >= list.len() {
+            return;
+        }
+        let fence = list.swap_remove(index);
+        if list.is_empty() {
+            self.fences.remove(&zid);
+        }
+        self.budget.give_back(fence.charge);
+        self.fence_count = self.fence_count.saturating_sub(1);
+        self.seq = self.seq.saturating_add(1);
+        self.forgot_at = self.seq;
+    }
+
+    /// Forgets every fence that covers no resident plan, as a restart does.
+    fn forget_idle_fences(&mut self) {
+        let slots = &self.slots;
+        let (mut freed, mut forgot) = (0u64, 0usize);
+        for (zid, list) in &mut self.fences {
+            list.retain(|f| {
+                let keep = covers_a_plan(slots, *zid, &f.env);
+                if !keep {
+                    freed = freed.saturating_add(f.charge);
+                    forgot += 1;
+                }
+                keep
+            });
+        }
+        self.fences.retain(|_, list| !list.is_empty());
+        if forgot > 0 {
+            self.budget.give_back(freed);
+            self.fence_count = self.fence_count.saturating_sub(forgot);
+            self.seq = self.seq.saturating_add(1);
+            self.forgot_at = self.seq;
         }
     }
 
@@ -931,7 +1194,10 @@ impl<H: PlanHandle> PlanCache<H> {
     /// `config_disabled` and publications under it are discarded; plans of
     /// other configurations move to the retired list as room allows (call
     /// again after reclaiming to move the rest), and build refusals held
-    /// under other configurations are forgotten.
+    /// under other configurations are forgotten. A new configuration keeps
+    /// every fence, so it can never publish an older math update than one
+    /// already published; disabling (`None`) forgets every fence that
+    /// covers no plan still resident, as a restart does.
     pub fn set_config(&mut self, digest: Option<[u8; 32]>) -> Moved {
         self.current = digest;
         let mut freed = 0u64;
@@ -943,7 +1209,11 @@ impl<H: PlanHandle> PlanCache<H> {
             _ => true,
         });
         self.budget.give_back(freed);
-        self.retire_all(|id| Some(id.1) != digest)
+        let moved = self.retire_all(|id| Some(id.1) != digest);
+        if digest.is_none() {
+            self.forget_idle_fences();
+        }
+        moved
     }
 
     /// Hands back one retired plan whose only remaining reference is the
