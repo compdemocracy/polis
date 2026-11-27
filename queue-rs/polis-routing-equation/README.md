@@ -858,7 +858,7 @@ digest, or a digest removed; a README parameter table that differs from the
 registry; a rule missing from the manifests or listed twice; anything under
 `src/` that reaches files, the network, the clock, the environment, threads,
 processes, output or global state; a dependency other than `serde` and
-`serde_json`, or any crate in the workspace but `polis-routing-plan`
+`serde_json`, or any crate in the dependency graph but `polis-routing-plan`
 depending on this one (directly, by any kind of dependency: normal, dev or
 build, renamed, by path or for one target only); a
 binding that does not name an implemented weight-producing rule reproducing
@@ -1080,11 +1080,13 @@ This runs, in `queue-rs`: `cargo fmt --check`, `cargo clippy -D warnings`, the
 tests (printing the grid and draw counts), and three rules: a source scan (no
 file, network, clock, environment, thread, process, output or global state
 under `src/`; clippy's `clippy.toml` is a second witness), a dependency rule
-read from `cargo metadata` (at most one crate in the workspace depends on
+read from `cargo metadata --all-features` (at most one crate in the full
+dependency graph depends on
 this one directly, and only `polis-routing-plan`, the pure adapter in
 `queue-rs/polis-routing-plan`; none is also fine; every kind of dependency
 counts: normal, dev and build, renamed with `package =`, by path, and
-target-specific; this crate depends on `serde` and `serde_json` only; the rule
+target-specific, including optional dependencies and non-workspace path
+crates; this crate depends on `serde` and `serde_json` only; the rule
 first judges a set of constructed metadata documents, a planted dependency of
 each kind among them, and fails if it judges any wrongly), and an
 unchanged-fixture
