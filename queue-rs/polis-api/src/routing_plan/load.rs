@@ -95,35 +95,39 @@ const KEY_TEXT_FIXED: u64 = 128;
 /// migrations) and a `json` one (a database that predates them): `->` exists
 /// for both, and the cast is a no-op on `json`. Every column is named and
 /// none is read by position, so the column order of the table does not
-/// matter. Read only; one statement is one snapshot.
+/// matter. Read only; one statement is one snapshot. The projection is
+/// built once per row in a subquery the planner keeps (`offset 0`), so the
+/// length check and the value read one result; it is not sorted and not
+/// materialized, so a refused large document is not written to temporary
+/// files on the server (the key order is the list's, as the aggregate reads
+/// its input in order).
 pub(crate) const SOURCE_STATEMENT: &str = "\
-with r as materialized (
-  select m.math_env::text as math_env,
-         m.math_tick::int8 as math_tick,
-         m.last_vote_timestamp::int8 as last_vote_timestamp,
-         floor(extract(epoch from now()) * 1000)::int8 as db_now_ms,
-         coalesce(
-           (select json_object_agg(e.k, e.v order by e.o)
-              from (values
-                (1, 'group-votes', (m.data -> 'group-votes')::json),
-                (2, 'pca', case when (m.data -> 'pca' -> 'comment-extremity') is null then null
-                                else json_build_object('comment-extremity',
-                                       (m.data -> 'pca' -> 'comment-extremity')::json) end),
-                (3, 'tids', (m.data -> 'tids')::json),
-                (4, 'meta-tids', (m.data -> 'meta-tids')::json),
-                (5, 'comment-priorities', (m.data -> 'comment-priorities')::json),
-                (6, 'group-clusters', (m.data -> 'group-clusters')::json),
-                (7, 'base-clusters', (m.data -> 'base-clusters')::json)
-              ) as e(o, k, v)
-             where e.v is not null),
-           '{}'::json)::text as projection
-    from math_main m
-   where m.zid = $1 and m.math_env = $2 and m.math_tick >= 0
-)
-select r.math_env, r.math_tick, r.last_vote_timestamp, r.db_now_ms,
-       octet_length(r.projection)::int8 as projection_bytes,
-       case when octet_length(r.projection) <= $3 then r.projection end as projection
-  from r";
+select m.math_env::text as math_env,
+       m.math_tick::int8 as math_tick,
+       m.last_vote_timestamp::int8 as last_vote_timestamp,
+       floor(extract(epoch from now()) * 1000)::int8 as db_now_ms,
+       octet_length(p.projection)::int8 as projection_bytes,
+       case when octet_length(p.projection) <= $3 then p.projection end as projection
+  from math_main m
+  cross join lateral (
+    select coalesce(
+             (select json_object_agg(e.k, e.v)
+                from (values
+                  ('group-votes', (m.data -> 'group-votes')::json),
+                  ('pca', case when (m.data -> 'pca' -> 'comment-extremity') is null then null
+                               else json_build_object('comment-extremity',
+                                      (m.data -> 'pca' -> 'comment-extremity')::json) end),
+                  ('tids', (m.data -> 'tids')::json),
+                  ('meta-tids', (m.data -> 'meta-tids')::json),
+                  ('comment-priorities', (m.data -> 'comment-priorities')::json),
+                  ('group-clusters', (m.data -> 'group-clusters')::json),
+                  ('base-clusters', (m.data -> 'base-clusters')::json)
+                ) as e(k, v)
+               where e.v is not null),
+             '{}'::json)::text as projection
+    offset 0
+  ) p
+ where m.zid = $1 and m.math_env = $2 and m.math_tick >= 0";
 
 /// Every way one load ends. Closed; none carries a comment id, a
 /// participant, comment text or a vote.
