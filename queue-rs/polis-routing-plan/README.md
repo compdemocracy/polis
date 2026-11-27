@@ -284,11 +284,46 @@ for a source of `len` bytes, whether it then refuses or not, known before
 walk's reader scratch, the escaped keys it keeps decoded, its spill of key
 values (grown by exact doubling), the text kept of each read key, and the
 union's vector, the largest phase counted, a reallocation counted as holding
-the old room and the new. It is made from lengths alone, so it is loose: on
+the old room and the new; plus one error message serde formats (a type or
+field error holds one string, written by `Debug` at up to six bytes for each
+byte, in a `String` grown by doubling: three times `6 x len + 512`), and an
+allowance of 16 KiB for the float conversion of a long number. It is made
+from lengths alone, so it is loose (about 28 times the source): on
 constructed inputs it deliberately overcharges; it is not a measured memory
 requirement. The allocation tests force reallocations to move, counting old
 and new buffers together. Compact repeated keys exercise the spill term even
-at the default limits.
+at the default limits; a malformed id array of 0x7f bytes exercises the
+error message's term.
+
+**The measured parse charge.** `Projection::measure(bytes, limits)` is one
+pass over the same bytes the parse will read, before it reads them, that
+allocates nothing (`tests/measure.rs` counts zero allocations and zero frees
+over every constructed input). It accepts exactly the JSON serde_json
+accepts, except that it does not convert numbers (a number serde_json then
+refuses as out of range is measured and accepted); it refuses anything else
+as `Malformed`, a length over `max_bytes` and a depth over `max_depth` as
+`TooLarge`. It counts: the longest string or key and the longest number, as
+written; the deepest nesting; the escaped keys' bytes; the most completed
+pairs held at once in open objects past their eighth key (the walk's spill;
+the eight is one constant, `scan::SMALL`); the entries of `tids` and
+`meta-tids`; and the read keys' text. `Projection::measured_parse_reservation`
+keeps the phases of `parse_reservation` term for term with those counts in
+place of the length: with `T` the longest token (string, number or depth),
+the largest of the walk (`3T + 64` + escaped keys + 24 x spill), the split
+(`3T + 64` + read text) and the union when it runs (read text + 8 x the ids
++ `3T + 64`), plus one error message (`3 x (6T + 512) + 128`), 16 KiB for
+the float conversion and 1 KiB fixed. `Projection::parse_measured` takes the
+caller's measure: bytes other than those measured are refused before
+anything is allocated, and where the walk would meet more than measured
+(a longer string, more escaped key bytes, deeper nesting, a spill past the
+measured population, before it is given room) or the counts of `tids`,
+`meta-tids` or the read text differ, the parse refuses with
+`TooLarge { Reservation }`. `parse` measures first itself, so every
+projection carries its measure (`Projection::measured`), and its frames'
+readers' scratch is charged from `T` (eight readers at `3T + 64`, one error
+message, one float conversion) instead of four times the keys' text. On the
+constructed witnesses (5 groups, meta every 20th), the measured parse charge
+is {MEASURED} (see `witnesses_staged_at_size`).
 
 The caller must separately charge the capacity of the input byte buffer and
 `row.math_env` before calling parse: those allocations already exist and are
@@ -615,9 +650,12 @@ whose reservation is smaller than its charge is `Undercharged`.
 `admit_build(len, limits, allowance)` reserves a build before it starts: the
 receive buffer, the parse charge for `len` bytes (`Projection::parse_reservation`)
 and the caller's allowance for the build; a source over `max_bytes`, or whose
-charge does not fit a share, is refused. The parse charge is loose (about ten
-times the source), so the default 64 MiB `max_bytes` is not an admission
-promise: a source that large is refused by its charge.
+charge does not fit a share, is refused. That parse charge is the pre-read
+form, loose (about 28 times the source), so the default 64 MiB `max_bytes`
+is not an admission promise: a source that large is refused by its charge.
+The measured form (`Projection::measured_parse_reservation`, from
+`Projection::measure` over the received bytes) is close to the source's
+length plus the union's vector.
 
 **Eviction and fairness.** No conversation's resident plans may charge more
 than a quarter of the budget (`OverShare`), and no single reservation may be

@@ -414,7 +414,7 @@ fn value(r: &mut Rng, depth: u32, out: &mut String) {
                 out.push_str(&r.below(50_000).to_string());
             }
         }
-        _ => out.push_str(*r.pick(&["true", "false", "null"])),
+        _ => out.push_str(r.pick(&["true", "false", "null"])),
     }
     out.push_str(r.pick(&WS));
 }
@@ -461,7 +461,7 @@ fn mutate(r: &mut Rng, b: &[u8]) -> Vec<u8> {
         }
         3 => v.extend_from_slice(r.pick(&[&b"x"[..], b"{}", b" ,", b"0", b"\0"])),
         4 => {
-            let ins: &[u8] = *r.pick(&[
+            let ins: &[u8] = r.pick(&[
                 &b"\"\\ud800\""[..],
                 b"\"\\udc00\"",
                 b"\"\\x\"",

@@ -542,7 +542,7 @@ fn inadmissible_shapes_refused() {
         (
             "many groups (64, fully voted)",
             many(1000),
-            many(6000),
+            many(11_000),
             "comments",
         ),
         (
