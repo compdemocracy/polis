@@ -380,7 +380,8 @@ fn floor_build_within_its_bound() {
 /// 40,000 comments in five groups (the floor, meta policy fixed): the
 /// projection's length; the parse's peak against its charge; the frames and
 /// build's peak against `build_bound` and against `build_allowance` at a
-/// byte limit of that length; the plan's held bytes against its charge.
+/// byte limit of that length; the plan's held bytes against its charge;
+/// and every term of the bound by name.
 #[test]
 fn witnesses_at_size() {
     let config = floor(MetaPolicy::Fixed, 0.1);
@@ -396,6 +397,19 @@ fn witnesses_at_size() {
         let (parsed, _, parse_peak, _) = counted(|| Projection::parse(&source, row(), &limits));
         let projection = parsed.unwrap();
         let bound = Plan::build_bound(&config, projection.tally(), projection.raw_len()).unwrap();
+        // Every term of the bound by name; they add up to it.
+        let mut terms = Vec::new();
+        Plan::build_bound_terms(
+            &config,
+            projection.tally(),
+            projection.raw_len(),
+            |name, bytes| terms.push((name, bytes)),
+        )
+        .unwrap();
+        for (name, bytes) in &terms {
+            println!("{n} comments: {name}: {bytes}");
+        }
+        assert_eq!(terms.iter().map(|t| t.1).sum::<u64>(), bound);
         let allowance = Plan::build_allowance(&config, &limits).unwrap();
         let (plan, _, build_peak, held) = counted(|| {
             let f = projection.frames(config.needs()).unwrap();

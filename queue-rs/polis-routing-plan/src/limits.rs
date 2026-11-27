@@ -46,6 +46,8 @@ pub enum Limit {
     Groups,
     Cells,
     Memberships,
-    /// The expanded-size reservation does not fit in 64 bits.
+    /// The expanded-size reservation does not fit in 64 bits; or a frame's
+    /// decode met more elements than the walk counted for a vector it gave
+    /// exactly that room, or could not get exactly that room.
     Reservation,
 }

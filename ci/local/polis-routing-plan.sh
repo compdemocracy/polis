@@ -3,7 +3,8 @@
 # adapter): format, clippy, its tests, and two rules a reviewer can hold it
 # to: the source scan (nothing under src/ reaches files, network, clock,
 # environment, threads, processes, output or global state; the same list as
-# the routing equation crate's) and the dependency rule (it depends on
+# the routing equation crate's; build.rs, which runs at build time only and
+# reads the compiler's release, is outside it) and the dependency rule (it depends on
 # polis-routing-equation, serde, serde_json and sha2, and nothing else). They
 # are review aids, not a proof: someone editing this script defeats them.
 . "$(dirname "$0")/runtime.sh"
@@ -17,6 +18,12 @@ fail() { printf 'check-polis-routing-plan: %s\n' "$*" >&2; exit 1; }
   cargo fmt -p polis-routing-plan --check
   cargo clippy --locked -p polis-routing-plan --all-targets -- -D warnings
   cargo test --locked -p polis-routing-plan
+  # Under any rustc but the reviewed one (src/reserve.rs, REVIEWED_RUSTC),
+  # every bound that rests on the standard library's implementation refuses.
+  # The build script can be told to name no release, which is how that
+  # refusal is tested under the reviewed rustc; it is rebuilt both ways.
+  POLIS_ROUTING_PLAN_UNREVIEWED_STD=1 cargo test --locked -p polis-routing-plan \
+    --test btree_bound -- --exact toolchain_gate_matches_the_compiler
 )
 
 # The source scan.

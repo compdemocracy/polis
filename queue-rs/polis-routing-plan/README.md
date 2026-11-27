@@ -166,9 +166,20 @@ before any frame is allocated:
    integers adds no id, so a malformed unused key cannot refuse another rule.
 5. **The reservation**: `Projection::reservation(needs)` is an upper bound, in
    bytes, on everything `frames(needs)` allocates, computed from the walk's
-   counts alone, never from the source's length. It is conservative on
-   purpose: it assumes every vector doubled its way to its length and every
-   ordered map node holds one entry. Its readers' scratch is charged at four
+   counts alone, never from the source's length. Each vector `frames` fills
+   from a counted key (`tids`, the extremity values and pairs, `meta-tids`
+   and the meta ids, `comment-priorities`, the groups and the cells) is
+   given its room once, with `try_reserve_exact`, for exactly the walk's
+   count, and is refused unless its capacity is then exactly that count
+   (neither `with_capacity` nor `try_reserve_exact` is documented to be
+   exact); an element past the count refuses the read (`TooLarge {
+   Reservation }`) and is never pushed, so these vectors never reallocate
+   and each is charged its exact size, `n` elements. `group-votes` is
+   decoded straight into the one vector of cells the group frame is made
+   from. The membership keys' vectors, which serde's own decoders read and
+   grow, are charged as if each doubled its way to its length. Every
+   ordered map is charged a fifth of a node per entry plus one node (see
+   **Ordered maps** below). Its readers' scratch is charged at four
    times the length of the read keys' text (`Projection::raw_len`), which
    covers long strings and long numbers alike. It is meant to be charged
    against a budget before the frames are built.
@@ -183,7 +194,88 @@ reach: every counted entry owns two bytes of the source (its first byte and
 the byte that ends it), so the counts together are at most half the length,
 and each stays within its limit; the counts are filled greedily from the one
 that costs most per entry (the bound is a sum of terms linear in one count
-each, which a test checks).
+each, which a test checks). `Plan::build_bound_terms` hands out the same
+bound one named term at a time. Both are known before the source is read,
+so neither can know which comment ids repeat: they charge every cell as a
+distinct comment and none of them in the extremity frame, and they add the
+two stages below together.
+
+**By stage, once the frames are read.** A build holds at most the larger of
+two stages, not their sum, because what each allocates beyond the frames is
+freed before the other begins:
+
+| what | alive | charged in |
+|---|---|---|
+| readers' scratch | one key's decode at a time, inside `frames` | frames stage |
+| decoded vectors (tids, extremity values and pairs, meta tids and ids, priorities, groups, cells) | locals of the function that makes each frame; the pairs and the cells are moved into the library and freed when its frame is made | frames stage |
+| membership check (its vectors and its two maps) | inside the group frame's function | frames stage |
+| the frames' maps (stored map, extremity map, meta set, group members and cells) and their source ids | from when each is made until the frames are dropped, so across both stages | both |
+| the floor's scratch (latest counts, collected id sets, scored map, factors, unscored set, group-informed consensus's per-group vectors) and the returned plan | inside `Plan::build`; the plan from then on | build stage |
+| the projection (its keys' text, `held()`) and the buffer it was parsed from | the caller's: `Frames` borrows nothing from them | neither: the caller charges them, or drops both before the build |
+
+`Plan::frames_stage_bound(config, tally, raw)` is the frames stage, the same
+number as `Projection::reservation(config.needs())`. `Plan::build_stage_bound(
+config, counts)` is the build stage, from `Frames::counts()`: the frames' real
+lengths, and two counts taken while the frames are made, with no allocation
+(the group frame's cells are sorted in place by comment with `sort_unstable`
+before the library's frame is made from them, and merged once with the
+extremity frame's ordered ids): d, the distinct comments among the cells (the
+latest counts' keys), and u, their union with the extremity's ids (the ids
+the floor weighs). The latest counts and the set of the cells' ids are
+charged at d entries, the vector that set is gathered into at one per cell;
+the weighed ids' vector at d + e (e the extremity frame's length), their set,
+the scored map, the factors and the unscored set at u. The order of the cells
+changes no frame and no acceptance; for a source with two faults it can
+change which is named. `Frames::retained_bound()` is the frames' maps alone.
+`Plan::staged_build_bound` is the larger of the two stages. A test measures
+each stage under the counting allocator (`tests/stage_bounds.rs`).
+
+At the two constructed witnesses (5 groups, meta every 20th comment, the
+floor with meta fixed), measured:
+
+| | 10,000 comments | 40,000 comments |
+|---|---:|---:|
+| projection | 1,567,252 | 6,398,757 |
+| parse peak / charge | 1,567,322 / 15,673,608 | 6,734,685 / 63,988,652 |
+| frames stage peak / bound | 2,715,096 / 10,975,438 | 10,845,596 / 43,985,668 |
+| build stage peak / bound | 4,213,606 / 9,754,230 | 16,846,206 / 38,935,560 |
+| staged bound (the larger) | 10,975,438 | 43,985,668 |
+| summed `build_bound` | 36,730,216 | 146,799,896 |
+| plan held / charged | 2,062,864 / 2,548,064 | 8,252,320 / 10,186,504 |
+
+Both staged bounds fit one conversation's share of the default budget
+(67,108,864). The frames stage is the larger, because the readers' scratch is
+still charged at four times the keys' text. The receive buffer and the parse
+charge at 40,000 comments (70,387,409 together) do not fit a share: that is
+the parse's charge, not the build's. Over a share, and so refused by the
+cache's `try_reserve` (the caller keeps today's draw): 64 fully voted groups
+from about 5,350 comments (about 342,000 cells, the frames stage), and a
+membership-dense source of 5 groups over 10,000 comments from about 100,000
+membership entries (the membership keys' vectors, still charged as doubled).
+
+**Ordered maps.** Every `BTreeMap` and `BTreeSet` the frames and the build
+make is charged `n * ceil(node / 5) + node` bytes for `n` entries
+(`ordered_maps_charge`), where `node` is an internal node's size with room
+for padding; `k` maps holding `n` entries in all (the group frame's cells,
+one inner map per group) are charged `n * ceil(node / 5) + k * node`. That
+is at least `n / 5 + k` nodes. It rests on the standard library's B-tree:
+every node but the root holds at least five entries (B = 6, `MIN_LEN` = 5
+in the 1.98.1 source), through insertion and `entry`, `collect` (a bulk
+build) and `clone`, the only operations the build path uses on a map (no
+`remove`, `retain`, `append` or `split_off`). The documentation promises
+only "B-1 to 2B-1 elements" with B unstated, so this is the
+implementation's, as vector doubling already was. `tests/btree_bound.rs`
+counts the nodes and bytes of every key and value shape charged, after
+every insertion in five orders (ascending, descending, middle first,
+random, and the order that leaves nodes least full) up to 200,000 entries,
+and for collect and clone; the least-full order reaches 97% of `n / 5 + 1`
+nodes. A build script names the compiling rustc's release; under any
+release but `REVIEWED_RUSTC` (in `src/reserve.rs`), the map, vector and
+parse charges are `None`, so every reservation made from them refuses and
+the caller keeps today's draw. To move to a new release, run
+`tests/btree_bound.rs` under it, read its B-tree and `Vec` source for the
+constants quoted at `reserve::maps`, then change `REVIEWED_RUSTC` and its
+two `cfg` lines together.
 
 Before any of this, `Projection::parse_reservation(len, limits)` is an upper
 bound on the additional heap allocation held by `parse` at any one time
@@ -206,7 +298,11 @@ metadata are outside these heap-payload bounds. Once `parse` returns,
 the row's environment capacity, the source id). Transfer the row's charge
 into that retained charge without an uncharged ownership gap; do not charge
 the same row twice. Keep charging the original byte buffer until it is freed,
-and reserve `reservation(needs)` separately while building frames. A caller
+and reserve `reservation(needs)` separately while building frames. The build
+stage does not include the buffer or the projection: a caller that keeps
+either alive through `Plan::build` charges it beside the build stage;
+otherwise it drops both once the frames are read (taking anything it needs
+from the projection, such as its row and content ids, first). A caller
 whose budget cannot cover the parse charge must refuse before parsing (or
 use a lower `max_bytes`); the default size limit is not an admission promise.
 
@@ -219,7 +315,7 @@ reservation that does not fit in 64, is refused.
 
 | Refusal | When |
 |---|---|
-| `TooLarge { what }` | a limit is exceeded: bytes, depth, comments, groups, cells, memberships, or the reservation |
+| `TooLarge { what }` | a limit is exceeded: bytes, depth, comments, groups, cells, memberships, or the reservation (which a decode meeting more elements than the walk counted also gives) |
 | `Malformed { key }` | not JSON, not the key's shape, an id that is negative or not written as a decimal id, a number too large for a double |
 | `DuplicateKey { key }` | an object gives a key twice |
 | `Missing { key }` | a key a needed frame is made from is absent or `null` |
@@ -304,7 +400,11 @@ runs `ci/local/polis-routing-plan.sh`: `cargo fmt --check`, clippy with
 warnings denied, the tests, a source scan of `src/` (the routing equation
 crate's list: no files, network, clock, environment, threads, processes,
 output, global state or `unsafe`), and the dependency rule (exactly
-`polis-routing-equation`, `serde`, `serde_json` and `sha2`). Hosted CI runs
+`polis-routing-equation`, `serde`, `serde_json` and `sha2`); and the
+toolchain test once more with the build script told to name no release,
+where every bound resting on the standard library must refuse. `build.rs`
+reads the compiler's release at build time; it is outside the source scan,
+and nothing under `src/` reads anything. Hosted CI runs
 the same command. `make check-polis-routing-equation` then sees this crate as
 the equation crate's one dependent, which its own rule allows.
 
@@ -368,17 +468,18 @@ chance, and is never reported as the plan's.
 
 **Memory.** `Plan::charged_bytes()` is an upper bound on what a plan holds
 for as long as it lives, with one `Arc` around it: the plan itself, every
-source id at its longest (128 bytes), every ordered map and set at one node
-per entry plus one, each scored comment's factors, the stored map's entries
+source id at its longest (128 bytes), every ordered map and set at a fifth
+of a node per entry plus one node, each scored comment's factors, the stored map's entries
 and the meta set the floor keeps (their counts carried on `Frames`, since the
 library's types do not expose them), and the terms. `Plan::draw_reservation(n)`
 is an upper bound on everything one draw over `n` ids allocates, held all at
 once until its result is dropped: the converted ids, the duplicate check, the
 variant's scratch vectors, the receipt, and a fixed allowance per call. Both
 are pure, allocation free and checked; an overflow charges `usize::MAX` or
-gives `None`. On the constructed cases of `tests/plan_allocation.rs` both are
-loose, about five times what was measured (a floor plan over 10,000 comments
-and three groups held 2,035,552 bytes against a charge of 11,291,440). The
+gives `None`. On the constructed cases of `tests/plan_allocation.rs` the
+charge is about a quarter above what was measured (a floor plan over 10,000
+comments and three groups held 2,035,552 bytes against a charge of
+2,532,524; one node per map entry had charged it 11,291,440). The
 budget that charges them, the try-reservation before a draw, and holding a
 draw's reservation until its computation has finished and released its
 memory (also after a request's deadline has passed) are the server's, not this
