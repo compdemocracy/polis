@@ -1155,3 +1155,33 @@ fn restart_is_a_cold_cache() {
     );
     assert_eq!(hit(&mut c, A, 7, None, 3), (10, Freshness::Current));
 }
+
+/// Disabling forgets idle fences as a restart does, so a build whose
+/// reservation was taken before the disable cannot publish an older update
+/// once the cache is enabled again; a fresh reservation can.
+#[test]
+fn disable_forgets_like_a_restart() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    let late = m.uniform(7, 8, A);
+    let late_r = c.try_reserve(late.cached().charge() + 4096).unwrap();
+    c.set_config(None);
+    drain(&mut c);
+    c.set_config(Some(A));
+    assert!(!c.fenced(7, "example"));
+    match c.publish(late, late_r, t(1)) {
+        Published::Rejected {
+            handle,
+            reservation,
+            reason,
+        } => {
+            assert_eq!(reason, Rejection::FenceForgotten);
+            drop(handle);
+            c.release(reservation);
+        }
+        Published::Ready => panic!("an older update published across a disable"),
+    }
+    publish(&mut c, m.uniform(7, 10, A), 2).unwrap();
+    assert_eq!(hit(&mut c, A, 7, None, 3), (10, Freshness::Current));
+}
