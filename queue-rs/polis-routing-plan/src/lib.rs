@@ -11,14 +11,20 @@
 //! the next comment from it in one call (`Plan`), with the caller's random
 //! unit.
 //!
+//! It also holds the byte-accounted cache of plans (`PlanCache`) as a pure
+//! state machine: the caller owns the lock around it, the shared handle
+//! each plan lives in, the clock (time arrives as an argument) and any
+//! randomness (jitter arrives as a number).
+//!
 //! It is a pure library: nothing in Polis calls it yet. It opens nothing,
-//! reads no clock, keeps no state and logs nothing; it reads the bytes it is
-//! handed. Every size is checked before anything is expanded, and anything it
+//! reads no clock, keeps nothing beyond the values a caller holds and logs
+//! nothing; it reads the bytes it is handed. Every size is checked before anything is expanded, and anything it
 //! cannot read exactly is refused, never repaired. The README says where each
 //! count comes from in the math result.
 
 #![forbid(unsafe_code)]
 
+mod cache;
 mod decode;
 mod identity;
 mod limits;
@@ -28,6 +34,13 @@ mod refusal;
 mod reserve;
 mod scan;
 
+pub use cache::{
+    Arm, Budget, BundleKey, CACHE_FIXED, CachedPlan, ConfigCapture, DEFAULT_CACHE_BYTES,
+    ENTRY_OVERHEAD, Failure, Freed, Freshness, KeyMismatch, Lookup, MAX_SHARE_DIVISOR, MetaSource,
+    MissReason, Monotonic, Moved, NEGATIVE_ENTRIES, NEGATIVE_OVERHEAD, PlanCache, PlanHandle,
+    Published, RETIRED_BYTES_DIVISOR, RETIRED_ENTRIES, RETRY_BASE_NS, RETRY_CAP_NS, Reclaim,
+    Recorded, Rejection, Reservation, SLOT_OVERHEAD, SourceKey, WantedKey, retry_delay_ns,
+};
 pub use identity::{ContentId, RowIdentity, SOURCE_ID_PREFIX, source_id};
 pub use limits::{Limit, SourceLimits};
 pub use plan::{
