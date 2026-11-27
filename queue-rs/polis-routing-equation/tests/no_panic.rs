@@ -371,7 +371,7 @@ fn no_corrected_rule_entry_point_panics() {
             }
         });
         // Importance terms over the weights the rules produced. The marks use
-        // the full u64 range; only the 2019 helper is bounded (see above).
+        // the full u64 range, as do the 2019 helper's counts below.
         let terms = [
             TermParams::ImportanceLift1(LiftParams::default()),
             TermParams::ImportanceLift1(LiftParams::new(0.0, 1000.0).unwrap()),

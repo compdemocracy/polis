@@ -285,8 +285,9 @@ to other ids.
 ### The floor, the uniform rule and the stable draw
 
 These exist for one purpose: an honest comparison of rules (an A/B test).
-Such a comparison needs every comment to keep a known, recorded chance of
-being shown, and the chance written on the receipt to be the true one.
+Such a comparison needs every admitted comment to keep a known, recorded
+chance of being shown, and a receipt that reports that chance within the
+stated numerical bound.
 
 - **`uniform/1`** gives every candidate the same chance, 1/n. It reads no
   weights. It is the floor's lane on its own, and a baseline for replays.
@@ -346,9 +347,11 @@ being shown, and the chance written on the receipt to be the true one.
   equal the reported probability bit for bit. No lane is drawn first:
   the draw is over the marginal chances, so the receipt never names "the lane
   it fell in".
-- **What it rewards that today's equation does not:** nothing by itself; it
-  guarantees exposure. It is symmetric in the sense its base is: the floor is
-  the same for every comment.
+- **What it rewards that today's equation does not:** nothing by itself; a
+  positive, representable floor gives each admitted comment a positive
+  chance on an accepted draw. It does not guarantee that a finite sequence
+  of draws shows every comment. The floor is the same for every comment;
+  the base rule determines the asymmetry.
 
 ### Importance (the checkbox on a vote)
 
@@ -357,7 +360,7 @@ here use those marks; none is chosen.
 
 - **`issue217-voter-weight/1`** is the formula of public issue #217 (2019):
   a marked vote weighs `(votes cast / comments) * (100 / marks used) + 1`,
-  an unmarked one 1. Its worked numbers come out exactly: 600 of 600 with 2
+  an unmarked one 1. Its worked numbers round correctly: 600 of 600 with 2
   marks gives 51; 300 of 600 with 2 gives 26; 10 of 600 with 2 gives 11/6
   (the issue's "1.83"); 300 of 600 with 150 gives 4/3 (the issue's "1.333").
   The issue multiplies the vote matrix by these weights; it does not say how
@@ -390,19 +393,25 @@ must leave those votes out of `eligible`; the crate cannot tell.
 
 None of these rules is chosen. Nothing calls them. No rule here has been
 shown to be better for participants; they exist so that they can be compared
-honestly with today's equation. Every one keeps today's treatment of two
-cases: a comment the previous tick did not score (a new one) gets no weight
-and is drawn at 1, and a **meta** comment (one the moderator marks as being
-about the conversation itself) weighs 49 under the default `meta_policy`
-(`fixed`). Below, "the first tick" means a previous frame with no counts, so
-every comment is unscored and drawn at 1; an adapter that instead supplies an
-explicit zero cell for each comment gets each rule's no-votes weight (section
-3 describes the same choice for today's equation).
+honestly with today's equation. The weighted candidates keep today's
+unscored-to-1 fallback for comments present in at least one scoring frame;
+missing counts do not by themselves identify a new comment. A scored
+**meta** comment (one the moderator marks as being about the conversation
+itself) weighs 49 under the default `meta_policy` (`fixed`). Exclusion takes
+precedence over missing inputs. `uniform/1` instead reads only the candidate
+list: it neither boosts nor identifies meta comments, so the caller must
+filter any excluded comments first. Below, "the first tick" means an empty
+previous-count frame and current extremities for the admitted comments.
+Those comments are unscored and have equal draw weights; a floor plan refuses
+an id absent from both frames. An adapter that instead supplies explicit zero
+counts gets each weighted rule's no-votes weight (section 3 describes the
+same choice for today's equation).
 
-**Extremity is not symmetric in any rule here.** E, the stored
+**Extremity is not symmetric in any rule here that reads it.** E, the stored
 `pca.comment-extremity`, is how far from the centre of the opinion map a
 participant would land who *agreed* with the comment and voted on nothing
-else. Every rule built so far measures it that way. The one that would
+else. Every rule here that uses E measures it that way; `uniform/1` ignores
+it. The one that would
 measure it the same way for agree and disagree, `symmetric-axis-gic-floor/1`,
 needs the PCA's component loadings for each comment as an input, which no
 frame of this crate carries yet; it is not built, and becomes a later piece
@@ -436,7 +445,8 @@ groups. *Formula:* weight = `symmetric/1`'s weight x (0.5 + G), G in section
 count term is, the factor and E are not. *A newcomer with no group:* the
 factor belongs to the comment, the same for everyone. *First tick:* every
 comment is unscored and drawn at 1. *A comment with no votes:* every group's
-share is 1/2, G = 1/2 and the factor is 1. *Two groups:* each group counts equally,
+share is 1/2, G = 1/2 and the factor is 1 mathematically (the geometric
+implementation may round). *Two groups:* each group counts equally,
 in the mean, or in the mean of logs for the geometric mean. *Five groups:* one dissenting group pulls harder under
 the geometric mean (the default) than under the report's mean: four groups
 at 0.9 and one at 0.1 give G = 0.74 under the mean and 0.58 under the
@@ -462,14 +472,16 @@ weighing 1 and 3 get 0.275 and 0.725; a comment weighing 0 beside one
 weighing 2 still gets 0.05. *Symmetric?* As its base: the floor is the same
 for every comment. *Newcomer, first tick, no votes, two or five groups:* as
 `symmetric-gic/1`, with the floor added; on the first tick every comment is
-unscored, so the chances are exactly 1/n. An excluded meta comment
+unscored, so the chances are 1/n in exact arithmetic; the computed
+normalisation and the stated draw bound still apply. An excluded meta comment
 (`meta_policy = exclude`) has no chance in either lane: a draw given one is
 refused.
 
 **Why the floor and the stable draw exist.** An honest A/B test needs every
 comment to keep a known, recorded chance of being shown, and the chance on
-the receipt to be the true one. The floor keeps every chance above zero and
-known in advance; the stable draw, `stable-cdf/1`, refuses to draw when a
+the receipt to be the true one. At the default share, the floor supplies a positive part for every admitted
+comment. A zero share supplies no floor, and an extremely small share can
+round its uniform part to zero. The stable draw, `stable-cdf/1`, refuses to draw when a
 positive chance would be too small to land on (below 2^-40 of the total) or
 there is nothing to draw from, instead of silently dropping a comment as
 today's arithmetic can. If every weight were 0, the weighted lane's share
@@ -501,7 +513,7 @@ group's share of agreement with the comment.
 **Importance (the checkbox on a vote).** A participant can mark a comment
 "important" as they vote. Public issue #217 (2019) proposed weighing a marked
 vote by (votes cast / comments) x (100 / marks used) + 1, an unmarked one by
-1. Its four worked numbers come out exactly in `issue217-voter-weight/1`:
+1. Its four worked numbers round correctly in `issue217-voter-weight/1`:
 600 of 600 votes with 2 marks gives 51; 300 of 600 with 2 gives 26; 10 of
 600 with 2 gives 11/6 (the issue's "1.83"); 300 of 600 with 150 gives 4/3
 (the issue's "1.333"). The issue weighs the vote matrix; it does not say how
@@ -514,8 +526,8 @@ terms adapt it:
   10 gives exactly 1.
 - `importance-normalized-lift/1`: the comment's mean 2019 voter weight over
   the conversation's mean, never below 1, uncapped unless a cap is given (one
-  constructed comment reaches 26/7 = 3.71; the issue's heaviest voter weighs
-  51).
+  constructed comment reaches 26/7 = 3.71; the heaviest voter in that
+  example weighs 51, while the helper permits up to 101).
 - A term multiplies a scored comment's weight. It never touches the floor, an
   unscored comment or a fixed meta comment. With no marks anywhere, or no
   usable totals, every multiplier is exactly 1 and the rule is its base rule
@@ -531,7 +543,8 @@ terms adapt it:
 - The helper rounds the exact fraction once, to the nearest double (ties to
   even), with integer remainders, for every count up to the largest 64-bit
   integer: it does not overflow, and it does not miss by one unit. The
-  issue's four numbers above are exact.
+  integers 51 and 26 are exact doubles; 11/6 and 4/3 are their nearest
+  representable doubles.
 
 **What is proven for these rules, and what is not.** Proven: each rule's
 documented numbers (the hand examples above) as tests; two cross-checks
@@ -660,11 +673,13 @@ below holds at the defaults only.
 ## 7. Changing a parameter or a rule safely
 
 **"A published rule never changes its numbers"**, in practice: once a rule
-such as `historical/1` is in this crate with its defaults listed in a
-manifest, the same inputs and the same parameters give the same weights and
-the same chances, bit for bit, in every later version of the crate. A receipt
-written today can be read back, and checked against its rule, years from now.
-What holds it there: the golden files, the defaults manifests, the fixtures
+such as `historical/1` has its defaults listed in a manifest, its formula,
+arithmetic order, parameter meanings and accepted ranges are frozen. Reusing
+that name must preserve its specified behaviour. Bit-for-bit reproducibility
+also depends on the floating-point environment, including the math library;
+the numerical cross-checks use the tolerances stated in section 9. They do
+not prove bit-for-bit equality on every input or future platform. Existing
+receipt texts retain their canonical reader. The regression safeguards are: the golden files, the defaults manifests, the fixtures
 and the recorded vectors are never modified, deleted or renamed (the check
 of section 12 compares them with the base branch); `tests/fixtures/SHA256SUMS`
 lists every fixture with its SHA-256 digest and may only grow; the tests
@@ -687,14 +702,15 @@ Python equation (section 9) is promised at the defaults only. An A/B arm is
 a parameter set, not a new rule.
 
 **A new version** (`symmetric-gic-floor/2` beside `symmetric-gic-floor/1`) is
-needed to change a rule's formula, a default, or what a parameter means. The
+needed to change a rule's formula, a default, a parameter's meaning, or its
+allowed range (whether narrower or wider). The
 old version stays registered with its numbers, files and tests untouched;
 the new one gets its own manifest entry in a new manifest file, its own
 fixtures and its own tests. A change to the Python formula is a new version
 of `historical`, with its grid made once by the real Python function, and
-the binding moved in the same change (section 12). Whether changing an
-allowed range needs a new version is not settled; until it is, treat it as
-one. Old receipts keep their reader: a new rule shape adds a receipt form, it
+the binding moved in the same change (section 12). The accepted domain is
+part of what a rule name promises, including its refusals. Old receipts keep
+their reader: a new rule shape adds a receipt form, it
 never rewrites the old ones.
 
 None of this chooses anything. Which rule and which parameter set Polis
@@ -886,7 +902,7 @@ the candidates, for ten constructed cases: two, three and five groups; sparse
 group ids; absent and zero cells; one and twelve candidates; one group and no
 groups; new comments the equation does not score; a fixed meta comment.
 `vectors-3.json` holds its output, with a header naming the formulas.
-`tests/crosscheck.rs` requires the crate to reproduce all 563 numbers within
+`tests/crosscheck.rs` compares weights, factors and probabilities within
 1e-12; the largest differences found are 1.9e-16 (factors and weights,
 relative) and 5.6e-17 (probabilities). A change of 1e-11 to the novelty or the
 factor, or of 1e-10 to one recorded number, turns it red. The floor, importance and zero mass are in a second
