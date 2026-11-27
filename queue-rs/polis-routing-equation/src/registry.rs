@@ -5,6 +5,7 @@
 //! a new version. Running another allowed parameter set is not a new rule; it
 //! is the rule plus its complete canonical parameter form.
 
+use crate::corrected::{ConsensusForm, GicParams, MetaPolicy, SymmetricGicParams, SymmetricParams};
 use crate::historical::HistoricalParams;
 use crate::types::Refusal;
 use serde::Serialize;
@@ -16,16 +17,31 @@ use serde_json::{Map, Value};
 pub enum RuleId {
     Historical1,
     StoredWeights1,
+    Symmetric1,
+    GicMean1,
+    GicGeomean1,
+    SymmetricGic1,
 }
 
 impl RuleId {
-    pub const ALL: [RuleId; 2] = [RuleId::Historical1, RuleId::StoredWeights1];
+    pub const ALL: [RuleId; 6] = [
+        RuleId::Historical1,
+        RuleId::StoredWeights1,
+        RuleId::Symmetric1,
+        RuleId::GicMean1,
+        RuleId::GicGeomean1,
+        RuleId::SymmetricGic1,
+    ];
 
     /// The rule's `name/version`.
     pub fn name(self) -> &'static str {
         match self {
             Self::Historical1 => "historical/1",
             Self::StoredWeights1 => "stored-weights/1",
+            Self::Symmetric1 => "symmetric/1",
+            Self::GicMean1 => "gic-mean/1",
+            Self::GicGeomean1 => "gic-geomean/1",
+            Self::SymmetricGic1 => "symmetric-gic/1",
         }
     }
 }
@@ -126,6 +142,72 @@ const HISTORICAL_PARAMS: [ParamDoc; 8] = [
     },
 ];
 
+const SYMMETRIC_PARAMS: [ParamDoc; 8] = [
+    ParamDoc {
+        name: "side_prior",
+        default: "1",
+        allowed: "[1e-3, 1000], and at most `seen_prior`",
+        meaning: "added to the agrees plus disagrees in the side share",
+        source: "`historical/1`'s `(A + 1)` and `(P + 1)` read as one term `(A + D + 1)`",
+    },
+    ParamDoc {
+        name: "seen_prior",
+        default: "2",
+        allowed: "[1e-3, 1000]",
+        meaning: "added to the votes seen in the side share",
+        source: "`importance_metric`: `(S + 2)`",
+    },
+    HISTORICAL_PARAMS[3],
+    HISTORICAL_PARAMS[4],
+    HISTORICAL_PARAMS[5],
+    HISTORICAL_PARAMS[6],
+    HISTORICAL_PARAMS[7],
+    ParamDoc {
+        name: "meta_policy",
+        default: "`fixed`",
+        allowed: "`fixed`, `ordinary` or `exclude`",
+        meaning: "a meta comment weighs `meta_inner^exponent`, is scored like any comment, or is excluded",
+        source: "`fixed` is today's behaviour (`META_PRIORITY`)",
+    },
+];
+
+const GIC_PARAMS: [ParamDoc; 2] = [
+    ParamDoc {
+        name: "gic_offset",
+        default: "0.5",
+        allowed: "[1e-3, 100]",
+        meaning: "added to G, so the factor is always positive",
+        source: "the factor `(0.5 + G)` of the corrected equation",
+    },
+    ParamDoc {
+        name: "gic_min_groups",
+        default: "2",
+        allowed: "an integer from 1 to 64",
+        meaning: "with fewer opinion groups than this, the factor is exactly 1",
+        source: "one group has no consensus across groups to measure",
+    },
+];
+
+const SYMMETRIC_GIC_PARAMS: [ParamDoc; 11] = [
+    SYMMETRIC_PARAMS[0],
+    SYMMETRIC_PARAMS[1],
+    SYMMETRIC_PARAMS[2],
+    SYMMETRIC_PARAMS[3],
+    SYMMETRIC_PARAMS[4],
+    SYMMETRIC_PARAMS[5],
+    SYMMETRIC_PARAMS[6],
+    SYMMETRIC_PARAMS[7],
+    ParamDoc {
+        name: "consensus_form",
+        default: "`gic-geomean/1`",
+        allowed: "`gic-geomean/1` or `gic-mean/1`",
+        meaning: "which form of the group-informed consensus factor multiplies the weight",
+        source: "the geometric mean is the form the corrected equation was studied with",
+    },
+    GIC_PARAMS[0],
+    GIC_PARAMS[1],
+];
+
 /// The documentation of a rule: summary, formula and every parameter.
 pub fn describe(rule: RuleId) -> RuleDoc {
     match rule {
@@ -143,6 +225,35 @@ pub fn describe(rule: RuleId) -> RuleDoc {
             formula: "draw weight = stored weight, with absent, null, false and 0 read as 1; \
                       chosen = the first candidate whose running sum is greater than unit x total",
             params: &[],
+        },
+        RuleId::Symmetric1 => RuleDoc {
+            rule,
+            summary: "Today's equation with agree and disagree weighed alike in the count term (a candidate, not chosen).",
+            formula: "R = (A + D + side_prior) / (S + seen_prior); \
+                      weight = (R * R * (E + extremity_offset) * (1 + novelty_amplitude * 2^(-S / novelty_halving_votes)))^exponent; \
+                      a meta comment follows meta_policy",
+            params: &SYMMETRIC_PARAMS,
+        },
+        RuleId::GicMean1 => RuleDoc {
+            rule,
+            summary: "The group-informed consensus factor as the report computes it: the mean over opinion groups.",
+            formula: "G = mean, over the groups with a count for the comment, of (A_g + 1) / (A_g + D_g + 2), or 0.5 if none; \
+                      factor = gic_offset + G, or 1 with fewer than gic_min_groups groups",
+            params: &GIC_PARAMS,
+        },
+        RuleId::GicGeomean1 => RuleDoc {
+            rule,
+            summary: "The group-informed consensus factor as a geometric mean over opinion groups, passes included.",
+            formula: "G = exp(mean over every group of ln((A_g + 1) / (S_g + 2))), a group with no count read as no votes; \
+                      factor = gic_offset + G, or 1 with fewer than gic_min_groups groups",
+            params: &GIC_PARAMS,
+        },
+        RuleId::SymmetricGic1 => RuleDoc {
+            rule,
+            summary: "symmetric/1 times the group-informed consensus factor (a candidate, not chosen).",
+            formula: "weight = symmetric/1's weight * (gic_offset + G), G in the consensus_form; \
+                      an unscored comment and a fixed meta comment are not multiplied",
+            params: &SYMMETRIC_GIC_PARAMS,
         },
     }
 }
@@ -169,6 +280,106 @@ pub fn params_table(rule: RuleId) -> String {
 pub enum ParamSet {
     Historical1(HistoricalParams),
     StoredWeights1,
+    Symmetric1(SymmetricParams),
+    GicMean1(GicParams),
+    GicGeomean1(GicParams),
+    SymmetricGic1(SymmetricGicParams),
+}
+
+const SYMMETRIC_KEYS: [&str; 8] = [
+    "side_prior",
+    "seen_prior",
+    "extremity_offset",
+    "novelty_amplitude",
+    "novelty_halving_votes",
+    "exponent",
+    "meta_inner",
+    "meta_policy",
+];
+
+const GIC_KEYS: [&str; 2] = ["gic_offset", "gic_min_groups"];
+
+const SYMMETRIC_GIC_KEYS: [&str; 11] = [
+    "side_prior",
+    "seen_prior",
+    "extremity_offset",
+    "novelty_amplitude",
+    "novelty_halving_votes",
+    "exponent",
+    "meta_inner",
+    "meta_policy",
+    "consensus_form",
+    "gic_offset",
+    "gic_min_groups",
+];
+
+fn symmetric_plain(p: &SymmetricParams) -> String {
+    format!(
+        "\"side_prior\":{},\"seen_prior\":{},\"extremity_offset\":{},\"novelty_amplitude\":{},\"novelty_halving_votes\":{},\"exponent\":{},\"meta_inner\":{},\"meta_policy\":\"{}\"",
+        number(p.side_prior()),
+        number(p.seen_prior()),
+        number(p.extremity_offset()),
+        number(p.novelty_amplitude()),
+        number(p.novelty_halving_votes()),
+        p.exponent(),
+        number(p.meta_inner()),
+        p.meta_policy().name(),
+    )
+}
+
+fn gic_plain(p: &GicParams) -> String {
+    format!(
+        "\"gic_offset\":{},\"gic_min_groups\":{}",
+        number(p.offset()),
+        p.min_groups()
+    )
+}
+
+fn float_of(params: &Map<String, Value>, key: &str) -> Result<f64, Refusal> {
+    params
+        .get(key)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| Refusal::Plain(format!("{key} is not a number")))
+}
+
+fn small_int(params: &Map<String, Value>, key: &str) -> Result<u8, Refusal> {
+    params
+        .get(key)
+        .and_then(Value::as_u64)
+        .and_then(|e| u8::try_from(e).ok())
+        .ok_or_else(|| Refusal::Plain(format!("{key} is not a small integer")))
+}
+
+fn name_of<'a>(params: &'a Map<String, Value>, key: &str) -> Result<&'a str, Refusal> {
+    params
+        .get(key)
+        .and_then(Value::as_str)
+        .ok_or_else(|| Refusal::Plain(format!("{key} is not a string")))
+}
+
+fn symmetric_from(params: &Map<String, Value>) -> Result<SymmetricParams, Refusal> {
+    let meta = name_of(params, "meta_policy")?;
+    let meta = MetaPolicy::from_name(meta)
+        .ok_or_else(|| Refusal::Plain(format!("unknown meta_policy {meta:?}")))?;
+    SymmetricParams::new(
+        float_of(params, "side_prior")?,
+        float_of(params, "seen_prior")?,
+        float_of(params, "extremity_offset")?,
+        float_of(params, "novelty_amplitude")?,
+        float_of(params, "novelty_halving_votes")?,
+        small_int(params, "exponent")?,
+        float_of(params, "meta_inner")?,
+        meta,
+    )
+    .map_err(Refusal::Param)
+}
+
+fn gic_from(params: &Map<String, Value>) -> Result<GicParams, Refusal> {
+    GicParams::new(
+        float_of(params, "gic_offset")?,
+        small_int(params, "gic_min_groups")?,
+    )
+    .map_err(Refusal::Param)
 }
 
 const HISTORICAL_KEYS: [&str; 8] = [
@@ -206,6 +417,10 @@ impl ParamSet {
         match rule {
             RuleId::Historical1 => Self::Historical1(HistoricalParams::default()),
             RuleId::StoredWeights1 => Self::StoredWeights1,
+            RuleId::Symmetric1 => Self::Symmetric1(SymmetricParams::default()),
+            RuleId::GicMean1 => Self::GicMean1(GicParams::default()),
+            RuleId::GicGeomean1 => Self::GicGeomean1(GicParams::default()),
+            RuleId::SymmetricGic1 => Self::SymmetricGic1(SymmetricGicParams::default()),
         }
     }
 
@@ -213,6 +428,10 @@ impl ParamSet {
         match self {
             Self::Historical1(_) => RuleId::Historical1,
             Self::StoredWeights1 => RuleId::StoredWeights1,
+            Self::Symmetric1(_) => RuleId::Symmetric1,
+            Self::GicMean1(_) => RuleId::GicMean1,
+            Self::GicGeomean1(_) => RuleId::GicGeomean1,
+            Self::SymmetricGic1(_) => RuleId::SymmetricGic1,
         }
     }
 
@@ -239,6 +458,21 @@ impl ParamSet {
             Self::StoredWeights1 => {
                 "{\"rule\":\"stored-weights/1\",\"params\":{},\"terms\":[]}".to_string()
             }
+            Self::Symmetric1(p) => format!(
+                "{{\"rule\":\"symmetric/1\",\"params\":{{{}}},\"terms\":[]}}",
+                symmetric_plain(p)
+            ),
+            Self::GicMean1(p) | Self::GicGeomean1(p) => format!(
+                "{{\"rule\":\"{}\",\"params\":{{{}}},\"terms\":[]}}",
+                self.rule().name(),
+                gic_plain(p)
+            ),
+            Self::SymmetricGic1(p) => format!(
+                "{{\"rule\":\"symmetric-gic/1\",\"params\":{{{},\"consensus_form\":\"{}\",{}}},\"terms\":[]}}",
+                symmetric_plain(p.base()),
+                p.form().name(),
+                gic_plain(p.gic())
+            ),
         }
     }
 
@@ -302,6 +536,29 @@ impl ParamSet {
                 )
                 .map(Self::Historical1)
                 .map_err(Refusal::Param)
+            }
+            RuleId::Symmetric1 => {
+                exact_keys(params, &SYMMETRIC_KEYS, "params")?;
+                symmetric_from(params).map(Self::Symmetric1)
+            }
+            RuleId::GicMean1 => {
+                exact_keys(params, &GIC_KEYS, "params")?;
+                gic_from(params).map(Self::GicMean1)
+            }
+            RuleId::GicGeomean1 => {
+                exact_keys(params, &GIC_KEYS, "params")?;
+                gic_from(params).map(Self::GicGeomean1)
+            }
+            RuleId::SymmetricGic1 => {
+                exact_keys(params, &SYMMETRIC_GIC_KEYS, "params")?;
+                let form = name_of(params, "consensus_form")?;
+                let form = ConsensusForm::from_name(form)
+                    .ok_or_else(|| Refusal::Plain(format!("unknown consensus_form {form:?}")))?;
+                Ok(Self::SymmetricGic1(SymmetricGicParams::new(
+                    symmetric_from(params)?,
+                    form,
+                    gic_from(params)?,
+                )))
             }
         }
     }

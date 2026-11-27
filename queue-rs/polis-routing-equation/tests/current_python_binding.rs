@@ -40,8 +40,15 @@ fn the_bound_python_rule_exists_and_reproduces_its_grid() {
                 case["meta"].as_bool().unwrap(),
             )
             .unwrap(),
-            RuleId::StoredWeights1 => {
+            RuleId::Symmetric1 => {
+                support::symmetric_weight_of(counts, extremity, case["meta"].as_bool().unwrap())
+                    .unwrap()
+            }
+            RuleId::StoredWeights1 | RuleId::GicMean1 | RuleId::GicGeomean1 => {
                 panic!("the Python binding must name a weight-producing rule")
+            }
+            RuleId::SymmetricGic1 => {
+                panic!("symmetric-gic/1 reads group cells, which a grid case does not hold")
             }
         };
         if expected == 0.0 {

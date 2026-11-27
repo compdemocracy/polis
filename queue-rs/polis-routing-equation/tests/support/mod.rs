@@ -4,7 +4,7 @@
 
 use polis_routing_equation::{
     CommentId, Counts, Extremity, ExtremityFrame, HistoricalCountFrame, HistoricalParams,
-    MetaComments, Refusal, SourceId, historical_1,
+    MetaComments, Refusal, SourceId, SymmetricParams, historical_1, symmetric_1,
 };
 
 pub struct XorShift(u64);
@@ -74,4 +74,18 @@ pub fn w(agreed: u32, disagreed: u32, passed: u32, extremity: f64) -> f64 {
         false,
     )
     .unwrap()
+}
+
+/// The weight `symmetric/1` at its defaults gives one comment.
+pub fn symmetric_weight_of(counts: Counts, extremity: f64, meta: bool) -> Result<f64, Refusal> {
+    let id = CommentId::new(0);
+    let frame = HistoricalCountFrame::new(src("counts"), [(id, counts)])?;
+    let e = ExtremityFrame::new(src("pca"), [(id, Extremity::new(extremity)?)])?;
+    let meta = if meta {
+        MetaComments::new([id])?
+    } else {
+        MetaComments::none()
+    };
+    let w = symmetric_1(&SymmetricParams::default(), &frame, &e, &meta)?;
+    Ok(w.get(id).unwrap().weight().get())
 }

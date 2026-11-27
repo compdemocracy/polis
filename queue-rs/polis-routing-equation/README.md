@@ -188,6 +188,58 @@ agrees to 6 (nothing else) it falls by 12.7%.
 **Two groups or five** make no difference: the counts reach the equation
 already summed over the groups.
 
+### Candidates for the next equation (none is chosen)
+
+These rules are candidates to compare. None of them is chosen, and nothing
+calls them. Each reads the same frames as today's equation, and the consensus
+rules also read the current tick's opinion groups.
+
+**`symmetric/1`: agree and disagree weighed alike.** The count term is
+R = (A + D + 1) / (S + 2), the share of votes that took a side, and it appears
+twice: weight = (R x R x (E + 1) x novelty)^2, with today's novelty. A comment
+that most people agree with and one that most people disagree with, at the same
+number of votes, weigh the same, where today the agreed one weighs more (one
+agree: 12.53 under both; one disagree: 12.53 here, 3.13 today). Passes are
+punished more than today: R is squared inside and then again. **It is not fully
+symmetric:** the extremity E is still measured toward a hypothetical agree vote
+(how far from the centre a participant would land who agreed with this comment
+and voted on nothing else). Swapping every agree and disagree leaves the count
+term bit for bit the same, but in a real conversation it would also change E.
+*A newcomer with no group* gets the same weights as anyone: the rule does not
+look at the participant. *On a conversation's first tick* and *for a comment
+with no votes*, R = 1/2 and the weight is 81/16 x (1 + E)^2, the same as
+today. As today, no votes is not the largest weight: at E = 0, three agrees (or
+three disagrees, or any three votes that took a side) give 16.14. *Two groups or
+five* make no difference: the counts arrive summed over the groups.
+
+**The group-informed consensus factor, `gic-mean/1` and `gic-geomean/1`.**
+Group-informed consensus is Polis's own measure of what holds across opinion
+groups. Each group's agreement with a comment is (A + 1) / (A + D + 2) for that
+group's votes, and G combines the groups. `gic-mean/1` is the form the report
+computes: the mean over the groups that have votes on the comment (passes do
+not count; a group with no votes on it is left out; with none, G = 0.5).
+`gic-geomean/1` is the geometric mean over every group, with passes counted in
+the votes seen and a group with no votes read as no votes. The factor is
+0.5 + G, between 0.5 and 1.5, so it lifts a comment most groups agree with and
+lowers one that some group rejects, and never removes a comment. **It is not
+symmetric in agree and disagree, by design:** it rewards agreement across
+groups; swapping every agree and disagree turns G into roughly 1 - G. The order
+groups arrive in and their ids cannot change a bit: the values are added in
+sorted order. *A newcomer with no group:* the factor is a property of the
+comment, the same for everyone. *On a conversation's first tick*, with no
+groups yet (or one), the factor is exactly 1. *For a comment with no votes*,
+every group's value is 1/2, so G = 0.5 and the factor is 1. *With two groups*
+each group is half of G; *with five*, a fifth, and one dissenting group counts
+for more under the geometric mean: four groups at 0.9 and one at 0.1 give
+G = 0.74 under the mean and 0.58 under the geometric mean.
+
+**`symmetric-gic/1`** is `symmetric/1`'s weight times that factor (the
+geometric mean by default; `consensus_form` chooses the mean). A comment
+today's equation does not score keeps no weight here either, and the draw
+gives it 1 without the factor; a meta comment weighs 49 without the factor, as
+today (`meta_policy`). It is not symmetric: the count term is, the factor and E
+are not.
+
 ## 4. The parameters
 
 Every constant of a rule is a named, typed parameter with a range. The
@@ -216,6 +268,47 @@ The ranges are chosen so that every weight is a positive number: with
 **`stored-weights/1`**
 
 This rule has no parameters.
+
+**`symmetric/1`**
+
+| Name | Default | Allowed | Meaning | Source |
+|---|---|---|---|---|
+| `side_prior` | 1 | [1e-3, 1000], and at most `seen_prior` | added to the agrees plus disagrees in the side share | `historical/1`'s `(A + 1)` and `(P + 1)` read as one term `(A + D + 1)` |
+| `seen_prior` | 2 | [1e-3, 1000] | added to the votes seen in the side share | `importance_metric`: `(S + 2)` |
+| `extremity_offset` | 1 | [1e-3, 100] | added to the extremity, so a comment at the centre still counts | `importance_metric`: `(E + 1)` |
+| `novelty_amplitude` | 8 | [0, 1000] | how much larger a comment with no votes is made | `priority_metric`: `1 + 8 * (2 ** (-S / 5))` |
+| `novelty_halving_votes` | 5 | [1e-3, 1e6] | votes seen after which the novelty boost has halved | `priority_metric`: `-S / 5` |
+| `exponent` | 2 | an integer from 1 to 4 | the power the product is raised to | `priority_metric`: `inner ** 2` |
+| `meta_inner` | 7 | [1e-3, 1e6] | a meta comment's value before the power ("TODO TUNE" in the source) | `META_PRIORITY = 7` |
+| `meta_policy` | `fixed` | `fixed`, `ordinary` or `exclude` | a meta comment weighs `meta_inner^exponent`, is scored like any comment, or is excluded | `fixed` is today's behaviour (`META_PRIORITY`) |
+
+**`gic-mean/1`** and **`gic-geomean/1`** (the same two parameters)
+
+| Name | Default | Allowed | Meaning | Source |
+|---|---|---|---|---|
+| `gic_offset` | 0.5 | [1e-3, 100] | added to G, so the factor is always positive | the factor `(0.5 + G)` of the corrected equation |
+| `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
+
+**`symmetric-gic/1`**
+
+| Name | Default | Allowed | Meaning | Source |
+|---|---|---|---|---|
+| `side_prior` | 1 | [1e-3, 1000], and at most `seen_prior` | added to the agrees plus disagrees in the side share | `historical/1`'s `(A + 1)` and `(P + 1)` read as one term `(A + D + 1)` |
+| `seen_prior` | 2 | [1e-3, 1000] | added to the votes seen in the side share | `importance_metric`: `(S + 2)` |
+| `extremity_offset` | 1 | [1e-3, 100] | added to the extremity, so a comment at the centre still counts | `importance_metric`: `(E + 1)` |
+| `novelty_amplitude` | 8 | [0, 1000] | how much larger a comment with no votes is made | `priority_metric`: `1 + 8 * (2 ** (-S / 5))` |
+| `novelty_halving_votes` | 5 | [1e-3, 1e6] | votes seen after which the novelty boost has halved | `priority_metric`: `-S / 5` |
+| `exponent` | 2 | an integer from 1 to 4 | the power the product is raised to | `priority_metric`: `inner ** 2` |
+| `meta_inner` | 7 | [1e-3, 1e6] | a meta comment's value before the power ("TODO TUNE" in the source) | `META_PRIORITY = 7` |
+| `meta_policy` | `fixed` | `fixed`, `ordinary` or `exclude` | a meta comment weighs `meta_inner^exponent`, is scored like any comment, or is excluded | `fixed` is today's behaviour (`META_PRIORITY`) |
+| `consensus_form` | `gic-geomean/1` | `gic-geomean/1` or `gic-mean/1` | which form of the group-informed consensus factor multiplies the weight | the geometric mean is the form the corrected equation was studied with |
+| `gic_offset` | 0.5 | [1e-3, 100] | added to G, so the factor is always positive | the factor `(0.5 + G)` of the corrected equation |
+| `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
+
+The defaults of these four rules are listed in `tests/golden/defaults-manifest-3.json`.
+The first manifest, `tests/golden/defaults-manifest.json`, is a published golden
+file and is never edited; a test requires the two files together to list every
+rule exactly once.
 
 A parameter set is written in one **canonical plain form**, JSON with keys in a
 fixed order and every parameter written out, for example the defaults of

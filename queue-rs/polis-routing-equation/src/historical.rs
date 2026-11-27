@@ -242,6 +242,12 @@ pub struct Scored {
 }
 
 impl Scored {
+    pub(crate) fn new(weight: Weight, explanation: Explanation) -> Self {
+        Self {
+            weight,
+            explanation,
+        }
+    }
     pub fn weight(&self) -> Weight {
         self.weight
     }

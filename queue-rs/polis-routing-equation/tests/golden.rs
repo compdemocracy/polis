@@ -20,6 +20,9 @@ use serde_json::Value;
 const STORED: &str = include_str!("golden/stored-weights-1.json");
 const HISTORICAL: &str = include_str!("golden/historical-1.json");
 const MANIFEST: &str = include_str!("golden/defaults-manifest.json");
+/// The defaults of the rules added after the first manifest was published;
+/// the first one is a golden file and is never edited.
+const MANIFEST_3: &str = include_str!("golden/defaults-manifest-3.json");
 const README: &str = include_str!("../README.md");
 
 fn ids(v: &Value) -> Vec<CommentId> {
@@ -181,11 +184,20 @@ fn historical_1_goldens() {
 
 #[test]
 fn the_defaults_manifest_holds_every_rules_published_defaults() {
-    let manifest: Value = serde_json::from_str(MANIFEST).unwrap();
-    let entries = manifest.as_object().unwrap();
-    assert_eq!(entries.len(), RuleId::ALL.len());
+    let first: Value = serde_json::from_str(MANIFEST).unwrap();
+    let third: Value = serde_json::from_str(MANIFEST_3).unwrap();
+    let (first, third) = (first.as_object().unwrap(), third.as_object().unwrap());
+    // Every rule is listed exactly once across the two files.
+    assert_eq!(first.len() + third.len(), RuleId::ALL.len());
+    assert!(first.keys().all(|k| !third.contains_key(k)));
+    assert!(first.contains_key("historical/1") && first.contains_key("stored-weights/1"));
     for rule in RuleId::ALL {
-        let plain = entries[rule.name()].as_str().unwrap();
+        let plain = first
+            .get(rule.name())
+            .or_else(|| third.get(rule.name()))
+            .unwrap()
+            .as_str()
+            .unwrap();
         let defaults = ParamSet::default_for(rule);
         assert_eq!(defaults.to_plain(), plain, "{}", rule.name());
         let read = ParamSet::from_plain(plain).unwrap();
@@ -199,18 +211,31 @@ fn the_defaults_manifest_holds_every_rules_published_defaults() {
 fn the_registry_answers_by_name_and_version_and_refuses_the_rest() {
     assert_eq!(lookup("historical/1").unwrap(), RuleId::Historical1);
     assert_eq!(lookup("stored-weights/1").unwrap(), RuleId::StoredWeights1);
+    assert_eq!(lookup("symmetric/1").unwrap(), RuleId::Symmetric1);
+    assert_eq!(lookup("symmetric-gic/1").unwrap(), RuleId::SymmetricGic1);
     for asked in [
         "historical/2",
         "historical",
         "Historical/1",
         "",
-        "symmetric/1",
+        "symmetric/2",
+        "gic-mean/0",
         "historical/1 ",
     ] {
         match lookup(asked) {
             Err(Refusal::UnknownRule { asked: a, known }) => {
                 assert_eq!(a, asked);
-                assert_eq!(known, vec!["historical/1", "stored-weights/1"]);
+                assert_eq!(
+                    known,
+                    vec![
+                        "historical/1",
+                        "stored-weights/1",
+                        "symmetric/1",
+                        "gic-mean/1",
+                        "gic-geomean/1",
+                        "symmetric-gic/1"
+                    ]
+                );
             }
             other => panic!("{asked:?} gave {other:?}"),
         }

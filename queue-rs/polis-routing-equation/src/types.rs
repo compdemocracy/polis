@@ -23,7 +23,7 @@ pub const MAX_CANDIDATES: usize = 1 << 24;
 pub struct CommentId(u32);
 
 impl CommentId {
-    pub fn new(tid: u32) -> Self {
+    pub const fn new(tid: u32) -> Self {
         Self(tid)
     }
     pub fn get(self) -> u32 {
