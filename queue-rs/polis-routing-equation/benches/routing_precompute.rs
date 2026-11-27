@@ -275,6 +275,8 @@ struct Bench {
     kinds: BTreeSet<String>,
     /// The group counts the whole build was measured at.
     build_groups: BTreeSet<u64>,
+    /// Every case key emitted (`m|data|what|policy|voted|by`); each once.
+    cases: BTreeSet<String>,
     measured: usize,
 }
 
@@ -307,6 +309,10 @@ impl Bench {
             .map(|k| field(k))
             .collect::<Vec<_>>()
             .join("|");
+        assert!(
+            self.cases.insert(case.clone()),
+            "a case key ran twice: {case}"
+        );
         let mut ns = s.nanos.clone();
         ns.sort_unstable();
         let mut al = s.allocated.clone();
@@ -1547,6 +1553,178 @@ const REQUIRED: &[&str] = &[
     "C|C reference: table, cap 32, exact fallback",
 ];
 
+const P_WHAT: &str = "P: candidates + probabilities + draw + receipt";
+const S_WHAT: &str = "S: candidates + draw + receipt";
+
+fn key(m: &str, data: &str, what: &str, policy: &str, voted: &str, by: &str) -> String {
+    format!("{m}|{data}|{what}|{policy}|{voted}|{by}")
+}
+
+/// One shape's declared cases: its whole build and both sequences at each
+/// voted fraction; with `full`, the build's components, today's draw and
+/// uniform/1 at each fraction by count, and the request's components.
+fn shape(k: &mut Vec<String>, data: &str, policy: &str, fractions: &[(&str, &str)], full: bool) {
+    k.push(key(
+        "build",
+        data,
+        "whole build (floor plan)",
+        policy,
+        "",
+        "",
+    ));
+    for (voted, by) in fractions {
+        for what in [P_WHAT, S_WHAT] {
+            k.push(key("seq", data, what, policy, voted, by));
+        }
+    }
+    if full {
+        for what in [
+            "component: decode",
+            "component: frames",
+            "component: floor plan from frames",
+        ] {
+            k.push(key("build", data, what, policy, "", ""));
+        }
+        for (voted, by) in fractions.iter().filter(|(_, by)| *by == "count") {
+            for what in [
+                "stored-weights/1: candidates + draw + receipt",
+                "uniform/1: candidates + draw + receipt",
+            ] {
+                k.push(key("seq", data, what, policy, voted, by));
+            }
+        }
+        for what in ["component: Candidates::new", "component: probabilities"] {
+            k.push(key("seq", data, what, policy, "0.0", "count"));
+        }
+    }
+}
+
+/// The scenario inventory: every case key a complete run must emit. It is
+/// declared here with its own literal sizes, group counts, meta fractions,
+/// policies, edges and kernels, not derived from the suite's loops, so a
+/// loop that loses one scenario (one meta fraction, one kernel, one size and
+/// group pair) fails the run instead of thinning it silently.
+fn inventory(smoke: bool, real: bool) -> Vec<String> {
+    let (big, e_sizes, kernels): (&[usize], &[usize], &[usize]) = if smoke {
+        (&[40, 60], &[20, 30], &[20, 40])
+    } else {
+        (
+            &[10_000, 40_000],
+            &[125, 250, 500, 1000, 2000],
+            &[1000, 10_000, 40_000],
+        )
+    };
+    // 99.9% voted leaves no candidate at the smoke sizes, so it runs only in
+    // full runs.
+    let mut full: Vec<(&str, &str)> = vec![
+        ("0.0", "count"),
+        ("0.5", "count"),
+        ("0.95", "count"),
+        ("0.0", "weight"),
+        ("0.95", "weight"),
+    ];
+    if !smoke {
+        full.push(("0.999", "count"));
+    }
+    let light = [("0.0", "count"), ("0.5", "count")];
+    let mut k = vec![];
+    for &n in big {
+        for g in [5, 0, 1, 2, 64] {
+            let data = format!("constructed-{n}-g{g}");
+            if g == 5 {
+                shape(&mut k, &data, "Fixed", &full, true);
+            } else {
+                shape(&mut k, &data, "Fixed", &light, false);
+            }
+        }
+        for pct in [10, 50] {
+            let data = format!("constructed-{n}-g5-meta{pct}pct");
+            for policy in ["Exclude", "Fixed"] {
+                shape(&mut k, &data, policy, &light, false);
+            }
+            for (voted, by) in light {
+                k.push(key("seq", &data, "caller filter", "Exclude", voted, by));
+            }
+        }
+    }
+    let edges = format!("constructed-{}-g5", big[0]);
+    for edge in [
+        "no candidates left",
+        "one candidate",
+        "a candidate the plan does not know, last",
+        "an excluded meta candidate, not filtered",
+        "every candidate unscored",
+    ] {
+        for what in [P_WHAT, S_WHAT] {
+            k.push(key("edge", &edges, what, "", "0.0", edge));
+        }
+    }
+    k.push(key(
+        "edge",
+        &edges,
+        "floor arithmetic only: floor_marginals + stable_cdf",
+        "",
+        "0.0",
+        "every base weight zero",
+    ));
+    k.push(key(
+        "edge",
+        &edges,
+        "every stored weight zero (stored-weights/1)",
+        "",
+        "0.0",
+        "every stored weight zero",
+    ));
+    let e = "E: bytes + whole build + P";
+    for &n in e_sizes {
+        for g in [2, 5] {
+            for voted in ["0.0", "0.5"] {
+                k.push(key("E", &format!("constructed-{n}-g{g}"), e, "", voted, ""));
+            }
+        }
+    }
+    k.push(key("E", &edges, e, "", "0.5", ""));
+    for &n in kernels {
+        let data = format!("constructed-{n}-g5");
+        for set in [
+            "all scored",
+            "half unscored",
+            "all unscored",
+            "all scored, excluded 10%",
+            "all scored, excluded 50%",
+        ] {
+            for what in ["probabilities", "draw"] {
+                k.push(key("M8", &data, what, "", "", set));
+            }
+        }
+        k.push(key("M8", &data, "stable_cdf over n ones", "", "", ""));
+    }
+    k.push(key(
+        "C",
+        &format!("constructed-{}-g5", big[1]),
+        "C reference: table, cap 32, exact fallback",
+        "Fixed",
+        "0.95",
+        "weight",
+    ));
+    if real {
+        shape(&mut k, "real", "Fixed", &full, true);
+        for voted in ["0.0", "0.5"] {
+            k.push(key("E", "real", e, "", voted, ""));
+        }
+        for &n in big {
+            shape(
+                &mut k,
+                &format!("resampled-real-{n}"),
+                "Fixed",
+                &light,
+                false,
+            );
+        }
+    }
+    k
+}
+
 fn suite(bench: &mut Bench) {
     let smoke = bench.smoke();
     let big: &[usize] = if smoke { &[40, 60] } else { &[10_000, 40_000] };
@@ -1635,6 +1813,7 @@ fn main() {
         lines: vec![],
         kinds: BTreeSet::new(),
         build_groups: BTreeSet::new(),
+        cases: BTreeSet::new(),
         measured: 0,
     };
     let iters = |i: Iters| json!({"warmup": i.warmup, "min": i.min, "max": i.max, "budget_ms": i.budget.as_millis() as u64});
@@ -1649,6 +1828,19 @@ fn main() {
 
     suite(&mut bench);
 
+    // The scenario inventory, in every mode: each declared case ran (and,
+    // by `emit`, no case key ran twice).
+    let real = bench.smoke() || real_math_result_path().is_some();
+    let declared = inventory(bench.smoke(), real);
+    let not_run: Vec<&String> = declared
+        .iter()
+        .filter(|k| !bench.cases.contains(*k))
+        .collect();
+    assert!(
+        not_run.is_empty(),
+        "declared scenarios not run: {not_run:?}"
+    );
+
     if bench.smoke() {
         let missing: Vec<&&str> = REQUIRED
             .iter()
@@ -1662,8 +1854,9 @@ fn main() {
             );
         }
         println!(
-            "smoke: ok, {} measured cases, {} kinds, every timed result checked",
+            "smoke: ok, {} measured cases ({} declared, all run), {} kinds, every timed result checked",
             bench.measured,
+            declared.len(),
             bench.kinds.len()
         );
     }
