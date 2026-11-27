@@ -407,6 +407,12 @@ rule answers: with candidates `[10, 20]`, stored weights `[9, 1]` and unit
 chooses 10, as the labelled fallback. Nothing here is needed to be correct or
 to continue, and nothing is kept anywhere but in memory: a new process starts
 empty, answers through the fallback and rebuilds from the stored math result.
+A restart loses the fences too (below): every lookup is a miss until a plan
+is rebuilt, and the first publication for each conversation sets its fence on
+the caller's word that the plan is current, which the core requires to mean
+built from a read of the primary (never a replica that may lag), taken after
+the plan's reservation. `fenced(zid, env)` tells the loader whether that rule
+applies.
 
 **Keys and fencing.** A `BundleKey` is everything a plan was built from: the
 conversation, the row's environment, `math_tick`, content id and
@@ -422,15 +428,43 @@ same key again, is `Superseded`; a second content for one tick is
 that is no longer current is `Discarded`. A refused publication leaves the
 ready plan where it was.
 
-**Freshness.** Lookups and the loader's `note_seen` advance the newest seen
-tick by maximum; a lookup with no tick advances nothing and starts no clock.
+**The fence outlives its plans.** The pointer is kept in a fence per
+`(conversation, environment)`, apart from the plans and across every
+configuration: the newest tick seen, the tick last published as ready and
+its content, and the head-lag clock. An eviction, a clear and a configuration
+change retire plans and keep their fences, so after any of them an older
+tick is still `Superseded`, a second content for the ready tick is still
+`GenerationConflict`, the clock keeps its start, and a new configuration (a
+new rule, or new parameters) cannot publish an update older than one already
+published. Rebuilding the same update after an eviction is taken back. A
+lookup that finds a fence and no plan misses `no_plan` and still takes the
+request's tick, in place, so the clock runs while the plan is rebuilt. At
+most 4,096 fences are held (`FENCE_ENTRIES`), each charged
+(`FENCE_OVERHEAD`, 512 bytes, plus its environment's text) from the
+reservation of the publication that makes it. Only a fence that covers no
+resident plan is forgotten: the least recently used, when a new fence needs
+room, and all of them when the cache is disabled, as a restart does. When
+every fence covers a resident plan, a publication that needs a new fence is
+`FenceFull` and that conversation misses `no_plan` until an eviction makes
+room. A forgotten fence is the same as a restart for its conversation, with
+one more rule: a reservation taken before the cache last forgot a fence
+cannot publish into a conversation that has none (`FenceForgotten`), so a
+build that began before the forgetting cannot publish an older update into
+the gap; a fresh reservation, for a fresh read, can.
+
+**Freshness.** Lookups and the loader's `note_seen` advance the fence's newest
+seen tick by maximum; a lookup with no tick advances nothing and starts no
+clock.
 The head-lag clock starts at the first sight of a tick ahead of the ready
 plan, is not reset by repeats or by a partial catch-up, and clears only on
 full catch-up. A hit is `Current` when the plan's tick is the newest seen,
 `AheadOfRequest` when it is newer than the request's own snapshot (served
 under its own, newer identity), and `Lagging` while a newer tick has been
 seen for less than the captured `head_lag_bound`; after that the lookup
-misses with `head_lag`. A lookup under a configuration digest that is not
+misses with `head_lag`. A reading earlier than the clock's start cannot show
+that the bound has not passed and misses with `head_lag` too, as does a plan
+older than its fence's ready tick (one kept under a configuration while a
+newer update was published under another). A lookup under a configuration digest that is not
 current misses with `config_disabled`; with no plan it misses with `no_plan`,
 or `refused_source` when the request's tick was refused as a source.
 
@@ -438,8 +472,8 @@ or `refused_source` when the request's tick was refused as a source.
 for everything the cache holds while anything holds it: its fixed part and
 the retired list's capacity (allocated when the cache is made, so retiring
 never allocates), each resident and retired plan (`CachedPlan::charge`: the
-plan's `charged_bytes`, its key's text and a fixed overhead), each slot and
-each negative-cache entry. `try_reserve` takes bytes before they are
+plan's `charged_bytes`, its key's text and a fixed overhead), each slot, each
+fence and each negative-cache entry. `try_reserve` takes bytes before they are
 allocated, or refuses at once; a `Reservation` is linear and returns its bytes
 only through `release` or by becoming a published plan's charge (one dropped
 instead stays charged: an over-charge, never an under-charge). A publication
@@ -481,8 +515,10 @@ configuration forgets build refusals made under another.
 an independent rebuild in a new cache from the same bytes, configuration,
 candidates and units gives identical receipts; a clear, an eviction and a
 stale entry each miss at once with their reason (the `[10, 20]` witness above);
-each fencing rule and each bound has a test that fails when its check is
-removed; a lookup allocates and frees nothing on every outcome; what the cache
+after an eviction, a clear, a configuration change or a disable, no older
+update or second content for a tick is published, and the clock keeps its
+start; the fence bound fails safe and a restart is a cold cache; each fencing
+rule and each bound has a test that fails when its check is removed; a lookup allocates and frees nothing on every outcome; what the cache
 holds, counted by the allocator, stays within what it charges; a request's
 dropped reference is never the last, and only reclamation destroys a plan.
 
