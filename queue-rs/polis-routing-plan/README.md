@@ -248,8 +248,9 @@ projections only.
   `parse` held at its peak is within `parse_reservation`, and what an
   accepted projection keeps is within `held()`.
 - `limits_refuse_before_allocation`: a source over its length allocates
-  nothing; a source over a count holds no more than its own size when it is
-  refused. `expansion_reservation_is_upper_bound`: on constructed worst cases
+  nothing; on one constructed source, refusals by count hold no more than its
+  own size (not true of every source: the general bound is
+  `parse_reservation`). `expansion_reservation_is_upper_bound`: on constructed worst cases
   up to 64 groups and 20,000 cells, with escaped keys, everything `frames`
   asks the allocator for is within the reservation. Both count with a
   counting allocator, per thread.

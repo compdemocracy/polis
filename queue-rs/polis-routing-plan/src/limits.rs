@@ -11,8 +11,8 @@ pub struct SourceLimits {
     /// is refused as malformed instead of too deep.
     pub max_depth: u32,
     /// Comments: each of `tids`, `meta-tids`, `pca.comment-extremity` and
-    /// `comment-priorities` alone, and the union of `tids` and `meta-tids`
-    /// when a read decodes both.
+    /// `comment-priorities` alone, and the distinct ids of `tids` and
+    /// `meta-tids` together, always, at parse.
     pub max_comments: u64,
     /// Entries of `group-votes`.
     pub max_groups: u64,
