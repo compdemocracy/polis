@@ -13,9 +13,9 @@ use crate::reserve::{map, reservation, vecs, worst_tally};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
-    Candidates, CommentId, DrawRefusal, Drawn, Factor, FloorParams, FloorPlan, Lane, MetaPolicy,
-    ParamSet, Scored, SourceId, StoredWeight, StoredWeights, Unit, ZERO_MASS_DONATION, resolve,
-    stored_weights_1, symmetric_gic_2, symmetric_gic_floor_2, uniform_1,
+    Candidates, CommentId, Counts, DrawRefusal, Drawn, Factor, FloorParams, FloorPlan, Lane,
+    MetaPolicy, ParamSet, Scored, SourceId, StoredWeight, StoredWeights, Unit, ZERO_MASS_DONATION,
+    resolve, stored_weights_1, symmetric_gic_2, symmetric_gic_floor_2, uniform_1,
 };
 use std::mem::size_of;
 
