@@ -474,7 +474,9 @@ fn numeric_scratch_and_unused_id_errors_within_parse_charge() {
         assert!(peak as u64 <= charge, "numeric scratch: {peak} > {charge}");
         // A malformed unused id array is ignored by the union decoder, but
         // constructing its diagnostic must stay under the same charge.
-        for ch in ['\u{85}', '\u{200b}', '\n', 'x'] {
+        // 0x7f is the most a byte can cost there: `Debug` writes it as
+        // six bytes.
+        for ch in ['\u{7f}', '\u{85}', '\u{200b}', '\n', 'x'] {
             let text = ch.to_string().repeat(n);
             let b =
                 serde_json::to_vec(&serde_json::json!({"tids":[1],"meta-tids":[text]})).unwrap();

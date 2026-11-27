@@ -667,10 +667,9 @@ fn other_bytes_than_measured_are_refused() {
     let a = b"{\"tids\":[1,2]}";
     let b = b"{\"tids\":[1,3]}";
     let m = Projection::measure(a, &limits).unwrap();
-    let ((r, allocs, _, _), short) = (
-        counted(|| Projection::parse_measured(b, row(), &limits, &m)),
-        Projection::parse_measured(b"{}", row(), &limits, &m),
-    );
+    let r0 = row();
+    let (r, allocs, _, _) = counted(|| Projection::parse_measured(b, r0, &limits, &m));
+    let short = Projection::parse_measured(b"{}", row(), &limits, &m);
     let disagrees = SourceRefusal::TooLarge {
         what: Limit::Reservation,
     };
@@ -925,6 +924,7 @@ fn frames_readers_within_measured_scratch() {
     for (name, b, needs) in docs {
         let p = Projection::parse(&b, row(), &limits).unwrap();
         let bound = p.reservation(needs).unwrap();
+
         let (r, _, _, peak) = counted(|| p.frames(needs));
         let old_readers = 4 * p.raw_len() + 512 + 4096;
         println!(

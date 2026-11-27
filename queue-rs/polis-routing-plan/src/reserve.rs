@@ -279,7 +279,13 @@ pub(crate) fn frames_terms(
     // cloned once per frame; a fixed allowance covers the rest.
     let readers = raw.checked_mul(4)?.checked_add(READERS.checked_mul(64)?)?;
     match token {
-        None => term("frames: readers' scratch", readers),
+        None => {
+            // From the keys' text: one error message can hold the
+            // longest string in it, and one float conversion.
+            term("frames: readers' scratch", readers);
+            term("frames: one error message", error_message(raw)?);
+            term("frames: numeric conversion", NUMERIC);
+        }
         Some(t) => {
             // Measured: each reader's scratch from the longest token (see
             // `scratch`), however the readers' lives overlap, plus one
@@ -428,8 +434,18 @@ pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> 
     // `max_comments` (already checked), and each element takes at least two
     // bytes (`1,`).
     let ids = (len / 2 + 1).min(limits.max_comments.saturating_mul(2));
-    let union = raw.checked_add(ids.checked_mul(8)?)?.checked_add(scratch)?;
-    walk.max(split).max(union).checked_add(1024)
+    // While an id array that is not one of integers is decoded, serde
+    // formats one error message holding one of its strings (see
+    // `error_message`); the walk and the split format none with a token in
+    // it. And one float conversion at a time, in any phase.
+    let union = raw
+        .checked_add(ids.checked_mul(8)?)?
+        .checked_add(scratch)?
+        .checked_add(error_message(len)?)?;
+    walk.max(split)
+        .max(union)
+        .checked_add(NUMERIC)?
+        .checked_add(1024)
 }
 
 /// The bytes a counted entry takes in the source, at least. Every entry the
