@@ -441,6 +441,22 @@ at ten prefixes, `historical/1` returns the same numbers. They do not prove
 that a production caller will feed the crate correctly signed or correctly
 lagged counts, nor that these ticks are the ticks production ran.
 
+### The corrected rules against an independent statement
+
+`tests/fixtures/crosscheck/make_crosscheck.py` states `symmetric/1`, both forms
+of the group-informed consensus factor and `symmetric-gic/1` (in both forms)
+again, in NumPy, from the formulas above and not from the Rust code. It writes
+every comment's weight, G and factor, and the probability vector of a draw over
+the candidates, for ten constructed cases: two, three and five groups; sparse
+group ids; absent and zero cells; one and twelve candidates; one group and no
+groups; new comments the equation does not score; a fixed meta comment.
+`vectors-3.json` holds its output, with a header naming the formulas.
+`tests/crosscheck.rs` requires the crate to reproduce all 563 numbers within
+1e-12; the largest differences found are 1.9e-16 (factors and weights,
+relative) and 5.6e-17 (probabilities). A change of 1e-11 to the novelty or the
+factor, or of 1e-10 to one recorded number, turns it red. Importance, the floor
+and zero mass are not in this file yet.
+
 ## 6. What it does not do
 
 No HTTP route or handler; no database, SQL, pool or connection; no cache or
