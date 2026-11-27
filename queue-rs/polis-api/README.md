@@ -2372,10 +2372,25 @@ run, nothing more.
   the core's token to a bounded channel that the next builder-side call
   drains (charged for the cache's life); if that channel is full the bytes
   stay charged and are counted (`returns_lost`), an over-charge, never an
-  under-charge. Publishing and cutting down (`shrink`, which keeps when the
-  reservation was taken) are methods of the reservation, so no call can
-  send one cache's bytes to another, and the core's token is never handed
-  out.
+  under-charge. Publishing, cutting down (`shrink`) and growing (`grow`),
+  both of which keep when the reservation was taken, are methods of the
+  reservation, so no call can send one cache's bytes to another, and the
+  core's token is never handed out.
+- **Growing a reservation is builder side only.** `Reserved::grow(to)` grows
+  a build's one reservation to a later stage's bound in its own cache,
+  keeping when it was taken, so a build is still dated from its first
+  reservation (never one released and taken again). It takes the lock with
+  `lock()` on the builder's own thread, as `shrink` and `publish` do, and
+  first drains the return channel. `Ok(true)` is grown; `Ok(false)` is
+  refused at once and unchanged (over one share, does not fit the budget, or
+  less than it holds), and the builder then drops it so its bytes go back.
+  While a grow holds the lock, a request's lookup misses `lock_busy` and
+  serves today's draw, the same brief window `shrink` and `publish` already
+  make; nothing on a request waits. The time under the lock is constant: the
+  drain is at most `RETURN_SLOTS` releases and the core's `grow` is two
+  comparisons and one checked addition, with nothing proportional to the
+  plans, fences or failures the cache holds. No route and no
+  participation-path handler calls it (`grow_is_builder_side_only`).
 - **The budget is read once.** `POLIS_API_ROUTING_PLAN_CACHE_BYTES`, read by
   `cache_bytes_from_env` when the cache is made: absent or empty is 256 MiB
   (the most accepted); otherwise a whole number of bytes from 1 MiB to

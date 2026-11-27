@@ -1245,3 +1245,226 @@ fn fence_forgotten_least_recently_looked_up_first() {
     assert!(c.fenced(0, "example"));
     assert!(!c.fenced(1, "example"));
 }
+
+// ---- Growing a reservation ----
+
+/// Publishes `h` under `r`; refused, the reservation is released.
+fn publish_under(
+    c: &mut PlanCache<H>,
+    h: H,
+    r: polis_routing_plan::Reservation,
+    now: u64,
+) -> Result<(), Rejection> {
+    match c.publish(h, r, t(now)) {
+        Published::Ready => Ok(()),
+        Published::Rejected {
+            handle,
+            reservation,
+            reason,
+        } => {
+            drop(handle);
+            c.release(reservation);
+            Err(reason)
+        }
+    }
+}
+
+/// Leaves exactly `room` bytes of the budget free, under reservations of
+/// at most one share each.
+fn fill_to(c: &mut PlanCache<H>, room: u64) -> Vec<polis_routing_plan::Reservation> {
+    let mut fill = Vec::new();
+    while c.budget().available() > room {
+        let n = (c.budget().available() - room).min(c.max_share());
+        fill.push(c.try_reserve(n).unwrap());
+    }
+    assert_eq!(c.budget().available(), room);
+    fill
+}
+
+/// A reservation grown in place keeps when it was taken. Taken before the
+/// cache forgot conversation 7's fence, it is `FenceForgotten` whether it
+/// was grown or not (and after a refused grow); taken after, it publishes
+/// on the caller's word whether it was grown or not.
+#[test]
+fn grown_reservation_keeps_when_it_was_taken() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 5, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    assert!(c.fenced(7, "example"));
+    let need = m.uniform(7, 4, A).cached().charge() + 4096;
+    let before_grown = c.try_reserve(1 << 10).unwrap();
+    let before_kept = c.try_reserve(need).unwrap();
+    c.set_config(None);
+    c.set_config(Some(A));
+    assert!(!c.fenced(7, "example"));
+    let held = c.budget().used();
+    let share = c.max_share();
+    let before_grown = c.grow(before_grown, share + 1).unwrap_err();
+    assert_eq!(c.budget().used(), held);
+    let before_grown = c.grow(before_grown, need + (1 << 20)).unwrap();
+    assert_eq!(c.budget().used(), held + need + (1 << 20) - (1 << 10));
+    let before_grown = c.shrink(before_grown, need).unwrap();
+    for r in [before_grown, before_kept] {
+        assert_eq!(
+            publish_under(&mut c, m.uniform(7, 4, A), r, 1),
+            Err(Rejection::FenceForgotten)
+        );
+    }
+    assert_eq!(c.budget().used(), held - (1 << 10) - need);
+    let after_kept = c.try_reserve(need).unwrap();
+    let after_grown = c.try_reserve(1 << 10).unwrap();
+    let after_grown = c.grow(after_grown, need).unwrap();
+    assert_eq!(publish_under(&mut c, m.uniform(7, 4, A), after_grown, 2), Ok(()));
+    assert_eq!(hit(&mut c, A, 7, None, 3), (4, Freshness::Current));
+    assert_eq!(publish_under(&mut c, m.uniform(8, 4, A), after_kept, 4), Ok(()));
+    assert_eq!(hit(&mut c, A, 8, None, 5), (4, Freshness::Current));
+}
+
+/// From review: the sequence that let an older math update be published
+/// after a newer one, with `grow` in place of release-and-reserve. Tick 10
+/// is published and evicted, so its fence stays with no plan. A build takes
+/// its first stage, sees the fence and reads a replica at tick 8. The
+/// cache is disabled and enabled again, which forgets the idle fence. The
+/// build grows its one reservation to the plan's stage, cuts it to the
+/// plan's charge and publishes: `FenceForgotten`, and nothing is served.
+/// A fresh build of tick 10 is ready; tick 8 after it is `Superseded`.
+#[test]
+fn grow_cannot_publish_an_older_update_after_a_newer() {
+    let m = Maker::new();
+    let mut c = cache(Some(A));
+    publish(&mut c, m.uniform(7, 10, A), 0).unwrap();
+    assert_eq!(c.evict_lru(), Some(true));
+    drain(&mut c);
+    let first = c.try_reserve(1 << 10).unwrap();
+    assert!(c.fenced(7, "example"));
+    let replica = m.uniform(7, 8, A);
+    c.set_config(None);
+    c.set_config(Some(A));
+    assert!(!c.fenced(7, "example"));
+    let need = replica.cached().charge() + 4096;
+    let grown = c.grow(first, need + (1 << 20)).unwrap();
+    let cut = c.shrink(grown, need).unwrap();
+    assert_eq!(
+        publish_under(&mut c, replica, cut, 1),
+        Err(Rejection::FenceForgotten)
+    );
+    assert_eq!(miss(&mut c, A, 7, None, 2), MissReason::NoPlan);
+    let newer = m.uniform(7, 10, A);
+    let fresh = c.try_reserve(1 << 10).unwrap();
+    let fresh = c.grow(fresh, newer.cached().charge() + 4096).unwrap();
+    assert_eq!(publish_under(&mut c, newer, fresh, 3), Ok(()));
+    assert_eq!(hit(&mut c, A, 7, None, 4), (10, Freshness::Current));
+    let older = m.uniform(7, 8, A);
+    let late = c.try_reserve(1 << 10).unwrap();
+    let late = c.grow(late, older.cached().charge() + 4096).unwrap();
+    assert_eq!(
+        publish_under(&mut c, older, late, 5),
+        Err(Rejection::Superseded)
+    );
+    assert_eq!(hit(&mut c, A, 7, None, 6), (10, Freshness::Current));
+}
+
+/// A grow past one conversation's share is refused at once and hands the
+/// reservation back exactly as it was; to exactly the share it is taken.
+/// To what it already holds is accepted and changes nothing; to less is a
+/// `shrink`, refused.
+#[test]
+fn grow_refused_over_share_returns_unchanged() {
+    let mut c = cache(Some(A));
+    let share = c.max_share();
+    let mut r = c.try_reserve(1 << 10).unwrap();
+    let held = c.budget().used();
+    for over in [share + 1, u64::MAX] {
+        r = c.grow(r, over).unwrap_err();
+        assert_eq!((r.bytes(), c.budget().used()), (1 << 10, held));
+    }
+    let r = c.grow(r, share).unwrap();
+    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    let r = c.grow(r, share).unwrap();
+    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    let r = c.grow(r, share - 1).unwrap_err();
+    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    c.release(r);
+    assert_eq!(c.budget().used(), held - (1 << 10));
+}
+
+/// A grow that does not fit the budget is refused at once and hands the
+/// reservation back exactly as it was; to exactly the room left it is
+/// taken, and one byte more is then refused.
+#[test]
+fn grow_refused_budget_full_returns_unchanged() {
+    let mut c = cache(Some(A));
+    let r = c.try_reserve(1 << 10).unwrap();
+    let room = 4096;
+    let mut fill = fill_to(&mut c, room);
+    let held = c.budget().used();
+    let r = c.grow(r, (1 << 10) + room + 1).unwrap_err();
+    assert_eq!((r.bytes(), c.budget().used()), (1 << 10, held));
+    let r = c.grow(r, (1 << 10) + room).unwrap();
+    assert_eq!((r.bytes(), c.budget().available()), ((1 << 10) + room, 0));
+    let r = c.grow(r, (1 << 10) + room + 1).unwrap_err();
+    assert_eq!((r.bytes(), c.budget().available()), ((1 << 10) + room, 0));
+    c.release(fill.pop().unwrap());
+    let r = c.grow(r, (1 << 10) + room + 1).unwrap();
+    assert_eq!(r.bytes(), (1 << 10) + room + 1);
+    c.release(r);
+    for f in fill {
+        c.release(f);
+    }
+}
+
+/// Grow, then shrink, then publish charges exactly what a plain
+/// reservation of the plan's need does; releasing after a grow returns
+/// every byte. Nothing is under-counted at any step.
+#[test]
+fn grow_then_shrink_arithmetic_exact() {
+    let m = Maker::new();
+    let mut staged = cache(Some(A));
+    let mut plain = cache(Some(A));
+    let base = staged.budget().used();
+    assert_eq!(plain.budget().used(), base);
+    let h = m.uniform(7, 4, A);
+    let need = h.cached().charge() + 4096;
+    let r = staged.try_reserve(1 << 10).unwrap();
+    assert_eq!(staged.budget().used(), base + (1 << 10));
+    let r = staged.grow(r, need + (1 << 20)).unwrap();
+    assert_eq!(staged.budget().used(), base + need + (1 << 20));
+    let r = staged.shrink(r, need).unwrap();
+    assert_eq!(staged.budget().used(), base + need);
+    assert_eq!(publish_under(&mut staged, h, r, 1), Ok(()));
+    assert_eq!(publish(&mut plain, m.uniform(7, 4, A), 1), Ok(()));
+    assert_eq!(staged.budget().used(), plain.budget().used());
+    let held = staged.budget().used();
+    let r = staged.try_reserve(1 << 10).unwrap();
+    let r = staged.grow(r, 3 << 20).unwrap();
+    let r = staged.shrink(r, 2 << 20).unwrap();
+    let r = staged.grow(r, 5 << 20).unwrap();
+    assert_eq!(staged.budget().used(), held + (5 << 20));
+    staged.release(r);
+    assert_eq!(staged.budget().used(), held);
+}
+
+/// Two builds that each hold a first stage, when the budget has room for
+/// only one second stage, are both refused at once: neither waits for the
+/// other. Once one is released, the other grows.
+#[test]
+fn two_first_stages_never_wait_for_a_second() {
+    let mut c = cache(Some(A));
+    let (first, second) = (1u64 << 20, 8u64 << 20);
+    let fill = fill_to(&mut c, first + second - 1);
+    let a = c.try_reserve(first).unwrap();
+    let b = c.try_reserve(first).unwrap();
+    let held = c.budget().used();
+    let a = c.grow(a, second).unwrap_err();
+    let b = c.grow(b, second).unwrap_err();
+    assert_eq!((a.bytes(), b.bytes(), c.budget().used()), (first, first, held));
+    c.release(b);
+    let a = c.grow(a, second).unwrap();
+    assert_eq!(a.bytes(), second);
+    c.release(a);
+    for f in fill {
+        c.release(f);
+    }
+}

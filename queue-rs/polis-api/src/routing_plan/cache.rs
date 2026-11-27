@@ -472,7 +472,8 @@ impl RoutingPlanCache {
 /// Bytes taken from one cache's budget. It holds that cache, so its bytes
 /// can only ever return there, once: in `Drop`, on every path including
 /// unwinding, or by becoming a published plan's charge. The core's token
-/// inside it is never handed out.
+/// inside it is never handed out. `shrink` and `grow` change its size in
+/// that cache and keep when it was taken.
 #[derive(Debug)]
 pub(crate) struct Reserved {
     cache: Arc<RoutingPlanCache>,
@@ -499,6 +500,31 @@ impl Reserved {
         };
         self.token = Some(token);
         Ok(cut)
+    }
+
+    /// Grows the reservation to `to` bytes in its own cache, keeping when it
+    /// was taken (the core's `grow`): a build's later stage, once the real
+    /// counts are known, on the one reservation taken before the read, never
+    /// one released and taken again. Builder side only, like `shrink`: it
+    /// takes the lock with `lock()` on the builder's own thread (and first
+    /// drains the return channel, so dropped reservations' bytes count as
+    /// room); a request never calls it. Under the lock it does the core's
+    /// arithmetic and nothing else, so a request's `try_lock` in that window
+    /// is the miss `lock_busy` and serves today's draw. `Ok(true)`: grown.
+    /// `Ok(false)`: refused at once, unchanged (over one share, does not fit
+    /// the budget, or less than it holds); the builder then drops it, and
+    /// its bytes go back. `Err(Poisoned)`: refused, unchanged.
+    pub(crate) fn grow(&mut self, to: u64) -> Result<bool, Poisoned> {
+        let mut inner = self.cache.locked()?;
+        let Some(token) = self.token.take() else {
+            return Ok(false);
+        };
+        let (token, grown) = match inner.core.grow(token, to) {
+            Ok(token) => (token, true),
+            Err(token) => (token, false),
+        };
+        self.token = Some(token);
+        Ok(grown)
     }
 
     /// Publishes `plan` under this reservation, into this reservation's own

@@ -340,7 +340,9 @@ impl ConfigCapture {
 /// keeps its bytes charged for the cache's life: an over-charge, never an
 /// under-charge. It remembers when it was taken, so a build that began
 /// before the cache forgot a fence cannot publish into a conversation the
-/// cache no longer holds a fence for.
+/// cache no longer holds a fence for. Only [`PlanCache::try_reserve`] (and
+/// so [`PlanCache::admit_build`]) stamps one; [`PlanCache::shrink`] and
+/// [`PlanCache::grow`] change its size and keep the stamp.
 #[must_use = "a reservation's bytes return only through PlanCache::release"]
 #[derive(Debug, PartialEq, Eq)]
 pub struct Reservation {
@@ -781,6 +783,31 @@ impl<H: PlanHandle> PlanCache<H> {
         self.budget.give_back(reservation.bytes - keep);
         Ok(Reservation {
             bytes: keep,
+            taken: reservation.taken,
+        })
+    }
+
+    /// Grows `reservation` to `to` bytes in place, keeping when it was
+    /// taken: the mirror of [`PlanCache::shrink`]. A build reserves for its
+    /// first stage before it reads, and grows that one reservation to each
+    /// later stage's bound once it knows the real counts; never one released
+    /// and taken again, which would date the build from the grow and let a
+    /// build that began before a fence was forgotten publish into the gap.
+    /// Refused at once, never waiting, if `to` is more than one
+    /// conversation's share or the added bytes do not fit the budget (the
+    /// bounds [`PlanCache::try_reserve`] checks), or if `to` is less than it
+    /// holds (that is a `shrink`). Refused, it is handed back exactly as it
+    /// was and the budget is unchanged. Arithmetic only: nothing is
+    /// allocated, read or scanned.
+    pub fn grow(&mut self, reservation: Reservation, to: u64) -> Result<Reservation, Reservation> {
+        if to < reservation.bytes || to > self.max_share() {
+            return Err(reservation);
+        }
+        if !self.budget.try_take(to - reservation.bytes) {
+            return Err(reservation);
+        }
+        Ok(Reservation {
+            bytes: to,
             taken: reservation.taken,
         })
     }

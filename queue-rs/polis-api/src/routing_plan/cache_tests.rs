@@ -548,3 +548,144 @@ fn shutdown_stops_lookups_and_reclaims() {
     assert_eq!(cache.reclaim().unwrap(), 1);
     assert_eq!(cache.used_for_test(), empty);
 }
+
+// ---- Growing a reservation ----
+
+/// The wrapper's grow keeps when the reservation was taken: a build whose
+/// first stage was taken before the cache forgot conversation 7's fence,
+/// grown to its plan's stage and cut to the plan's charge, is
+/// `FenceForgotten`; a fresh build, grown the same way, publishes.
+#[test]
+fn reserved_grow_keeps_taking() {
+    let s = uniform_settings();
+    let d = s.digest();
+    let cache = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, Some(d)).unwrap();
+    publish(&cache, plan(7, 41, &s.rule, None, d)).unwrap();
+    assert_eq!(cache.evict_lru(), Ok(Some(true)));
+    cache.reclaim().unwrap();
+    assert!(cache.fenced(7, ENV).unwrap());
+    let mut first = cache.try_reserve(1 << 10).unwrap();
+    cache.set_config(None).unwrap();
+    cache.set_config(Some(d)).unwrap();
+    assert!(!cache.fenced(7, ENV).unwrap());
+    let older = plan(7, 40, &s.rule, None, d);
+    let need = older.plan().charge() + 4096;
+    assert_eq!(first.grow(need + (1 << 20)), Ok(true));
+    assert_eq!(first.bytes(), need + (1 << 20));
+    assert_eq!(first.shrink(need), Ok(true));
+    let refused = first.publish(older).unwrap_err();
+    assert_eq!(
+        refused.reason,
+        PublishRefused::Rejected(Rejection::FenceForgotten)
+    );
+    drop(refused);
+    assert_eq!(missed(&cache, &s, 7, None), MissReason::NoPlan);
+    let newer = plan(7, 41, &s.rule, None, d);
+    let mut fresh = cache.try_reserve(1 << 10).unwrap();
+    assert_eq!(fresh.grow(newer.plan().charge() + 4096), Ok(true));
+    assert!(fresh.publish(newer).is_ok());
+    assert_eq!(served_rule(&cache, &s, 7, None), UNIFORM);
+}
+
+/// A refused grow fails at once and leaves the reservation and the charge
+/// exactly as they were; a grow, a shrink after it and a drop after it are
+/// charged exactly, in the reservation's own cache only, and a drop after a
+/// grow returns every byte, also while the lock is held.
+#[test]
+fn reserved_grow_refused_unchanged_and_drop_returns_all() {
+    let cache = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, None).unwrap();
+    let other = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, None).unwrap();
+    let (base, other_base) = (cache.used_for_test(), other.used_for_test());
+    let share = DEFAULT_CACHE_BYTES / polis_routing_plan::MAX_SHARE_DIVISOR;
+    let mut r = cache.try_reserve(1000).unwrap();
+    for refused in [share + 1, u64::MAX, 999] {
+        let started = Instant::now();
+        assert_eq!(r.grow(refused), Ok(false), "{refused}");
+        assert!(started.elapsed() < Duration::from_millis(250));
+        assert_eq!((r.bytes(), cache.used_for_test()), (1000, base + 1000));
+    }
+    assert_eq!(r.grow(5000), Ok(true));
+    assert_eq!((r.bytes(), cache.used_for_test()), (5000, base + 5000));
+    assert_eq!(r.shrink(2000), Ok(true));
+    assert_eq!(cache.used_for_test(), base + 2000);
+    assert_eq!(r.grow(share), Ok(true));
+    assert_eq!(cache.used_for_test(), base + share);
+    assert_eq!(other.used_for_test(), other_base);
+    drop(r);
+    assert_eq!(cache.used_for_test(), base);
+
+    let mut r = cache.try_reserve(1000).unwrap();
+    assert_eq!(r.grow(1 << 20), Ok(true));
+    let held = cache.hold_lock_for_test();
+    finishes_within(Duration::from_secs(10), move || drop(r));
+    drop(held);
+    assert_eq!(cache.budget().unwrap().0, base);
+    assert_eq!(cache.returns_lost(), 0);
+    assert_eq!(other.used_for_test(), other_base);
+}
+
+/// Two builds that each hold a first stage, with room for one second stage
+/// only, are both refused at once, neither waiting for the other; once one
+/// is dropped, the other grows.
+#[test]
+fn two_first_stages_never_wait_for_a_second() {
+    let cache = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, None).unwrap();
+    let share = DEFAULT_CACHE_BYTES / polis_routing_plan::MAX_SHARE_DIVISOR;
+    let (first, second) = (1u64 << 20, 8u64 << 20);
+    let mut fill = Vec::new();
+    loop {
+        let (used, limit) = cache.budget().unwrap();
+        let room = limit - used;
+        if room == first + second - 1 {
+            break;
+        }
+        fill.push(cache.try_reserve((room - (first + second - 1)).min(share)).unwrap());
+    }
+    let a = cache.try_reserve(first).unwrap();
+    let b = cache.try_reserve(first).unwrap();
+    let (a, b) = finishes_within(Duration::from_secs(10), move || {
+        let (mut a, mut b) = (a, b);
+        assert_eq!(a.grow(second), Ok(false));
+        assert_eq!(b.grow(second), Ok(false));
+        (a, b)
+    });
+    assert_eq!((a.bytes(), b.bytes()), (first, first));
+    drop(b);
+    let mut a = a;
+    assert_eq!(a.grow(second), Ok(true));
+    drop(a);
+    drop(fill);
+}
+
+/// Builder side only: the request side's calls (`lookup`, `try_reserve`)
+/// never grow, the wrapper's grow takes the builder's lock, and no route or
+/// participation-path handler names it (or the plan cache at all).
+#[test]
+fn grow_is_builder_side_only() {
+    let wrapper = include_str!("cache.rs");
+    let body = |start: &str| {
+        let at = wrapper.find(start).unwrap();
+        let end = wrapper[at..].find("\n    }\n").unwrap();
+        &wrapper[at..at + end]
+    };
+    for request_side in ["pub(crate) fn lookup(", "pub(crate) fn try_reserve("] {
+        assert!(!body(request_side).contains("grow"), "{request_side}");
+    }
+    let grow = body("pub(crate) fn grow(");
+    assert!(grow.contains("self.cache.locked()?"));
+    assert!(!grow.contains("try_lock"));
+    for (name, text) in [
+        ("main.rs", include_str!("../main.rs")),
+        ("next_comment.rs", include_str!("../next_comment.rs")),
+        ("next_priorities.rs", include_str!("../next_priorities.rs")),
+        ("post_votes.rs", include_str!("../post_votes.rs")),
+        ("votes_read.rs", include_str!("../votes_read.rs")),
+        ("post_comments.rs", include_str!("../post_comments.rs")),
+        ("comments.rs", include_str!("../comments.rs")),
+    ] {
+        assert!(!text.contains(".grow("), "{name} grows a reservation");
+        let mentions = text.matches("routing_plan").count();
+        let allowed = usize::from(name == "main.rs");
+        assert_eq!(mentions, allowed, "{name} names the plan cache");
+    }
+}

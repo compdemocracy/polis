@@ -283,3 +283,22 @@ fn no_alloc_or_drop_when_a_fence_has_no_plan() {
     assert_eq!((allocs, frees), (0, 0));
     assert_eq!(out, vec![true; 3]);
 }
+
+/// A grow, accepted or refused, and a shrink after it allocate nothing and
+/// free nothing: they are arithmetic on the reservation and the budget.
+#[test]
+fn grow_allocates_nothing() {
+    let mut c: PlanCache<H> = PlanCache::new(64 << 20, Some(D)).unwrap();
+    let share = c.max_share();
+    let r = c.try_reserve(1 << 10).unwrap();
+    let (r, allocs, frees, live) = counted(|| {
+        let r = c.grow(r, share + 1).unwrap_err();
+        let r = c.grow(r, 1 << 20).unwrap();
+        let r = c.shrink(r, 1 << 12).unwrap();
+        let r = c.grow(r, 1 << 12).unwrap();
+        c.grow(r, 1 << 16).unwrap()
+    });
+    assert_eq!((allocs, frees, live), (0, 0, 0));
+    assert_eq!(r.bytes(), 1 << 16);
+    c.release(r);
+}

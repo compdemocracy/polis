@@ -470,6 +470,20 @@ The reservation handed to `publish` is that build's own, taken before
 charge with `shrink`, which keeps when it was taken; one released and taken
 again after the read would let a build that began before the forgetting
 through. On `FenceFull` the builder evicts one plan and retries once.
+A build admitted in stages grows that same reservation to a later stage's
+bound with `grow`, the mirror of `shrink`: it keeps when the reservation was
+taken (only `try_reserve`, and so `admit_build`, stamps one), so a grown
+reservation taken before a forgetting is still `FenceForgotten` and one
+taken after publishes, grown or not. It is refused at once, never waiting,
+when the new size is more than one share, when the added bytes do not fit
+the budget, or when it is less than the reservation holds (that is a
+`shrink`); refused, the reservation comes back exactly as it was and the
+budget is unchanged, and the caller releases it. It is arithmetic on the
+reservation and the budget: nothing is allocated, read or scanned, so its
+cost does not depend on anything the cache holds. Two builds that each hold
+a first stage cannot wait for each other's second: each grow is answered at
+once. What the builder does after a refused grow (release first, then record
+the failure with backoff, keeping the last plan) is the staged loader's.
 
 **Freshness.** Lookups and the loader's `note_seen` advance the fence's newest
 seen tick by maximum; a lookup with no tick advances nothing and starts no
