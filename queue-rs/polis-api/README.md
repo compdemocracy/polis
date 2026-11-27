@@ -2428,8 +2428,12 @@ setting is read.
   conversation is read from the primary, never a replica; the plan is
   published with the admission's reservation cut down to the plan's charge.
   Admission refused: reclaim, evict one plan, try once more. A full fence
-  table: evict one plan, publish once more. A rule with no build allowance
-  (the floor, for now) is refused before anything is read.
+  table: evict one plan, publish once more. Each rule has its own byte
+  bound, the largest whose admission fits one conversation's share of the
+  default budget (64 MiB): 2 MiB for stored weights and uniform (an
+  admission of 63.5 MB), 54 KiB for the floor, whose build allowance at the
+  densest encoding is about 1,200 times the length. A longer projection is
+  `Oversized` (only its length is read) and keeps today's draw.
 - **Its own thread and its own connection.** The loader runs on one OS
   thread of its own and holds at most one connection, opened by its own
   connector, read only, with a 5 s statement timeout and bounded setup and

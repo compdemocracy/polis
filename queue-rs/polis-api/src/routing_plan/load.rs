@@ -71,13 +71,16 @@ pub(crate) const IO_TIMEOUT: Duration = Duration::from_secs(6);
 ///   source of that length can hold (every counted entry owns two bytes);
 /// - stored weights and uniform: the counts' limits bind first (40,000
 ///   comments), about 24 MB for the stored map read and cloned;
-/// - the floor: the counts bind by length; the most a byte can cost is a
-///   membership entry (about 1 KB per two bytes in the frames' bound), so
-///   its admission is about 520 x the length.
+/// - the floor: the counts bind by length, at the densest encoding (two
+///   bytes an entry) of the entry that costs most (a membership, about 1 KB
+///   in the frames' bound, which charges every ordered map one node per
+///   entry), so its admission is about 1,200 x the length.
 ///
-/// With a 64 MiB share: stored weights and uniform admit 2 MiB
-/// (`STORED_MAX_BYTES`), the floor 96 KiB (`FLOOR_MAX_BYTES`). A larger
-/// projection is `Oversized` and keeps today's draw.
+/// With a 64 MiB share: stored weights admit 2 MiB (`STORED_MAX_BYTES`;
+/// 63.5 MB asked; the largest that fits is 2,338,816 bytes, uniform alone
+/// 4,472,832), the floor 54 KiB (`FLOOR_MAX_BYTES`; the largest that fits
+/// is 55,296 bytes). A larger projection is `Oversized` and keeps today's
+/// draw: a floor over a conversation of even a few hundred comments does.
 pub(crate) const LIMITS: SourceLimits = SourceLimits {
     max_bytes: STORED_MAX_BYTES,
     max_depth: 32,
@@ -91,7 +94,7 @@ pub(crate) const LIMITS: SourceLimits = SourceLimits {
 pub(crate) const STORED_MAX_BYTES: u64 = 2 * 1024 * 1024;
 
 /// The longest projection a floor build reads.
-pub(crate) const FLOOR_MAX_BYTES: u64 = 96 * 1024;
+pub(crate) const FLOOR_MAX_BYTES: u64 = 54 * 1024;
 
 /// The limits a build of `rule` is held to.
 pub(crate) fn limits(rule: &RuleConfig) -> SourceLimits {

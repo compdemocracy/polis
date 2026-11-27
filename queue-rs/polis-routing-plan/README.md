@@ -168,8 +168,22 @@ before any frame is allocated:
    bytes, on everything `frames(needs)` allocates, computed from the walk's
    counts alone, never from the source's length. It is conservative on
    purpose: it assumes every vector doubled its way to its length and every
-   ordered map node holds one entry. It is meant to be charged against a
-   budget before the frames are built.
+   ordered map node holds one entry. Its readers' scratch is charged at four
+   times the length of the read keys' text (`Projection::raw_len`), which
+   covers long strings and long numbers alike. It is meant to be charged
+   against a budget before the frames are built.
+
+`Plan::build_bound(config, tally, raw)` is an upper bound on the frames and
+`Plan::build` together, the build's scratch and the returned plan included;
+for the floor it counts `symmetric_gic_2`'s collected id sets, latest
+counts, scored map, factors and unscored set, group-informed consensus's
+per-group vectors, and the cloned meta set. `Plan::build_allowance(config,
+limits)` is that bound at the worst tally a source of `max_bytes` bytes can
+reach: every counted entry owns two bytes of the source (its first byte and
+the byte that ends it), so the counts together are at most half the length,
+and each stays within its limit; the counts are filled greedily from the one
+that costs most per entry (the bound is a sum of terms linear in one count
+each, which a test checks).
 
 Before any of this, `Projection::parse_reservation(len, limits)` is an upper
 bound on the additional heap allocation held by `parse` at any one time
