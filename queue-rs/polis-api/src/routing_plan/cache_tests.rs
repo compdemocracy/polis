@@ -693,3 +693,27 @@ fn grow_is_builder_side_only() {
         assert_eq!(mentions, allowed, "{name} names the plan cache");
     }
 }
+
+/// A grow to exactly what the reservation holds is accepted and changes
+/// nothing; a grow through a poisoned lock is refused, never a panic, and
+/// leaves the reservation and the charge as they were; a drop afterwards
+/// returns every byte.
+#[test]
+fn reserved_grow_equal_size_and_poisoned() {
+    let cache = RoutingPlanCache::new(DEFAULT_CACHE_BYTES, None).unwrap();
+    let base = cache.used_for_test();
+    let mut r = cache.try_reserve(1000).unwrap();
+    assert_eq!(r.grow(1000), Ok(true));
+    assert_eq!((r.bytes(), cache.used_for_test()), (1000, base + 1000));
+    let poisoner = cache.clone();
+    let poisoned = std::thread::spawn(move || {
+        let _held = poisoner.hold_lock_for_test();
+        panic!("constructed panic while the lock is held");
+    })
+    .join();
+    assert!(poisoned.is_err());
+    assert_eq!(r.grow(5000), Err(Poisoned));
+    assert_eq!((r.bytes(), cache.used_for_test()), (1000, base + 1000));
+    drop(r);
+    assert_eq!(cache.used_for_test(), base);
+}
