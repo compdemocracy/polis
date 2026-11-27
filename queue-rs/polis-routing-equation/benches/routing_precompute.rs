@@ -1,10 +1,30 @@
-//! A benchmark of the crate's real public calls: how long, and how many bytes,
-//! it takes to build a conversation's weights under each built rule, and to
-//! make one participant's draw (the candidate list built, the draw made, the
-//! receipt written) over them.
+//! A benchmark of the crate's real public calls under the precomputation
+//! strategy the design recommends (the engine publishes inputs; a builder
+//! turns one conversation's inputs into a floor plan once per math update;
+//! each request makes one participant's draw over the plan).
 //!
-//! It is bench code, run by hand; `make check-polis-routing-equation` builds
-//! and lints it (clippy `--all-targets`) but never runs it. Run it with
+//! What it times, each as ONE operation:
+//!
+//! - the whole build: projection bytes decoded, frames validated, the floor
+//!   plan built, and the decoded JSON and the frames released, inside the
+//!   timer; out comes the plan and the meta set a request needs beside it;
+//! - the caller's sequence for one request, in two candidate forms:
+//!   `P` (the design's: candidates, the probabilities preflight, the draw,
+//!   the receipt) and `S` (candidates, the draw, the receipt: the draw's
+//!   refusals are decided before the unit is read, so `S` refuses exactly
+//!   where `P` does and draws the same comment; the bench checks that on
+//!   every case before timing it). Under `meta_policy = exclude` both start
+//!   with the caller removing the meta comments from the candidate query's
+//!   rows, because the plan refuses a meta candidate;
+//! - the edge and refusal cases a caller can hit; strategy E (everything per
+//!   request) across small sizes; the floor's resolution kernels; and, at
+//!   the one point the design's T4 names, a reference strategy C draw.
+//!
+//! It is bench code, run by hand. `make check-polis-routing-equation` runs it
+//! once in its smoke mode (`-- --smoke`: a few dozen comments, one iteration
+//! per case, no timing assertion), which checks that every case still runs,
+//! that every draw is of an eligible candidate with a receipt that reads
+//! back, and that each edge case ends as it should. Run it with
 //!
 //! ```text
 //! cargo bench -p polis-routing-equation --bench routing_precompute -- --out <file>
@@ -18,19 +38,16 @@
 //! also reads a real conversation's math result from it at run time (the keys
 //! `group-votes`, `pca.comment-extremity`, `tids` and, if present,
 //! `meta-tids`) and measures that too. No conversation data is kept in this
-//! file or in the repository.
+//! file or in the repository; the smoke mode never reads the variable.
 //!
 //! There is no vote anywhere in this bench: the inputs are named, unsigned
 //! counts (agreed, disagreed, seen), so no vote convention is involved.
 //!
 //! What it is not: not a route benchmark (no SQL, pool, HTTP, deadline,
-//! identity or translation), not a load test, and not production latency.
-//! It runs on one thread. The counting allocator below adds two or three
-//! atomic operations to every allocation, the same for every measurement.
-//!
-//! The bench's loader (`frames_from_value`) reads the projection into the
-//! crate's frames through their public constructors. It is bench code and is
-//! not the frames adapter.
+//! identity, translation, cache lookup or entropy source), not a load test,
+//! and not production latency. It runs on one thread. The counting allocator
+//! below makes four atomic updates per allocation, so its cost grows with the
+//! number of allocations a measurement makes.
 #![allow(
     clippy::unwrap_used,
     clippy::expect_used,
@@ -39,12 +56,11 @@
 )]
 
 use polis_routing_equation::{
-    Candidates, CommentId, CommentMarks, ConsensusForm, CorrectedWeights, Counts,
-    CurrentGroupFrame, Extremity, ExtremityFrame, FloorParams, FloorPlan, GicParams, GroupId,
-    HistoricalCountFrame, HistoricalParams, LiftParams, MarkTotals, Marks, MetaComments,
-    MetaPolicy, NormalizedLiftParams, SourceId, StoredWeights, SymmetricGicParams, SymmetricParams,
-    TermInputs, TermParams, Unit, VoterWeightFrame, historical_1, stable_cdf, stored_weights_1,
-    symmetric_1, symmetric_gic_1, symmetric_gic_floor_1, uniform_1, with_importance,
+    Candidates, CommentId, ConsensusForm, Counts, CurrentGroupFrame, DrawRefusal, Drawn, Extremity,
+    ExtremityFrame, FloorParams, FloorPlan, GicParams, GroupId, HistoricalCountFrame,
+    HistoricalParams, MetaComments, MetaPolicy, SourceId, StoredWeights, SymmetricGicParams,
+    SymmetricParams, Unit, floor_marginals, historical_1, stable_cdf, stored_weights_1,
+    symmetric_gic_1, symmetric_gic_floor_1, uniform_1,
 };
 use serde_json::{Value, json};
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -126,12 +142,45 @@ fn write_file(path: &str, text: &str) {
 // ---------------------------------------------------------------------------
 // Statistics.
 
-/// Warm-up runs before every measurement; then at least `MIN_ITERS`
-/// measured runs, more while they fit in `BUDGET`, at most `MAX_ITERS`.
-const WARMUP: usize = 5;
-const MIN_ITERS: usize = 31;
-const MAX_ITERS: usize = 2001;
-const BUDGET: Duration = Duration::from_millis(1500);
+/// How many runs a measurement makes: `warmup` unrecorded, then at least
+/// `min` recorded, more while they fit in `budget`, at most `max`.
+#[derive(Clone, Copy)]
+struct Iters {
+    warmup: usize,
+    min: usize,
+    max: usize,
+    budget: Duration,
+}
+
+/// Rows a threshold is judged on that state a 95th or 99th percentile: at
+/// least 1,000 recorded runs, so the 99th percentile has ten runs above it.
+const THRESHOLD: Iters = Iters {
+    warmup: 5,
+    min: 1000,
+    max: 5000,
+    budget: Duration::from_millis(3000),
+};
+/// Other per-request rows: at least 300 (a 95th percentile has 15 above it).
+const ROW: Iters = Iters {
+    warmup: 5,
+    min: 300,
+    max: 3000,
+    budget: Duration::from_millis(1000),
+};
+/// Builds, judged on their median: at least 31.
+const BUILD: Iters = Iters {
+    warmup: 3,
+    min: 31,
+    max: 1000,
+    budget: Duration::from_millis(3000),
+};
+/// The smoke mode: one run, no warm-up.
+const SMOKE: Iters = Iters {
+    warmup: 0,
+    min: 1,
+    max: 1,
+    budget: Duration::ZERO,
+};
 
 struct Sample {
     nanos: Vec<u64>,
@@ -148,9 +197,10 @@ fn pct(sorted: &[u64], p: f64) -> u64 {
 
 /// Times `f` (setup outside the timed region is the caller's), recording per
 /// run the wall time, the bytes and allocations requested, and the peak live
-/// bytes above the level at the start of the run.
-fn measure<T>(mut f: impl FnMut() -> T) -> Sample {
-    for _ in 0..WARMUP {
+/// bytes above the level at the start of the run. What `f` returns is
+/// released after the timer stops.
+fn measure<T>(it: Iters, mut f: impl FnMut() -> T) -> Sample {
+    for _ in 0..it.warmup {
         black_box(f());
     }
     let mut s = Sample {
@@ -160,8 +210,8 @@ fn measure<T>(mut f: impl FnMut() -> T) -> Sample {
         peak: 0,
     };
     let started = now();
-    while s.nanos.len() < MAX_ITERS
-        && (s.nanos.len() < MIN_ITERS || now().duration_since(started) < BUDGET)
+    while s.nanos.len() < it.max
+        && (s.nanos.len() < it.min || now().duration_since(started) < it.budget)
     {
         let base_live = LIVE.load(Relaxed);
         PEAK.store(base_live, Relaxed);
@@ -190,23 +240,62 @@ fn retained<T>(f: impl FnOnce() -> T) -> (T, u64) {
     (v, after.saturating_sub(before))
 }
 
-struct Out {
-    lines: Vec<String>,
+#[derive(Clone, Copy, PartialEq)]
+enum Mode {
+    Full,
+    Smoke,
 }
 
-impl Out {
+struct Bench {
+    mode: Mode,
+    lines: Vec<String>,
+    /// Every `m|what` emitted, for the smoke mode's coverage check.
+    kinds: BTreeSet<String>,
+    /// The group counts the whole build was measured at.
+    build_groups: BTreeSet<u64>,
+    measured: usize,
+}
+
+impl Bench {
+    fn smoke(&self) -> bool {
+        self.mode == Mode::Smoke
+    }
+    fn line(&mut self, v: Value) {
+        let text = v.to_string();
+        println!("{text}");
+        self.lines.push(text);
+    }
+    fn time<T>(&mut self, it: Iters, tags: Value, f: impl FnMut() -> T) {
+        let it = if self.smoke() { SMOKE } else { it };
+        let s = measure(it, f);
+        self.emit(tags, &s);
+    }
     fn emit(&mut self, mut tags: Value, s: &Sample) {
+        let field = |k: &str| match &tags[k] {
+            Value::Null => String::new(),
+            Value::String(x) => x.clone(),
+            v => v.to_string(),
+        };
+        let kind = format!("{}|{}", field("m"), field("what"));
+        let case = ["m", "data", "what", "policy", "voted", "by"]
+            .iter()
+            .map(|k| field(k))
+            .collect::<Vec<_>>()
+            .join("|");
         let mut ns = s.nanos.clone();
         ns.sort_unstable();
         let mut al = s.allocated.clone();
         al.sort_unstable();
         let mut ac = s.allocations.clone();
         ac.sort_unstable();
+        assert!(!ns.is_empty() && ns[0] <= ns[ns.len() - 1]);
         let us = |v: u64| v as f64 / 1000.0;
         let obj = tags.as_object_mut().unwrap();
+        obj.insert("case".into(), json!(case));
         obj.insert("iters".into(), json!(ns.len()));
         obj.insert("min_us".into(), json!(us(ns[0])));
         obj.insert("p50_us".into(), json!(us(pct(&ns, 0.50))));
+        obj.insert("p90_us".into(), json!(us(pct(&ns, 0.90))));
         obj.insert("p95_us".into(), json!(us(pct(&ns, 0.95))));
         obj.insert("p99_us".into(), json!(us(pct(&ns, 0.99))));
         obj.insert("max_us".into(), json!(us(ns[ns.len() - 1])));
@@ -218,13 +307,22 @@ impl Out {
         obj.insert("alloc_bytes_max".into(), json!(al[al.len() - 1]));
         obj.insert("allocs_p50".into(), json!(pct(&ac, 0.50)));
         obj.insert("peak_bytes_max".into(), json!(s.peak));
+        if kind == "build|whole build (floor plan)" {
+            self.build_groups.insert(tags["groups"].as_u64().unwrap());
+        }
+        self.kinds.insert(kind);
+        self.measured += 1;
         self.line(tags);
     }
-    fn line(&mut self, v: Value) {
-        let text = v.to_string();
-        println!("{text}");
-        self.lines.push(text);
-    }
+}
+
+fn tag(m: &str, what: &str, data: &str, n: usize, groups: usize) -> Value {
+    json!({"m": m, "what": what, "data": data, "n": n, "groups": groups})
+}
+
+fn with(mut v: Value, k: &str, x: Value) -> Value {
+    v.as_object_mut().unwrap().insert(k.into(), x);
+    v
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +344,9 @@ impl Rng {
     }
     fn below(&mut self, n: usize) -> usize {
         (self.unit() * n as f64) as usize
+    }
+    fn units(&mut self) -> Vec<Unit> {
+        (0..64).map(|_| Unit::new(self.unit()).unwrap()).collect()
     }
 }
 
@@ -272,10 +373,9 @@ struct Conversation {
 /// probability 0.95; its seen count is floor(2000^u) - 1 for u uniform, a
 /// heavy tail from 0 to 1,998 (about 9% of present cells are zero), split
 /// into agrees, disagrees and passes by two uniform fractions. Extremity is
-/// uniform in [0, 3). Every comment has at least one cell, so every comment
-/// is scored. Ids are sparse (7i + 3). This is not a flattering choice for
-/// time or bytes: almost every group has a cell for almost every comment, so
-/// the group frame and every per-comment map are near their largest for n.
+/// uniform in [0, 3). With at least one group every comment has at least one
+/// cell, so every comment is scored; with no group no comment is. Ids are
+/// sparse (7i + 3), in creation order.
 fn constructed(n: usize, groups: u32, seed: u64) -> Conversation {
     let mut rng = Rng(seed);
     let members = 2000u32;
@@ -302,6 +402,15 @@ fn constructed(n: usize, groups: u32, seed: u64) -> Conversation {
         comments,
         meta: vec![],
     }
+}
+
+/// The same conversation with one comment in `every` declared meta (the
+/// first, then every `every`-th, in creation order). Meta comments keep their
+/// votes; under `meta_policy = exclude` the weights list them as excluded.
+fn with_meta(mut c: Conversation, every: usize) -> Conversation {
+    c.meta = c.comments.iter().step_by(every).map(|cm| cm.id).collect();
+    c.label = format!("{}-meta{}pct", c.label, 100 / every);
+    c
 }
 
 /// Resampled data: a real conversation's comments drawn with replacement to
@@ -403,7 +512,8 @@ fn conversation_from_value(label: &str, v: &Value) -> Conversation {
 }
 
 // ---------------------------------------------------------------------------
-// Frames (M2): from the decoded projection, through the public constructors.
+// Frames: from the decoded projection, through the public constructors. This
+// loader is bench code; it is not the frames adapter.
 
 struct Frames {
     counts: HistoricalCountFrame,
@@ -416,7 +526,11 @@ fn sid(s: &str) -> SourceId {
     SourceId::new(s).unwrap()
 }
 
-fn frames_from_value(v: &Value) -> Frames {
+fn dbg(e: impl std::fmt::Debug) -> String {
+    format!("{e:?}")
+}
+
+fn frames_from_value(v: &Value) -> Result<Frames, String> {
     let tids = v["tids"].as_array().unwrap();
     let ext = v["pca"]["comment-extremity"].as_array().unwrap();
     let extremity = ExtremityFrame::new(
@@ -428,7 +542,7 @@ fn frames_from_value(v: &Value) -> Frames {
             )
         }),
     )
-    .unwrap();
+    .map_err(dbg)?;
     let mut members = vec![];
     let mut cells = vec![];
     let mut summed: BTreeMap<u32, [u64; 3]> = BTreeMap::new();
@@ -445,7 +559,7 @@ fn frames_from_value(v: &Value) -> Frames {
             cells.push((
                 g,
                 CommentId::new(tid),
-                Counts::from_seen(a as u32, d as u32, s).unwrap(),
+                Counts::from_seen(a as u32, d as u32, s).map_err(dbg)?,
             ));
             let e = summed.entry(tid).or_default();
             e[0] += a;
@@ -454,17 +568,17 @@ fn frames_from_value(v: &Value) -> Frames {
         }
     }
     // Summed over groups, the latest update's counts: `base-counts:lag-0`.
-    let counts = HistoricalCountFrame::new(
-        sid("bench:base-counts:lag-0"),
-        summed.into_iter().map(|(tid, [a, d, s])| {
-            (
-                CommentId::new(tid),
-                Counts::from_seen(a as u32, d as u32, s).unwrap(),
-            )
-        }),
-    )
-    .unwrap();
-    let groups = CurrentGroupFrame::new(sid("bench:current-groups"), members, cells, None).unwrap();
+    let mut summed_counts = vec![];
+    for (tid, [a, d, s]) in summed {
+        summed_counts.push((
+            CommentId::new(tid),
+            Counts::from_seen(a as u32, d as u32, s).map_err(dbg)?,
+        ));
+    }
+    let counts =
+        HistoricalCountFrame::new(sid("bench:base-counts:lag-0"), summed_counts).map_err(dbg)?;
+    let groups =
+        CurrentGroupFrame::new(sid("bench:current-groups"), members, cells, None).map_err(dbg)?;
     let meta_ids: Vec<CommentId> = v
         .get("meta-tids")
         .and_then(Value::as_array)
@@ -474,28 +588,60 @@ fn frames_from_value(v: &Value) -> Frames {
                 .collect()
         })
         .unwrap_or_default();
-    Frames {
+    Ok(Frames {
         counts,
         extremity,
         groups,
-        meta: MetaComments::new(meta_ids).unwrap(),
-    }
+        meta: MetaComments::new(meta_ids).map_err(dbg)?,
+    })
 }
 
 // ---------------------------------------------------------------------------
-// Rules.
+// Rules and the build.
 
-fn gic(form: ConsensusForm) -> SymmetricGicParams {
-    SymmetricGicParams::new(SymmetricParams::default(), form, GicParams::default())
+fn symmetric(policy: MetaPolicy) -> SymmetricParams {
+    SymmetricParams::new(1.0, 2.0, 1.0, 8.0, 5.0, 2, 7.0, policy).unwrap()
 }
 
-fn floor_params(form: ConsensusForm) -> FloorParams {
-    FloorParams::new(gic(form), 0.1).unwrap()
+fn floor_params(base: SymmetricParams) -> FloorParams {
+    let gic = SymmetricGicParams::new(base, ConsensusForm::GicGeomean1, GicParams::default());
+    FloorParams::new(gic, 0.1).unwrap()
 }
 
-fn floor_plan(f: &Frames, form: ConsensusForm) -> FloorPlan {
-    let w = symmetric_gic_1(&gic(form), &f.counts, &f.extremity, &f.groups, &f.meta).unwrap();
-    symmetric_gic_floor_1(&floor_params(form), w, &f.meta).unwrap()
+fn plan_from_frames(f: &Frames, p: &FloorParams) -> Result<FloorPlan, String> {
+    let w = symmetric_gic_1(p.base(), &f.counts, &f.extremity, &f.groups, &f.meta).map_err(dbg)?;
+    symmetric_gic_floor_1(p, w, &f.meta).map_err(dbg)
+}
+
+/// What a request has in hand under strategy B: the plan, and the meta set
+/// the build read with it (the plan keeps its own copy and does not expose
+/// it, so a caller that must filter meta comments keeps this one).
+struct Built {
+    plan: FloorPlan,
+    meta: MetaComments,
+    exclude: bool,
+}
+
+/// The whole build, as one operation: bytes decoded, frames validated, the
+/// floor plan built, and the decoded value and every frame but the meta set
+/// released before it returns.
+fn whole_build(bytes: &[u8], p: &FloorParams) -> Result<Built, String> {
+    let value: Value = serde_json::from_slice(bytes).map_err(dbg)?;
+    let frames = frames_from_value(&value)?;
+    drop(value);
+    let plan = plan_from_frames(&frames, p)?;
+    let Frames {
+        counts,
+        extremity,
+        groups,
+        meta,
+    } = frames;
+    drop((counts, extremity, groups));
+    Ok(Built {
+        plan,
+        meta,
+        exclude: p.base().base().meta_policy() == MetaPolicy::Exclude,
+    })
 }
 
 fn stored(f: &Frames) -> StoredWeights {
@@ -509,52 +655,122 @@ fn stored(f: &Frames) -> StoredWeights {
     StoredWeights::from_historical(sid("bench:historical-1"), &h)
 }
 
-/// Constructed importance inputs over the frames' counts: per comment, the
-/// seen votes are the eligible ones and about 6% of them carry a mark; the
-/// totals are the sums. The 2019 voter weights: each voter weighs 1 to 1.5.
-struct Importance {
-    marks: CommentMarks,
-    totals: MarkTotals,
-    voters: VoterWeightFrame,
+// ---------------------------------------------------------------------------
+// The caller's sequences.
+
+struct Src {
+    weights: SourceId,
+    request: SourceId,
 }
 
-fn importance_inputs(f: &Frames, seed: u64) -> Importance {
-    let mut rng = Rng(seed);
-    let mut cells = vec![];
-    let mut per = vec![];
-    let (mut marked, mut eligible, mut voters) = (0u64, 0u64, 0u64);
-    let mut sums = vec![];
-    for id in f.counts.ids() {
-        let seen = f.counts.get(id).unwrap().seen();
-        let m = ((seen as f64) * 0.12 * rng.unit()) as u64;
-        cells.push((id, Marks::new(m, seen).unwrap()));
-        marked += m;
-        eligible += seen;
-        let w = if seen == 0 {
-            0.0
-        } else {
-            seen as f64 * (1.0 + 0.5 * rng.unit())
-        };
-        per.push((id, seen, w));
-        voters += seen;
-        sums.push(w);
+#[derive(Clone, Copy)]
+enum Seq {
+    /// The design's sequence (section 8): the probabilities preflight, then
+    /// the draw.
+    Preflight,
+    /// One draw call; its refusals are the preflight's.
+    Single,
+}
+
+impl Seq {
+    fn what(self) -> &'static str {
+        match self {
+            Seq::Preflight => "P: candidates + probabilities + draw + receipt",
+            Seq::Single => "S: candidates + draw + receipt",
+        }
     }
-    sums.sort_by(f64::total_cmp);
-    let total_w: f64 = sums.into_iter().sum();
-    Importance {
-        marks: CommentMarks::new(sid("bench:marks"), sid("bench:cohort"), cells).unwrap(),
-        totals: MarkTotals::new(
-            sid("bench:marks"),
-            sid("bench:cohort"),
-            Marks::new(marked, eligible).unwrap(),
-        ),
-        voters: VoterWeightFrame::new(sid("bench:voter-weights"), per, voters, total_w).unwrap(),
+}
+
+/// The rows the candidate query returns, less the meta comments when the
+/// plan's policy excludes them (the caller's step; `filter = false` is the
+/// caller that forgets it).
+fn eligible(b: &Built, rows: &[CommentId], filter: bool) -> Vec<CommentId> {
+    if filter && b.exclude {
+        rows.iter()
+            .copied()
+            .filter(|id| !b.meta.contains(*id))
+            .collect()
+    } else {
+        rows.to_vec()
     }
+}
+
+/// One request's work from the candidate query's ordered rows to the
+/// receipt's canonical text. A refusal means today's path serves.
+fn run_seq(
+    seq: Seq,
+    b: &Built,
+    rows: &[CommentId],
+    filter: bool,
+    unit: Unit,
+    src: &Src,
+) -> Result<String, DrawRefusal> {
+    let c = Candidates::new(eligible(b, rows, filter))?;
+    if matches!(seq, Seq::Preflight) {
+        b.plan.probabilities(&c)?;
+    }
+    Ok(b.plan
+        .draw(&c, unit, &src.weights, &src.request)?
+        .to_plain())
+}
+
+/// Checks one result: a receipt reads back to the same text and names an
+/// eligible candidate with a chance in (0, 1] among exactly these
+/// candidates. Returns the outcome's name.
+fn outcome(r: &Result<String, DrawRefusal>, eligible: &[CommentId]) -> String {
+    match r {
+        Ok(text) => {
+            let d = Drawn::from_plain(text).expect("the receipt reads back");
+            assert_eq!(&d.to_plain(), text, "the receipt's text is canonical");
+            assert!(eligible.contains(&d.comment()), "an eligible comment");
+            assert_eq!(d.candidate_count(), eligible.len());
+            assert!(d.probability() > 0.0 && d.probability() <= 1.0);
+            "ok".into()
+        }
+        Err(e) => format!("refused: {e:?}"),
+    }
+}
+
+/// Both sequences over the same rows: checked to give the same outcome and
+/// the same receipt for the same unit, then each timed. Returns the outcome.
+fn seq_pair(
+    bench: &mut Bench,
+    b: &Built,
+    rows: &[CommentId],
+    filter: bool,
+    tags: &Value,
+    it: Iters,
+    rng: &mut Rng,
+) -> String {
+    let src = Src {
+        weights: sid("bench:plan"),
+        request: sid("bench:request"),
+    };
+    let units = rng.units();
+    let el = eligible(b, rows, filter);
+    let p = run_seq(Seq::Preflight, b, rows, filter, units[0], &src);
+    let s = run_seq(Seq::Single, b, rows, filter, units[0], &src);
+    let o = outcome(&p, &el);
+    assert_eq!(o, outcome(&s, &el), "the two sequences end alike");
+    assert_eq!(p.as_ref().ok(), s.as_ref().ok(), "the same receipt");
+    for seq in [Seq::Preflight, Seq::Single] {
+        let mut k = 0usize;
+        let t = with(
+            with(tags.clone(), "what", json!(seq.what())),
+            "outcome",
+            json!(o),
+        );
+        bench.time(it, t, || {
+            k = (k + 1) % units.len();
+            run_seq(seq, b, rows, filter, units[k], &src)
+        });
+    }
+    o
 }
 
 // ---------------------------------------------------------------------------
 // The participant: a voted set by count (uniform at random) or by weight
-// (drawn without replacement by the rule's own weights, heavy ones first).
+// (drawn without replacement by the plan's own weights, heavy ones first).
 
 fn voted_by_count(ids: &[CommentId], fraction: f64, rng: &mut Rng) -> BTreeSet<CommentId> {
     let k = (fraction * ids.len() as f64).round() as usize;
@@ -590,13 +806,18 @@ fn remaining(ids: &[CommentId], voted: &BTreeSet<CommentId>) -> Vec<CommentId> {
         .collect()
 }
 
+fn plan_weight(plan: &FloorPlan, id: CommentId) -> f64 {
+    plan.weights().get(id).map_or(1.0, |s| s.weight().get())
+}
+
 // ---------------------------------------------------------------------------
-// Strategy C, as reference bench code (not crate code): one table of running
-// sums over every comment's base weight; a draw picks a position by binary
-// search and retries (cap 32) when the participant may not get it, then
-// falls back to the exact pass over the eligible comments. It draws
-// w_j / W_p, with no floor lane: it is a lower bound on what C would cost for
-// the floor, whose law it does not have.
+// Strategy C, as reference bench code (not crate code), measured only at the
+// point T4 names: one table of running sums over every comment's base weight;
+// a draw picks a position by binary search and retries (cap 32) when the
+// participant may not get it, then falls back to the exact pass over the
+// eligible comments. Its law is w_j / W_p with no floor lane, it writes no
+// receipt, and its time includes making the eligibility mask from the voted
+// list. One simple implementation, not a bound on every C.
 
 struct CTable {
     cum: Vec<f64>,
@@ -609,7 +830,7 @@ fn c_table(plan: &FloorPlan, ids: &[CommentId]) -> CTable {
     let mut weights = Vec::with_capacity(ids.len());
     let mut total = 0.0;
     for id in ids {
-        let w = plan.weights().get(*id).map_or(1.0, |s| s.weight().get());
+        let w = plan_weight(plan, *id);
         total += w;
         weights.push(w);
         cum.push(total);
@@ -656,311 +877,443 @@ fn c_draw(t: &CTable, voted: &[CommentId], rng: &mut Rng) -> (usize, u32, bool) 
     (last, 32, true)
 }
 
+fn bench_c(
+    bench: &mut Bench,
+    b: &Built,
+    ids: &[CommentId],
+    voted: &BTreeSet<CommentId>,
+    base: &Value,
+) {
+    let ctab = c_table(&b.plan, ids);
+    let vf: Vec<CommentId> = voted.iter().copied().collect();
+    let total: f64 = ids.iter().map(|id| plan_weight(&b.plan, *id)).sum();
+    let gone: f64 = vf.iter().map(|id| plan_weight(&b.plan, *id)).sum();
+    let mut tries = vec![];
+    let mut fell = 0u32;
+    let mut crng = Rng(77);
+    for _ in 0..2000 {
+        let (_, tr, fb) = c_draw(&ctab, &vf, &mut crng);
+        tries.push(u64::from(tr));
+        fell += u32::from(fb);
+    }
+    tries.sort_unstable();
+    let mut v = with(
+        base.clone(),
+        "what",
+        json!("C reference: table, cap 32, exact fallback"),
+    );
+    v = with(v, "m", json!("C"));
+    v = with(v, "tries_p50", json!(pct(&tries, 0.5)));
+    v = with(v, "tries_p99", json!(pct(&tries, 0.99)));
+    v = with(v, "fallback_rate", json!(f64::from(fell) / 2000.0));
+    v = with(v, "mass_removed", json!(gone / total));
+    v = with(v, "remaining", json!(ids.len() - vf.len()));
+    bench.time(ROW, v, || c_draw(&ctab, &vf, &mut crng));
+}
+
 // ---------------------------------------------------------------------------
-// The measurements.
+// The cases.
 
-const FRACTIONS: [f64; 4] = [0.0, 0.5, 0.95, 0.999];
-
-fn tag(m: &str, what: &str, data: &str, n: usize, groups: usize) -> Value {
-    json!({"m": m, "what": what, "data": data, "n": n, "groups": groups})
+#[derive(Clone, Copy, PartialEq)]
+enum Detail {
+    /// The thresholds' own case: components, every voted fraction, today's
+    /// draw and uniform/1 beside the floor.
+    Full,
+    /// Another shape at the same size: the whole build and both sequences at
+    /// 0 and 50 percent voted.
+    Light,
 }
 
-fn with(mut v: Value, k: &str, x: Value) -> Value {
-    v.as_object_mut().unwrap().insert(k.into(), x);
-    v
-}
-
-/// M1 to M7 and M9 for one conversation.
-fn bench_conversation(out: &mut Out, conv: &Conversation, bytes: &[u8], full: bool) {
+/// The whole build, its retained and peak bytes; then the requests.
+fn bench_conversation(
+    bench: &mut Bench,
+    conv: &Conversation,
+    bytes: &[u8],
+    detail: Detail,
+    policy: MetaPolicy,
+    c_point: bool,
+) {
     let n = conv.comments.len();
     let g = conv.groups.len();
     let d = conv.label.as_str();
-    out.line(json!({"m": "data", "data": d, "n": n, "groups": g,
-        "projection_bytes": bytes.len(), "meta": conv.meta.len()}));
+    let pname = format!("{policy:?}");
+    let p = floor_params(symmetric(policy));
+    bench.line(
+        json!({"m": "data", "data": d, "n": n, "groups": g, "policy": pname,
+        "projection_bytes": bytes.len(), "meta": conv.meta.len()}),
+    );
+    let tg = |m: &str, what: &str| with(tag(m, what, d, n, g), "policy", json!(pname));
 
-    // M1 decode.
-    let s = measure(|| serde_json::from_slice::<Value>(bytes).unwrap());
-    out.emit(tag("M1", "decode", d, n, g), &s);
-    let value: Value = serde_json::from_slice(bytes).unwrap();
-
-    // M2 frames.
-    let s = measure(|| frames_from_value(&value));
-    out.emit(tag("M2", "frames", d, n, g), &s);
-    let (frames, bytes_frames) = retained(|| frames_from_value(&value));
-    out.line(with(
-        tag("M7", "frames", d, n, g),
+    // The whole build, timed as one operation.
+    let first = whole_build(bytes, &p);
+    let build_outcome = match &first {
+        Ok(_) => "ok".to_string(),
+        Err(e) => format!("refused: {e}"),
+    };
+    drop(first);
+    bench.time(
+        BUILD,
+        with(
+            tg("build", "whole build (floor plan)"),
+            "outcome",
+            json!(build_outcome),
+        ),
+        || whole_build(bytes, &p),
+    );
+    let (built, kept) = retained(|| whole_build(bytes, &p));
+    bench.line(with(
+        tg("bytes", "retained by the built plan and meta set"),
         "retained_bytes",
-        json!(bytes_frames),
+        json!(kept),
     ));
-    let f = &frames;
+    let Ok(b) = built else {
+        return;
+    };
 
-    // M3 builds, M7 retained bytes.
-    let hp = HistoricalParams::default();
-    let sp = SymmetricParams::default();
-    let imp = importance_inputs(f, 11);
-    macro_rules! build {
-        ($what:expr, $e:expr) => {{
-            let s = measure(|| $e);
-            out.emit(tag("M3", $what, d, n, g), &s);
-            let (_v, b) = retained(|| $e);
-            out.line(with(tag("M7", $what, d, n, g), "retained_bytes", json!(b)));
-        }};
-    }
-    build!(
-        "historical/1",
-        historical_1(&hp, &f.counts, &f.extremity, &f.meta).unwrap()
-    );
-    build!(
-        "stored-weights/1 map (historical/1 + StoredWeights)",
-        stored(f)
-    );
-    build!(
-        "symmetric/1",
-        symmetric_1(&sp, &f.counts, &f.extremity, &f.meta).unwrap()
-    );
-    for form in [ConsensusForm::GicGeomean1, ConsensusForm::GicMean1] {
-        build!(
-            format!("symmetric-gic/1 {}", form.name()).as_str(),
-            symmetric_gic_1(&gic(form), &f.counts, &f.extremity, &f.groups, &f.meta).unwrap()
-        );
-        build!(
-            format!("symmetric-gic-floor/1 plan {}", form.name()).as_str(),
-            floor_plan(f, form)
+    // Components, for comparison with the first measurement only.
+    if detail == Detail::Full {
+        bench.time(BUILD, tg("build", "component: decode"), || {
+            serde_json::from_slice::<Value>(bytes).unwrap()
+        });
+        let value: Value = serde_json::from_slice(bytes).unwrap();
+        bench.time(BUILD, tg("build", "component: frames"), || {
+            frames_from_value(&value).unwrap()
+        });
+        let frames = frames_from_value(&value).unwrap();
+        bench.time(
+            BUILD,
+            tg("build", "component: floor plan from frames"),
+            || plan_from_frames(&frames, &p).unwrap(),
         );
     }
-    let lift = |base: CorrectedWeights| {
-        with_importance(
-            base,
-            TermParams::ImportanceLift1(LiftParams::default()),
-            TermInputs::Marks {
-                comments: Some(&imp.marks),
-                totals: Some(&imp.totals),
-            },
-            sid("bench:marks"),
-        )
-        .unwrap()
-    };
-    let nlift = |base: CorrectedWeights| {
-        with_importance(
-            base,
-            TermParams::ImportanceNormalizedLift1(NormalizedLiftParams::new(None).unwrap()),
-            TermInputs::VoterWeights(&imp.voters),
-            sid("bench:voter-weights"),
-        )
-        .unwrap()
-    };
-    let gp = gic(ConsensusForm::GicGeomean1);
-    build!(
-        "symmetric-gic/1 + importance-lift/1",
-        lift(symmetric_gic_1(&gp, &f.counts, &f.extremity, &f.groups, &f.meta).unwrap())
-    );
-    build!(
-        "symmetric-gic/1 + importance-normalized-lift/1",
-        nlift(symmetric_gic_1(&gp, &f.counts, &f.extremity, &f.groups, &f.meta).unwrap())
-    );
 
-    // M4 to M6: one participant's draw.
-    let plan = floor_plan(f, ConsensusForm::GicGeomean1);
-    let sw = stored(f);
     let ids: Vec<CommentId> = conv.comments.iter().map(|c| CommentId::new(c.id)).collect();
-    let ids: Vec<CommentId> = ids.into_iter().filter(|id| !f.meta.contains(*id)).collect();
-    let src = sid("bench:request");
-    let wsrc = sid("bench:plan");
-    let floor_w = |id: CommentId| plan.weights().get(id).map_or(1.0, |s| s.weight().get());
-    let stored_w = |id: CommentId| match sw.get(id) {
-        Some(polis_routing_equation::StoredWeight::Number(w)) if w > 0.0 => w,
-        _ => 1.0,
-    };
-    let ctab = c_table(&plan, &ids);
     let mut rng = Rng(0x5EED_0000 + n as u64);
-    for &frac in &FRACTIONS {
-        for by in ["count", "weight"] {
-            let voted_floor = if by == "count" {
-                voted_by_count(&ids, frac, &mut rng)
-            } else {
-                voted_by_weight(&ids, floor_w, frac, &mut rng)
-            };
-            let voted_stored = if by == "count" {
-                voted_floor.clone()
-            } else {
-                voted_by_weight(&ids, stored_w, frac, &mut rng)
-            };
-            let rest_floor = remaining(&ids, &voted_floor);
-            let rest_stored = remaining(&ids, &voted_stored);
-            if rest_floor.is_empty() || rest_stored.is_empty() {
-                continue;
-            }
-            let base = with(
-                with(tag("M5", "", d, n, g), "voted", json!(frac)),
-                "by",
-                json!(by),
+    let fractions: &[(f64, &str)] = match detail {
+        Detail::Full => &[
+            (0.0, "count"),
+            (0.5, "count"),
+            (0.95, "count"),
+            (0.999, "count"),
+            (0.0, "weight"),
+            (0.95, "weight"),
+        ],
+        Detail::Light => &[(0.0, "count"), (0.5, "count")],
+    };
+    let seq_iters = if detail == Detail::Full {
+        THRESHOLD
+    } else {
+        ROW
+    };
+    let sw = (detail == Detail::Full).then(|| {
+        let value: Value = serde_json::from_slice(bytes).unwrap();
+        stored(&frames_from_value(&value).unwrap())
+    });
+    for &(frac, by) in fractions {
+        let voted = if by == "count" {
+            voted_by_count(&ids, frac, &mut rng)
+        } else {
+            voted_by_weight(&ids, |id| plan_weight(&b.plan, id), frac, &mut rng)
+        };
+        let rows = remaining(&ids, &voted);
+        if rows.is_empty() {
+            continue;
+        }
+        let base = with(with(tg("seq", ""), "voted", json!(frac)), "by", json!(by));
+        let o = seq_pair(bench, &b, &rows, true, &base, seq_iters, &mut rng);
+        assert_eq!(o, "ok", "an ordinary request draws");
+        if b.exclude {
+            bench.time(
+                ROW,
+                with(base.clone(), "what", json!("caller filter")),
+                || eligible(&b, &rows, true),
             );
-            let t = |what: &str| with(base.clone(), "what", json!(what));
-            let units: Vec<Unit> = (0..64).map(|_| Unit::new(rng.unit()).unwrap()).collect();
+        }
+        if let (Some(sw), "count") = (&sw, by) {
+            let src = sid("bench:request");
+            let units = rng.units();
             let mut k = 0usize;
-            let mut unit = || {
-                k = (k + 1) % units.len();
-                units[k]
-            };
-
-            // M4: the candidate list alone.
-            if by == "count" {
-                let s = measure(|| Candidates::new(rest_floor.clone()).unwrap());
-                out.emit(with(t("Candidates::new"), "m", json!("M4")), &s);
-            }
-            // M4 + M5 + M6, as a request would make them.
-            let s = measure(|| {
-                let c = Candidates::new(rest_floor.clone()).unwrap();
-                plan.draw(&c, unit(), &wsrc, &src).unwrap().to_plain()
-            });
-            out.emit(t("floor draw: candidates + draw + receipt"), &s);
-            let s = measure(|| {
-                let c = Candidates::new(rest_stored.clone()).unwrap();
-                stored_weights_1(Some(&sw), &c, unit(), &src)
-                    .unwrap()
-                    .to_plain()
-            });
-            out.emit(t("stored-weights/1: candidates + draw + receipt"), &s);
-            if by == "count" {
-                let s = measure(|| {
-                    let c = Candidates::new(rest_floor.clone()).unwrap();
-                    uniform_1(&c, unit(), &src).unwrap().to_plain()
-                });
-                out.emit(t("uniform/1: candidates + draw + receipt"), &s);
-                // M6 alone.
-                let c = Candidates::new(rest_floor.clone()).unwrap();
-                let drawn = plan.draw(&c, unit(), &wsrc, &src).unwrap();
-                let s = measure(|| drawn.to_plain());
-                out.emit(with(t("Drawn::to_plain (floor)"), "m", json!("M6")), &s);
-                // The floor's probabilities alone (resolve + marginals).
-                let s = measure(|| plan.probabilities(&c).unwrap());
-                out.emit(t("floor probabilities only"), &s);
-            }
-            // M10: single-vector C, cap 32, exact fallback.
-            if full {
-                let vf: Vec<CommentId> = voted_floor.iter().copied().collect();
-                let mut tries = vec![];
-                let mut fell = 0u32;
-                let mut crng = Rng(77);
-                for _ in 0..2000 {
-                    let (_, tr, fb) = c_draw(&ctab, &vf, &mut crng);
-                    tries.push(u64::from(tr));
-                    fell += u32::from(fb);
-                }
-                tries.sort_unstable();
-                let s = measure(|| c_draw(&ctab, &vf, &mut crng));
-                let v = with(
-                    with(
-                        with(t("C: table, cap 32, exact fallback"), "m", json!("M10")),
-                        "tries_p50",
-                        json!(pct(&tries, 0.5)),
-                    ),
-                    "tries_p99",
-                    json!(pct(&tries, 0.99)),
+            bench.time(
+                ROW,
+                with(
+                    base.clone(),
+                    "what",
+                    json!("stored-weights/1: candidates + draw + receipt"),
+                ),
+                || {
+                    k = (k + 1) % units.len();
+                    let c = Candidates::new(rows.clone()).unwrap();
+                    stored_weights_1(Some(sw), &c, units[k], &src)
+                        .unwrap()
+                        .to_plain()
+                },
+            );
+            bench.time(
+                ROW,
+                with(
+                    base.clone(),
+                    "what",
+                    json!("uniform/1: candidates + draw + receipt"),
+                ),
+                || {
+                    k = (k + 1) % units.len();
+                    let c = Candidates::new(rows.clone()).unwrap();
+                    uniform_1(&c, units[k], &src).unwrap().to_plain()
+                },
+            );
+            if frac == 0.0 {
+                bench.time(
+                    ROW,
+                    with(base.clone(), "what", json!("component: Candidates::new")),
+                    || Candidates::new(rows.clone()).unwrap(),
                 );
-                out.emit(
-                    with(v, "fallback_rate", json!(f64::from(fell) / 2000.0)),
-                    &s,
+                let c = Candidates::new(rows.clone()).unwrap();
+                bench.time(
+                    ROW,
+                    with(base.clone(), "what", json!("component: probabilities")),
+                    || b.plan.probabilities(&c).unwrap(),
                 );
             }
         }
+        if c_point && frac == 0.95 && by == "weight" {
+            bench_c(bench, &b, &ids, &voted, &base);
+        }
     }
+}
 
-    // M9: E, everything one request would do, from the bytes.
-    let voted_e = voted_by_count(&ids, 0.5, &mut rng);
-    let rest_e = remaining(&ids, &voted_e);
-    let u = Unit::new(0.37).unwrap();
-    let s = measure(|| {
-        let v: Value = serde_json::from_slice(bytes).unwrap();
-        let fr = frames_from_value(&v);
-        let p = floor_plan(&fr, ConsensusForm::GicGeomean1);
-        let c = Candidates::new(rest_e.clone()).unwrap();
-        p.draw(&c, u, &wsrc, &src).unwrap().to_plain()
-    });
-    out.emit(
+/// The meta and excluded sets: one comment in ten, and one in two, declared
+/// meta, under `exclude` (the caller filters) and under today's `fixed`.
+fn bench_meta(bench: &mut Bench, n: usize) {
+    for every in [10usize, 2] {
+        let conv = with_meta(constructed(n, 5, 1000 + n as u64), every);
+        let bytes = projection(&conv);
+        bench_conversation(
+            bench,
+            &conv,
+            &bytes,
+            Detail::Light,
+            MetaPolicy::Exclude,
+            false,
+        );
+        bench_conversation(
+            bench,
+            &conv,
+            &bytes,
+            Detail::Light,
+            MetaPolicy::Fixed,
+            false,
+        );
+    }
+}
+
+/// The edge and refusal cases a caller can hit, at size n, 5 groups, nothing
+/// voted. Each ends as asserted, in every mode.
+fn bench_edges(bench: &mut Bench, n: usize) {
+    let conv = constructed(n, 5, 1000 + n as u64);
+    let d = conv.label.clone();
+    let bytes = projection(&conv);
+    let p = floor_params(symmetric(MetaPolicy::Fixed));
+    let b = whole_build(&bytes, &p).unwrap();
+    let ids: Vec<CommentId> = conv.comments.iter().map(|c| CommentId::new(c.id)).collect();
+    let mut rng = Rng(0xED6E);
+    let base = |what: &str| {
         with(
-            tag(
-                "M9",
-                "E: decode + frames + floor plan + draw + receipt",
-                d,
-                n,
-                g,
-            ),
-            "voted",
-            json!(0.5),
-        ),
-        &s,
+            with(tag("edge", "", &d, n, 5), "voted", json!(0.0)),
+            "by",
+            json!(what),
+        )
+    };
+    let o = seq_pair(
+        bench,
+        &b,
+        &[],
+        true,
+        &base("no candidates left"),
+        ROW,
+        &mut rng,
     );
-    let s = measure(|| {
-        let v: Value = serde_json::from_slice(bytes).unwrap();
-        let fr = frames_from_value(&v);
-        let m = stored(&fr);
-        let c = Candidates::new(rest_e.clone()).unwrap();
-        stored_weights_1(Some(&m), &c, u, &src).unwrap().to_plain()
+    assert_eq!(o, "refused: Empty");
+    let o = seq_pair(
+        bench,
+        &b,
+        &ids[..1],
+        true,
+        &base("one candidate"),
+        ROW,
+        &mut rng,
+    );
+    assert_eq!(o, "ok");
+    let mut unknown = ids.clone();
+    unknown.push(CommentId::new(u32::MAX - 1));
+    let o = seq_pair(
+        bench,
+        &b,
+        &unknown,
+        true,
+        &base("a candidate the plan does not know, last"),
+        ROW,
+        &mut rng,
+    );
+    assert!(o.starts_with("refused: NeedsBaseline"), "{o}");
+
+    // A caller that forgets to filter meta comments under `exclude`.
+    let mconv = with_meta(conv.clone(), 10);
+    let pe = floor_params(symmetric(MetaPolicy::Exclude));
+    let be = whole_build(&projection(&mconv), &pe).unwrap();
+    let o = seq_pair(
+        bench,
+        &be,
+        &ids,
+        false,
+        &base("an excluded meta candidate, not filtered"),
+        ROW,
+        &mut rng,
+    );
+    assert!(o.starts_with("refused: ExcludedCandidate"), "{o}");
+
+    // Every candidate unscored: no group, so no counts at all.
+    let uconv = constructed(n, 0, 1000 + n as u64);
+    let bu = whole_build(&projection(&uconv), &p).unwrap();
+    let uids: Vec<CommentId> = uconv
+        .comments
+        .iter()
+        .map(|c| CommentId::new(c.id))
+        .collect();
+    let o = seq_pair(
+        bench,
+        &bu,
+        &uids,
+        true,
+        &base("every candidate unscored"),
+        ROW,
+        &mut rng,
+    );
+    assert_eq!(o, "ok");
+
+    // Every base weight zero cannot come from a built plan (the extremity
+    // offset is refused below 1e-3, so every scored weight is positive); the
+    // floor's arithmetic for it (the weighted share donated to the uniform
+    // lane) is timed alone, without resolution or receipt.
+    let zeros = vec![0.0; ids.len()];
+    let zt = with(
+        base("every base weight zero"),
+        "what",
+        json!("floor arithmetic only: floor_marginals + stable_cdf"),
+    );
+    bench.time(ROW, zt, || {
+        let m = floor_marginals(0.1, &zeros).unwrap();
+        assert_eq!(m.donations().len(), 1);
+        stable_cdf(m.draw_weights(), Unit::new(0.5).unwrap()).unwrap()
     });
-    out.emit(
+
+    // Every stored weight zero: today's draw through the crate.
+    let json_map: serde_json::Map<String, Value> = conv
+        .comments
+        .iter()
+        .map(|c| (c.id.to_string(), json!(0)))
+        .collect();
+    let zsw =
+        StoredWeights::from_json(sid("bench:zeros"), &Value::Object(json_map).to_string()).unwrap();
+    let src = sid("bench:request");
+    let units = rng.units();
+    let first =
+        Candidates::new(ids.clone()).and_then(|c| stored_weights_1(Some(&zsw), &c, units[0], &src));
+    let zo = match &first {
+        Ok(drawn) => outcome(&Ok(drawn.to_plain()), &ids),
+        Err(e) => format!("refused: {e:?}"),
+    };
+    let mut k = 0usize;
+    let zt = with(base("every stored weight zero"), "outcome", json!(zo));
+    bench.time(
+        ROW,
         with(
-            tag(
-                "M9",
-                "E: decode + frames + stored-weights map + draw + receipt",
-                d,
-                n,
-                g,
-            ),
-            "voted",
-            json!(0.5),
+            zt,
+            "what",
+            json!("every stored weight zero (stored-weights/1)"),
         ),
-        &s,
+        || {
+            k = (k + 1) % units.len();
+            Candidates::new(ids.clone())
+                .and_then(|c| stored_weights_1(Some(&zsw), &c, units[k], &src))
+                .map(|x| x.to_plain())
+        },
     );
 }
 
-/// M8: the floor's resolution with all, half or no candidates unscored. An
-/// unscored comment here is one with an extremity and no counts.
-fn bench_unscored(out: &mut Out, n: usize) {
+/// Strategy E: everything per request, from the bytes: the whole build and
+/// the design's sequence.
+fn bench_e(bench: &mut Bench, conv: &Conversation, bytes: &[u8], frac: f64, it: Iters) {
+    let n = conv.comments.len();
+    let p = floor_params(symmetric(MetaPolicy::Fixed));
+    let ids: Vec<CommentId> = conv.comments.iter().map(|c| CommentId::new(c.id)).collect();
+    let mut rng = Rng(0xE000 + n as u64);
+    let rows = remaining(&ids, &voted_by_count(&ids, frac, &mut rng));
+    let src = Src {
+        weights: sid("bench:plan"),
+        request: sid("bench:request"),
+    };
+    let u = Unit::new(0.37).unwrap();
+    let b = whole_build(bytes, &p).unwrap();
+    let o = outcome(
+        &run_seq(Seq::Preflight, &b, &rows, true, u, &src),
+        &eligible(&b, &rows, true),
+    );
+    assert_eq!(o, "ok", "an ordinary request draws");
+    drop(b);
+    let t = with(
+        with(
+            tag(
+                "E",
+                "E: bytes + whole build + P",
+                &conv.label,
+                n,
+                conv.groups.len(),
+            ),
+            "voted",
+            json!(frac),
+        ),
+        "outcome",
+        json!(o),
+    );
+    bench.time(it, t, || {
+        let b = whole_build(bytes, &p).unwrap();
+        run_seq(Seq::Preflight, &b, &rows, true, u, &src)
+    });
+}
+
+/// The floor's resolution kernels (T5): the draw alone over a prebuilt
+/// candidate list, all, half or no candidates unscored, and with large
+/// excluded sets that are not candidates.
+fn bench_kernels(bench: &mut Bench, n: usize) {
     let conv = constructed(n, 5, 4040 + n as u64);
     let value: Value = serde_json::from_slice(&projection(&conv)).unwrap();
-    let full = frames_from_value(&value);
+    let full = frames_from_value(&value).unwrap();
     let ids: Vec<CommentId> = conv.comments.iter().map(|c| CommentId::new(c.id)).collect();
+    let c = Candidates::new(ids.clone()).unwrap();
+    let src = sid("bench:request");
+    let fixed = floor_params(symmetric(MetaPolicy::Fixed));
+    let exclude = floor_params(symmetric(MetaPolicy::Exclude));
+    let mut plans: Vec<(&str, FloorPlan)> = vec![];
+    // Every `step`-th comment keeps its counts; `None` keeps none.
     for (label, keep) in [
-        ("all scored", 1usize),
-        ("half unscored", 2),
-        ("all unscored", 0),
+        ("all scored", Some(1usize)),
+        ("half unscored", Some(2)),
+        ("all unscored", None),
     ] {
-        let counts = HistoricalCountFrame::new(
-            sid("bench:base-counts:lag-0"),
-            ids.iter().enumerate().filter_map(|(i, id)| {
-                let scored = keep == 1 || (keep == 2 && i % 2 == 0);
-                scored.then(|| (*id, full.counts.get(*id).unwrap()))
-            }),
-        )
-        .unwrap();
+        let mut counts = vec![];
+        for (i, id) in ids.iter().enumerate() {
+            if keep.is_some_and(|step| i % step == 0) {
+                counts.push((*id, full.counts.get(*id).unwrap()));
+            }
+        }
         let f = Frames {
-            counts,
+            counts: HistoricalCountFrame::new(sid("bench:base-counts:lag-0"), counts).unwrap(),
             extremity: full.extremity.clone(),
             groups: full.groups.clone(),
             meta: MetaComments::none(),
         };
-        let plan = floor_plan(&f, ConsensusForm::GicGeomean1);
-        let c = Candidates::new(ids.clone()).unwrap();
-        let src = sid("bench:request");
-        let base = with(tag("M8", "", &conv.label, n, 5), "set", json!(label));
-        let s = measure(|| plan.probabilities(&c).unwrap());
-        out.emit(with(base.clone(), "what", json!("probabilities")), &s);
-        let mut rng = Rng(9);
-        let s = measure(|| {
-            let u = Unit::new(rng.unit()).unwrap();
-            plan.draw(&c, u, &src, &src).unwrap()
-        });
-        out.emit(with(base, "what", json!("draw")), &s);
+        plans.push((label, plan_from_frames(&f, &fixed).unwrap()));
     }
-    // Large excluded sets: every candidate scored, and 10% or 50% as many
-    // declared meta comments, none of them candidates, excluded under
-    // meta_policy = exclude.
-    let exclude = SymmetricGicParams::new(
-        SymmetricParams::new(1.0, 2.0, 1.0, 8.0, 5.0, 2, 7.0, MetaPolicy::Exclude).unwrap(),
-        ConsensusForm::GicGeomean1,
-        GicParams::default(),
-    );
     for (label, tenths) in [
         ("all scored, excluded 10%", 1usize),
         ("all scored, excluded 50%", 5),
@@ -968,27 +1321,132 @@ fn bench_unscored(out: &mut Out, n: usize) {
         let meta =
             MetaComments::new((0..n * tenths / 10).map(|i| CommentId::new(7 * i as u32 + 5)))
                 .unwrap();
-        let w =
-            symmetric_gic_1(&exclude, &full.counts, &full.extremity, &full.groups, &meta).unwrap();
-        let plan =
-            symmetric_gic_floor_1(&FloorParams::new(exclude, 0.1).unwrap(), w, &meta).unwrap();
-        let c = Candidates::new(ids.clone()).unwrap();
-        let src = sid("bench:request");
+        let all: Vec<_> = ids
+            .iter()
+            .map(|id| (*id, full.counts.get(*id).unwrap()))
+            .collect();
+        let f = Frames {
+            counts: HistoricalCountFrame::new(sid("bench:base-counts:lag-0"), all).unwrap(),
+            extremity: full.extremity.clone(),
+            groups: full.groups.clone(),
+            meta,
+        };
+        plans.push((label, plan_from_frames(&f, &exclude).unwrap()));
+    }
+    for (label, plan) in &plans {
         let base = with(tag("M8", "", &conv.label, n, 5), "set", json!(label));
-        let s = measure(|| plan.probabilities(&c).unwrap());
-        out.emit(with(base.clone(), "what", json!("probabilities")), &s);
+        let base = with(base, "by", json!(label));
+        bench.time(
+            ROW,
+            with(base.clone(), "what", json!("probabilities")),
+            || plan.probabilities(&c).unwrap(),
+        );
         let mut rng = Rng(9);
-        let s = measure(|| {
+        bench.time(ROW, with(base, "what", json!("draw")), || {
             let u = Unit::new(rng.unit()).unwrap();
             plan.draw(&c, u, &src, &src).unwrap()
         });
-        out.emit(with(base, "what", json!("draw")), &s);
     }
-    // The same arithmetic with the resolution taken out: the stable draw over
-    // n ones, to show what the rest of the draw costs.
     let ones = vec![1.0; n];
-    let s = measure(|| stable_cdf(&ones, Unit::new(0.5).unwrap()).unwrap());
-    out.emit(tag("M8", "stable_cdf over n ones", &conv.label, n, 5), &s);
+    bench.time(
+        ROW,
+        tag("M8", "stable_cdf over n ones", &conv.label, n, 5),
+        || stable_cdf(&ones, Unit::new(0.5).unwrap()).unwrap(),
+    );
+}
+
+/// Every `m|what` the suite must emit; the smoke mode checks the list.
+const REQUIRED: &[&str] = &[
+    "build|whole build (floor plan)",
+    "build|component: decode",
+    "build|component: frames",
+    "build|component: floor plan from frames",
+    "seq|P: candidates + probabilities + draw + receipt",
+    "seq|S: candidates + draw + receipt",
+    "seq|caller filter",
+    "seq|stored-weights/1: candidates + draw + receipt",
+    "seq|uniform/1: candidates + draw + receipt",
+    "seq|component: Candidates::new",
+    "seq|component: probabilities",
+    "edge|P: candidates + probabilities + draw + receipt",
+    "edge|S: candidates + draw + receipt",
+    "edge|every stored weight zero (stored-weights/1)",
+    "edge|floor arithmetic only: floor_marginals + stable_cdf",
+    "E|E: bytes + whole build + P",
+    "M8|probabilities",
+    "M8|draw",
+    "M8|stable_cdf over n ones",
+    "C|C reference: table, cap 32, exact fallback",
+];
+
+fn suite(bench: &mut Bench) {
+    let smoke = bench.smoke();
+    let big: &[usize] = if smoke { &[40, 60] } else { &[10_000, 40_000] };
+    let e_sizes: &[usize] = if smoke {
+        &[20, 30]
+    } else {
+        &[125, 250, 500, 1000, 2000]
+    };
+    let kernels: &[usize] = if smoke {
+        &[20, 40]
+    } else {
+        &[1000, 10_000, 40_000]
+    };
+
+    // The design maximum and the stress size, at every group count.
+    for &n in big {
+        for g in [5u32, 0, 1, 2, 64] {
+            let conv = constructed(n, g, 1000 + n as u64);
+            let bytes = projection(&conv);
+            let detail = if g == 5 { Detail::Full } else { Detail::Light };
+            let c_point = g == 5 && n == big[big.len() - 1];
+            bench_conversation(bench, &conv, &bytes, detail, MetaPolicy::Fixed, c_point);
+        }
+        bench_meta(bench, n);
+    }
+    bench_edges(bench, big[0]);
+    for &n in e_sizes {
+        for g in [2u32, 5] {
+            let conv = constructed(n, g, 5000 + n as u64);
+            let bytes = projection(&conv);
+            for frac in [0.0, 0.5] {
+                bench_e(bench, &conv, &bytes, frac, THRESHOLD);
+            }
+        }
+    }
+    let e_ref = constructed(big[0], 5, 1000 + big[0] as u64);
+    bench_e(bench, &e_ref, &projection(&e_ref), 0.5, BUILD);
+    for &n in kernels {
+        bench_kernels(bench, n);
+    }
+
+    // A real math result (never in the smoke mode, which builds a small
+    // real-shaped one instead so the loader runs).
+    let real_bytes = if smoke {
+        Some(projection(&constructed(30, 4, 31)))
+    } else {
+        real_math_result_path().map(|p| read_file(&p))
+    };
+    if let Some(bytes) = real_bytes {
+        let value: Value = serde_json::from_slice(&bytes).unwrap();
+        let real = conversation_from_value("real", &value);
+        bench_conversation(bench, &real, &bytes, Detail::Full, MetaPolicy::Fixed, false);
+        for frac in [0.0, 0.5] {
+            bench_e(bench, &real, &bytes, frac, ROW);
+        }
+        for &n in big {
+            let conv = resampled(&real, n, 3000 + n as u64);
+            let bytes = projection(&conv);
+            bench_conversation(
+                bench,
+                &conv,
+                &bytes,
+                Detail::Light,
+                MetaPolicy::Fixed,
+                false,
+            );
+        }
+    }
 }
 
 fn main() {
@@ -999,51 +1457,50 @@ fn main() {
         .position(|a| a == "--out")
         .and_then(|i| args.get(i + 1))
         .cloned();
-    let only_quick = args.iter().any(|a| a == "--quick");
-    let mut out = Out { lines: vec![] };
-    out.line(json!({"m": "header",
-        "note": "constructed data are counts only; no vote value is written anywhere and no vote convention is involved",
-        "warmup": WARMUP, "min_iters": MIN_ITERS, "max_iters": MAX_ITERS,
-        "budget_ms": BUDGET.as_millis() as u64,
-        "threads": 1,
-        "real_math_result": real_math_result_path().is_some()}));
-
-    let sizes: &[usize] = if only_quick {
-        &[1000]
+    let mode = if args.iter().any(|a| a == "--smoke") {
+        Mode::Smoke
     } else {
-        &[1000, 10_000, 40_000]
+        Mode::Full
     };
-    for &n in sizes {
-        let conv = constructed(n, 5, 1000 + n as u64);
-        let bytes = projection(&conv);
-        bench_conversation(&mut out, &conv, &bytes, true);
-    }
-    if !only_quick {
-        // Group counts at 10,000: the builds only matter here.
-        for groups in [2u32, 64] {
-            let conv = constructed(10_000, groups, 2000 + u64::from(groups));
-            let bytes = projection(&conv);
-            bench_conversation(&mut out, &conv, &bytes, false);
+    let mut bench = Bench {
+        mode,
+        lines: vec![],
+        kinds: BTreeSet::new(),
+        build_groups: BTreeSet::new(),
+        measured: 0,
+    };
+    let iters = |i: Iters| json!({"warmup": i.warmup, "min": i.min, "max": i.max, "budget_ms": i.budget.as_millis() as u64});
+    bench.line(json!({"m": "header",
+        "mode": if mode == Mode::Smoke { "smoke" } else { "full" },
+        "note": "constructed data are counts only; no vote value is written anywhere and no vote convention is involved",
+        "iters": {"threshold": iters(THRESHOLD), "row": iters(ROW), "build": iters(BUILD)},
+        "threads": 1,
+        "not_measured": ["D not compared: not implemented", "the lottery: not implemented",
+            "concurrency (M11): one thread only", "SQL, pools, HTTP, cache lookup, entropy"],
+        "real_math_result": mode == Mode::Full && real_math_result_path().is_some()}));
+
+    suite(&mut bench);
+
+    if bench.smoke() {
+        let missing: Vec<&&str> = REQUIRED
+            .iter()
+            .filter(|k| !bench.kinds.contains(**k))
+            .collect();
+        assert!(missing.is_empty(), "cases not run: {missing:?}");
+        for g in [0u64, 1, 2, 5, 64] {
+            assert!(
+                bench.build_groups.contains(&g),
+                "no whole build at {g} groups"
+            );
         }
-    }
-    for &n in sizes {
-        bench_unscored(&mut out, n);
-    }
-    if let Some(path) = real_math_result_path() {
-        let bytes = read_file(&path);
-        let value: Value = serde_json::from_slice(&bytes).unwrap();
-        let real = conversation_from_value("real", &value);
-        bench_conversation(&mut out, &real, &bytes, true);
-        if !only_quick {
-            for n in [10_000, 40_000] {
-                let conv = resampled(&real, n, 3000 + n as u64);
-                let bytes = projection(&conv);
-                bench_conversation(&mut out, &conv, &bytes, false);
-            }
-        }
+        println!(
+            "smoke: ok, {} measured cases, {} kinds, every draw checked",
+            bench.measured,
+            bench.kinds.len()
+        );
     }
     if let Some(p) = out_path {
-        let mut text = out.lines.join("\n");
+        let mut text = bench.lines.join("\n");
         text.push('\n');
         write_file(&p, &text);
     }
