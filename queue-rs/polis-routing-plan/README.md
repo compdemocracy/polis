@@ -51,7 +51,8 @@ conversation (`zid`), the row's `math_env` and `math_tick` columns, the row's
 Reading happens in two steps:
 
 1. `Projection::parse(bytes, row, limits)` checks the bytes and sets each key
-   it reads apart as its own text. It decodes nothing.
+   it reads apart as its own text. It decodes no frame; when necessary it
+   reads the two id arrays to check their union's size.
 2. `Projection::frames(needs)` decodes only the keys of the frames the rule
    needs (`FrameNeeds`: stored weights, extremity, groups, meta) and builds
    those frames. A frame that is not needed is not made, so a malformed key
@@ -170,15 +171,29 @@ before any frame is allocated:
    budget before the frames are built.
 
 Before any of this, `Projection::parse_reservation(len, limits)` is an upper
-bound on everything `parse` holds at any one time for a source of `len`
-bytes, whether it then refuses or not, known before `parse` is called: the
+bound on the additional heap allocation held by `parse` at any one time
+for a source of `len` bytes, whether it then refuses or not, known before
+`parse` is called: the
 walk's reader scratch, the escaped keys it keeps decoded, its spill of key
 values (grown by exact doubling), the text kept of each read key, and the
 union's vector, the largest phase counted, a reallocation counted as holding
 the old room and the new. It is made from lengths alone, so it is loose: on
-the constructed refused cases in the tests it is between about four and fifty times
-what was held. Once `parse` returns, `held()` bounds what the projection
-keeps (the read keys' text, the row's environment name, the source id).
+constructed inputs it deliberately overcharges; it is not a measured memory
+requirement. The allocation tests force reallocations to move, counting old
+and new buffers together. Compact repeated keys exercise the spill term even
+at the default limits.
+
+The caller must separately charge the capacity of the input byte buffer and
+`row.math_env` before calling parse: those allocations already exist and are
+not bounded by the source length. Inline values, stack space and allocator
+metadata are outside these heap-payload bounds. Once `parse` returns,
+`held()` bounds the projection's retained heap payload (the read keys' text,
+the row's environment capacity, the source id). Transfer the row's charge
+into that retained charge without an uncharged ownership gap; do not charge
+the same row twice. Keep charging the original byte buffer until it is freed,
+and reserve `reservation(needs)` separately while building frames. A caller
+whose budget cannot cover the parse charge must refuse before parsing (or
+use a lower `max_bytes`); the default size limit is not an admission promise.
 
 Count arithmetic is checked: a cell whose passes do not fit in 32 bits, or a
 reservation that does not fit in 64, is refused.

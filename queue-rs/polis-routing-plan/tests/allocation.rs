@@ -40,8 +40,9 @@ fn on_free(size: usize) {
     }
 }
 
-// SAFETY: every call is forwarded to the system allocator unchanged; the
-// counters are const-initialised thread locals and never allocate.
+// SAFETY: allocation and deallocation use System with matching layouts;
+// reallocation explicitly allocates, copies and frees. The counters are
+// const-initialised thread locals and never allocate.
 unsafe impl GlobalAlloc for Counting {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         on_alloc(layout.size());
@@ -59,10 +60,24 @@ unsafe impl GlobalAlloc for Counting {
         unsafe { System.dealloc(ptr, layout) }
     }
     unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-        on_free(layout.size());
-        on_alloc(new_size);
-        // SAFETY: as above.
-        unsafe { System.realloc(ptr, layout, new_size) }
+        // Force a move so the peak includes both the old and new buffers,
+        // even when the system allocator could have grown one in place.
+        // SAFETY: GlobalAlloc guarantees a valid nonzero new size and the
+        // original alignment remains valid for the replacement allocation.
+        let next_layout = unsafe { Layout::from_size_align_unchecked(new_size, layout.align()) };
+        // SAFETY: next_layout is valid as above.
+        let next = unsafe { System.alloc(next_layout) };
+        if !next.is_null() {
+            on_alloc(new_size);
+            // SAFETY: these distinct allocations hold at least this many
+            // bytes; on success ownership moves and the original is freed.
+            unsafe {
+                std::ptr::copy_nonoverlapping(ptr, next, layout.size().min(new_size));
+                System.dealloc(ptr, layout);
+            }
+            on_free(layout.size());
+        }
+        next
     }
 }
 
@@ -393,4 +408,81 @@ fn parse_reservation_overflow_refused() {
             what: Limit::Reservation
         }
     );
+}
+
+#[test]
+fn compact_spilled_duplicates_within_parse_charge() {
+    // The first eight distinct keys stay inline. Empty keys after them
+    // repeat only in the spill, where repeats are detected at object end.
+    // Stop just after a power-of-two growth to expose old/new overlap.
+    for (entries, max_comments) in [(16_385, 0), (262_145, 40_000)] {
+        let mut b = String::from("{");
+        for k in 0..8 {
+            b.push_str(&format!("\"{k}\":0,"));
+        }
+        for _ in 8..entries {
+            b.push_str("\"\":0,");
+        }
+        b.pop();
+        b.push('}');
+        refused_within_charge(
+            "compact spilled duplicates",
+            b.as_bytes(),
+            SourceLimits {
+                max_comments,
+                ..SourceLimits::default()
+            },
+            SourceRefusal::DuplicateKey {
+                key: Key::Projection,
+            },
+        );
+    }
+}
+
+#[test]
+fn parse_charge_is_additional_to_owned_inputs() {
+    let b = b"{}";
+    let limits = SourceLimits::default();
+    let charge = Projection::parse_reservation(b.len(), &limits).unwrap();
+    let mut r = row();
+    r.math_env = String::with_capacity(1_048_576);
+    r.math_env.push_str("example");
+    let row_capacity = r.math_env.capacity() as u64;
+    let (p, peak, _) = measured(|| Projection::parse(b, r, &limits));
+    let p = p.unwrap();
+    assert!(peak as u64 <= charge);
+    assert!(p.held() >= row_capacity);
+    assert!(
+        p.held() > charge,
+        "the row's existing allocation is separate"
+    );
+}
+
+#[test]
+fn numeric_scratch_and_unused_id_errors_within_parse_charge() {
+    let limits = SourceLimits {
+        max_comments: 1,
+        ..SourceLimits::default()
+    };
+    for n in [256, 4096, 16385] {
+        // The float-roundtrip reader keeps a long significand in scratch.
+        let number = format!("{{\"other\":1.{}1}}", "0".repeat(n));
+        let charge = Projection::parse_reservation(number.len(), &limits).unwrap();
+        let r = row();
+        let (p, peak, _) = measured(|| Projection::parse(number.as_bytes(), r, &limits));
+        assert!(p.is_ok());
+        assert!(peak as u64 <= charge, "numeric scratch: {peak} > {charge}");
+        // A malformed unused id array is ignored by the union decoder, but
+        // constructing its diagnostic must stay under the same charge.
+        for ch in ['\u{85}', '\u{200b}', '\n', 'x'] {
+            let text = ch.to_string().repeat(n);
+            let b =
+                serde_json::to_vec(&serde_json::json!({"tids":[1],"meta-tids":[text]})).unwrap();
+            let charge = Projection::parse_reservation(b.len(), &limits).unwrap();
+            let r = row();
+            let (p, peak, _) = measured(|| Projection::parse(&b, r, &limits));
+            assert!(p.is_ok());
+            assert!(peak as u64 <= charge, "unused-id error: {peak} > {charge}");
+        }
+    }
 }

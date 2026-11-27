@@ -97,20 +97,23 @@ pub(crate) fn reservation(t: &Tally, needs: FrameNeeds) -> Option<u64> {
     Some(total)
 }
 
-/// An upper bound, in bytes, on what `Projection::parse` holds at any one
-/// time for a source of `len` bytes, known before it reads a byte, so that a
+/// An upper bound on the additional heap payload `Projection::parse` holds
+/// at once for a source of `len` bytes, known before it reads a byte, so that a
 /// caller can charge it first and a source that is then refused has held no
 /// more than was charged. It counts on the lengths alone (no count is known
 /// yet), so it is loose on purpose. A reallocation is counted as holding the
-/// old and the new room at once.
+/// old and the new room at once. Existing caller-owned input buffers and
+/// row environment capacity are charged separately; inline values, stack
+/// and allocator metadata are outside this heap-payload bound.
 ///
 /// `parse` runs in three phases, each freeing what it used before the next:
 /// the walk; setting apart the keys this crate reads; the union of comment
 /// ids. The bound is the largest phase, plus what the read keys' text keeps
 /// across the last two, plus a fixed allowance for the source id.
 pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> {
-    // One reader's scratch (serde_json's): it holds one decoded string, or
-    // the open brackets of a value being skipped, so never more than the
+    // One reader's scratch (serde_json's): it holds one decoded string,
+    // a long numeric significand, or the open brackets of a skipped value,
+    // so never more than the
     // source; grown by doubling, it has room for at most twice that, and
     // while it moves it holds the old room too.
     let scratch = len.checked_mul(3)?.checked_add(64)?;

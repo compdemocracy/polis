@@ -186,10 +186,11 @@ fn tid(v: i64, key: Key) -> Result<CommentId, SourceRefusal> {
 impl Projection {
     /// Checks the bytes and keeps their keys; decodes no frame.
     ///
-    /// While it runs it holds no more than
+    /// Its additional heap payload is bounded by
     /// `Projection::parse_reservation(bytes.len(), limits)`, whether it then
-    /// refuses or not; once it returns, the projection keeps no more than
-    /// `held()`.
+    /// refuses or not. The caller separately accounts for the existing input
+    /// buffer and row environment capacity. Once it returns, `held()` bounds
+    /// retained heap payload, including the transferred row environment.
     ///
     /// In order: the length; then one walk over the original bytes that
     /// refuses anything that is not one JSON object, any depth over the
@@ -268,8 +269,10 @@ impl Projection {
         &self.limits
     }
 
-    /// An upper bound, in bytes, on what `parse` holds at any one time for
-    /// a source of `len` bytes under `limits`, known before it is called.
+    /// An upper bound on the additional heap payload `parse` holds at once
+    /// for a source of `len` bytes under `limits`, known before it is called.
+    /// Existing input-buffer and row-environment capacities need separate
+    /// charges. This excludes inline values, stack and allocator metadata.
     /// A length whose bound does not fit in 64 bits is refused, as `parse`
     /// refuses it.
     pub fn parse_reservation(len: usize, limits: &SourceLimits) -> Result<u64, SourceRefusal> {
@@ -281,9 +284,10 @@ impl Projection {
             })
     }
 
-    /// An upper bound, in bytes, on what this projection keeps while it is
-    /// held: the text of each key it read, the row's environment name and the
-    /// source id.
+    /// An upper bound on retained heap payload: the text of each key it
+    /// read, the row's environment capacity and the source id. This excludes
+    /// the inline Projection value, stack and allocator metadata; it includes
+    /// the environment allocation transferred into parse by the caller.
     pub fn held(&self) -> u64 {
         let r = &self.raw;
         let text: usize = [
