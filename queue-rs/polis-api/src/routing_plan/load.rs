@@ -63,7 +63,7 @@ pub(crate) const IO_TIMEOUT: Duration = Duration::from_secs(6);
 /// default budget (`loader_admission_fits_one_share`); the counts are the
 /// adapter's defaults.
 pub(crate) const LIMITS: SourceLimits = SourceLimits {
-    max_bytes: 1024 * 1024,
+    max_bytes: 512 * 1024,
     max_depth: 32,
     max_comments: 40_000,
     max_groups: 64,

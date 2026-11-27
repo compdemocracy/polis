@@ -572,28 +572,27 @@ mod db {
         assert_eq!(outcome, Outcome::Published);
     }
 
-    /// The loader's own thread: started from inside a tokio runtime, it
-    /// still loads (the synchronous client would refuse to run on a runtime
-    /// worker), and ends when its jobs' sender is gone.
-    #[tokio::test]
-    async fn loader_runs_on_its_own_thread() {
+    /// The loader's own thread: started from a tokio runtime's thread, it
+    /// still loads (the synchronous client panics when it runs on a runtime
+    /// thread, as this test's own setup would), and ends when its jobs'
+    /// sender is gone.
+    #[test]
+    fn loader_runs_on_its_own_thread() {
         let db = Db::new(Shape::Older);
         db.put(11, 1, &doc(&[1, 2], 1));
-        let (jobs, rx) = mpsc::sync_channel(1);
-        let (tx, outcomes) = mpsc::sync_channel(1);
-        let handle = spawn(Loader::new(db.connector(), None), cache(), rx, tx).unwrap();
-        assert_eq!(
-            handle.thread().name(),
-            Some("polis-api-routing-plan-loader")
-        );
-        jobs.send(job(11, STORED, None, 1)).unwrap();
-        drop(jobs);
-        let outcome = tokio::task::spawn_blocking(move || outcomes.recv().unwrap())
-            .await
-            .unwrap();
+        let connector = db.connector();
+        let rt = tokio::runtime::Builder::new_current_thread().build().unwrap();
+        let (handle, outcome) = rt.block_on(async move {
+            let (jobs, rx) = mpsc::sync_channel(1);
+            let (tx, outcomes) = mpsc::sync_channel(1);
+            let handle = spawn(Loader::new(connector, None), cache(), rx, tx).unwrap();
+            jobs.send(job(11, STORED, None, 1)).unwrap();
+            drop(jobs);
+            (handle, outcomes.recv().unwrap())
+        });
         assert_eq!(outcome, Outcome::Published);
-        tokio::task::spawn_blocking(move || handle.join().unwrap())
-            .await
-            .unwrap();
+        assert_eq!(handle.thread().name(), Some("polis-api-routing-plan-loader"));
+        handle.join().unwrap();
     }
+}
 }
