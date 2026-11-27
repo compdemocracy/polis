@@ -44,6 +44,10 @@ fn loader_admission_fits_one_share() {
     for text in [STORED, UNIFORM] {
         let j = job(1, text, None, 0);
         let allowance = allowance(&j.rule, &j).unwrap();
+        let wanted = Projection::parse_reservation(LIMITS.max_bytes as usize, &LIMITS).unwrap()
+            + LIMITS.max_bytes
+            + allowance;
+        println!("{text}: admission asks {wanted} of share {share}");
         let c = cache();
         let admitted = c
             .admit_build(LIMITS.max_bytes as usize, &LIMITS, allowance)
