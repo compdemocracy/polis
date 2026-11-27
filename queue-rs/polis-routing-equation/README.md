@@ -82,6 +82,43 @@ a negative weight; a probability cannot be negative, so this rule refuses
 instead. The caller then draws its own way, and its receipt must name the rule
 that actually drew.
 
+### The current tick's frames (inputs of the corrected rules)
+
+Today's equation reads the previous tick's counts already summed over groups.
+The corrected rules also read the current tick, in frames that the caller
+fills from the math result and that are checked against each other before any
+rule runs (`src/frames.rs`):
+
+- **The group frame** (`CurrentGroupFrame`): each opinion group's members and,
+  per comment, how many of the group agreed, disagreed and passed. Group ids
+  may be sparse (0, 2, 7). Refused: a group listed twice or with no members; a
+  count for a group that is not listed; a comment seen by more of a group than
+  it has members; the same group and comment twice; members adding up to more
+  than the declared participants. Defined, not refused: no groups at all; a
+  group whose members have voted on nothing; a group with no count for a
+  comment. An absent count is not a zero count, and each rule says how it
+  treats the two.
+- **Everyone's frame** (`EveryoneFrame`): every participant's latest votes per
+  comment, grouped or not. When both frames are given (`CurrentFrames`), the
+  groups' agrees, disagrees and passes for each comment, summed over groups,
+  must each be at most everyone's, and the groups' members at most the
+  participants, or the pair is refused as inconsistent, naming the comment and
+  the field.
+- **Importance marks** (`Marks`, `CommentMarks`, `MarkTotals`, `GroupMarks`,
+  `ImportanceMarks`): of the votes that could carry an importance mark, how many
+  did, per comment, per group and comment, and for the whole conversation, each
+  with its source and cohort. Per-comment marks and totals must come from one
+  frame, and the comments' marks may not add up to more than the total. Group
+  marks are taken only with a group frame of the same source. Anything not
+  supplied is unavailable, never a zero.
+- **The 2019 voter weights, aggregated** (`VoterWeightFrame`): per comment, the
+  voters and the sum of their weights (each at least 1), and the totals over
+  the whole conversation.
+
+What counts alone cannot show stays the caller's to certify: that groups do not
+overlap, that a source id names its source, and that two frames said to be one
+tick are one tick.
+
 ## 3. The equation today: `historical/1`
 
 For one comment, with **A** agrees, **D** disagrees and **P** passes in the

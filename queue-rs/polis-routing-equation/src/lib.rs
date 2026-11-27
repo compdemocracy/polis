@@ -15,6 +15,7 @@
 
 pub mod draw;
 mod dupkeys;
+pub mod frames;
 pub mod historical;
 mod receipt;
 pub mod registry;
@@ -24,11 +25,16 @@ pub use draw::{
     Candidates, Cdf, DrawFlags, DrawMode, Drawn, Lane, MIN_TOTAL, StoredWeight, StoredWeights,
     Unit, WeightProvenance, WeightsUsed, cdf, stored_weights_1,
 };
+pub use frames::{
+    CommentMarks, CurrentFrames, CurrentGroupFrame, EveryoneFrame, GroupMarks, ImportanceMarks,
+    MarkTotals, Marks, MarksFrame, TOTAL_SLACK, VoterWeightFrame, VoterWeightSum,
+};
 pub use historical::{
     HistoricalParams, HistoricalProvenance, HistoricalWeights, MetaComments, Scored, historical_1,
 };
 pub use registry::{ParamDoc, ParamSet, RuleDoc, RuleId, describe, lookup, params_table};
 pub use types::{
     CommentId, Counts, DrawRefusal, Explanation, Extremity, ExtremityFrame, Factor, FactorName,
-    HistoricalCountFrame, MAX_CANDIDATES, ParamError, Refusal, SourceId, WEIGHT_CEILING, Weight,
+    GroupId, HistoricalCountFrame, MAX_CANDIDATES, ParamError, Refusal, SourceId, WEIGHT_CEILING,
+    Weight,
 };

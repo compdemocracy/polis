@@ -61,6 +61,27 @@ impl fmt::Display for CommentId {
     }
 }
 
+/// An opinion group's id as the math writes it. Ids may be sparse (0, 2, 7):
+/// groups are kept in ordered maps, so iteration follows the id and never a
+/// position, and every sum over groups is order-independent.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct GroupId(u32);
+
+impl GroupId {
+    pub fn new(id: u32) -> Self {
+        Self(id)
+    }
+    pub fn get(self) -> u32 {
+        self.0
+    }
+}
+
+impl fmt::Display for GroupId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 /// An opaque identity, supplied by the caller, for where an input came from (a
 /// math generation, a tick, a run): 1 to 128 printable ASCII bytes. The crate
 /// never interprets it; it carries it into results and receipts so that a
@@ -464,6 +485,55 @@ pub enum Refusal {
     /// Malformed JSON, or a canonical parameter form with an unknown, missing
     /// or duplicate key, or a term this version does not know.
     Plain(String),
+    /// A group is given twice in a group frame's members.
+    DuplicateGroup(GroupId),
+    /// A group with no members. A group frame lists only groups that exist.
+    EmptyGroup(GroupId),
+    /// A cell or a mark names a group that is not among the frame's members.
+    UnknownGroup {
+        group: GroupId,
+        comment: CommentId,
+    },
+    /// The same (group, comment) cell is given twice.
+    DuplicateCell {
+        group: GroupId,
+        comment: CommentId,
+    },
+    /// More of a group saw a comment than the group has members.
+    SeenAboveMembers {
+        group: GroupId,
+        comment: CommentId,
+    },
+    /// The groups' members add up to more than the declared participants.
+    MembersAboveParticipants,
+    /// More participants saw a comment than the conversation has.
+    SeenAboveParticipants(CommentId),
+    /// Two frames of one tick disagree: the groups' counts for a comment
+    /// exceed everyone's in the named field.
+    FrameInconsistent {
+        comment: CommentId,
+        field: &'static str,
+    },
+    /// More marks than votes that could carry one.
+    MarksAboveEligible,
+    /// Importance inputs that must come from one frame name different sources
+    /// or cohorts.
+    MarksSourceMismatch,
+    /// The per-comment marks add up to more than the conversation's total.
+    MarksAboveTotal,
+    /// Group marks were given without a current group frame of their source.
+    GroupMarksWithoutGroups,
+    /// A group's eligible votes on a comment exceed the group's members.
+    MarksAboveMembers {
+        group: GroupId,
+        comment: CommentId,
+    },
+    /// A voter-weight aggregate is not finite, is below its voter count, or
+    /// is non-zero with no voters (the comment, or none for the totals).
+    InvalidVoterWeight(Option<CommentId>),
+    /// The per-comment voter-weight aggregates exceed the conversation's
+    /// totals.
+    VoterWeightAboveTotal,
 }
 
 impl fmt::Display for Refusal {
@@ -491,6 +561,51 @@ impl fmt::Display for Refusal {
                 write!(f, "unknown rule {asked:?}; known: {}", known.join(", "))
             }
             Self::Plain(why) => write!(f, "plain form refused: {why}"),
+            Self::DuplicateGroup(g) => write!(f, "group {g} is given twice"),
+            Self::EmptyGroup(g) => write!(f, "group {g} has no members"),
+            Self::UnknownGroup { group, comment } => {
+                write!(f, "comment {comment}: group {group} is not in the frame")
+            }
+            Self::DuplicateCell { group, comment } => {
+                write!(f, "group {group}, comment {comment} is given twice")
+            }
+            Self::SeenAboveMembers { group, comment } => {
+                write!(
+                    f,
+                    "comment {comment}: group {group} saw it more than its members"
+                )
+            }
+            Self::MembersAboveParticipants => {
+                f.write_str("the groups' members exceed the participants")
+            }
+            Self::SeenAboveParticipants(c) => {
+                write!(f, "comment {c}: seen by more than the participants")
+            }
+            Self::FrameInconsistent { comment, field } => {
+                write!(
+                    f,
+                    "comment {comment}: the groups' {field} exceed everyone's"
+                )
+            }
+            Self::MarksAboveEligible => f.write_str("marked exceeds eligible"),
+            Self::MarksSourceMismatch => {
+                f.write_str("importance inputs name different sources or cohorts")
+            }
+            Self::MarksAboveTotal => f.write_str("the comments' marks exceed the total"),
+            Self::GroupMarksWithoutGroups => {
+                f.write_str("group marks need a current group frame of their source")
+            }
+            Self::MarksAboveMembers { group, comment } => {
+                write!(
+                    f,
+                    "comment {comment}: group {group}'s eligible votes exceed its members"
+                )
+            }
+            Self::InvalidVoterWeight(Some(c)) => write!(f, "comment {c}: invalid voter weights"),
+            Self::InvalidVoterWeight(None) => f.write_str("invalid voter-weight totals"),
+            Self::VoterWeightAboveTotal => {
+                f.write_str("the comments' voter weights exceed the totals")
+            }
         }
     }
 }
