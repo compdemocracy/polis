@@ -23,8 +23,12 @@
 //! It is bench code, run by hand. `make check-polis-routing-equation` runs it
 //! once in its smoke mode (`-- --smoke`: a few dozen comments, one iteration
 //! per case, no timing assertion), which checks that every case still runs,
-//! that every draw is of an eligible candidate with a receipt that reads
-//! back, and that each edge case ends as it should. Run it with
+//! and checks the value each TIMED call returned, after its timer stopped:
+//! a draw of an eligible candidate at its index, with a receipt that reads
+//! back, a chance equal to the plan's marginal, and exactly the receipt its
+//! unit gives; each edge case ends as it should. The full run makes the same
+//! checks on a sample of each case's timed results (every warm-up, then
+//! recorded runs 0, 1, 2, 4, 8, ...), never inside a timer. Run it with
 //!
 //! ```text
 //! cargo bench -p polis-routing-equation --bench routing_precompute -- --out <file>
@@ -56,11 +60,11 @@
 )]
 
 use polis_routing_equation::{
-    Candidates, CommentId, ConsensusForm, Counts, CurrentGroupFrame, DrawRefusal, Drawn, Extremity,
-    ExtremityFrame, FloorParams, FloorPlan, GicParams, GroupId, HistoricalCountFrame,
-    HistoricalParams, MetaComments, MetaPolicy, SourceId, StoredWeights, SymmetricGicParams,
-    SymmetricParams, Unit, floor_marginals, historical_1, stable_cdf, stored_weights_1,
-    symmetric_gic_1, symmetric_gic_floor_1, uniform_1,
+    Candidates, Cdf, CommentId, ConsensusForm, Counts, CurrentGroupFrame, DrawRefusal, Drawn,
+    Extremity, ExtremityFrame, FloorMarginals, FloorParams, FloorPlan, GicParams, GroupId,
+    HistoricalCountFrame, HistoricalParams, MetaComments, MetaPolicy, SourceId, StoredWeights,
+    SymmetricGicParams, SymmetricParams, Unit, floor_marginals, historical_1, stable_cdf,
+    stored_weights_1, symmetric_gic_1, symmetric_gic_floor_1, uniform_1,
 };
 use serde_json::{Value, json};
 use std::alloc::{GlobalAlloc, Layout, System};
@@ -187,7 +191,12 @@ struct Sample {
     allocated: Vec<u64>,
     allocations: Vec<u64>,
     peak: u64,
+    /// How many returned values `check` inspected.
+    checked: usize,
 }
+
+/// The largest unit below 1, the top of the admitted range.
+const LARGEST_BELOW_ONE: f64 = 1.0 - f64::EPSILON / 2.0;
 
 fn pct(sorted: &[u64], p: f64) -> u64 {
     // Nearest rank.
@@ -197,17 +206,24 @@ fn pct(sorted: &[u64], p: f64) -> u64 {
 
 /// Times `f` (setup outside the timed region is the caller's), recording per
 /// run the wall time, the bytes and allocations requested, and the peak live
-/// bytes above the level at the start of the run. What `f` returns is
-/// released after the timer stops.
-fn measure<T>(it: Iters, mut f: impl FnMut() -> T) -> Sample {
+/// bytes above the level at the start of the run. What `f` returns is handed
+/// to `check` after the timer stops (every warm-up, and recorded runs 0, 1,
+/// 2, 4, 8, ...; in the smoke mode that is every run), then released. The
+/// check is never inside the timer.
+fn measure<T>(it: Iters, mut f: impl FnMut() -> T, mut check: impl FnMut(&T)) -> Sample {
+    let mut checked = 0usize;
     for _ in 0..it.warmup {
-        black_box(f());
+        let out = f();
+        check(&out);
+        checked += 1;
+        black_box(out);
     }
     let mut s = Sample {
         nanos: vec![],
         allocated: vec![],
         allocations: vec![],
         peak: 0,
+        checked: 0,
     };
     let started = now();
     while s.nanos.len() < it.max
@@ -223,12 +239,18 @@ fn measure<T>(it: Iters, mut f: impl FnMut() -> T) -> Sample {
         let a1 = ALLOCATED.load(Relaxed);
         let n1 = ALLOCATIONS.load(Relaxed);
         let peak = PEAK.load(Relaxed).saturating_sub(base_live);
+        let i = s.nanos.len();
+        if i == 0 || i.is_power_of_two() {
+            check(&out);
+            checked += 1;
+        }
         drop(black_box(out));
         s.nanos.push(dt.as_nanos() as u64);
         s.allocated.push(a1 - a0);
         s.allocations.push(n1 - n0);
         s.peak = s.peak.max(peak);
     }
+    s.checked = checked;
     s
 }
 
@@ -265,9 +287,12 @@ impl Bench {
         println!("{text}");
         self.lines.push(text);
     }
-    fn time<T>(&mut self, it: Iters, tags: Value, f: impl FnMut() -> T) {
+    /// Times `f`; `check` inspects what the timed calls returned, outside
+    /// the timer, and fails the run if a result is not what it should be.
+    fn time<T>(&mut self, it: Iters, tags: Value, f: impl FnMut() -> T, check: impl FnMut(&T)) {
         let it = if self.smoke() { SMOKE } else { it };
-        let s = measure(it, f);
+        let s = measure(it, f, check);
+        assert!(s.checked > 0, "a timed result was checked");
         self.emit(tags, &s);
     }
     fn emit(&mut self, mut tags: Value, s: &Sample) {
@@ -307,6 +332,7 @@ impl Bench {
         obj.insert("alloc_bytes_max".into(), json!(al[al.len() - 1]));
         obj.insert("allocs_p50".into(), json!(pct(&ac, 0.50)));
         obj.insert("peak_bytes_max".into(), json!(s.peak));
+        obj.insert("checked".into(), json!(s.checked));
         if kind == "build|whole build (floor plan)" {
             self.build_groups.insert(tags["groups"].as_u64().unwrap());
         }
@@ -714,17 +740,40 @@ fn run_seq(
         .to_plain())
 }
 
-/// Checks one result: a receipt reads back to the same text and names an
-/// eligible candidate with a chance in (0, 1] among exactly these
-/// candidates. Returns the outcome's name.
-fn outcome(r: &Result<String, DrawRefusal>, eligible: &[CommentId]) -> String {
+/// Checks one result: a receipt reads back to the same text; names the
+/// candidate at its index among exactly these candidates, in this order
+/// (count and order digest); reports a chance in (0, 1], and, given the
+/// plan, exactly the chosen draw weight over the running total of the plan's
+/// marginals for these candidates. Returns the outcome's name.
+fn outcome(
+    r: &Result<String, DrawRefusal>,
+    eligible: &[CommentId],
+    plan: Option<&FloorPlan>,
+) -> String {
     match r {
         Ok(text) => {
             let d = Drawn::from_plain(text).expect("the receipt reads back");
             assert_eq!(&d.to_plain(), text, "the receipt's text is canonical");
-            assert!(eligible.contains(&d.comment()), "an eligible comment");
-            assert_eq!(d.candidate_count(), eligible.len());
+            assert_eq!(d.candidate_count(), eligible.len(), "the candidate count");
+            assert_eq!(
+                eligible.get(d.index()),
+                Some(&d.comment()),
+                "the comment at its index among these candidates"
+            );
+            let c = Candidates::new(eligible.to_vec()).expect("drawn candidates are valid");
+            assert_eq!(d.candidate_order_digest(), c.order_digest(), "the order");
             assert!(d.probability() > 0.0 && d.probability() <= 1.0);
+            if let Some(plan) = plan {
+                let m = plan.probabilities(&c).expect("a drawn list resolves");
+                let dw = m.draw_weights();
+                let total = dw.iter().fold(0.0f64, |s, x| s + x);
+                assert!(dw[d.index()] > 0.0, "a comment with a positive weight");
+                assert_eq!(
+                    d.probability().to_bits(),
+                    (dw[d.index()] / total).to_bits(),
+                    "the reported chance is the plan's"
+                );
+            }
             "ok".into()
         }
         Err(e) => format!("refused: {e:?}"),
@@ -748,11 +797,29 @@ fn seq_pair(
     };
     let units = rng.units();
     let el = eligible(b, rows, filter);
-    let p = run_seq(Seq::Preflight, b, rows, filter, units[0], &src);
-    let s = run_seq(Seq::Single, b, rows, filter, units[0], &src);
-    let o = outcome(&p, &el);
-    assert_eq!(o, outcome(&s, &el), "the two sequences end alike");
-    assert_eq!(p.as_ref().ok(), s.as_ref().ok(), "the same receipt");
+    let plan = Some(&b.plan);
+    // Outside any timer: both sequences on every unit the timed runs use and
+    // on both ends of the unit's range end alike, and alike for every unit.
+    let o = outcome(
+        &run_seq(Seq::Single, b, rows, filter, units[0], &src),
+        &el,
+        plan,
+    );
+    let ends = [
+        Unit::new(0.0).unwrap(),
+        Unit::new(LARGEST_BELOW_ONE).unwrap(),
+    ];
+    for u in units.iter().chain(&ends) {
+        let p = run_seq(Seq::Preflight, b, rows, filter, *u, &src);
+        let s = run_seq(Seq::Single, b, rows, filter, *u, &src);
+        assert_eq!(
+            outcome(&p, &el, plan),
+            o,
+            "the outcome does not depend on the unit"
+        );
+        assert_eq!(outcome(&s, &el, plan), o, "the two sequences end alike");
+        assert_eq!(p, s, "the same receipt for the same unit");
+    }
     for seq in [Seq::Preflight, Seq::Single] {
         let mut k = 0usize;
         let t = with(
@@ -760,10 +827,24 @@ fn seq_pair(
             "outcome",
             json!(o),
         );
-        bench.time(it, t, || {
-            k = (k + 1) % units.len();
-            run_seq(seq, b, rows, filter, units[k], &src)
-        });
+        bench.time(
+            it,
+            t,
+            || {
+                k = (k + 1) % units.len();
+                (k, run_seq(seq, b, rows, filter, units[k], &src))
+            },
+            // The timed result itself: it ends as the probes did and is
+            // exactly the receipt its unit gives.
+            |(j, r)| {
+                assert_eq!(outcome(r, &el, plan), o, "a timed result's outcome");
+                assert_eq!(
+                    r,
+                    &run_seq(Seq::Single, b, rows, filter, units[*j], &src),
+                    "a timed result is the receipt its unit gives"
+                );
+            },
+        );
     }
     o
 }
@@ -891,8 +972,15 @@ fn bench_c(
     let mut tries = vec![];
     let mut fell = 0u32;
     let mut crng = Rng(77);
+    let eligible_position = |i: usize| {
+        assert!(
+            i < ids.len() && !voted.contains(&ids[i]),
+            "C chose an eligible position"
+        );
+    };
     for _ in 0..2000 {
-        let (_, tr, fb) = c_draw(&ctab, &vf, &mut crng);
+        let (i, tr, fb) = c_draw(&ctab, &vf, &mut crng);
+        eligible_position(i);
         tries.push(u64::from(tr));
         fell += u32::from(fb);
     }
@@ -908,7 +996,12 @@ fn bench_c(
     v = with(v, "fallback_rate", json!(f64::from(fell) / 2000.0));
     v = with(v, "mass_removed", json!(gone / total));
     v = with(v, "remaining", json!(ids.len() - vf.len()));
-    bench.time(ROW, v, || c_draw(&ctab, &vf, &mut crng));
+    bench.time(
+        ROW,
+        v,
+        || c_draw(&ctab, &vf, &mut crng),
+        |(i, _, _)| eligible_position(*i),
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -950,7 +1043,7 @@ fn bench_conversation(
         Ok(_) => "ok".to_string(),
         Err(e) => format!("refused: {e}"),
     };
-    drop(first);
+    let first = first.map(|b| b.plan);
     bench.time(
         BUILD,
         with(
@@ -959,7 +1052,17 @@ fn bench_conversation(
             json!(build_outcome),
         ),
         || whole_build(bytes, &p),
+        // The timed build is the first build: the same plan, or the same
+        // refusal.
+        |r| {
+            assert_eq!(
+                r.as_ref().map(|b| &b.plan),
+                first.as_ref(),
+                "the timed build"
+            )
+        },
     );
+    drop(first);
     let (built, kept) = retained(|| whole_build(bytes, &p));
     bench.line(with(
         tg("bytes", "retained by the built plan and meta set"),
@@ -972,18 +1075,25 @@ fn bench_conversation(
 
     // Components, for comparison with the first measurement only.
     if detail == Detail::Full {
-        bench.time(BUILD, tg("build", "component: decode"), || {
-            serde_json::from_slice::<Value>(bytes).unwrap()
-        });
+        bench.time(
+            BUILD,
+            tg("build", "component: decode"),
+            || serde_json::from_slice::<Value>(bytes).unwrap(),
+            |v| assert_eq!(v["tids"].as_array().map(Vec::len), Some(n)),
+        );
         let value: Value = serde_json::from_slice(bytes).unwrap();
-        bench.time(BUILD, tg("build", "component: frames"), || {
-            frames_from_value(&value).unwrap()
-        });
+        bench.time(
+            BUILD,
+            tg("build", "component: frames"),
+            || frames_from_value(&value).unwrap(),
+            |f| assert_eq!(f.extremity.ids().count(), n),
+        );
         let frames = frames_from_value(&value).unwrap();
         bench.time(
             BUILD,
             tg("build", "component: floor plan from frames"),
             || plan_from_frames(&frames, &p).unwrap(),
+            |plan| assert_eq!(plan, &b.plan, "the same plan"),
         );
     }
 
@@ -1023,15 +1133,27 @@ fn bench_conversation(
         let o = seq_pair(bench, &b, &rows, true, &base, seq_iters, &mut rng);
         assert_eq!(o, "ok", "an ordinary request draws");
         if b.exclude {
+            let el = eligible(&b, &rows, true);
             bench.time(
                 ROW,
                 with(base.clone(), "what", json!("caller filter")),
                 || eligible(&b, &rows, true),
+                |v| assert_eq!(v, &el, "the filtered rows"),
             );
         }
         if let (Some(sw), "count") = (&sw, by) {
             let src = sid("bench:request");
             let units = rng.units();
+            let sw_draw = |k: usize| {
+                let c = Candidates::new(rows.clone()).unwrap();
+                stored_weights_1(Some(sw), &c, units[k], &src)
+                    .unwrap()
+                    .to_plain()
+            };
+            let uniform_draw = |k: usize| {
+                let c = Candidates::new(rows.clone()).unwrap();
+                uniform_1(&c, units[k], &src).unwrap().to_plain()
+            };
             let mut k = 0usize;
             bench.time(
                 ROW,
@@ -1042,10 +1164,11 @@ fn bench_conversation(
                 ),
                 || {
                     k = (k + 1) % units.len();
-                    let c = Candidates::new(rows.clone()).unwrap();
-                    stored_weights_1(Some(sw), &c, units[k], &src)
-                        .unwrap()
-                        .to_plain()
+                    (k, sw_draw(k))
+                },
+                |(j, t)| {
+                    assert_eq!(outcome(&Ok(t.clone()), &rows, None), "ok");
+                    assert_eq!(t, &sw_draw(*j), "the receipt its unit gives");
                 },
             );
             bench.time(
@@ -1057,8 +1180,11 @@ fn bench_conversation(
                 ),
                 || {
                     k = (k + 1) % units.len();
-                    let c = Candidates::new(rows.clone()).unwrap();
-                    uniform_1(&c, units[k], &src).unwrap().to_plain()
+                    (k, uniform_draw(k))
+                },
+                |(j, t)| {
+                    assert_eq!(outcome(&Ok(t.clone()), &rows, None), "ok");
+                    assert_eq!(t, &uniform_draw(*j), "the receipt its unit gives");
                 },
             );
             if frac == 0.0 {
@@ -1066,12 +1192,14 @@ fn bench_conversation(
                     ROW,
                     with(base.clone(), "what", json!("component: Candidates::new")),
                     || Candidates::new(rows.clone()).unwrap(),
+                    |c| assert_eq!(c.ids(), &rows[..]),
                 );
                 let c = Candidates::new(rows.clone()).unwrap();
                 bench.time(
                     ROW,
                     with(base.clone(), "what", json!("component: probabilities")),
                     || b.plan.probabilities(&c).unwrap(),
+                    |m: &FloorMarginals| assert_eq!(m.draw_weights().len(), c.len()),
                 );
             }
         }
@@ -1200,11 +1328,30 @@ fn bench_edges(bench: &mut Bench, n: usize) {
         "what",
         json!("floor arithmetic only: floor_marginals + stable_cdf"),
     );
-    bench.time(ROW, zt, || {
-        let m = floor_marginals(0.1, &zeros).unwrap();
-        assert_eq!(m.donations().len(), 1);
-        stable_cdf(m.draw_weights(), Unit::new(0.5).unwrap()).unwrap()
-    });
+    bench.time(
+        ROW,
+        zt,
+        || {
+            let m = floor_marginals(0.1, &zeros).unwrap();
+            let r = stable_cdf(m.draw_weights(), Unit::new(0.5).unwrap());
+            (m, r)
+        },
+        |(m, r): &(FloorMarginals, Result<Cdf, DrawRefusal>)| {
+            assert_eq!(
+                m.donations().len(),
+                1,
+                "the weighted share went to the uniform lane"
+            );
+            let cdf = r.as_ref().expect("the uniform lane draws");
+            let dw = m.draw_weights();
+            assert!(cdf.index() < zeros.len() && dw[cdf.index()] > 0.0);
+            let total = dw.iter().fold(0.0f64, |s, x| s + x);
+            assert_eq!(
+                cdf.probability().to_bits(),
+                (dw[cdf.index()] / total).to_bits()
+            );
+        },
+    );
 
     // Every stored weight zero: today's draw through the crate.
     let json_map: serde_json::Map<String, Value> = conv
@@ -1219,8 +1366,14 @@ fn bench_edges(bench: &mut Bench, n: usize) {
     let first =
         Candidates::new(ids.clone()).and_then(|c| stored_weights_1(Some(&zsw), &c, units[0], &src));
     let zo = match &first {
-        Ok(drawn) => outcome(&Ok(drawn.to_plain()), &ids),
+        Ok(drawn) => outcome(&Ok(drawn.to_plain()), &ids, None),
         Err(e) => format!("refused: {e:?}"),
+    };
+    assert_eq!(zo, "ok", "every stored weight zero still draws");
+    let zero_draw = |k: usize| {
+        Candidates::new(ids.clone())
+            .and_then(|c| stored_weights_1(Some(&zsw), &c, units[k], &src))
+            .map(|x| x.to_plain())
     };
     let mut k = 0usize;
     let zt = with(base("every stored weight zero"), "outcome", json!(zo));
@@ -1233,9 +1386,11 @@ fn bench_edges(bench: &mut Bench, n: usize) {
         ),
         || {
             k = (k + 1) % units.len();
-            Candidates::new(ids.clone())
-                .and_then(|c| stored_weights_1(Some(&zsw), &c, units[k], &src))
-                .map(|x| x.to_plain())
+            (k, zero_draw(k))
+        },
+        |(j, r)| {
+            assert_eq!(outcome(r, &ids, None), "ok", "a timed stored-zero draw");
+            assert_eq!(r, &zero_draw(*j), "the receipt its unit gives");
         },
     );
 }
@@ -1254,10 +1409,8 @@ fn bench_e(bench: &mut Bench, conv: &Conversation, bytes: &[u8], frac: f64, it: 
     };
     let u = Unit::new(0.37).unwrap();
     let b = whole_build(bytes, &p).unwrap();
-    let o = outcome(
-        &run_seq(Seq::Preflight, &b, &rows, true, u, &src),
-        &eligible(&b, &rows, true),
-    );
+    let reference = run_seq(Seq::Preflight, &b, &rows, true, u, &src);
+    let o = outcome(&reference, &eligible(&b, &rows, true), Some(&b.plan));
     assert_eq!(o, "ok", "an ordinary request draws");
     drop(b);
     let t = with(
@@ -1275,10 +1428,15 @@ fn bench_e(bench: &mut Bench, conv: &Conversation, bytes: &[u8], frac: f64, it: 
         "outcome",
         json!(o),
     );
-    bench.time(it, t, || {
-        let b = whole_build(bytes, &p).unwrap();
-        run_seq(Seq::Preflight, &b, &rows, true, u, &src)
-    });
+    bench.time(
+        it,
+        t,
+        || {
+            let b = whole_build(bytes, &p).unwrap();
+            run_seq(Seq::Preflight, &b, &rows, true, u, &src)
+        },
+        |r| assert_eq!(r, &reference, "the timed request's receipt"),
+    );
 }
 
 /// The floor's resolution kernels (T5): the draw alone over a prebuilt
@@ -1340,18 +1498,28 @@ fn bench_kernels(bench: &mut Bench, n: usize) {
             ROW,
             with(base.clone(), "what", json!("probabilities")),
             || plan.probabilities(&c).unwrap(),
+            |m: &FloorMarginals| assert_eq!(m.draw_weights().len(), n),
         );
         let mut rng = Rng(9);
-        bench.time(ROW, with(base, "what", json!("draw")), || {
-            let u = Unit::new(rng.unit()).unwrap();
-            plan.draw(&c, u, &src, &src).unwrap()
-        });
+        bench.time(
+            ROW,
+            with(base, "what", json!("draw")),
+            || {
+                let u = Unit::new(rng.unit()).unwrap();
+                (u, plan.draw(&c, u, &src, &src).unwrap())
+            },
+            |(u, d)| {
+                assert_eq!(outcome(&Ok(d.to_plain()), &ids, Some(plan)), "ok");
+                assert_eq!(d, &plan.draw(&c, *u, &src, &src).unwrap(), "the same draw");
+            },
+        );
     }
     let ones = vec![1.0; n];
     bench.time(
         ROW,
         tag("M8", "stable_cdf over n ones", &conv.label, n, 5),
         || stable_cdf(&ones, Unit::new(0.5).unwrap()).unwrap(),
+        |x: &Cdf| assert_eq!(x.probability().to_bits(), (1.0 / n as f64).to_bits()),
     );
 }
 
@@ -1494,7 +1662,7 @@ fn main() {
             );
         }
         println!(
-            "smoke: ok, {} measured cases, {} kinds, every draw checked",
+            "smoke: ok, {} measured cases, {} kinds, every timed result checked",
             bench.measured,
             bench.kinds.len()
         );
