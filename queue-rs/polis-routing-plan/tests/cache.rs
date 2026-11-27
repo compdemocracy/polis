@@ -1316,9 +1316,15 @@ fn grown_reservation_keeps_when_it_was_taken() {
     let after_kept = c.try_reserve(need).unwrap();
     let after_grown = c.try_reserve(1 << 10).unwrap();
     let after_grown = c.grow(after_grown, need).unwrap();
-    assert_eq!(publish_under(&mut c, m.uniform(7, 4, A), after_grown, 2), Ok(()));
+    assert_eq!(
+        publish_under(&mut c, m.uniform(7, 4, A), after_grown, 2),
+        Ok(())
+    );
     assert_eq!(hit(&mut c, A, 7, None, 3), (4, Freshness::Current));
-    assert_eq!(publish_under(&mut c, m.uniform(8, 4, A), after_kept, 4), Ok(()));
+    assert_eq!(
+        publish_under(&mut c, m.uniform(8, 4, A), after_kept, 4),
+        Ok(())
+    );
     assert_eq!(hit(&mut c, A, 8, None, 5), (4, Freshness::Current));
 }
 
@@ -1381,11 +1387,20 @@ fn grow_refused_over_share_returns_unchanged() {
         assert_eq!((r.bytes(), c.budget().used()), (1 << 10, held));
     }
     let r = c.grow(r, share).unwrap();
-    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    assert_eq!(
+        (r.bytes(), c.budget().used()),
+        (share, held + share - (1 << 10))
+    );
     let r = c.grow(r, share).unwrap();
-    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    assert_eq!(
+        (r.bytes(), c.budget().used()),
+        (share, held + share - (1 << 10))
+    );
     let r = c.grow(r, share - 1).unwrap_err();
-    assert_eq!((r.bytes(), c.budget().used()), (share, held + share - (1 << 10)));
+    assert_eq!(
+        (r.bytes(), c.budget().used()),
+        (share, held + share - (1 << 10))
+    );
     c.release(r);
     assert_eq!(c.budget().used(), held - (1 << 10));
 }
@@ -1459,7 +1474,10 @@ fn two_first_stages_never_wait_for_a_second() {
     let held = c.budget().used();
     let a = c.grow(a, second).unwrap_err();
     let b = c.grow(b, second).unwrap_err();
-    assert_eq!((a.bytes(), b.bytes(), c.budget().used()), (first, first, held));
+    assert_eq!(
+        (a.bytes(), b.bytes(), c.budget().used()),
+        (first, first, held)
+    );
     c.release(b);
     let a = c.grow(a, second).unwrap();
     assert_eq!(a.bytes(), second);

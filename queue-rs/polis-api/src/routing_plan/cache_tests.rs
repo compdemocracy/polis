@@ -639,7 +639,11 @@ fn two_first_stages_never_wait_for_a_second() {
         if room == first + second - 1 {
             break;
         }
-        fill.push(cache.try_reserve((room - (first + second - 1)).min(share)).unwrap());
+        fill.push(
+            cache
+                .try_reserve((room - (first + second - 1)).min(share))
+                .unwrap(),
+        );
     }
     let a = cache.try_reserve(first).unwrap();
     let b = cache.try_reserve(first).unwrap();
