@@ -27,3 +27,11 @@ indexing_slicing = "deny"
 unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
+
+# The precomputation benchmark: built and linted by the crate's check, run
+# only by hand (`cargo bench -p polis-routing-equation --bench
+# routing_precompute`). Not a test target.
+[[bench]]
+name = "routing_precompute"
+harness = false
+test = false
