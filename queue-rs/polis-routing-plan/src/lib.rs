@@ -48,7 +48,7 @@ pub use plan::{
     BuildRefusal, Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, NeededFrame, Plan,
     PlanDraw, PlanKind, RuleConfig,
 };
-pub use projection::{FrameNeeds, Frames, Projection};
+pub use projection::{FrameCounts, FrameNeeds, Frames, Projection};
 pub use refusal::{Key, SourceRefusal};
 pub use reserve::{REVIEWED_RUSTC, ordered_maps_charge, std_bounds_reviewed};
 pub use scan::Tally;

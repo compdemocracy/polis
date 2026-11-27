@@ -4,11 +4,11 @@ use crate::decode;
 use crate::identity::{ContentId, RowIdentity, source_id};
 use crate::limits::{Limit, SourceLimits};
 use crate::refusal::{Key, SourceRefusal};
-use crate::reserve::{parse_reservation, reservation};
+use crate::reserve::{parse_reservation, reservation, retained_terms, sum_terms};
 use crate::scan::{State, Tally, Walk};
 use polis_routing_equation::{
-    CommentId, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments, Refusal,
-    SourceId, StoredWeights,
+    CommentId, Counts, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments,
+    Refusal, SourceId, StoredWeights,
 };
 use serde::Deserialize;
 use serde::de::DeserializeSeed;
@@ -76,7 +76,9 @@ impl FrameNeeds {
 }
 
 /// The frames of one read. Each frame is present only if it was needed;
-/// every present frame carries `source`.
+/// every present frame carries `source`. They own all they hold and borrow
+/// nothing from the projection, so the projection (and the buffer it was
+/// parsed from) can be dropped before a plan is built from them.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Frames {
     extremity: Option<ExtremityFrame>,
@@ -85,8 +87,29 @@ pub struct Frames {
     stored: Option<StoredWeights>,
     source: SourceId,
     needs: FrameNeeds,
-    stored_entries: usize,
-    meta_entries: usize,
+    counts: FrameCounts,
+}
+
+/// The real lengths of one read's frames (0 for a frame not read), and the
+/// two distinct counts of comment ids a build's bound is taken from. Counted
+/// while the frames are made, with no allocation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FrameCounts {
+    /// The stored map's entries.
+    pub stored: u64,
+    /// The extremity frame's entries (each a distinct comment).
+    pub extremity: u64,
+    /// The meta set's entries.
+    pub meta: u64,
+    /// The group frame's groups.
+    pub groups: u64,
+    /// The group frame's cells, every group's together.
+    pub cells: u64,
+    /// The distinct comment ids among the cells: the latest counts' keys.
+    pub distinct: u64,
+    /// The distinct comment ids among the cells and the extremity frame
+    /// together: the ids the floor's build weighs.
+    pub union: u64,
 }
 
 impl Frames {
@@ -99,12 +122,23 @@ impl Frames {
     /// How many entries the stored map holds (0 when there is none), which
     /// the map itself does not say; a plan's charge counts them.
     pub fn stored_entries(&self) -> usize {
-        self.stored_entries
+        self.counts.stored as usize
     }
     /// How many meta comments the meta frame holds (0 when not read), which
     /// the set itself does not say; a plan's charge counts them.
     pub fn meta_entries(&self) -> usize {
-        self.meta_entries
+        self.counts.meta as usize
+    }
+    /// The frames' real lengths and distinct counts.
+    pub fn counts(&self) -> FrameCounts {
+        self.counts
+    }
+    /// An upper bound, in bytes, on the heap the frames themselves hold
+    /// from when `Projection::frames` returns until they are dropped: their
+    /// ordered maps at their real lengths and their source ids. Allocation
+    /// free; `None` on overflow or under an unreviewed toolchain.
+    pub fn retained_bound(&self) -> Option<u64> {
+        sum_terms(|term| retained_terms(&self.counts, term))
     }
     pub fn extremity(&self) -> Option<&ExtremityFrame> {
         self.extremity.as_ref()
@@ -234,6 +268,40 @@ fn decoded<T>(read: serde_json::Result<T>, over: bool, key: Key) -> Result<T, So
 
 fn tid(v: i64, key: Key) -> Result<CommentId, SourceRefusal> {
     CommentId::try_from(v).map_err(|_| SourceRefusal::Malformed { key })
+}
+
+/// The distinct comment ids among `cells`, sorted by comment, and their
+/// union with the extremity frame's ids, counted in one merge with no
+/// allocation: the extremity's ids come from its ordered map, ascending and
+/// each once.
+fn distinct_and_union(
+    cells: &[(GroupId, CommentId, Counts)],
+    extremity: Option<&ExtremityFrame>,
+) -> (u64, u64) {
+    let mut ext = extremity.into_iter().flat_map(ExtremityFrame::ids);
+    let mut next = ext.next();
+    let (mut distinct, mut union) = (0u64, 0u64);
+    let mut last = None;
+    for &(_, id, _) in cells {
+        if last == Some(id) {
+            continue;
+        }
+        last = Some(id);
+        distinct = distinct.saturating_add(1);
+        while next.is_some_and(|e| e < id) {
+            union = union.saturating_add(1);
+            next = ext.next();
+        }
+        if next == Some(id) {
+            next = ext.next();
+        }
+        union = union.saturating_add(1);
+    }
+    while next.is_some() {
+        union = union.saturating_add(1);
+        next = ext.next();
+    }
+    (distinct, union)
 }
 
 impl Projection {
@@ -381,10 +449,11 @@ impl Projection {
             Some(read) => read?.map_or((None, 0), |(map, n)| (Some(map), n)),
             None => (None, 0),
         };
-        let extremity = if needs.extremity {
-            Some(self.extremity()?)
+        let (extremity, extremity_entries) = if needs.extremity {
+            let (frame, n) = self.extremity()?;
+            (Some(frame), n)
         } else {
-            None
+            (None, 0)
         };
         let (meta, meta_entries) = if needs.meta {
             let ids = self.meta_ids()?;
@@ -393,8 +462,21 @@ impl Projection {
         } else {
             (None, 0)
         };
+        let mut counts = FrameCounts {
+            stored: stored_entries as u64,
+            extremity: extremity_entries as u64,
+            meta: meta_entries as u64,
+            // With no group frame, the ids weighed are the extremity's.
+            union: extremity_entries as u64,
+            ..FrameCounts::default()
+        };
         let groups = if needs.groups {
-            Some(self.groups()?)
+            let (frame, g) = self.groups(extremity.as_ref())?;
+            counts.groups = g.groups;
+            counts.cells = g.cells;
+            counts.distinct = g.distinct;
+            counts.union = g.union;
+            Some(frame)
         } else {
             None
         };
@@ -405,8 +487,7 @@ impl Projection {
             stored,
             source: self.source.clone(),
             needs,
-            stored_entries,
-            meta_entries,
+            counts,
         })
     }
 
@@ -430,7 +511,9 @@ impl Projection {
             .map_err(library(key))
     }
 
-    fn extremity(&self) -> Result<ExtremityFrame, SourceRefusal> {
+    /// The extremity frame and its length (every pair it was made from:
+    /// the frame refuses a comment given twice).
+    fn extremity(&self) -> Result<(ExtremityFrame, usize), SourceRefusal> {
         let text = need(&self.raw.tids, Key::Tids)?;
         let mut tids = exact::<i64>(self.tally.tids)?;
         let read_tids = read(text, decode::Seq(&mut tids));
@@ -454,7 +537,10 @@ impl Projection {
                 return Err(room());
             }
         }
-        ExtremityFrame::new(self.source.clone(), pairs.into_vec()).map_err(library(Key::Tids))
+        let pairs = pairs.into_vec();
+        let n = pairs.len();
+        let frame = ExtremityFrame::new(self.source.clone(), pairs).map_err(library(Key::Tids))?;
+        Ok((frame, n))
     }
 
     fn meta_ids(&self) -> Result<Vec<CommentId>, SourceRefusal> {
@@ -473,7 +559,17 @@ impl Projection {
         Ok(out.into_vec())
     }
 
-    fn groups(&self) -> Result<CurrentGroupFrame, SourceRefusal> {
+    /// The group frame, with its lengths and distinct counts. The cells are
+    /// sorted in place by (comment, group) before the frame is made, which
+    /// allocates nothing (`sort_unstable`), so the distinct comments, and
+    /// their union with the extremity frame's ids (ascending, as its map
+    /// keeps them), are counted in one pass. The frame's checks are per
+    /// group or per cell, so the order changes no frame and no acceptance;
+    /// for a source with two faults it can change which is named first.
+    fn groups(
+        &self,
+        extremity: Option<&ExtremityFrame>,
+    ) -> Result<(CurrentGroupFrame, FrameCounts), SourceRefusal> {
         let key = Key::GroupVotes;
         let text = need(&self.raw.group_votes, key)?;
         let mut groups = exact(self.tally.groups)?;
@@ -488,13 +584,24 @@ impl Projection {
             },
         );
         decoded(read_groups, groups.over() || cells.over(), key)?;
-        let (groups, cells) = (groups.into_vec(), cells.into_vec());
+        let (groups, mut cells) = (groups.into_vec(), cells.into_vec());
         self.memberships(&groups)?;
         if let Some(r) = fault {
             return Err(library(key)(r));
         }
+        cells.sort_unstable_by_key(|&(group, comment, _)| (comment, group));
+        let (distinct, union) = distinct_and_union(&cells, extremity);
+        let counts = FrameCounts {
+            groups: groups.len() as u64,
+            cells: cells.len() as u64,
+            distinct,
+            union,
+            ..FrameCounts::default()
+        };
         let members = groups.iter().map(|&(id, n)| (GroupId::new(id), n));
-        CurrentGroupFrame::new(self.source.clone(), members, cells, None).map_err(library(key))
+        let frame = CurrentGroupFrame::new(self.source.clone(), members, cells, None)
+            .map_err(library(key))?;
+        Ok((frame, counts))
     }
 
     /// The membership check: `group-clusters` members are base-cluster ids,

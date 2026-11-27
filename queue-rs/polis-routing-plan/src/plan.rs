@@ -8,8 +8,8 @@
 //! source; the unit is an argument.
 
 use crate::limits::SourceLimits;
-use crate::projection::{FrameNeeds, Frames};
-use crate::reserve::{map, reservation_terms, sum_terms, vecs, worst_tally};
+use crate::projection::{FrameCounts, FrameNeeds, Frames};
+use crate::reserve::{map, reservation_terms, retained_terms, sum_terms, vecs, worst_tally};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
@@ -607,6 +607,85 @@ impl Plan {
         Self::bound_terms(config, t, raw, &mut term)
     }
 
+    /// The frames stage of a build: an upper bound, in bytes, on what
+    /// `Projection::frames(config.needs())` allocates at once, from the
+    /// parsed tally and `raw` (`Projection::raw_len`): the readers' scratch,
+    /// every decoded vector, the membership check's vectors and maps, and
+    /// the frames' maps as they are made. It is `Projection::reservation`.
+    pub fn frames_stage_bound(config: &RuleConfig, t: &Tally, raw: u64) -> Option<u64> {
+        sum_terms(|term| reservation_terms(t, raw, config.needs(), term))
+    }
+
+    /// The build stage: an upper bound, in bytes, on what is held at once
+    /// from when `Projection::frames` returns until `Plan::build` returns,
+    /// from the frames' real lengths and distinct counts (`Frames::counts`):
+    /// the frames' own maps (alive across both stages, so charged in both),
+    /// the build's scratch, and the plan it returns. Nothing the frames
+    /// stage allocated besides the frames is alive in it. The projection and
+    /// the buffer it was parsed from are not in it: a caller that keeps them
+    /// through the build charges them beside it.
+    pub fn build_stage_bound(config: &RuleConfig, c: &FrameCounts) -> Option<u64> {
+        sum_terms(|term| Self::build_stage(config, c, term))
+    }
+
+    /// `build_stage_bound`, one named term at a time.
+    pub fn build_stage_terms(
+        config: &RuleConfig,
+        c: &FrameCounts,
+        mut term: impl FnMut(&'static str, u64),
+    ) -> Option<()> {
+        Self::build_stage(config, c, &mut term)
+    }
+
+    /// The most a build holds at once beyond its projection: the larger of
+    /// the frames stage and the build stage. The frames' maps are in both;
+    /// everything else in each stage is freed before the other begins.
+    pub fn staged_build_bound(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        c: &FrameCounts,
+    ) -> Option<u64> {
+        let frames = Self::frames_stage_bound(config, t, raw)?;
+        let build = Self::build_stage_bound(config, c)?;
+        Some(frames.max(build))
+    }
+
+    fn build_stage(
+        config: &RuleConfig,
+        c: &FrameCounts,
+        term: &mut dyn FnMut(&'static str, u64),
+    ) -> Option<()> {
+        retained_terms(c, term)?;
+        let inline = sz::<usize>()
+            .checked_mul(2)?
+            .checked_add(sz::<Plan>())?
+            .checked_add(SOURCE_ID_BYTES)?;
+        term("plan: inline and source id", inline);
+        match config {
+            RuleConfig::Uniform1 => {}
+            RuleConfig::StoredWeights1 => {
+                term("plan: stored map source id", SOURCE_ID_BYTES);
+                term(
+                    "plan: stored map",
+                    map(c.stored, sz::<CommentId>(), sz::<StoredWeight>())?,
+                );
+            }
+            RuleConfig::SymmetricGicFloor2(_) => floor_terms(
+                &FloorCounts {
+                    cells: c.cells,
+                    distinct: c.distinct,
+                    chained: c.distinct.checked_add(c.extremity)?,
+                    union: c.union,
+                    meta: c.meta,
+                    groups: c.groups,
+                },
+                term,
+            )?,
+        }
+        Some(())
+    }
+
     fn bound_terms(
         config: &RuleConfig,
         t: &Tally,
@@ -646,12 +725,14 @@ const FLOOR_BUILD_FIXED: u64 = 4096;
 /// consensus), or one inner for a fixed meta comment.
 const FACTORS_PER_SCORED: u64 = 5;
 
-/// A set collected from an iterator: the vector it is gathered into (grown
-/// by doubling), the sort's scratch (at most as long), and the set's nodes.
-fn collected(n: u64, elem: u64) -> Option<u64> {
+/// A set collected from an iterator of `n` items, `distinct` of them
+/// different: the vector it is gathered into (grown by doubling), the sort's
+/// scratch (at most as long), and the set's nodes, one entry per distinct
+/// item.
+fn collected(n: u64, distinct: u64, elem: u64) -> Option<u64> {
     vecs(n, 1, elem)?
         .checked_mul(2)?
-        .checked_add(map(n, elem, 0)?)
+        .checked_add(map(distinct, elem, 0)?)
 }
 
 /// What the floor's build allocates beyond its frames, all of it counted as
@@ -664,34 +745,78 @@ fn collected(n: u64, elem: u64) -> Option<u64> {
 /// A comment the plan knows is one of a group's cells or of the extremity,
 /// so at most `cells + extremity` of them; a meta comment, at most `meta`.
 fn floor_build(t: &Tally, term: &mut dyn FnMut(&'static str, u64)) -> Option<()> {
+    let known = t.cells.checked_add(t.extremity)?;
+    floor_terms(
+        &FloorCounts {
+            cells: t.cells,
+            distinct: t.cells,
+            chained: known,
+            union: known,
+            meta: t.meta,
+            groups: t.groups,
+        },
+        term,
+    )
+}
+
+/// The counts the floor's build is charged from. From a tally (before the
+/// frames are read) each distinct count is taken at its most: every cell a
+/// distinct comment, and none of them in the extremity frame.
+struct FloorCounts {
+    /// The group frame's cells: the comment ids `comment_ids()` gathers
+    /// (one per cell) before it sorts and dedups them.
+    cells: u64,
+    /// d: the distinct comments among the cells, the latest counts' keys.
+    distinct: u64,
+    /// d + e: the ids `weigh` gathers from the latest counts and the
+    /// extremity frame chained, before it sorts and dedups them.
+    chained: u64,
+    /// u: the distinct ids of those two, which `weigh` scores or leaves
+    /// unscored (the scored map, the factors and the unscored set are at
+    /// most u).
+    union: u64,
+    meta: u64,
+    groups: u64,
+}
+
+fn floor_terms(c: &FloorCounts, term: &mut dyn FnMut(&'static str, u64)) -> Option<()> {
     let id = sz::<CommentId>();
     let f = sz::<f64>();
-    let known = t.cells.checked_add(t.extremity)?;
     term("floor: fixed", FLOOR_BUILD_FIXED);
     let mut add = |name: &'static str, x: Option<u64>| -> Option<()> {
         term(name, x?);
         Some(())
     };
-    // The latest counts and the comment ids collected to sum them.
-    add("floor: latest counts map", map(t.cells, id, sz::<Counts>()))?;
-    add("floor: comment ids collected", collected(t.cells, id))?;
+    // The latest counts, and the comment ids collected to sum them: one per
+    // cell gathered and sorted, a set of the distinct ones.
+    add(
+        "floor: latest counts map",
+        map(c.distinct, id, sz::<Counts>()),
+    )?;
+    add(
+        "floor: comment ids collected",
+        collected(c.cells, c.distinct, id),
+    )?;
     // The ids of the counts and the extremity, and the excluded meta ids.
-    add("floor: known ids collected", collected(known, id))?;
-    add("floor: meta ids collected", collected(t.meta, id))?;
+    add(
+        "floor: known ids collected",
+        collected(c.chained, c.union, id),
+    )?;
+    add("floor: meta ids collected", collected(c.meta, c.meta, id))?;
     // The scored map, its factors, and the unscored set.
-    add("floor: scored map", map(known, id, sz::<Scored>()))?;
+    add("floor: scored map", map(c.union, id, sz::<Scored>()))?;
     add(
         "floor: factors",
-        known
+        c.union
             .checked_mul(FACTORS_PER_SCORED)?
             .checked_mul(sz::<Factor>()),
     )?;
-    add("floor: unscored set", map(known, id, 0))?;
+    add("floor: unscored set", map(c.union, id, 0))?;
     // Group-informed consensus for one comment: values and logs per group.
-    add("floor: consensus per group", vecs(t.groups, 2, f))?;
+    add("floor: consensus per group", vecs(c.groups, 2, f))?;
     // Source ids: the latest counts', the weights' three, the floor's own.
     add("floor: source ids", SOURCE_ID_BYTES.checked_mul(5))?;
     // The meta set the floor plan keeps.
-    add("floor: meta set", map(t.meta, id, 0))?;
+    add("floor: meta set", map(c.meta, id, 0))?;
     Some(())
 }

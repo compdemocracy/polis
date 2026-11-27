@@ -6,7 +6,7 @@
 
 use crate::decode::sizes;
 use crate::limits::SourceLimits;
-use crate::projection::FrameNeeds;
+use crate::projection::{FrameCounts, FrameNeeds};
 use crate::scan::Tally;
 use polis_routing_equation::{CommentId, Counts, Extremity, GroupId, StoredWeight};
 use std::mem::size_of;
@@ -227,6 +227,43 @@ pub(crate) fn reservation_terms(
         add("frames: bases map", map(m, 4, 16))?;
         add("frames: participants map", map(m, 4, 8))?;
     }
+    Some(())
+}
+
+/// What the frames hold once `frames` has returned, from their real lengths:
+/// the ordered maps each frame keeps (the stored map, the extremity map, the
+/// meta set, the group frame's members and cells) and their source ids (the
+/// same fixed allowance as the frames stage's). Everything else `frames`
+/// allocated (the readers' scratch, every decoded vector, the membership
+/// check's vectors and maps) is a local of the function that made it and is
+/// freed before it returns; the extremity pairs and the cells are moved into
+/// the library and freed when its frame is made.
+pub(crate) fn retained_terms(
+    c: &FrameCounts,
+    term: &mut dyn FnMut(&'static str, u64),
+) -> Option<()> {
+    let id = sz::<CommentId>();
+    let g = sz::<GroupId>();
+    term("retained: fixed", 4096);
+    let mut add = |name: &'static str, x: Option<u64>| -> Option<()> {
+        term(name, x?);
+        Some(())
+    };
+    add(
+        "retained: stored weights map",
+        map(c.stored, id, sz::<StoredWeight>()),
+    )?;
+    add(
+        "retained: extremity map",
+        map(c.extremity, id, sz::<Extremity>()),
+    )?;
+    add("retained: meta set", map(c.meta, id, 0))?;
+    add("retained: group members map", map(c.groups, g, 4))?;
+    add("retained: group cells outer map", map(c.groups, g, 24))?;
+    add(
+        "retained: group cells inner maps",
+        maps(c.cells, c.groups, id, sz::<Counts>()),
+    )?;
     Some(())
 }
 
