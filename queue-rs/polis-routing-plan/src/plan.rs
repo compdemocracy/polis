@@ -470,8 +470,9 @@ impl Plan {
 
     /// An upper bound, in bytes, on what this plan holds for as long as it
     /// lives, with one `Arc` around it: the plan itself, its source ids at
-    /// their longest, every ordered map and set at one node per entry plus
-    /// one, every scored entry's factors, and the terms. Checked arithmetic;
+    /// their longest, every ordered map and set at a fifth of a node per
+    /// entry plus one node (`ordered_maps_charge`), every scored entry's
+    /// factors, and the terms. Checked arithmetic;
     /// an overflow charges `usize::MAX`. The cache's own entry (its key, its
     /// pointer, its bookkeeping) is the cache's to charge.
     pub fn charged_bytes(&self) -> usize {
@@ -599,8 +600,8 @@ impl Plan {
             .checked_add(SOURCE_ID_BYTES)?;
         let build = match config {
             RuleConfig::Uniform1 => inline,
-            // The stored map, cloned from the frame: its source id and one
-            // node per entry plus one.
+            // The stored map, cloned from the frame: its source id and its
+            // nodes.
             RuleConfig::StoredWeights1 => add(
                 inline.checked_add(SOURCE_ID_BYTES)?,
                 map(t.priorities, sz::<CommentId>(), sz::<StoredWeight>()),

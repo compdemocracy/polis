@@ -11,10 +11,48 @@ use crate::scan::Tally;
 use polis_routing_equation::{CommentId, Counts, Extremity, GroupId, StoredWeight};
 use std::mem::size_of;
 
+/// The Rust release whose standard library the bounds of this module were
+/// checked against: by reading its source (`alloc/src/collections/btree`,
+/// `alloc/src/vec`) and by running `tests/btree_bound.rs` under it. Three of
+/// them rest on that library's implementation, not on its documentation: an
+/// ordered map's nodes hold at least five entries each but the root, and a
+/// node is laid out as `node` says (`map`, `maps`); a vector grown one push
+/// at a time doubles its capacity (`vecs`, and the reader scratch of
+/// `parse_reservation`). Compiled by any other release, each of those
+/// returns `None`, so every reservation made from them is refused and the
+/// caller keeps today's draw: never a smaller charge.
+///
+/// To move to another release: run `cargo test -p polis-routing-plan --test
+/// btree_bound` under it (it fails at once if the nodes are less full or
+/// larger); read its B-tree's `node.rs` and `map.rs` and `Vec`'s growth for
+/// the constants quoted at `map`; then change this constant and the two
+/// `cfg` lines below it to the new release, together.
+pub const REVIEWED_RUSTC: &str = "1.98.1";
+
+// The build script names the compiling rustc's release as this cfg.
+#[cfg(polis_rustc_release = "1.98.1")]
+const COMPILED_BY_REVIEWED_RUSTC: bool = true;
+#[cfg(not(polis_rustc_release = "1.98.1"))]
+const COMPILED_BY_REVIEWED_RUSTC: bool = false;
+
+/// Whether this crate was compiled by `REVIEWED_RUSTC`. When it was not,
+/// every bound that rests on the standard library's implementation is
+/// `None`.
+pub fn std_bounds_reviewed() -> bool {
+    COMPILED_BY_REVIEWED_RUSTC
+}
+
+fn reviewed() -> Option<()> {
+    COMPILED_BY_REVIEWED_RUSTC.then_some(())
+}
+
 /// A vector grown one push at a time from nothing doubles its capacity, so
 /// everything it ever asked for is below four times its length plus a
 /// little; `k` vectors holding `n` elements in all, below `4n + 16k`.
+/// Doubling is the standard library's implementation, not its promise
+/// (`REVIEWED_RUSTC`).
 pub(crate) fn vecs(n: u64, k: u64, elem: u64) -> Option<u64> {
+    reviewed()?;
     n.checked_mul(4)?
         .checked_add(k.checked_mul(16)?)?
         .checked_mul(elem)
@@ -27,10 +65,54 @@ fn node(k: u64, v: u64) -> Option<u64> {
     slots.checked_add(8 + 4 + 12 * 8 + 24)
 }
 
-/// An ordered map built by insertion never frees a node, and every node
-/// holds at least one entry: at most `n + 1` nodes.
+/// The fewest entries a node of the standard library's ordered map holds,
+/// but the root: `MIN_LEN`.
+const MIN_ENTRIES_PER_NODE: u64 = 5;
+
+/// `count` ordered maps (`BTreeMap`, or `BTreeSet`, which is one with an
+/// empty value) holding `n` entries in all, built by the operations the
+/// build path uses: insertion (`insert`, `entry`), `collect` (a bulk build)
+/// and `clone`. Never `remove`, `retain`, `append` or `split_off`: the
+/// first two rebalance and keep the same invariant, but nothing here has
+/// been checked against them.
+///
+/// The standard library's documentation says only that a node holds "B-1 to
+/// 2B-1 elements", B not given. Its 1.98.1 source gives it
+/// (`alloc/src/collections/btree/node.rs`): `const B: usize = 6;`,
+/// `CAPACITY: usize = 2 * B - 1`, `MIN_LEN_AFTER_SPLIT: usize = B - 1`; and
+/// `map.rs`: "Every non-root node contains at least MIN_LEN elements", with
+/// `MIN_LEN = node::MIN_LEN_AFTER_SPLIT`. A split (`splitpoint`) leaves at
+/// least five entries on each side; a bulk build fills its nodes and then
+/// stocks up the right border (`fix_right_border_of_plentiful`); a clone
+/// copies the tree node for node; none of the three frees a node. So a map
+/// of `m` entries has at most `m / 5 + 1` nodes, a node is never larger than
+/// `node` (a leaf is `parent`, `parent_idx`, `len`, eleven keys and eleven
+/// values; an internal node, `#[repr(C)]`, that leaf and twelve edges), and
+/// `count` maps of `n` entries in all have at most `n / 5 + count` nodes.
+///
+/// The charge is `n * ceil(node / 5) + count * node`, at least that many
+/// nodes' bytes, and affine in `n` and `count` (which `worst_tally` needs).
+/// It rests on the library's implementation (`REVIEWED_RUSTC`).
+pub(crate) fn maps(n: u64, count: u64, k: u64, v: u64) -> Option<u64> {
+    reviewed()?;
+    let node = node(k, v)?;
+    let per_entry = node.div_ceil(MIN_ENTRIES_PER_NODE);
+    n.checked_mul(per_entry)?
+        .checked_add(count.checked_mul(node)?)
+}
+
+/// One ordered map of `n` entries (see `maps`).
 pub(crate) fn map(n: u64, k: u64, v: u64) -> Option<u64> {
-    n.checked_add(1)?.checked_mul(node(k, v)?)
+    maps(n, 1, k, v)
+}
+
+/// The bytes charged for `count` ordered maps holding `entries` entries in
+/// all, each entry a key of `key` bytes and a value of `value` bytes (`0` for
+/// a set), built by insertion, `entry`, `collect` or `clone`: the charge
+/// every bound of this crate makes for an ordered map. `None` on overflow,
+/// or when the crate was not compiled by `REVIEWED_RUSTC`.
+pub fn ordered_maps_charge(entries: u64, count: u64, key: u64, value: u64) -> Option<u64> {
+    maps(entries, count, key, value)
 }
 
 fn sz<T>() -> u64 {
@@ -92,7 +174,8 @@ pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64>
         ))?;
         add(map(t.groups, g, 4))?;
         add(map(t.groups, g, 24))?;
-        add(map(t.cells.checked_add(t.groups)?, id, sz::<Counts>()))?;
+        // The cells: one inner map per group, `cells` entries in all.
+        add(maps(t.cells, t.groups, id, sz::<Counts>()))?;
         let m = t.memberships;
         add(vecs(m, 1, d.group_cluster))?;
         add(vecs(m, m, d.id))?;
@@ -117,8 +200,11 @@ pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64>
 /// `parse` runs in three phases, each freeing what it used before the next:
 /// the walk; setting apart the keys this crate reads; the union of comment
 /// ids. The bound is the largest phase, plus what the read keys' text keeps
-/// across the last two, plus a fixed allowance for the source id.
+/// across the last two, plus a fixed allowance for the source id. The
+/// scratch's doubling is the standard library's implementation
+/// (`REVIEWED_RUSTC`).
 pub(crate) fn parse_reservation(len: u64, limits: &SourceLimits) -> Option<u64> {
+    reviewed()?;
     // One reader's scratch (serde_json's): it holds one decoded string,
     // a long numeric significand, or the open brackets of a skipped value,
     // so never more than the
