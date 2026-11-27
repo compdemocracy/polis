@@ -18,6 +18,7 @@
 mod decode;
 mod identity;
 mod limits;
+mod plan;
 mod projection;
 mod refusal;
 mod reserve;
@@ -25,6 +26,10 @@ mod scan;
 
 pub use identity::{ContentId, RowIdentity, SOURCE_ID_PREFIX, source_id};
 pub use limits::{Limit, SourceLimits};
+pub use plan::{
+    BuildRefusal, Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, NeededFrame, Plan,
+    PlanDraw, PlanKind, RuleConfig,
+};
 pub use projection::{FrameNeeds, Frames, Projection};
 pub use refusal::{Key, SourceRefusal};
 pub use scan::Tally;

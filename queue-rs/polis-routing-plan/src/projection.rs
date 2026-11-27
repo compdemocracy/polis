@@ -84,9 +84,28 @@ pub struct Frames {
     meta: Option<MetaComments>,
     stored: Option<StoredWeights>,
     source: SourceId,
+    needs: FrameNeeds,
+    stored_entries: usize,
+    meta_entries: usize,
 }
 
 impl Frames {
+    /// The needs these frames were read for. A plan build checks them, so
+    /// that frames read without the stored weights are never taken for a
+    /// conversation with no stored map.
+    pub fn needs(&self) -> FrameNeeds {
+        self.needs
+    }
+    /// How many entries the stored map holds (0 when there is none), which
+    /// the map itself does not say; a plan's charge counts them.
+    pub fn stored_entries(&self) -> usize {
+        self.stored_entries
+    }
+    /// How many meta comments the meta frame holds (0 when not read), which
+    /// the set itself does not say; a plan's charge counts them.
+    pub fn meta_entries(&self) -> usize {
+        self.meta_entries
+    }
     pub fn extremity(&self) -> Option<&ExtremityFrame> {
         self.extremity.as_ref()
     }
@@ -318,21 +337,21 @@ impl Projection {
 
     /// Reads the frames the rule needs, and only those.
     pub fn frames(&self, needs: FrameNeeds) -> Result<Frames, SourceRefusal> {
-        let stored = if needs.stored_weights {
-            self.stored()?
-        } else {
-            None
+        let (stored, stored_entries) = match needs.stored_weights.then(|| self.stored()) {
+            Some(read) => read?.map_or((None, 0), |(map, n)| (Some(map), n)),
+            None => (None, 0),
         };
         let extremity = if needs.extremity {
             Some(self.extremity()?)
         } else {
             None
         };
-        let meta = if needs.meta {
+        let (meta, meta_entries) = if needs.meta {
             let ids = self.meta_ids()?;
-            Some(MetaComments::new(ids.iter().copied()).map_err(library(Key::MetaTids))?)
+            let set = MetaComments::new(ids.iter().copied()).map_err(library(Key::MetaTids))?;
+            (Some(set), ids.len())
         } else {
-            None
+            (None, 0)
         };
         let groups = if needs.groups {
             Some(self.groups()?)
@@ -345,10 +364,13 @@ impl Projection {
             meta,
             stored,
             source: self.source.clone(),
+            needs,
+            stored_entries,
+            meta_entries,
         })
     }
 
-    fn stored(&self) -> Result<Option<StoredWeights>, SourceRefusal> {
+    fn stored(&self) -> Result<Option<(StoredWeights, usize)>, SourceRefusal> {
         let key = Key::CommentPriorities;
         let Some(raw) = self.raw.priorities.as_deref() else {
             return Ok(None);
@@ -358,9 +380,10 @@ impl Projection {
             return Err(SourceRefusal::ArrayPriorities);
         }
         let decode::Priorities(entries) = serde_json::from_str(text).map_err(malformed(key))?;
+        let count = entries.len();
         let entries = entries.into_iter().map(|(tid, w)| (CommentId::new(tid), w));
         StoredWeights::new(self.source.clone(), entries)
-            .map(Some)
+            .map(|map| Some((map, count)))
             .map_err(library(key))
     }
 

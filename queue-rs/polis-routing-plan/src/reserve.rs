@@ -13,7 +13,7 @@ use std::mem::size_of;
 /// A vector grown one push at a time from nothing doubles its capacity, so
 /// everything it ever asked for is below four times its length plus a
 /// little; `k` vectors holding `n` elements in all, below `4n + 16k`.
-fn vecs(n: u64, k: u64, elem: u64) -> Option<u64> {
+pub(crate) fn vecs(n: u64, k: u64, elem: u64) -> Option<u64> {
     n.checked_mul(4)?
         .checked_add(k.checked_mul(16)?)?
         .checked_mul(elem)
@@ -28,7 +28,7 @@ fn node(k: u64, v: u64) -> Option<u64> {
 
 /// An ordered map built by insertion never frees a node, and every node
 /// holds at least one entry: at most `n + 1` nodes.
-fn map(n: u64, k: u64, v: u64) -> Option<u64> {
+pub(crate) fn map(n: u64, k: u64, v: u64) -> Option<u64> {
     n.checked_add(1)?.checked_mul(node(k, v)?)
 }
 
