@@ -159,12 +159,15 @@ fn within(label: &str, what: &str, peak: i64, bound: u64) {
 
 fn check(label: &str, projection: &Projection, config: &RuleConfig) -> (Measured, u64, u64) {
     let t = projection.tally();
-    let frames_bound = Plan::frames_stage_bound(config, t, projection.raw_len()).unwrap();
+    let pm = projection.measured();
+    let frames_bound =
+        Plan::measured_frames_stage_bound(config, t, projection.raw_len(), pm).unwrap();
     assert_eq!(
         Some(frames_bound),
         projection.reservation(config.needs()).ok(),
         "{label}: the frames stage is the projection's reservation"
     );
+    let unmeasured_frames = Plan::frames_stage_bound(config, t, projection.raw_len()).unwrap();
     let m = measure(projection, config);
     let build_bound = Plan::build_stage_bound(config, &m.counts).unwrap();
     within(label, "frames stage", m.frames_peak, frames_bound);
@@ -177,10 +180,21 @@ fn check(label: &str, projection: &Projection, config: &RuleConfig) -> (Measured
             "{label}: charge over the build stage"
         );
     }
-    let staged = Plan::staged_build_bound(config, t, projection.raw_len(), &m.counts).unwrap();
+    let staged =
+        Plan::measured_staged_build_bound(config, t, projection.raw_len(), pm, &m.counts).unwrap();
     assert_eq!(staged, frames_bound.max(build_bound));
-    // Never above the summed form, which needs no distinct count.
-    assert!(staged <= Plan::build_bound(config, t, projection.raw_len()).unwrap());
+    // The frames stage from the keys' text is a bound too, and the staged
+    // bound from it never above the summed form, which needs no distinct
+    // count.
+    within(
+        label,
+        "frames stage, unmeasured",
+        m.frames_peak,
+        unmeasured_frames,
+    );
+    let unmeasured = Plan::staged_build_bound(config, t, projection.raw_len(), &m.counts).unwrap();
+    assert_eq!(unmeasured, unmeasured_frames.max(build_bound));
+    assert!(unmeasured <= Plan::build_bound(config, t, projection.raw_len()).unwrap());
     (m, frames_bound, build_bound)
 }
 
@@ -379,13 +393,16 @@ fn witnesses_staged_at_size() {
             ..SourceLimits::default()
         };
         let charge = Projection::parse_reservation(len, &limits).unwrap();
+        let measure = Projection::measure(&source, &limits).unwrap();
+        let measured_charge = Projection::measured_parse_reservation(&measure, &limits).unwrap();
         LIVE.with(|l| l.set(0));
         PEAK.with(|p| p.set(0));
         ON.with(|o| o.set(true));
-        let projection = Projection::parse(&source, row(), &limits).unwrap();
+        let projection = Projection::parse_measured(&source, row(), &limits, &measure).unwrap();
         ON.with(|o| o.set(false));
         let parse_peak = PEAK.with(Cell::get);
-        within("witness", "parse", parse_peak, charge);
+        within("witness", "parse", parse_peak, measured_charge);
+        within("witness", "parse, unmeasured", parse_peak, charge);
         let label = format!("{n} comments");
         let (m, fb, bb) = check(&label, &projection, &config);
         let staged = fb.max(bb);
@@ -417,8 +434,33 @@ fn witnesses_staged_at_size() {
             len as u64 + charge,
             len as u64 + charge <= share()
         );
-        // The staged bound fits one share at both sizes.
+        let unmeasured_frames =
+            Plan::frames_stage_bound(&config, projection.tally(), projection.raw_len()).unwrap();
+        println!(
+            "{label}: measured: longest string {}, longest number {}, depth {}, escaped keys {}, \
+             spill {}, tids {}, meta {}, read text {}; parse charge {measured_charge} \
+             (unmeasured {charge}); frames stage {fb} (unmeasured {unmeasured_frames}); \
+             read and parse {} of share {}: fits {}",
+            measure.longest_string(),
+            measure.longest_number(),
+            measure.depth(),
+            measure.escaped_keys(),
+            measure.spill(),
+            measure.tids(),
+            measure.meta(),
+            measure.read_text(),
+            len as u64 + measured_charge,
+            share(),
+            len as u64 + measured_charge <= share()
+        );
+        // The staged bound, and the read and parse stage, fit one share at
+        // both sizes.
         assert!(staged <= share(), "{label}: {staged}");
+        assert!(
+            len as u64 + measured_charge <= share(),
+            "{label}: read and parse {}",
+            len as u64 + measured_charge
+        );
     }
 }
 

@@ -6,6 +6,7 @@
 
 use crate::decode::sizes;
 use crate::limits::SourceLimits;
+use crate::measure::Measure;
 use crate::projection::{FrameCounts, FrameNeeds};
 use crate::scan::Tally;
 use polis_routing_equation::{CommentId, Counts, Extremity, GroupId, StoredWeight};
@@ -145,6 +146,102 @@ pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64>
     sum_terms(|term| reservation_terms(t, raw, needs, term))
 }
 
+/// `reservation`, with the readers' scratch charged from the longest token
+/// the measuring pass found (`Measure::token`) instead of the keys' text.
+pub(crate) fn measured_reservation(
+    t: &Tally,
+    raw: u64,
+    token: u64,
+    needs: FrameNeeds,
+) -> Option<u64> {
+    sum_terms(|term| frames_terms(t, raw, Some(token), needs, term))
+}
+
+/// What one serde_json reader's scratch (`Deserializer::scratch`, a
+/// `Vec<u8>`) can hold at once for a source whose longest token is `t`
+/// bytes: one decoded string (never longer than written), one long
+/// number's digits (`parse_long_integer`, `parse_decimal_overflow`: the
+/// digits written, and the zeros a fraction's exponent stands for, no more
+/// than the token), or the open brackets of one skipped value (no more than
+/// the depth). It is cleared for each, never shrunk, and grown by
+/// `reserve`, so its room is at most twice `t` (or the eight bytes of a
+/// first growth), and while it moves the old room is held too.
+fn scratch(t: u64) -> Option<u64> {
+    t.checked_mul(3)?.checked_add(64)
+}
+
+/// The most text an error message serde formats can hold beside its one
+/// token: its fixed words, the visitor's expectation, and the longest
+/// number `Display` writes (an `f64` never in exponent form: about 330
+/// bytes).
+const MESSAGE_WORDS: u64 = 512;
+
+/// One error serde formats while a source of longest token `t` is read: a
+/// type, value or field error writes at most one token into its message,
+/// a string by `Debug`, at most six bytes for each byte decoded (`\u{7f}`
+/// for the one byte 0x7f); the message is formatted into a `String` grown
+/// by doubling and then boxed (`serde_json::Error::custom`, `make_error`),
+/// so at most three times its length is held at once, plus the boxed
+/// error. Only one error is alive at a time: each refuses the read it is
+/// made in.
+fn error_message(t: u64) -> Option<u64> {
+    t.checked_mul(6)?
+        .checked_add(MESSAGE_WORDS)?
+        .checked_mul(3)?
+        .checked_add(128)
+}
+
+/// The float-roundtrip conversion of a long number (serde_json's
+/// `lexical::bhcomp`): it reads at most `MAX_DIGITS` (769) significant
+/// digits into big integers of 64-bit limbs, scales them by powers of two,
+/// five and ten within `f64`'s range, and frees them before the number is
+/// returned: a few big integers of at most about 6,200 bits (under 800
+/// bytes) each, with their growth. An allowance, not a count: it does not
+/// grow with the source.
+const NUMERIC: u64 = 16_384;
+
+/// The measured parse charge: `parse_reservation`'s phases, term for term,
+/// each from the measuring pass's counts instead of the length. Named
+/// terms, in order; they sum to the charge.
+pub(crate) fn measured_parse_terms(
+    m: &Measure,
+    limits: &SourceLimits,
+    term: &mut dyn FnMut(&'static str, u64),
+) -> Option<()> {
+    reviewed()?;
+    let t = m.token();
+    let scratch = scratch(t)?;
+    // The walk: its reader's scratch, the keys written with escapes (kept
+    // decoded while their object is open), and the spill: each key in it
+    // in 8 bytes of room, doubled to at most 16, plus 8 more for each
+    // entry of the one spill being moved (`scan::Keys`).
+    let walk = scratch
+        .checked_add(m.escaped_keys())?
+        .checked_add(m.spill().checked_mul(24)?)?;
+    // Setting the read keys apart: a reader's scratch and their text.
+    let split = scratch.checked_add(m.read_text())?;
+    // The union, only when it runs: the read keys' text, one vector of
+    // every entry of `tids` and `meta-tids`, and a reader's scratch.
+    let ids = m.tids().checked_add(m.meta())?;
+    let union = if ids > limits.max_comments {
+        m.read_text()
+            .checked_add(ids.checked_mul(8)?)?
+            .checked_add(scratch)?
+    } else {
+        0
+    };
+    term("parse: largest phase", walk.max(split).max(union));
+    term("parse: one error message", error_message(t)?);
+    term("parse: numeric conversion", NUMERIC);
+    term("parse: fixed", 1024);
+    Some(())
+}
+
+/// `measured_parse_terms`, summed.
+pub(crate) fn measured_parse_reservation(m: &Measure, limits: &SourceLimits) -> Option<u64> {
+    sum_terms(|term| measured_parse_terms(m, limits, term))
+}
+
 /// Adds up the terms `each` hands to its sink: `None` if `each` refuses or
 /// the sum overflows. Allocation free.
 pub(crate) fn sum_terms(
@@ -162,6 +259,18 @@ pub(crate) fn reservation_terms(
     needs: FrameNeeds,
     term: &mut dyn FnMut(&'static str, u64),
 ) -> Option<()> {
+    frames_terms(t, raw, None, needs, term)
+}
+
+/// `reservation_terms`, the readers' scratch from the keys' text (`token`
+/// `None`) or from the measured longest token.
+pub(crate) fn frames_terms(
+    t: &Tally,
+    raw: u64,
+    token: Option<u64>,
+    needs: FrameNeeds,
+    term: &mut dyn FnMut(&'static str, u64),
+) -> Option<()> {
     let d = sizes();
     let id = sz::<CommentId>();
     // Each key decoded has its own reader, whose scratch holds one decoded
@@ -172,7 +281,21 @@ pub(crate) fn reservation_terms(
     // below four times `raw`, plus a little per reader. The source ids are
     // cloned once per frame; a fixed allowance covers the rest.
     let readers = raw.checked_mul(4)?.checked_add(READERS.checked_mul(64)?)?;
-    term("frames: readers' scratch", readers);
+    match token {
+        None => term("frames: readers' scratch", readers),
+        Some(t) => {
+            // Measured: each reader's scratch from the longest token (see
+            // `scratch`), however the readers' lives overlap, plus one
+            // error message and one numeric conversion at a time.
+            reviewed()?;
+            term(
+                "frames: readers' scratch",
+                READERS.checked_mul(scratch(t)?)?,
+            );
+            term("frames: one error message", error_message(t)?);
+            term("frames: numeric conversion", NUMERIC);
+        }
+    }
     term("frames: fixed", 4096);
     let mut add = |name: &'static str, x: Option<u64>| -> Option<()> {
         term(name, x?);

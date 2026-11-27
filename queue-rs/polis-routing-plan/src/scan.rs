@@ -4,6 +4,7 @@
 //! inside, to find a repeated one.
 
 use crate::limits::{Limit, SourceLimits};
+use crate::measure::Measure;
 use crate::refusal::{Key, SourceRefusal};
 use serde::de;
 use serde::de::{DeserializeSeed, Deserializer, MapAccess, SeqAccess, Visitor};
@@ -119,6 +120,14 @@ pub(crate) struct State {
     pub(crate) tally: Tally,
     limits: SourceLimits,
     pub(crate) refusal: Option<SourceRefusal>,
+    /// The measuring pass's counts, when the walk runs on measured bytes:
+    /// the walk refuses where it would meet more than they say, before the
+    /// spill is given room past them.
+    measured: Option<Measure>,
+    /// The keys held in open objects' spills, and the bytes of the escaped
+    /// keys decoded so far.
+    spill_live: u64,
+    escaped_keys: u64,
 }
 
 impl State {
@@ -127,6 +136,54 @@ impl State {
             tally: Tally::default(),
             limits: *limits,
             refusal: None,
+            measured: None,
+            spill_live: 0,
+            escaped_keys: 0,
+        }
+    }
+
+    /// The walk over bytes `m` measured.
+    pub(crate) fn measured(limits: &SourceLimits, m: &Measure) -> Self {
+        Self {
+            measured: Some(*m),
+            ..Self::new(limits)
+        }
+    }
+
+    fn disagrees<E: de::Error>(&mut self) -> E {
+        self.refuse(SourceRefusal::TooLarge {
+            what: Limit::Reservation,
+        })
+    }
+
+    /// An object key decoded with an escape, of `len` bytes.
+    fn escaped_key<E: de::Error>(&mut self, len: usize) -> Result<(), E> {
+        self.escaped_keys = self.escaped_keys.saturating_add(len as u64);
+        match self.measured {
+            Some(m) if self.escaped_keys > m.escaped_keys() => Err(self.disagrees()),
+            _ => Ok(()),
+        }
+    }
+
+    /// The object whose keys number `before` is about to keep one more:
+    /// past `SMALL`, every key of it is in its spill.
+    fn spill_one<E: de::Error>(&mut self, before: usize) -> Result<(), E> {
+        let after = before.saturating_add(1);
+        if after == SMALL + 1 {
+            self.spill_live = self.spill_live.saturating_add(after as u64);
+        } else if after > SMALL + 1 {
+            self.spill_live = self.spill_live.saturating_add(1);
+        }
+        match self.measured {
+            Some(m) if self.spill_live > m.spill() => Err(self.disagrees()),
+            _ => Ok(()),
+        }
+    }
+
+    /// The object whose keys number `len` closed.
+    fn spill_closed(&mut self, len: usize) {
+        if len > SMALL {
+            self.spill_live = self.spill_live.saturating_sub(len as u64);
         }
     }
 
@@ -140,7 +197,10 @@ impl State {
     fn string<E: de::Error>(&mut self, len: usize) -> Result<(), E> {
         let len = u64::try_from(len).map_err(|_| self.refuse(SourceRefusal::CountOverflow))?;
         self.tally.longest_string = self.tally.longest_string.max(len);
-        Ok(())
+        match self.measured {
+            Some(m) if len > m.longest_string() => Err(self.disagrees()),
+            _ => Ok(()),
+        }
     }
 
     /// Counts one entry, and refuses at the first entry over its limit, so
@@ -190,6 +250,11 @@ fn enter<E: de::Error>(st: &mut State, ctx: &Ctx) -> Result<u32, E> {
     let depth = ctx.depth.saturating_add(1);
     if depth > st.limits.max_depth {
         return Err(st.refuse(SourceRefusal::TooLarge { what: Limit::Depth }));
+    }
+    if let Some(m) = st.measured
+        && u64::from(depth) > m.depth()
+    {
+        return Err(st.disagrees());
     }
     Ok(depth)
 }
@@ -267,6 +332,9 @@ impl<'de> Visitor<'de> for Walk<'_> {
         let mut keys = Keys::new();
         while let Some(k) = map.next_key_seed(KeySeed)? {
             st.string(k.len())?;
+            if let Cow::Owned(owned) = &k {
+                st.escaped_key(owned.len())?;
+            }
             let child = if ctx.top == Top::Root {
                 Ctx {
                     depth,
@@ -289,6 +357,7 @@ impl<'de> Visitor<'de> for Walk<'_> {
                 ctx: child,
             })?;
             st.one(which)?;
+            st.spill_one(keys.len)?;
             match keys.insert(k) {
                 Some(true) => {}
                 Some(false) => {
@@ -312,11 +381,14 @@ impl<'de> Visitor<'de> for Walk<'_> {
             };
             return Err(st.refuse(SourceRefusal::DuplicateKey { key }));
         }
+        st.spill_closed(keys.len);
         Ok(())
     }
 }
 
-const SMALL: usize = 8;
+/// How many keys of one open object are kept as written before the rest
+/// spill: the one constant the walk and the measuring pass share.
+pub(crate) const SMALL: usize = 8;
 
 /// The keys of one open object. The first eight are kept as written (on the
 /// stack, borrowed from the bytes when they have no escapes), so the objects

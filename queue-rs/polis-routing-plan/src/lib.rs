@@ -28,6 +28,7 @@ mod cache;
 mod decode;
 mod identity;
 mod limits;
+mod measure;
 mod plan;
 mod projection;
 mod refusal;
@@ -44,6 +45,7 @@ pub use cache::{
 };
 pub use identity::{ContentId, RowIdentity, SOURCE_ID_PREFIX, source_id};
 pub use limits::{Limit, SourceLimits};
+pub use measure::Measure;
 pub use plan::{
     BuildRefusal, Fallback, MAX_EXCLUDE_META_COMMENTS, MAX_PLAN_CANDIDATES, NeededFrame, Plan,
     PlanDraw, PlanKind, RuleConfig,

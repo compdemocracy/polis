@@ -3,8 +3,11 @@
 use crate::decode;
 use crate::identity::{ContentId, RowIdentity, source_id};
 use crate::limits::{Limit, SourceLimits};
+use crate::measure::{Measure, measure};
 use crate::refusal::{Key, SourceRefusal};
-use crate::reserve::{parse_reservation, reservation, retained_terms, sum_terms};
+use crate::reserve::{
+    measured_parse_reservation, measured_reservation, parse_reservation, retained_terms, sum_terms,
+};
 use crate::scan::{State, Tally, Walk};
 use polis_routing_equation::{
     CommentId, Counts, CurrentGroupFrame, Extremity, ExtremityFrame, GroupId, MetaComments,
@@ -47,6 +50,7 @@ pub struct Projection {
     tally: Tally,
     limits: SourceLimits,
     raw: Raw,
+    measure: Measure,
 }
 
 /// Which frames the configured rule reads. A frame not needed is not
@@ -232,6 +236,24 @@ fn union_within(raw: &Raw, t: &Tally, limits: &SourceLimits) -> Result<(), Sourc
     check(ids.len() as u64, limits.max_comments, Limit::Comments)
 }
 
+/// The length of the text of the read keys `raw` holds.
+fn raw_text_len(r: &Raw) -> u64 {
+    let text: usize = [
+        &r.group_votes,
+        &r.pca,
+        &r.tids,
+        &r.meta_tids,
+        &r.priorities,
+        &r.clusters,
+        &r.base_clusters,
+    ]
+    .into_iter()
+    .flatten()
+    .map(|v| v.get().len())
+    .sum();
+    text as u64
+}
+
 /// The refusal for a decode that would need more room than the walk's
 /// counts gave it, or room the allocator would not give exactly: the
 /// reservation was made from those counts, so nothing past them is decoded.
@@ -309,19 +331,76 @@ impl Projection {
     ///
     /// Its additional heap payload is bounded by
     /// `Projection::parse_reservation(bytes.len(), limits)`, whether it then
-    /// refuses or not. The caller separately accounts for the existing input
-    /// buffer and row environment capacity. Once it returns, `held()` bounds
-    /// retained heap payload, including the transferred row environment.
+    /// refuses or not, and, when `Projection::measure` accepts the bytes, by
+    /// `Projection::measured_parse_reservation` of that measure too. The
+    /// caller separately accounts for the existing input buffer and row
+    /// environment capacity. Once it returns, `held()` bounds retained heap
+    /// payload, including the transferred row environment.
     ///
-    /// In order: the length; then one walk over the original bytes that
-    /// refuses anything that is not one JSON object, any depth over the
-    /// limit and any key given twice in one object, and counts the entries
-    /// every other limit is about; then every count against its limit. Only
-    /// then are the keys this crate reads set apart, each as its own text.
+    /// In order: the length; the measuring pass (allocation free); then one
+    /// walk over the original bytes that refuses anything that is not one
+    /// JSON object, any depth over the limit and any key given twice in one
+    /// object, and counts the entries every other limit is about; then
+    /// every count against its limit. Only then are the keys this crate
+    /// reads set apart, each as its own text. When the measuring pass
+    /// refused the bytes, the walk still runs (so a refused source gives the
+    /// refusal it always gave), and a source the walk would accept is
+    /// refused with the measuring pass's refusal.
     pub fn parse(
         bytes: &[u8],
         row: RowIdentity,
         limits: &SourceLimits,
+    ) -> Result<Projection, SourceRefusal> {
+        match measure(bytes, limits) {
+            Ok(m) => Self::parse_with(bytes, row, limits, Ok(&m)),
+            Err(r) => Self::parse_with(bytes, row, limits, Err(r)),
+        }
+    }
+
+    /// The measuring pass over `bytes`, before they are parsed: allocation
+    /// free and linear in their length. It refuses what serde_json cannot
+    /// tokenize (as `Malformed`), a length over `max_bytes` and a depth
+    /// over `max_depth` (as `TooLarge`); its counts are what
+    /// `measured_parse_reservation` charges.
+    pub fn measure(bytes: &[u8], limits: &SourceLimits) -> Result<Measure, SourceRefusal> {
+        measure(bytes, limits)
+    }
+
+    /// An upper bound on the additional heap payload `parse_measured` (or
+    /// `parse`) holds at once for the bytes `m` measured under `limits`,
+    /// from the measure's counts: the terms of `parse_reservation`, each
+    /// from a measured count instead of the length. It excludes what
+    /// `parse_reservation` excludes.
+    pub fn measured_parse_reservation(
+        m: &Measure,
+        limits: &SourceLimits,
+    ) -> Result<u64, SourceRefusal> {
+        measured_parse_reservation(m, limits).ok_or(SourceRefusal::TooLarge {
+            what: Limit::Reservation,
+        })
+    }
+
+    /// `parse`, for bytes the caller measured (`Projection::measure`) and
+    /// charged (`measured_parse_reservation`) first: the measure is not
+    /// taken again. Bytes other than those measured are refused before
+    /// anything is allocated, and where the walk or the split would meet
+    /// more than the measure counted, the parse is refused
+    /// (`TooLarge { Reservation }`): the walk before the spill is given room
+    /// past it, the rest as soon as it is seen.
+    pub fn parse_measured(
+        bytes: &[u8],
+        row: RowIdentity,
+        limits: &SourceLimits,
+        m: &Measure,
+    ) -> Result<Projection, SourceRefusal> {
+        Self::parse_with(bytes, row, limits, Ok(m))
+    }
+
+    fn parse_with(
+        bytes: &[u8],
+        row: RowIdentity,
+        limits: &SourceLimits,
+        measured: Result<&Measure, SourceRefusal>,
     ) -> Result<Projection, SourceRefusal> {
         let len = u64::try_from(bytes.len())
             .map_err(|_| SourceRefusal::TooLarge { what: Limit::Bytes })?;
@@ -331,11 +410,25 @@ impl Projection {
                 what: Limit::Reservation,
             });
         }
+        let disagrees = SourceRefusal::TooLarge {
+            what: Limit::Reservation,
+        };
+        // Allocation free: the bytes are the ones measured, or nothing is
+        // allocated.
+        let content = ContentId::of(bytes);
+        if let Ok(m) = measured
+            && (m.len() != len || *m.content() != content)
+        {
+            return Err(disagrees);
+        }
 
         // The walk, in its own scope, so its reader's scratch is freed
         // before the next phase (`parse_reservation` counts on it).
         let t = {
-            let mut state = State::new(limits);
+            let mut state = match measured {
+                Ok(m) => State::measured(limits, m),
+                Err(_) => State::new(limits),
+            };
             let mut de = serde_json::Deserializer::from_slice(bytes);
             let walked = Walk::root(&mut state)
                 .deserialize(&mut de)
@@ -346,6 +439,10 @@ impl Projection {
             walked.map_err(malformed(Key::Projection))?;
             state.tally
         };
+        let m = *measured?;
+        if t.tids != m.tids() || t.meta != m.meta() {
+            return Err(disagrees);
+        }
         check(t.tids, limits.max_comments, Limit::Comments)?;
         check(t.meta, limits.max_comments, Limit::Comments)?;
         check(t.extremity, limits.max_comments, Limit::Comments)?;
@@ -353,15 +450,17 @@ impl Projection {
         check(t.groups, limits.max_groups, Limit::Groups)?;
         check(t.cells, limits.max_cells, Limit::Cells)?;
         check(t.memberships, limits.max_memberships, Limit::Memberships)?;
-        if reservation(&t, len, FrameNeeds::all()).is_none() {
+        if measured_reservation(&t, len, m.token(), FrameNeeds::all()).is_none() {
             return Err(SourceRefusal::TooLarge {
                 what: Limit::Reservation,
             });
         }
 
         let raw: Raw = serde_json::from_slice(bytes).map_err(malformed(Key::Projection))?;
+        if raw_text_len(&raw) != m.read_text() {
+            return Err(disagrees);
+        }
         union_within(&raw, &t, limits)?;
-        let content = ContentId::of(bytes);
         let source = source_id(&row, &content)?;
         Ok(Projection {
             row,
@@ -370,7 +469,13 @@ impl Projection {
             tally: t,
             limits: *limits,
             raw,
+            measure: m,
         })
+    }
+
+    /// What the measuring pass counted in the bytes this was parsed from.
+    pub fn measured(&self) -> &Measure {
+        &self.measure
     }
 
     pub fn row(&self) -> &RowIdentity {
@@ -418,29 +523,18 @@ impl Projection {
     /// The length of the text of the keys it read, kept for `frames`: at
     /// most the source's length.
     pub fn raw_len(&self) -> u64 {
-        let r = &self.raw;
-        let text: usize = [
-            &r.group_votes,
-            &r.pca,
-            &r.tids,
-            &r.meta_tids,
-            &r.priorities,
-            &r.clusters,
-            &r.base_clusters,
-        ]
-        .into_iter()
-        .flatten()
-        .map(|v| v.get().len())
-        .sum();
-        text as u64
+        raw_text_len(&self.raw)
     }
 
     /// An upper bound, in bytes, on what `frames(needs)` allocates, from the
     /// walk's counts and the length of the keys' text it read.
+    /// The readers' scratch is charged from the measured longest token.
     pub fn reservation(&self, needs: FrameNeeds) -> Result<u64, SourceRefusal> {
-        reservation(&self.tally, self.raw_len(), needs).ok_or(SourceRefusal::TooLarge {
-            what: Limit::Reservation,
-        })
+        measured_reservation(&self.tally, self.raw_len(), self.measure.token(), needs).ok_or(
+            SourceRefusal::TooLarge {
+                what: Limit::Reservation,
+            },
+        )
     }
 
     /// Reads the frames the rule needs, and only those.

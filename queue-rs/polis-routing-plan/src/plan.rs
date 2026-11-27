@@ -8,8 +8,11 @@
 //! source; the unit is an argument.
 
 use crate::limits::SourceLimits;
+use crate::measure::Measure;
 use crate::projection::{FrameCounts, FrameNeeds, Frames};
-use crate::reserve::{map, reservation_terms, retained_terms, sum_terms, vecs, worst_tally};
+use crate::reserve::{
+    frames_terms, map, reservation_terms, retained_terms, sum_terms, vecs, worst_tally,
+};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
@@ -614,6 +617,42 @@ impl Plan {
     /// the frames' maps as they are made. It is `Projection::reservation`.
     pub fn frames_stage_bound(config: &RuleConfig, t: &Tally, raw: u64) -> Option<u64> {
         sum_terms(|term| reservation_terms(t, raw, config.needs(), term))
+    }
+
+    /// `frames_stage_bound` with the readers' scratch charged from the
+    /// measuring pass's longest token (`Projection::measured`) instead of
+    /// the keys' text. It is `Projection::reservation`.
+    pub fn measured_frames_stage_bound(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        m: &Measure,
+    ) -> Option<u64> {
+        sum_terms(|term| frames_terms(t, raw, Some(m.token()), config.needs(), term))
+    }
+
+    /// `measured_frames_stage_bound`, one named term at a time.
+    pub fn measured_frames_stage_terms(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        m: &Measure,
+        mut term: impl FnMut(&'static str, u64),
+    ) -> Option<()> {
+        frames_terms(t, raw, Some(m.token()), config.needs(), &mut term)
+    }
+
+    /// `staged_build_bound` with the measured frames stage.
+    pub fn measured_staged_build_bound(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        m: &Measure,
+        c: &FrameCounts,
+    ) -> Option<u64> {
+        let frames = Self::measured_frames_stage_bound(config, t, raw, m)?;
+        let build = Self::build_stage_bound(config, c)?;
+        Some(frames.max(build))
     }
 
     /// The build stage: an upper bound, in bytes, on what is held at once
