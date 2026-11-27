@@ -330,6 +330,22 @@ impl FloorPlan {
         &self.weights
     }
 
+    /// Whether this plan refuses `id` as an excluded candidate
+    /// (`ExcludedCandidate`): under `meta_policy = exclude`, an id in the meta
+    /// set the plan was built with; under any policy, an id its weights list
+    /// as excluded. It is exactly the first check `draw` and `probabilities`
+    /// make for each candidate, read from the plan's own sets: the snapshot
+    /// the plan was built from, never current meta state. A caller that drops
+    /// the candidate query's rows for which this is true, keeping their
+    /// order, passes exactly the candidates the plan admits for exclusion,
+    /// with no second copy of the meta set; the draw still makes every check
+    /// itself. An id the plan does not know is not excluded (the draw refuses
+    /// it as `NeedsBaseline`).
+    pub fn excludes(&self, id: crate::types::CommentId) -> bool {
+        let exclude = self.params.base.base().meta_policy() == MetaPolicy::Exclude;
+        (exclude && self.meta.set().contains(&id)) || self.weights.excluded_set().contains(&id)
+    }
+
     /// Each candidate's base weight, in order, and how many were unscored.
     ///
     /// Exclusion comes first and does not depend on scoring: under
@@ -790,6 +806,81 @@ mod tests {
         // excluded and for an unknown candidate, resolutions with unscored
         // candidates, with no mass in the weighted lane and beside a large
         // excluded set, and draws.
+        assert!(seen.iter().all(|s| *s > 0), "coverage {seen:?}");
+    }
+
+    /// The plan's own exclusion filter against the caller's old one (a
+    /// retained copy of the meta set the build read, applied under
+    /// `exclude`): the same rows in the same order, and every probability,
+    /// draw and receipt bit for bit, on many seeded constructed cases; and
+    /// `excludes` is exactly the draw's first refusal, id by id.
+    #[test]
+    fn the_plans_exclusion_filter_matches_the_callers_meta_copy_bit_for_bit() {
+        let mut rng = XorShift(0x5851_f42d_4c95_7f2d);
+        let (ws, input) = (src("weights"), src("participant"));
+        let largest_below_one = 1.0 - f64::EPSILON / 2.0;
+        // filtered something, drew, refused after filtering, empty after it
+        let mut seen = [0usize; 4];
+        for case in 0..1400 {
+            let n = if case % 20 == 0 {
+                rng.below(3001) as usize
+            } else {
+                rng.below(300) as usize
+            };
+            let (plan, rows) = constructed_case(&mut rng, n, case as u64 % 7);
+            let copy = plan.meta.clone();
+            let exclude = plan.params.base.base().meta_policy() == MetaPolicy::Exclude;
+            let old: Vec<CommentId> = rows
+                .iter()
+                .copied()
+                .filter(|id| !(exclude && copy.contains(*id)))
+                .collect();
+            let new: Vec<CommentId> = rows
+                .iter()
+                .copied()
+                .filter(|id| !plan.excludes(*id))
+                .collect();
+            assert_eq!(new, old, "case {case}: the filtered rows, in order");
+            if new.len() < rows.len() {
+                seen[0] += 1;
+            }
+            for id in &rows {
+                let one = Candidates::new(vec![*id]).unwrap();
+                assert_eq!(
+                    plan.excludes(*id),
+                    matches!(plan.resolve(&one), Err(DrawRefusal::ExcludedCandidate(_))),
+                    "case {case}: {id:?}"
+                );
+            }
+            let (Ok(a), Ok(b)) = (Candidates::new(old), Candidates::new(new)) else {
+                seen[3] += 1;
+                continue;
+            };
+            assert_eq!(a.order_digest(), b.order_digest());
+            assert_eq!(
+                plan.probabilities(&a).as_ref().map(marginal_bits),
+                plan.probabilities(&b).as_ref().map(marginal_bits),
+                "case {case}: the probabilities"
+            );
+            for x in [0.0, largest_below_one, rng.unit(), rng.unit(), rng.unit()] {
+                let u = Unit::new(x).unwrap();
+                let (da, db) = (plan.draw(&a, u, &ws, &input), plan.draw(&b, u, &ws, &input));
+                assert_eq!(
+                    da.as_ref().map(drawn_bits),
+                    db.as_ref().map(drawn_bits),
+                    "case {case}: the draw at {x:?}"
+                );
+                assert!(
+                    !matches!(db, Err(DrawRefusal::ExcludedCandidate(_))),
+                    "case {case}: nothing excluded is left"
+                );
+                if db.is_ok() {
+                    seen[1] += 1;
+                } else {
+                    seen[2] += 1;
+                }
+            }
+        }
         assert!(seen.iter().all(|s| *s > 0), "coverage {seen:?}");
     }
 

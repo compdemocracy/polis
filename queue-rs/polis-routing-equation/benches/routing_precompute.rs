@@ -713,18 +713,29 @@ impl Seq {
     }
 }
 
-/// The rows the candidate query returns, less the meta comments when the
-/// plan's policy excludes them (the caller's step; `filter = false` is the
-/// caller that forgets it).
+/// The rows the candidate query returns, less the comments the plan
+/// excludes (`FloorPlan::excludes`, the plan's own snapshot, one pass, no
+/// second copy) when its policy excludes meta comments: the caller's step;
+/// `filter = false` is the caller that forgets it.
 fn eligible(b: &Built, rows: &[CommentId], filter: bool) -> Vec<CommentId> {
     if filter && b.exclude {
         rows.iter()
             .copied()
-            .filter(|id| !b.meta.contains(*id))
+            .filter(|id| !b.plan.excludes(*id))
             .collect()
     } else {
         rows.to_vec()
     }
+}
+
+/// The caller's filter before the plan exposed its exclusion check: a
+/// retained copy of the meta set the build read. Timed beside `eligible`
+/// for comparison only; it gives the same rows.
+fn eligible_with_copy(b: &Built, rows: &[CommentId]) -> Vec<CommentId> {
+    rows.iter()
+        .copied()
+        .filter(|id| !b.meta.contains(*id))
+        .collect()
 }
 
 /// One request's work from the candidate query's ordered rows to the
@@ -1145,6 +1156,17 @@ fn bench_conversation(
                 with(base.clone(), "what", json!("caller filter")),
                 || eligible(&b, &rows, true),
                 |v| assert_eq!(v, &el, "the filtered rows"),
+            );
+            assert_eq!(eligible_with_copy(&b, &rows), el, "the old filter's rows");
+            bench.time(
+                ROW,
+                with(
+                    base.clone(),
+                    "what",
+                    json!("caller filter: own meta copy (before)"),
+                ),
+                || eligible_with_copy(&b, &rows),
+                |v| assert_eq!(v, &el, "the old filter's rows"),
             );
         }
         if let (Some(sw), "count") = (&sw, by) {
@@ -1643,7 +1665,9 @@ fn inventory(smoke: bool, real: bool) -> Vec<String> {
                 shape(&mut k, &data, policy, &light, false);
             }
             for (voted, by) in light {
-                k.push(key("seq", &data, "caller filter", "Exclude", voted, by));
+                for what in ["caller filter", "caller filter: own meta copy (before)"] {
+                    k.push(key("seq", &data, what, "Exclude", voted, by));
+                }
             }
         }
     }
