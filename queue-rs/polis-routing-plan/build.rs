@@ -12,6 +12,11 @@
 //! `POLIS_ROUTING_PLAN_UNREVIEWED_STD`, when set, names no release, so that
 //! the refusal can be tested under the reviewed rustc. It can only make the
 //! bounds refuse, never admit.
+// The crate's clippy.toml keeps `src/` from reading the environment or
+// starting a process; a build script has to do both to ask the compiler its
+// release, and runs only while building.
+#![allow(clippy::disallowed_methods)]
+
 use std::process::Command;
 
 fn main() {

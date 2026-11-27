@@ -167,8 +167,9 @@ before any frame is allocated:
 5. **The reservation**: `Projection::reservation(needs)` is an upper bound, in
    bytes, on everything `frames(needs)` allocates, computed from the walk's
    counts alone, never from the source's length. It is conservative on
-   purpose: it assumes every vector doubled its way to its length and every
-   ordered map node holds one entry. Its readers' scratch is charged at four
+   purpose: it assumes every vector doubled its way to its length, and
+   charges every ordered map a fifth of a node per entry plus one node (see
+   **Ordered maps** below). Its readers' scratch is charged at four
    times the length of the read keys' text (`Projection::raw_len`), which
    covers long strings and long numbers alike. It is meant to be charged
    against a budget before the frames are built.
@@ -183,7 +184,32 @@ reach: every counted entry owns two bytes of the source (its first byte and
 the byte that ends it), so the counts together are at most half the length,
 and each stays within its limit; the counts are filled greedily from the one
 that costs most per entry (the bound is a sum of terms linear in one count
-each, which a test checks).
+each, which a test checks). `Plan::build_bound_terms` hands out the same
+bound one named term at a time.
+
+**Ordered maps.** Every `BTreeMap` and `BTreeSet` the frames and the build
+make is charged `n * ceil(node / 5) + node` bytes for `n` entries
+(`ordered_maps_charge`), where `node` is an internal node's size with room
+for padding; `k` maps holding `n` entries in all (the group frame's cells,
+one inner map per group) are charged `n * ceil(node / 5) + k * node`. That
+is at least `n / 5 + k` nodes. It rests on the standard library's B-tree:
+every node but the root holds at least five entries (B = 6, `MIN_LEN` = 5
+in the 1.98.1 source), through insertion and `entry`, `collect` (a bulk
+build) and `clone`, the only operations the build path uses on a map (no
+`remove`, `retain`, `append` or `split_off`). The documentation promises
+only "B-1 to 2B-1 elements" with B unstated, so this is the
+implementation's, as vector doubling already was. `tests/btree_bound.rs`
+counts the nodes and bytes of every key and value shape charged, after
+every insertion in five orders (ascending, descending, middle first,
+random, and the order that leaves nodes least full) up to 200,000 entries,
+and for collect and clone; the least-full order reaches 97% of `n / 5 + 1`
+nodes. A build script names the compiling rustc's release; under any
+release but `REVIEWED_RUSTC` (in `src/reserve.rs`), the map, vector and
+parse charges are `None`, so every reservation made from them refuses and
+the caller keeps today's draw. To move to a new release, run
+`tests/btree_bound.rs` under it, read its B-tree and `Vec` source for the
+constants quoted at `reserve::maps`, then change `REVIEWED_RUSTC` and its
+two `cfg` lines together.
 
 Before any of this, `Projection::parse_reservation(len, limits)` is an upper
 bound on the additional heap allocation held by `parse` at any one time
@@ -304,7 +330,11 @@ runs `ci/local/polis-routing-plan.sh`: `cargo fmt --check`, clippy with
 warnings denied, the tests, a source scan of `src/` (the routing equation
 crate's list: no files, network, clock, environment, threads, processes,
 output, global state or `unsafe`), and the dependency rule (exactly
-`polis-routing-equation`, `serde`, `serde_json` and `sha2`). Hosted CI runs
+`polis-routing-equation`, `serde`, `serde_json` and `sha2`); and the
+toolchain test once more with the build script told to name no release,
+where every bound resting on the standard library must refuse. `build.rs`
+reads the compiler's release at build time; it is outside the source scan,
+and nothing under `src/` reads anything. Hosted CI runs
 the same command. `make check-polis-routing-equation` then sees this crate as
 the equation crate's one dependent, which its own rule allows.
 
@@ -368,8 +398,8 @@ chance, and is never reported as the plan's.
 
 **Memory.** `Plan::charged_bytes()` is an upper bound on what a plan holds
 for as long as it lives, with one `Arc` around it: the plan itself, every
-source id at its longest (128 bytes), every ordered map and set at one node
-per entry plus one, each scored comment's factors, the stored map's entries
+source id at its longest (128 bytes), every ordered map and set at a fifth
+of a node per entry plus one node, each scored comment's factors, the stored map's entries
 and the meta set the floor keeps (their counts carried on `Frames`, since the
 library's types do not expose them), and the terms. `Plan::draw_reservation(n)`
 is an upper bound on everything one draw over `n` ids allocates, held all at

@@ -9,7 +9,7 @@
 
 use crate::limits::SourceLimits;
 use crate::projection::{FrameNeeds, Frames};
-use crate::reserve::{map, reservation, vecs, worst_tally};
+use crate::reserve::{map, reservation_terms, sum_terms, vecs, worst_tally};
 use crate::scan::Tally;
 use polis_routing_equation::importance::TermParams;
 use polis_routing_equation::{
@@ -592,23 +592,48 @@ impl Plan {
     /// within it). Each term is a sum of terms linear in one count, which
     /// `build_allowance` relies on. Checked arithmetic; `None` on overflow.
     pub fn build_bound(config: &RuleConfig, t: &Tally, raw: u64) -> Option<u64> {
-        let frames = reservation(t, raw, config.needs())?;
+        sum_terms(|term| Self::bound_terms(config, t, raw, term))
+    }
+
+    /// `build_bound`, one named term at a time, in order: each term's name
+    /// and bytes is handed to `term`, and the bytes sum to `build_bound`.
+    /// `None` when `build_bound` is. Allocation free apart from `term`.
+    pub fn build_bound_terms(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        mut term: impl FnMut(&'static str, u64),
+    ) -> Option<()> {
+        Self::bound_terms(config, t, raw, &mut term)
+    }
+
+    fn bound_terms(
+        config: &RuleConfig,
+        t: &Tally,
+        raw: u64,
+        term: &mut dyn FnMut(&'static str, u64),
+    ) -> Option<()> {
+        reservation_terms(t, raw, config.needs(), term)?;
         // The Arc's two counters, the plan inline and its source id.
         let inline = sz::<usize>()
             .checked_mul(2)?
             .checked_add(sz::<Plan>())?
             .checked_add(SOURCE_ID_BYTES)?;
-        let build = match config {
-            RuleConfig::Uniform1 => inline,
+        term("plan: inline and source id", inline);
+        match config {
+            RuleConfig::Uniform1 => {}
             // The stored map, cloned from the frame: its source id and its
             // nodes.
-            RuleConfig::StoredWeights1 => add(
-                inline.checked_add(SOURCE_ID_BYTES)?,
-                map(t.priorities, sz::<CommentId>(), sz::<StoredWeight>()),
-            )?,
-            RuleConfig::SymmetricGicFloor2(_) => add(inline, floor_build(t))?,
-        };
-        frames.checked_add(build)
+            RuleConfig::StoredWeights1 => {
+                term("plan: stored map source id", SOURCE_ID_BYTES);
+                term(
+                    "plan: stored map",
+                    map(t.priorities, sz::<CommentId>(), sz::<StoredWeight>())?,
+                );
+            }
+            RuleConfig::SymmetricGicFloor2(_) => floor_build(t, term)?,
+        }
+        Some(())
     }
 }
 
@@ -638,34 +663,35 @@ fn collected(n: u64, elem: u64) -> Option<u64> {
 /// cloned source ids), then `symmetric_gic_floor_2` (the meta set, cloned).
 /// A comment the plan knows is one of a group's cells or of the extremity,
 /// so at most `cells + extremity` of them; a meta comment, at most `meta`.
-fn floor_build(t: &Tally) -> Option<u64> {
+fn floor_build(t: &Tally, term: &mut dyn FnMut(&'static str, u64)) -> Option<()> {
     let id = sz::<CommentId>();
     let f = sz::<f64>();
     let known = t.cells.checked_add(t.extremity)?;
-    let mut total = FLOOR_BUILD_FIXED;
-    let mut add_up = |x: Option<u64>| -> Option<()> {
-        total = total.checked_add(x?)?;
+    term("floor: fixed", FLOOR_BUILD_FIXED);
+    let mut add = |name: &'static str, x: Option<u64>| -> Option<()> {
+        term(name, x?);
         Some(())
     };
     // The latest counts and the comment ids collected to sum them.
-    add_up(map(t.cells, id, sz::<Counts>()))?;
-    add_up(collected(t.cells, id))?;
+    add("floor: latest counts map", map(t.cells, id, sz::<Counts>()))?;
+    add("floor: comment ids collected", collected(t.cells, id))?;
     // The ids of the counts and the extremity, and the excluded meta ids.
-    add_up(collected(known, id))?;
-    add_up(collected(t.meta, id))?;
+    add("floor: known ids collected", collected(known, id))?;
+    add("floor: meta ids collected", collected(t.meta, id))?;
     // The scored map, its factors, and the unscored set.
-    add_up(map(known, id, sz::<Scored>()))?;
-    add_up(
+    add("floor: scored map", map(known, id, sz::<Scored>()))?;
+    add(
+        "floor: factors",
         known
             .checked_mul(FACTORS_PER_SCORED)?
             .checked_mul(sz::<Factor>()),
     )?;
-    add_up(map(known, id, 0))?;
+    add("floor: unscored set", map(known, id, 0))?;
     // Group-informed consensus for one comment: values and logs per group.
-    add_up(vecs(t.groups, 2, f))?;
+    add("floor: consensus per group", vecs(t.groups, 2, f))?;
     // Source ids: the latest counts', the weights' three, the floor's own.
-    add_up(SOURCE_ID_BYTES.checked_mul(5))?;
+    add("floor: source ids", SOURCE_ID_BYTES.checked_mul(5))?;
     // The meta set the floor plan keeps.
-    add_up(map(t.meta, id, 0))?;
-    Some(total)
+    add("floor: meta set", map(t.meta, id, 0))?;
+    Some(())
 }

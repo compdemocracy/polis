@@ -127,6 +127,26 @@ const READERS: u64 = 8;
 /// `raw` is the length, in bytes, of the text of the keys `frames` may
 /// decode (at most the source's length: the keys are disjoint parts of it).
 pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64> {
+    sum_terms(|term| reservation_terms(t, raw, needs, term))
+}
+
+/// Adds up the terms `each` hands to its sink: `None` if `each` refuses or
+/// the sum overflows. Allocation free.
+pub(crate) fn sum_terms(
+    each: impl FnOnce(&mut dyn FnMut(&'static str, u64)) -> Option<()>,
+) -> Option<u64> {
+    let mut total = Some(0u64);
+    each(&mut |_, x| total = total.and_then(|t| t.checked_add(x)))?;
+    total
+}
+
+/// `reservation`, one named term at a time.
+pub(crate) fn reservation_terms(
+    t: &Tally,
+    raw: u64,
+    needs: FrameNeeds,
+    term: &mut dyn FnMut(&'static str, u64),
+) -> Option<()> {
     let d = sizes();
     let id = sz::<CommentId>();
     // Each key decoded has its own reader, whose scratch holds one decoded
@@ -136,56 +156,75 @@ pub(crate) fn reservation(t: &Tally, raw: u64, needs: FrameNeeds) -> Option<u64>
     // little. The readers' texts are disjoint, so all of them together are
     // below four times `raw`, plus a little per reader. The source ids are
     // cloned once per frame; a fixed allowance covers the rest.
-    let mut total = raw.checked_mul(4)?.checked_add(READERS.checked_mul(64)?)?;
-    total = total.checked_add(4096)?;
-    let mut add = |x: Option<u64>| -> Option<()> {
-        total = total.checked_add(x?)?;
+    let readers = raw.checked_mul(4)?.checked_add(READERS.checked_mul(64)?)?;
+    term("frames: readers' scratch", readers);
+    term("frames: fixed", 4096);
+    let mut add = |name: &'static str, x: Option<u64>| -> Option<()> {
+        term(name, x?);
         Some(())
     };
     if needs.stored_weights {
-        add(vecs(t.priorities, 1, d.priority))?;
-        add(map(t.priorities, id, sz::<StoredWeight>()))?;
+        add(
+            "frames: priorities decoded",
+            vecs(t.priorities, 1, d.priority),
+        )?;
+        add(
+            "frames: stored weights map",
+            map(t.priorities, id, sz::<StoredWeight>()),
+        )?;
     }
     if needs.extremity {
-        add(vecs(t.tids, 1, d.tid))?;
-        add(vecs(t.extremity, 1, d.extremity))?;
-        add(vecs(
-            t.tids,
-            1,
-            id.checked_add(sz::<Extremity>())?.checked_add(8)?,
-        ))?;
-        add(map(t.tids, id, sz::<Extremity>()))?;
+        add("frames: tids decoded", vecs(t.tids, 1, d.tid))?;
+        add(
+            "frames: extremity decoded",
+            vecs(t.extremity, 1, d.extremity),
+        )?;
+        add(
+            "frames: extremity pairs",
+            vecs(
+                t.tids,
+                1,
+                id.checked_add(sz::<Extremity>())?.checked_add(8)?,
+            ),
+        )?;
+        add("frames: extremity map", map(t.tids, id, sz::<Extremity>()))?;
     }
     if needs.meta {
-        add(vecs(t.meta, 1, d.tid))?;
-        add(vecs(t.meta, 1, id))?;
-        add(map(t.meta, id, 0))?;
+        add("frames: meta tids decoded", vecs(t.meta, 1, d.tid))?;
+        add("frames: meta ids", vecs(t.meta, 1, id))?;
+        add("frames: meta set", map(t.meta, id, 0))?;
     }
     if needs.groups {
         let g = sz::<GroupId>();
-        add(vecs(t.groups, 1, d.group))?;
-        add(vecs(t.cells, t.groups, d.cell))?;
-        add(vecs(
-            t.cells,
-            1,
-            g.checked_add(id)?
-                .checked_add(sz::<Counts>())?
-                .checked_add(8)?,
-        ))?;
-        add(map(t.groups, g, 4))?;
-        add(map(t.groups, g, 24))?;
+        add("frames: groups decoded", vecs(t.groups, 1, d.group))?;
+        add("frames: cells decoded", vecs(t.cells, t.groups, d.cell))?;
+        add(
+            "frames: cells gathered",
+            vecs(
+                t.cells,
+                1,
+                g.checked_add(id)?
+                    .checked_add(sz::<Counts>())?
+                    .checked_add(8)?,
+            ),
+        )?;
+        add("frames: group members map", map(t.groups, g, 4))?;
+        add("frames: group cells outer map", map(t.groups, g, 24))?;
         // The cells: one inner map per group, `cells` entries in all.
-        add(maps(t.cells, t.groups, id, sz::<Counts>()))?;
+        add(
+            "frames: group cells inner maps",
+            maps(t.cells, t.groups, id, sz::<Counts>()),
+        )?;
         let m = t.memberships;
-        add(vecs(m, 1, d.group_cluster))?;
-        add(vecs(m, m, d.id))?;
-        add(vecs(m, 1, d.id))?;
-        add(vecs(m, 1, d.id_list))?;
-        add(vecs(m, m, d.id))?;
-        add(map(m, 4, 16))?;
-        add(map(m, 4, 8))?;
+        add("frames: memberships decoded", vecs(m, 1, d.group_cluster))?;
+        add("frames: membership member lists", vecs(m, m, d.id))?;
+        add("frames: membership ids", vecs(m, 1, d.id))?;
+        add("frames: membership id lists", vecs(m, 1, d.id_list))?;
+        add("frames: base member lists", vecs(m, m, d.id))?;
+        add("frames: bases map", map(m, 4, 16))?;
+        add("frames: participants map", map(m, 4, 8))?;
     }
-    Some(total)
+    Some(())
 }
 
 /// An upper bound on the additional heap payload `Projection::parse` holds
