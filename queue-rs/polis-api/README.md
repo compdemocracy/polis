@@ -2345,3 +2345,60 @@ The moderation route requires `limit` and `mod`. Missing `limit` hands back
 before any read because Node returns an unbounded array; missing `mod` hands
 back because this route serves one moderation state per request. Omitted
 `offset` defaults to zero. The replay lists both omission differences.
+
+## Comment routing plans: the cache's wrapper (dormant)
+
+`src/routing_plan/cache.rs`. The plan cache itself is a pure state machine in
+`polis-routing-plan` (its README, "The plan cache"); this is the process state
+it leaves to its caller. Nothing in polis-api constructs or calls it: no
+route, handler, startup step, pool or thread, and no setting is read. The
+routes are byte for byte what they were; the module is compiled and its tests
+run, nothing more.
+
+- **One lock, which a request never waits on.** One `Mutex` around the one
+  cache per process. A lookup takes it with `try_lock` only: held, the lookup
+  misses `lock_busy`; poisoned, `lock_poisoned`; never a wait, never a panic.
+  Under the lock it reads the clock and calls the core's lookup, which
+  allocates and frees nothing (a hit clones one `Arc`), and it releases the
+  lock before any draw. A request's reservation (`try_reserve`) is the same:
+  a held lock takes nothing. The builder side (`publish`, `evict_lru`,
+  `clear`, `set_config`, `record_failure`, `reclaim`) takes the lock as
+  briefly as the core allows; every request that meets it misses
+  `lock_busy`, so each is measured (`builder_side_calls_hold_the_lock_briefly`
+  prints them).
+- **A reservation returns its bytes to its one cache.** `Reserved` holds the
+  cache it came from and gives its bytes back there when it is dropped, on
+  every path including unwinding. It never waits: with the lock held it hands
+  the core's token to a bounded channel that the next builder-side call
+  drains (charged for the cache's life); if that channel is full the bytes
+  stay charged and are counted (`returns_lost`), an over-charge, never an
+  under-charge. Publishing and cutting down (`shrink`, which keeps when the
+  reservation was taken) are methods of the reservation, so no call can
+  send one cache's bytes to another, and the core's token is never handed
+  out.
+- **The budget is read once.** `POLIS_API_ROUTING_PLAN_CACHE_BYTES`, read by
+  `cache_bytes_from_env` when the cache is made: absent or empty is 256 MiB
+  (the most accepted); otherwise a whole number of bytes from 1 MiB to
+  256 MiB, and anything else is a startup error.
+- **The configuration digest covers the rule and its parameters.**
+  `Settings::digest` is the SHA-256 of a canonical encoding of the mode, the
+  rule's canonical text with every parameter, its count policy, the
+  conversation allowlist (as a set) and every setting a plan depends on, so
+  two rules, or two parameter sets of one rule, never share a digest, and a
+  plan built under one is never served under the other.
+- **The clock** is `Instant`, from one origin taken when the cache is made,
+  read after the lock is taken; never the wall clock. The backoff's jitter is
+  drawn before the lock.
+- **Shutdown** (`shutdown`, after the caller has drained its requests and
+  observers) stops lookups, disables the configuration and destroys every plan
+  nothing borrows; a borrowed plan is destroyed by a later `reclaim`.
+- **A cache, nothing more.** Everything is in memory. Losing it at any moment
+  loses plans that are rebuilt from the stored math result; every lookup then
+  misses and the caller serves today's draw.
+
+Tests: `cargo test -p polis-api routing_plan` (the lock, the reservation,
+the budget, the digest, the lock hold, shutdown) and
+`cargo test -p polis-api --test routing_plan_cache_allocation`, which compiles
+the module on its own under a counting allocator: nothing is allocated or
+freed between taking and releasing the lock on any lookup outcome, and the
+wrapper's charge covers what it holds.
