@@ -278,13 +278,17 @@ being shown, and the chance written on the receipt to be the true one.
   q_j = floor_share / n  +  (1 - floor_share) * w_j / W
   ```
 
-  where n is the number of candidates and W the sum of their weights. So every
-  comment has at least `floor_share / n`, however small its weight: with two
+  where n is the number of candidates and W the sum of their weights. In exact
+  arithmetic every comment has at least `floor_share / n`: with two
   candidates weighing 1 and 3 and a floor of 0.1, the chances are
   0.05 + 0.225 = 0.275 and 0.05 + 0.675 = 0.725; a comment of weight 0 beside
   one of weight 2 still has 0.05. An unscored comment (a new one, in only one
   of the two frames) draws at weight 1, not multiplied by any factor, as the
-  corrected equation was studied.
+  corrected equation was studied. In floating point the draw divides by the
+  running sum T of all marginal scores. Its computed lower bound is
+  `fl(fl(floor_share / n) / T)`; it need not be within four unit roundoffs of
+  the mathematical floor. For 1,000 weights (999 zeros then 1), share 0.1,
+  T is 1.0000000000000018 and the first chance is 0.00009999999999999983.
 - **Zero-mass donation.** If every candidate's weight is 0, the weighted lane
   has nothing to share out; its share is given to the uniform lane, so every
   candidate gets 1/n, and the receipt records the donation
@@ -302,15 +306,23 @@ being shown, and the chance written on the receipt to be the true one.
   positive chance is below 2^-40 of the total is refused
   (`NumericDegeneracy`). What it promises: every comment that has a chance has
   a real interval of random numbers (at least 2^-40 less 2^-50 of them), none
-  is silently unreachable, and a small change in the weights moves the
+  is silently unreachable, and a small change in the normalised marginal scores moves the
   boundaries between comments only a little, so the outcome for a given random
   number changes only near a boundary that moved. It does not promise that
   the same random number picks the same comment after the weights change.
+  This continuity statement assumes the same ordered candidate list and
+  unchanged donation and acceptance branches. Inserting, removing or
+  reordering candidates may move many intervals; numerical refusal thresholds
+  can also change acceptance. Small absolute base-weight changes near zero
+  mass can move probabilities greatly: [0, 0] donates and gives [0.5, 0.5],
+  while [0, 5e-324] at share 0.1 gives [0.05, 0.95].
 - **The receipt** reports, for the chosen comment, both lanes: each one's
   effective share after any donation, its normaliser (n, and W), and its part
   of the chance; the reported probability is the comment's true marginal
   chance under the mixture, `q_j` above, as computed (`d_j / T`, T the computed
-  sum of the chances, within a few roundings of 1). No lane is drawn first:
+  sum of the chances, with rounding that depends on the candidate count).
+  Lane contributions are the pre-normalisation scores; their sum need not
+  equal the reported probability bit for bit. No lane is drawn first:
   the draw is over the marginal chances, so the receipt never names "the lane
   it fell in".
 - **What it rewards that today's equation does not:** nothing by itself; it
@@ -487,10 +499,10 @@ terms adapt it:
 - The votes that "could carry a mark" are the caller's to count: where the
   checkbox was not shown for part of a conversation's life, the caller must
   leave those votes out; how to decide that is an open question.
-- The helper's handling of extreme inputs (counts near the largest 64-bit
-  integer, where its integer arithmetic overflows today, and very large
-  fractions, where it can miss the nearest double by one unit) is being
-  corrected; the issue's four numbers above are exact.
+- The helper rounds the exact fraction once, to the nearest double (ties to
+  even), with integer remainders, for every count up to the largest 64-bit
+  integer: it does not overflow, and it does not miss by one unit. The
+  issue's four numbers above are exact.
 
 **What is proven for these rules, and what is not.** Proven: each rule's
 documented numbers (the hand examples above) as tests; two cross-checks
@@ -756,8 +768,11 @@ random number. **Against what the draw does**: the random numbers that pick
 each comment are found by bisection over every double in [0, 1), and their
 measure equals the reported chance within 2^-50. **Statistically**: 400,000
 draws from a fixed seeded source land on each comment with a frequency
-within five standard errors of the reported chance. Also: every chance is at
-least `floor_share / n` up to rounding; the uniform lane's parts add up to the
+within five standard errors of the reported chance, and each returned
+probability is checked against the expected value. This is a coarse check:
+at q = 0.5 the five-error allowance is about 0.004; the bisection check is
+what tests the 2^-50 numerical claim. Also: each computed chance includes
+the uniform floor divided by the computed total; the uniform lane's parts add up to the
 floor share; the stable draw refuses no mass, a total below 2^-1021, and a
 positive chance below 2^-40 of the total, where today's arithmetic would
 silently absorb it; an excluded meta comment is refused whether scored, in one

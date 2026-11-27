@@ -18,9 +18,11 @@
 //! `stable-cdf/1` is that arithmetic with validation first: a plan in which a
 //! positive draw weight is below 2^-40 of the total is refused
 //! (`NumericDegeneracy`), so every candidate that has a chance has one of at
-//! least 2^-40 - 2^-50, and a small change of the weights moves the boundaries
-//! between the candidates' intervals of units only a little: the outcome for a
-//! given unit changes only for units near a boundary that moved.
+//! least 2^-40 - 2^-50. With fixed ordered candidates and unchanged donation
+//! and acceptance branches, small changes in the normalised marginal scores
+//! move interval boundaries only a little. Small absolute base-weight changes
+//! need not do so near zero mass, and changing candidate membership or order
+//! does not preserve a unit's choice.
 
 use crate::corrected::{CorrectedWeights, MetaPolicy, SymmetricGicParams};
 use crate::draw::{

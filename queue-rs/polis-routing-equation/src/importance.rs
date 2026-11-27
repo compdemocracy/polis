@@ -57,8 +57,8 @@ impl Issue217Voter {
 /// exactly 1 for an unmarked one. N is the number of comments in the
 /// conversation (the universe the caller declares). Refused: N = 0 for a
 /// marked vote, and V > N (votes are distinct current responses). Computed
-/// as the one fraction `(V * 100 + N * U) / (N * U)` in integers and divided
-/// once, so the result is the double nearest the exact value: 51, 26, 11/6
+/// as `1 + (V * 100) / (N * U)`, rounded once using integer remainders,
+/// so the result is the double nearest the exact value: 51, 26, 11/6
 /// and 4/3 on the issue's own numbers.
 pub fn issue217_voter_weight(voter: Issue217Voter, statements: u64) -> Result<f64, Refusal> {
     if voter.votes_cast > statements {
@@ -75,33 +75,36 @@ pub fn issue217_voter_weight(voter: Issue217Voter, statements: u64) -> Result<f6
         u128::from(statements),
         u128::from(voter.marks_used),
     );
-    let num = v * u128::from(ISSUE217_SCALING) + n * u;
+    let num = v * u128::from(ISSUE217_SCALING);
     let den = n * u;
-    Ok(ratio(num, den))
+    Ok(one_plus_ratio(num, den))
 }
 
-/// num / den as the double nearest the exact quotient, for den > 0. Both
-/// fit in 2^128; they are reduced by their common factor and, if still
-/// above 2^53, the quotient is formed from the integer part and the
-/// remainder.
-fn ratio(num: u128, den: u128) -> f64 {
-    let g = gcd(num, den);
-    let (num, den) = (num / g, den / g);
-    const EXACT: u128 = 1 << 53;
-    if num <= EXACT && den <= EXACT {
-        // Both are exact doubles, and IEEE division rounds correctly.
-        return num as f64 / den as f64;
+/// Round 1 + num/den once, ties to even. The caller's validated counts
+/// guarantee den > 0 and a result in [1, 101]. Keeping the integer part
+/// separate avoids overflowing num + den at the top of the u64 domain.
+fn one_plus_ratio(num: u128, den: u128) -> f64 {
+    let whole = 1 + (num / den) as u64;
+    let fraction_bits = 52 - (u64::BITS - 1 - whole.leading_zeros());
+    let mut significand = whole << fraction_bits;
+    let mut remainder = num % den;
+    for bit in (0..fraction_bits).rev() {
+        // Double the remainder modulo den without overflowing u128.
+        let complement = den - remainder;
+        if remainder >= complement {
+            remainder -= complement;
+            significand |= 1u64 << bit;
+        } else {
+            remainder += remainder;
+        }
     }
-    let whole = num / den;
-    let rest = num % den;
-    whole as f64 + rest as f64 / den as f64
-}
-
-fn gcd(mut a: u128, mut b: u128) -> u128 {
-    while b != 0 {
-        (a, b) = (b, a % b);
+    let complement = den - remainder;
+    if remainder > complement || (remainder == complement && significand & 1 != 0) {
+        significand += 1;
     }
-    a.max(1)
+    // Both integers are exactly representable; division by a power of two
+    // is exact, including a carry into the next binade.
+    significand as f64 / (1u64 << fraction_bits) as f64
 }
 
 /// The parameters of `importance-lift/1`.
@@ -244,15 +247,30 @@ fn pooled_rate(
         return Ok(None);
     };
     // Validated here, at this term's own boundary, whatever the frames
-    // checked: one source and cohort; no comment above the totals.
+    // checked: one source and cohort, with the combined marked and unmarked
+    // counts no greater than the conversation's totals. Missing comments may
+    // account for the remainder; they cannot account for negative counts.
     if let Some(c) = comments {
         if c.source() != t.source() || c.cohort() != t.cohort() {
             return Err(Refusal::MarksSourceMismatch);
         }
-        for (_, m) in c.iter() {
-            if m.marked() > t.totals().marked() || m.eligible() > t.totals().eligible() {
-                return Err(Refusal::MarksAboveTotal);
-            }
+        let (marked, eligible) =
+            c.iter()
+                .try_fold((0u64, 0u64), |(marked, eligible), (_, m)| {
+                    Ok::<_, Refusal>((
+                        marked
+                            .checked_add(m.marked())
+                            .ok_or(Refusal::CountOverflow)?,
+                        eligible
+                            .checked_add(m.eligible())
+                            .ok_or(Refusal::CountOverflow)?,
+                    ))
+                })?;
+        if marked > t.totals().marked()
+            || eligible > t.totals().eligible()
+            || eligible - marked > t.totals().eligible() - t.totals().marked()
+        {
+            return Err(Refusal::MarksAboveTotal);
         }
     }
     let (marked, eligible) = (t.totals().marked(), t.totals().eligible());
@@ -306,6 +324,16 @@ pub fn importance_multipliers(
     term: &TermParams,
     inputs: &TermInputs<'_>,
 ) -> Result<Vec<(CommentId, f64)>, Refusal> {
+    if !matches!(
+        (term, inputs),
+        (TermParams::ImportanceLift1(_), TermInputs::Marks { .. })
+            | (
+                TermParams::ImportanceNormalizedLift1(_),
+                TermInputs::VoterWeights(_)
+            )
+    ) {
+        return Err(Refusal::TermInputsMismatch);
+    }
     let rho = match inputs {
         TermInputs::Marks { comments, totals } => pooled_rate(*comments, *totals)?,
         TermInputs::VoterWeights(_) => None,

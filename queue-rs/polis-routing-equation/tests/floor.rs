@@ -262,11 +262,16 @@ fn frequencies_match(d: &[f64], seed: u64) {
     const N: usize = 400_000;
     let mut rng = XorShift::new(seed);
     let mut hits = vec![0usize; d.len()];
+    let probabilities = reported(d);
     for _ in 0..N {
         let at = stable_cdf(d, unit(rng.unit())).unwrap();
+        assert_eq!(
+            at.probability().to_bits(),
+            probabilities[at.index()].to_bits()
+        );
         hits[at.index()] += 1;
     }
-    for (j, q) in reported(d).iter().enumerate() {
+    for (j, q) in probabilities.iter().enumerate() {
         let observed = hits[j] as f64 / N as f64;
         let bound = 5.0 * (q * (1.0 - q) / N as f64).sqrt() + BOUND;
         assert!(
@@ -274,6 +279,45 @@ fn frequencies_match(d: &[f64], seed: u64) {
             "comment {j}: observed {observed}, reported {q}, bound {bound}"
         );
     }
+}
+
+#[test]
+fn the_computed_floor_includes_the_marginal_total_rounding() {
+    let mut base = vec![0.0; 1000];
+    base[999] = 1.0;
+    let m = floor_marginals(0.1, &base).unwrap();
+    let total = m.draw_weights().iter().fold(0.0, |s, d| s + d);
+    let r = stable_cdf(m.draw_weights(), unit(0.0)).unwrap();
+    assert_eq!(r.index(), 0);
+    assert_eq!(
+        r.probability().to_bits(),
+        (m.uniform()[0] / total).to_bits()
+    );
+    // Normalising a rounded running sum can move the floor by more than
+    // four unit roundoffs. This is not a loss of the uniform lane's share.
+    assert!(r.probability() < (0.1 / 1000.0) * (1.0 - 4.0 * U));
+    close(
+        first_unit_at_least(m.draw_weights(), 1),
+        r.probability(),
+        "floor interval",
+    );
+}
+
+#[test]
+fn zero_mass_donation_is_a_branch_not_a_continuity_promise() {
+    let empty = floor_marginals(0.1, &[0.0, 0.0]).unwrap();
+    let tiny = floor_marginals(0.1, &[0.0, f64::from_bits(1)]).unwrap();
+    assert_eq!(empty.draw_weights(), [0.5, 0.5]);
+    close(tiny.draw_weights()[0], 0.05, "tiny base uniform part");
+    close(tiny.draw_weights()[1], 0.95, "tiny base weighted part");
+    assert_eq!(
+        stable_cdf(empty.draw_weights(), unit(0.3)).unwrap().index(),
+        0
+    );
+    assert_eq!(
+        stable_cdf(tiny.draw_weights(), unit(0.3)).unwrap().index(),
+        1
+    );
 }
 
 #[test]
