@@ -272,9 +272,10 @@ projections only.
 
 ## 9. What it does not do
 
-It builds no plan and draws nothing: the plan build and the one-call draw are
-the next piece. It reads no database and decides nothing about which comments
-may be shown (that is the live candidate query's). It makes no previous-count
+It reads no database and decides nothing about which comments may be shown
+(that is the live candidate query's); its draw only chooses among the ids it
+is handed. It keeps no cache, holds no budget, runs no thread and has no
+switch: those belong to the server. It makes no previous-count
 frame, no participant facts and no importance or topic frames. Nothing calls
 it.
 
@@ -291,3 +292,96 @@ output, global state or `unsafe`), and the dependency rule (exactly
 `polis-routing-equation`, `serde`, `serde_json` and `sha2`). Hosted CI runs
 the same command. `make check-polis-routing-equation` then sees this crate as
 the equation crate's one dependent, which its own rule allows.
+
+## 11. The plan and the one-call draw
+
+`src/plan.rs`. A plan is one conversation's routing weights for one
+configured rule, built once from one read's frames; a draw chooses the next
+comment from the candidates today's query returned.
+
+**The configuration.** `RuleConfig::parse(plain, count_policy)` takes the
+equation crate's canonical plain form of a rule and its parameters, exactly as
+`ParamSet::to_plain` writes it (any other spelling is refused, so a
+configuration has one text), and the count policy it names, checked with the
+equation crate's `resolve`. Three pairs are built: `stored-weights/1` and
+`uniform/1` (no policy), and `symmetric-gic-floor/2` over `symmetric-gic/2`
+weights with the floor's base parameters (`base-counts:lag-0`). Every other
+pair is `BuildRefusal::Unsupported`, every `/1` computed rule included: their
+base counts need the previous update, which one stored math result does not
+hold. `RuleConfig::needs()` names the frames to read, so a caller charges
+`Projection::reservation` for exactly those.
+
+**The build.** `Plan::build(&frames, &config)` makes one of three variants,
+each drawn by its own library function and never through another's:
+stored weights (`stored_weights_1`, over the stored map or no map), uniform
+(`uniform_1`, no frame at all) and the floor (`FloorPlan::draw`). Frames read
+without a frame the rule needs are refused (`MissingFrame`), so frames read
+without the stored weights are never taken for "this conversation has no
+map". A floor with `meta_policy = exclude` is refused
+(`ExcludeMetaTooLarge`) for a conversation whose plan would know more than
+10,000 comments (scored, unscored and excluded, meta comments in no other key
+included). That number is an upper refusal bound while the cost of excluding
+meta comments at the draw is open, not a measured serving envelope; a
+conversation over it keeps today's draw. `BuildRefusal` is closed and carries
+no comment id.
+
+**The draw.** `Plan::draw(&sql_candidates, unit)`, in this order, with no
+retry and no second rule:
+1. more candidates than the plan's bound (10,000 for a floor with
+   `meta_policy = exclude`, 40,000 otherwise) is `too_many_candidates`,
+   before any copy or allocation;
+2. each id is converted with a checked conversion (a negative id is
+   `invalid_candidate_id`);
+3. for a floor with `meta_policy = exclude` only, every id the plan's own
+   `FloorPlan::excludes` names is left out, order kept: the meta set of the
+   read the plan was built from, never a newer one; if that leaves nothing,
+   `all_excluded`, never reported as the query running dry (`empty`);
+4. the library's `Candidates` (duplicates refused) and `Unit`, then the
+   variant's draw, once; `probabilities` is never called;
+5. the comment to fetch is the receipt's comment id, converted back
+   checked. The caller's list is never indexed with the receipt's index,
+   which counts positions in the filtered list.
+
+Every library refusal maps to a closed `Fallback` by a `match` with no
+wildcard, so a refusal the library adds does not compile here until it has a
+reason. None carries a comment id. Three are invariant failures
+(`Fallback::is_invariant`), proved impossible on what the draw accepts and to
+be counted and looked into: `no_interval`, `excluded_candidate` (impossible
+after step 3) and `receipt_id_out_of_range`. A `Fallback` holds no receipt and
+no probability: what the caller then serves is today's draw, with today's
+chance, and is never reported as the plan's.
+
+**Memory.** `Plan::charged_bytes()` is an upper bound on what a plan holds
+for as long as it lives, with one `Arc` around it: the plan itself, every
+source id at its longest (128 bytes), every ordered map and set at one node
+per entry plus one, each scored comment's factors, the stored map's entries
+and the meta set the floor keeps (their counts carried on `Frames`, since the
+library's types do not expose them), and the terms. `Plan::draw_reservation(n)`
+is an upper bound on everything one draw over `n` ids allocates, held all at
+once until its result is dropped: the converted ids, the duplicate check, the
+variant's scratch vectors, the receipt, and a fixed allowance per call. Both
+are pure, allocation free and checked; an overflow charges `usize::MAX` or
+gives `None`. On the constructed cases of `tests/plan_allocation.rs` both are
+loose, about five times what was measured (a floor plan over 10,000 comments
+and three groups held 2,035,552 bytes against a charge of 11,291,440). The
+budget that charges them, the try-reservation before a draw, and holding a
+draw's reservation until its computation has finished and released its
+memory (also after a request's deadline has passed) are the server's, not this
+crate's; so are the cache's own entries and bookkeeping.
+
+**What is proven, and how** (`tests/plan.rs`, `tests/plan_allocation.rs`):
+two builds from the same bytes give identical receipts for 10,000 units; each
+variant's receipt equals a direct call of its library function; the floor's
+draw equals filtering with `excludes` and then one direct draw; the fetched id
+is the receipt's (with 10 excluded from `[10, 20, 30]`, filtered index 0 is
+20); every input refusal is the same at units 0, 0.5 and 1 - 2^-53; no
+invariant failure is reached over constructed accepted inputs; a negative
+stored weight refuses at the draw (`unsupported_legacy_weight`); the exclusion
+uses the plan's snapshot; the 10,000 rule builds at 10,000 and refuses at
+10,001; `historical/1`'s weights, stored as the math engine stores them, draw
+the same comment with the same reported chance as the library's own draw; a
+list over the bound allocates nothing; a draw's peak and total allocation stay
+within its reservation; a plan's retained bytes stay within its charge; and
+the floor's draw makes the same allocations of its size as one direct draw,
+so no `probabilities` call precedes it.
+

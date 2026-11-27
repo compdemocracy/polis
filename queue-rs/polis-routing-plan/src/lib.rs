@@ -7,6 +7,10 @@
 //! meta comments and the stored weights. Every frame of one read carries the
 //! same source id, made from the row's identity and a SHA-256 of the bytes.
 //!
+//! It also builds one conversation's plan for a configured rule and draws
+//! the next comment from it in one call (`Plan`), with the caller's random
+//! unit.
+//!
 //! It is a pure library: nothing in Polis calls it yet. It opens nothing,
 //! reads no clock, keeps no state and logs nothing; it reads the bytes it is
 //! handed. Every size is checked before anything is expanded, and anything it
