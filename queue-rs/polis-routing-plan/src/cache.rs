@@ -1045,10 +1045,10 @@ impl<H: PlanHandle> PlanCache<H> {
             return;
         }
         let Some(env) = new_env else { return };
-        if self.fence_count >= FENCE_ENTRIES {
-            if let Some((z, i)) = self.forgettable_fence() {
-                self.forget_fence(z, i);
-            }
+        if self.fence_count >= FENCE_ENTRIES
+            && let Some((z, i)) = self.forgettable_fence()
+        {
+            self.forget_fence(z, i);
         }
         let mut fence = Fence {
             env,
