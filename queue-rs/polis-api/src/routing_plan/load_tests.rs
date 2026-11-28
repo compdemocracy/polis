@@ -8,12 +8,17 @@
 use super::cache::{MAX_CACHE_BYTES, RoutingPlanCache};
 use super::load::*;
 use polis_routing_plan::{
-    DEFAULT_CACHE_BYTES, MAX_SHARE_DIVISOR, Plan, Projection, Rejection, RuleConfig, SourceLimits,
+    DEFAULT_CACHE_BYTES, MAX_SHARE_DIVISOR, Plan, Projection, Rejection, RowIdentity, RuleConfig,
+    SourceLimits,
 };
+use serde_json::{Value, json};
 
 const STORED: &str = r#"{"rule":"stored-weights/1","params":{},"terms":[]}"#;
 const UNIFORM: &str = r#"{"rule":"uniform/1","params":{},"terms":[]}"#;
 const FLOOR: &str = r#"{"rule":"symmetric-gic-floor/2","params":{"side_prior":1.0,"seen_prior":2.0,"extremity_offset":1.0,"novelty_amplitude":8.0,"novelty_halving_votes":5.0,"exponent":2,"meta_inner":7.0,"meta_policy":"exclude","consensus_form":"gic-geomean/1","gic_offset":0.5,"gic_min_groups":2,"floor_share":0.1},"terms":[]}"#;
+/// The floor with meta comments weighed by a fixed factor: `exclude` is
+/// refused past 10,000 comments by the rule itself.
+const FLOOR_FIXED: &str = r#"{"rule":"symmetric-gic-floor/2","params":{"side_prior":1.0,"seen_prior":2.0,"extremity_offset":1.0,"novelty_amplitude":8.0,"novelty_halving_votes":5.0,"exponent":2,"meta_inner":7.0,"meta_policy":"fixed","consensus_form":"gic-geomean/1","gic_offset":0.5,"gic_min_groups":2,"floor_share":0.1},"terms":[]}"#;
 const FLOOR_POLICY: &str = "base-counts:lag-0";
 const DIGEST: [u8; 32] = [7; 32];
 const ENV: &str = "example";
@@ -35,91 +40,237 @@ fn cache() -> std::sync::Arc<RoutingPlanCache> {
     RoutingPlanCache::new(DEFAULT_CACHE_BYTES, Some(DIGEST)).unwrap()
 }
 
-/// One build's admission at the loader's limits fits one conversation's
-/// share of the default budget, beside the connection's own charge.
+/// A constructed math result: the keys the adapter reads, and keys it
+/// does not (which the projection must leave out).
+fn doc(tids: &[i32], json_tick: i64) -> Value {
+    let votes: serde_json::Map<String, Value> = tids
+        .iter()
+        .map(|t| (t.to_string(), json!({"A": 2, "D": 1, "S": 4})))
+        .collect();
+    let priorities: serde_json::Map<String, Value> =
+        tids.iter().map(|t| (t.to_string(), json!(1.5))).collect();
+    json!({
+        "tids": tids,
+        "meta-tids": [],
+        "comment-priorities": priorities,
+        "pca": {
+            "comment-extremity": tids.iter().map(|_| 0.25).collect::<Vec<_>>(),
+            "comment-projection": [[0.0], [0.0]],
+            "center": [0.0],
+            "comps": [[0.0]]
+        },
+        "group-votes": {"0": {"id": 0, "n-members": 4, "votes": votes}},
+        "group-clusters": [{"id": 0, "members": [100], "center": [0.0, 0.0]}],
+        "base-clusters": {"id": [100], "members": [[1, 2, 3, 4]], "count": [4], "x": [0.0], "y": [0.0]},
+        "math_tick": json_tick,
+        "n": 4,
+        "lastVoteTimestamp": 1
+    })
+}
+
+/// The projection the statement would send for `doc`: its read keys only.
+fn projected(d: &Value) -> Vec<u8> {
+    let mut p = serde_json::Map::new();
+    for k in [
+        "group-votes",
+        "tids",
+        "meta-tids",
+        "comment-priorities",
+        "group-clusters",
+        "base-clusters",
+    ] {
+        p.insert(k.into(), d[k].clone());
+    }
+    p.insert(
+        "pca".into(),
+        json!({"comment-extremity": d["pca"]["comment-extremity"]}),
+    );
+    serde_json::to_vec(&Value::Object(p)).unwrap()
+}
+
+fn row(zid: i32, tick: i64) -> RowIdentity {
+    RowIdentity {
+        zid,
+        math_env: ENV.into(),
+        math_tick: tick,
+        last_vote_timestamp: Some(1_700_000_000_000 + tick),
+        db_now_ms: 1_700_000_100_000,
+    }
+}
+
+fn unreachable() -> Loader {
+    Loader::new(
+        polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(
+            "host=127.0.0.1 port=1 user=nobody".parse().unwrap(),
+        )),
+        None,
+    )
+}
+
+/// Takes every byte of the budget left, in pieces of at most one share.
+fn fill(c: &std::sync::Arc<RoutingPlanCache>) -> Vec<super::cache::Reserved> {
+    let mut held = vec![];
+    let mut n = DEFAULT_CACHE_BYTES / MAX_SHARE_DIVISOR;
+    while n > 0 {
+        match c.try_reserve(n) {
+            Ok(r) => held.push(r),
+            Err(_) => n /= 2,
+        }
+    }
+    held
+}
+
+/// Records what the build's one reservation holds at each stage.
+#[derive(Default)]
+struct Record(Vec<(Stage, u64)>);
+impl Hooks for Record {
+    fn reserved(&mut self, stage: Stage, bytes: u64) {
+        self.0.push((stage, bytes));
+    }
+}
+
+/// The steps after the read, on constructed bytes, through to publication.
+fn staged(
+    c: &std::sync::Arc<RoutingPlanCache>,
+    j: &Job,
+    bytes: Vec<u8>,
+    hooks: &mut dyn Hooks,
+) -> Outcome {
+    let l = limits(&j.rule);
+    let r = c.admit_read(l.max_bytes, &l).unwrap().unwrap();
+    match stages(c, r, bytes, row(j.zid, j.desired_tick), j, hooks) {
+        Ok((r, cached)) => match r.publish(super::cache::PlanRef::new(cached)) {
+            Ok(()) => Outcome::Published,
+            Err(_) => Outcome::Refused(Rejection::Superseded),
+        },
+        Err(o) => o,
+    }
+}
+
+/// The read's reservation is a stated fraction of one share (an eighth),
+/// and the connection's charge covers the largest `max_bytes` of any rule
+/// (from review: a connection charged for a smaller rule would leave the
+/// rest of a larger row uncharged); both held at once at the read fit a
+/// quarter of a share and 64 KiB. Prints, per rule, the largest length any
+/// content of which is admitted (the worst case of a source of that length
+/// at every stage) beside the read's cap; the stages of the constructed
+/// witnesses are printed by the staged-load allocation test.
 #[test]
 fn loader_admission_fits_one_share() {
     assert_eq!(MAX_CACHE_BYTES, DEFAULT_CACHE_BYTES);
-    assert!(FLOOR_MAX_BYTES <= LIMITS.max_bytes);
     let share = DEFAULT_CACHE_BYTES / MAX_SHARE_DIVISOR;
-    let ask = |j: &Job, max_bytes: u64| -> u64 {
-        let l = SourceLimits {
-            max_bytes,
-            ..limits(&j.rule)
-        };
-        let build = Plan::build_allowance(&j.rule, &l).unwrap();
-        let fixed = allowance(&j.rule, j).unwrap()
-            - Plan::build_allowance(&j.rule, &limits(&j.rule)).unwrap();
-        Projection::parse_reservation(max_bytes as usize, &l).unwrap() + max_bytes + build + fixed
-    };
+    assert_eq!(CONNECTION_MAX_BYTES, STORED_MAX_BYTES.max(FLOOR_MAX_BYTES));
     for (text, policy) in [(STORED, None), (UNIFORM, None), (FLOOR, Some(FLOOR_POLICY))] {
         let j = job(1, text, policy, 0);
         let l = limits(&j.rule);
-        let allowance = allowance(&j.rule, &j).unwrap();
-        let wanted = ask(&j, l.max_bytes);
-        // The largest length (to 1 KiB) whose admission fits the share.
-        let (mut lo, mut hi) = (0u64, 64 * 1024 * 1024);
+        assert!(l.max_bytes <= CONNECTION_MAX_BYTES, "{text}");
+        assert!(l.max_bytes * 8 <= share, "{text}");
+        assert!(
+            l.max_bytes + CONNECTION_MAX_BYTES + CONNECTION_FIXED <= share / 4 + CONNECTION_FIXED
+        );
+        // Any content of this length fits every stage at its worst.
+        let worst = |len: u64| -> Option<u64> {
+            let at = SourceLimits {
+                max_bytes: len,
+                ..l
+            };
+            let parse = Projection::parse_reservation(len as usize, &at).ok()?;
+            let build = Plan::build_allowance(&j.rule, &at)?;
+            Some(len + parse.max(build) + key_bound(&j).unwrap())
+        };
+        let (mut lo, mut hi) = (0u64, l.max_bytes);
         while hi - lo > 1024 {
             let mid = (lo + hi) / 2;
-            if ask(&j, mid) <= share {
+            if worst(mid).is_some_and(|w| w <= share) {
                 lo = mid
             } else {
                 hi = mid
             }
         }
         println!(
-            "{text}: max_bytes {}, admission asks {wanted} of share {share}; largest fitting {lo}",
-            l.max_bytes
+            "{text}: max_bytes {} (read {} with the connection's {}, of share {share}); \
+             any content admitted up to {lo} bytes; past it, as its measured stages fit",
+            l.max_bytes,
+            l.max_bytes,
+            CONNECTION_MAX_BYTES + CONNECTION_FIXED
         );
         let c = cache();
-        let admitted = c
-            .admit_build(l.max_bytes as usize, &l, allowance)
-            .unwrap()
-            .expect("admitted at the default budget");
-        assert_eq!(admitted.bytes(), wanted);
-        assert!(admitted.bytes() <= share);
-        let connection = c.try_reserve(LIMITS.max_bytes + CONNECTION_FIXED).unwrap();
+        let read = c.admit_read(l.max_bytes, &l).unwrap().expect("admitted");
+        assert_eq!(read.bytes(), l.max_bytes);
+        let connection = c
+            .try_reserve(CONNECTION_MAX_BYTES + CONNECTION_FIXED)
+            .unwrap();
         assert!(connection.bytes() <= share);
+        assert!(c.admit_read(l.max_bytes + 1, &l).unwrap().is_none());
     }
 }
 
-/// The floor has a calibrated allowance now: it is admitted and goes on to
-/// connect; an unreachable server ends `DatabaseUnavailable`, with nothing
-/// left reserved.
+/// The floor goes on to connect; an unreachable server ends
+/// `DatabaseUnavailable`, with nothing left reserved.
 #[test]
 fn floor_is_admitted_and_reads() {
-    let primary = polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(
-        "host=127.0.0.1 port=1 user=nobody".parse().unwrap(),
-    ));
-    let mut loader = Loader::new(primary, None);
+    let mut loader = unreachable();
     let c = cache();
-    let j = job(1, FLOOR, Some(FLOOR_POLICY), 0);
-    assert!(allowance(&j.rule, &j).is_some());
-    let outcome = loader.load(&c, &j, &mut NoHooks);
+    let before = c.used_for_test();
+    let outcome = loader.load(&c, &job(1, FLOOR, Some(FLOOR_POLICY), 0), &mut NoHooks);
     assert_eq!(outcome, Outcome::DatabaseUnavailable);
     assert_eq!(loader.open_target(), None);
+    // Only the failure's own entry is left charged, not the read's buffer.
+    assert!(c.used_for_test() - before < 64 * 1024);
 }
 
 /// A full budget admits nothing: no connection is opened and no statement
 /// is sent, and the loader ends `NotAdmitted` after one retry.
 #[test]
 fn receive_buffer_reserved_before_fetch() {
-    let primary = polis_queue_adapter::jobs::transport::Connector::Plain(Box::new(
-        "host=127.0.0.1 port=1 user=nobody".parse().unwrap(),
-    ));
-    let mut loader = Loader::new(primary, None);
+    let mut loader = unreachable();
     let small = RoutingPlanCache::new(super::cache::MIN_CACHE_BYTES, Some(DIGEST)).unwrap();
     let outcome = loader.load(&small, &job(1, STORED, None, 0), &mut NoHooks);
     assert_eq!(outcome, Outcome::NotAdmitted);
     assert_eq!(loader.open_target(), None);
 }
 
+/// The read is reserved but the connection's charge is not: nothing is
+/// opened or sent.
+#[test]
+fn connection_not_reserved_sends_nothing() {
+    let mut loader = unreachable();
+    let c = cache();
+    let l = limits(&RuleConfig::parse(STORED, None).unwrap());
+    // Room for the read alone.
+    let place = c.try_reserve(l.max_bytes).unwrap();
+    let _held = fill(&c);
+    drop(place);
+    let outcome = loader.load(&c, &job(1, STORED, None, 0), &mut NoHooks);
+    assert_eq!(outcome, Outcome::ConnectionNotReserved);
+    assert_eq!(loader.open_target(), None);
+}
+
+/// A poisoned cache ends the load at once, before anything is read.
+#[test]
+fn cache_poisoned_reads_nothing() {
+    let c = cache();
+    let poisoner = c.clone();
+    let poisoned = std::thread::spawn(move || {
+        let _held = poisoner.hold_lock_for_test();
+        panic!("constructed panic while the lock is held");
+    })
+    .join();
+    assert!(poisoned.is_err());
+    let mut loader = unreachable();
+    let outcome = loader.load(&c, &job(1, STORED, None, 0), &mut NoHooks);
+    assert_eq!(outcome, Outcome::CachePoisoned);
+    assert_eq!(loader.open_target(), None);
+}
+
 /// No outcome can carry a comment id, a participant, text or a vote: it is
-/// a field-less enum but for the publication's own closed reason.
+/// a field-less enum but for the publication's own closed reason and the
+/// refused step.
 #[test]
 fn outcomes_are_closed() {
     assert!(size_of::<Outcome>() <= 2);
     let _: fn(Rejection) -> Outcome = Outcome::Refused;
+    let _: fn(Step) -> Outcome = Outcome::StepRefused;
 }
 
 /// Nothing under `routing_plan/` touches a file (the boxes cannot keep
@@ -137,24 +288,224 @@ fn no_fs_in_routing_plan() {
     }
 }
 
-/// The build's own bound is the crate's, never one the loader makes up.
+/// Growing a reservation is the loader's alone, on its own thread: no file
+/// of the crate outside `routing_plan/` grows one or names the plan cache
+/// (but `main.rs`'s one module line), whatever routes are added later; the
+/// scan reads every source file, not a list. Inside, only `load.rs` grows.
 #[test]
-fn allowance_is_the_crates() {
+fn grow_called_only_by_the_loader() {
+    fn walk(dir: &std::path::Path, out: &mut Vec<std::path::PathBuf>) {
+        for e in std::fs::read_dir(dir).unwrap() {
+            let p = e.unwrap().path();
+            if p.is_dir() {
+                walk(&p, out)
+            } else if p.extension().is_some_and(|x| x == "rs") {
+                out.push(p)
+            }
+        }
+    }
+    let src = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = vec![];
+    walk(&src, &mut files);
+    assert!(files.len() > 20);
+    for f in files {
+        let rel = f
+            .strip_prefix(&src)
+            .unwrap()
+            .to_string_lossy()
+            .replace('\\', "/");
+        let text = std::fs::read_to_string(&f).unwrap();
+        if let Some(name) = rel.strip_prefix("routing_plan/") {
+            // `cache.rs` defines the wrapper's grow over the core's.
+            if !name.ends_with("_tests.rs") && name != "load.rs" && name != "cache.rs" {
+                assert!(!text.contains(".grow("), "{rel} grows a reservation");
+            }
+            continue;
+        }
+        assert!(!text.contains(".grow("), "{rel} grows a reservation");
+        let allowed = usize::from(rel == "main.rs");
+        assert_eq!(text.matches("routing_plan").count(), allowed, "{rel}");
+    }
+}
+
+/// The bounds are the crate's: under a reviewed toolchain each stage's
+/// bound is made from the source, and the key's bound covers its text.
+#[test]
+fn stage_bounds_are_the_crates() {
+    assert!(polis_routing_plan::std_bounds_reviewed());
     let j = job(1, STORED, None, 0);
-    let build = Plan::build_allowance(&j.rule, &LIMITS).unwrap();
-    assert!(allowance(&j.rule, &j).unwrap() > build);
-    let f = job(1, FLOOR, Some(FLOOR_POLICY), 0);
-    let floor = Plan::build_allowance(&f.rule, &limits(&f.rule)).unwrap();
-    assert!(allowance(&f.rule, &f).unwrap() > floor);
-    let _ = Projection::parse_reservation(LIMITS.max_bytes as usize, &LIMITS).unwrap();
+    assert!(key_bound(&j).unwrap() >= (ENV.len() + j.rule_plain.len()) as u64);
+}
+
+/// The stages after the read publish, each resize is held before its step,
+/// and the reservation ends cut down to the plan's entry.
+#[test]
+fn stages_publish_on_one_reservation() {
+    let tids: Vec<i32> = (1..=300).collect();
+    for (text, policy) in [(STORED, None), (UNIFORM, None), (FLOOR, Some(FLOOR_POLICY))] {
+        let c = cache();
+        let j = job(1, text, policy, 3);
+        let mut rec = Record::default();
+        assert_eq!(
+            staged(&c, &j, projected(&doc(&tids, 3)), &mut rec),
+            Outcome::Published,
+            "{text}"
+        );
+        let stages: Vec<Stage> = rec.0.iter().map(|s| s.0).collect();
+        assert_eq!(
+            stages,
+            [
+                Stage::Received,
+                Stage::Parsing,
+                Stage::Parsed,
+                Stage::Framing,
+                Stage::Framed,
+                Stage::Building,
+                Stage::Built,
+                Stage::BeforePublish
+            ]
+        );
+        println!("{text}: {:?}", rec.0);
+    }
+}
+
+/// The reservation is cut down to the bytes received before they are
+/// measured (from the read's `max_bytes`).
+#[test]
+fn shrink_to_row_length_after_fetch() {
+    let c = cache();
+    let j = job(1, STORED, None, 3);
+    let bytes = projected(&doc(&[1, 2, 3], 3));
+    let held = bytes.capacity() + ENV.len();
+    let mut rec = Record::default();
+    assert_eq!(staged(&c, &j, bytes, &mut rec), Outcome::Published);
+    let (stage, received) = rec.0[0];
+    assert_eq!(stage, Stage::Received);
+    // The buffer's capacity and the row's environment, nothing more.
+    assert_eq!(received, held as u64);
+    assert!(received < STORED_MAX_BYTES);
+}
+
+/// A grow refused at each step: the step's work never starts, what was
+/// held is dropped, the reservation is released, the failure is recorded
+/// before any content key (so the next load for that tick backs off and is
+/// not read again), and the conversation's last plan stays.
+#[test]
+fn grow_refused_drops_and_keeps_last_plan() {
+    let tids: Vec<i32> = (1..=20_000).collect();
+    let j = job(1, FLOOR_FIXED, Some(FLOOR_POLICY), 3);
+    let mut rec = Record::default();
+    assert_eq!(
+        staged(&cache(), &j, projected(&doc(&tids, 3)), &mut rec),
+        Outcome::Published
+    );
+    let at = |s: Stage| rec.0.iter().find(|r| r.0 == s).unwrap().1;
+    for (before, step, stage) in [
+        (Stage::Received, Step::Parse, Stage::Parsing),
+        (Stage::Parsed, Step::Frames, Stage::Framing),
+        (Stage::Framed, Step::Build, Stage::Building),
+    ] {
+        assert!(at(stage) > at(before), "{step:?} is a grow at this shape");
+        let c = cache();
+        // Another conversation's plan, least recently used, which the one
+        // retry evicts; then the conversation's own last plan.
+        let small: Vec<i32> = (1..=300).collect();
+        assert_eq!(
+            staged(
+                &c,
+                &job(2, FLOOR_FIXED, Some(FLOOR_POLICY), 2),
+                projected(&doc(&small, 2)),
+                &mut NoHooks
+            ),
+            Outcome::Published
+        );
+        assert_eq!(
+            staged(
+                &c,
+                &job(1, FLOOR_FIXED, Some(FLOOR_POLICY), 2),
+                projected(&doc(&small, 2)),
+                &mut NoHooks
+            ),
+            Outcome::Published
+        );
+        struct FillAt<'a>(
+            Stage,
+            &'a std::sync::Arc<RoutingPlanCache>,
+            Vec<super::cache::Reserved>,
+            Vec<Stage>,
+        );
+        impl Hooks for FillAt<'_> {
+            fn reserved(&mut self, stage: Stage, _: u64) {
+                self.3.push(stage);
+                if stage == self.0 {
+                    self.2 = fill(self.1);
+                }
+            }
+        }
+        let mut hook = FillAt(before, &c, vec![], vec![]);
+        let outcome = staged(&c, &j, projected(&doc(&tids, 3)), &mut hook);
+        assert_eq!(outcome, Outcome::StepRefused(step));
+        assert!(!hook.3.contains(&stage), "{step:?} started");
+        // Released: with the budget otherwise full, the room left is what
+        // the build held, less the failure's own entry.
+        let (used, limit) = c.budget().unwrap();
+        assert!(
+            limit - used + 64 * 1024 >= at(before),
+            "{step:?}: reservation not released"
+        );
+        assert_eq!(
+            c.retry_allowed(&polis_routing_plan::Failure::BeforeRead(
+                polis_routing_plan::WantedKey {
+                    zid: 1,
+                    math_env: ENV.into(),
+                    desired_tick: 3,
+                }
+            )),
+            Ok(false),
+            "{step:?}: no backoff"
+        );
+        drop(hook);
+        // The last plan is still there.
+        assert_eq!(c.evict_lru().unwrap(), Some(true), "{step:?}");
+        assert_eq!(c.evict_lru().unwrap(), None);
+    }
+}
+
+/// A key that does not match its plan ends `KeyMismatch`, nothing
+/// published.
+#[test]
+fn key_mismatch_publishes_nothing() {
+    let c = cache();
+    let mut j = job(1, FLOOR, Some(FLOOR_POLICY), 3);
+    j.policy = None;
+    let outcome = staged(&c, &j, projected(&doc(&[1, 2, 3], 3)), &mut NoHooks);
+    assert_eq!(outcome, Outcome::KeyMismatch);
+    assert_eq!(c.evict_lru().unwrap(), None);
+}
+
+/// A reservation smaller than the plan's entry ends `Undercharged`.
+#[test]
+fn undercharged_cut_down_is_refused() {
+    let c = cache();
+    let j = job(1, UNIFORM, None, 3);
+    let p = Projection::parse(&projected(&doc(&[1, 2], 3)), row(1, 3), &LIMITS).unwrap();
+    let frames = p.frames(j.rule.needs()).unwrap();
+    let plan = Plan::build(&frames, &j.rule).unwrap();
+    let key = polis_routing_plan::BundleKey::of(&p, &j.rule, None, DIGEST);
+    let cached = polis_routing_plan::CachedPlan::new(key, plan, c.reading()).unwrap();
+    let mut r = c.try_reserve(16).unwrap();
+    assert_eq!(
+        cut_down(&mut r, &cached, ENV.len() as u64),
+        Err(Outcome::Undercharged)
+    );
+    assert_eq!(r.bytes(), 16);
 }
 
 #[cfg(feature = "db-tests")]
 mod db {
     use super::*;
     use polis_queue_adapter::jobs::transport::Connector;
-    use polis_routing_plan::{BuildRefusal, BundleKey, CachedPlan, RowIdentity};
-    use serde_json::{Value, json};
+    use polis_routing_plan::{BuildRefusal, BundleKey, CachedPlan};
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::{Arc, Barrier, mpsc};
 
@@ -251,34 +602,6 @@ mod db {
                 let _ = c.batch_execute(&format!("DROP SCHEMA {} CASCADE", self.schema));
             }
         }
-    }
-
-    /// A constructed math result: the keys the adapter reads, and keys it
-    /// does not (which the projection must leave out).
-    fn doc(tids: &[i32], json_tick: i64) -> Value {
-        let votes: serde_json::Map<String, Value> = tids
-            .iter()
-            .map(|t| (t.to_string(), json!({"A": 2, "D": 1, "S": 4})))
-            .collect();
-        let priorities: serde_json::Map<String, Value> =
-            tids.iter().map(|t| (t.to_string(), json!(1.5))).collect();
-        json!({
-            "tids": tids,
-            "meta-tids": [],
-            "comment-priorities": priorities,
-            "pca": {
-                "comment-extremity": tids.iter().map(|_| 0.25).collect::<Vec<_>>(),
-                "comment-projection": [[0.0], [0.0]],
-                "center": [0.0],
-                "comps": [[0.0]]
-            },
-            "group-votes": {"0": {"id": 0, "n-members": 4, "votes": votes}},
-            "group-clusters": [{"id": 0, "members": [100], "center": [0.0, 0.0]}],
-            "base-clusters": {"id": [100], "members": [[1, 2, 3, 4]], "count": [4], "x": [0.0], "y": [0.0]},
-            "math_tick": json_tick,
-            "n": 4,
-            "lastVoteTimestamp": 1
-        })
     }
 
     /// A math result older than group inputs: tids and priorities only.
@@ -389,7 +712,8 @@ mod db {
             assert!(source.projection_bytes > 64, "{shape:?}");
             assert!(source.projection.is_none(), "{shape:?}");
 
-            let tids: Vec<i32> = (0..300_000).collect();
+            // Past the 8 MiB bound: about 11 MB of ids.
+            let tids: Vec<i32> = (0..1_500_000).collect();
             db.put(5, 9, &json!({"tids": tids, "comment-priorities": {}}));
             let c = cache();
             let mut loader = Loader::new(db.connector(), None);
@@ -526,9 +850,10 @@ mod db {
     }
 
     /// Unfenced, the primary is read even when a replica is configured;
-    /// fenced, the replica is read; a fence forgotten between that read and
-    /// the publication refuses it (`FenceForgotten`), because the same
-    /// reservation, cut down, is published.
+    /// fenced, the replica is read; a fence forgotten right after that read,
+    /// before every grow of the build's reservation, refuses the
+    /// publication (`FenceForgotten`): the reservation is grown and cut
+    /// down in place, so it keeps the moment it was taken.
     #[test]
     fn replica_only_when_fenced_and_forgotten_fence_refuses() {
         for shape in SHAPES {
@@ -548,7 +873,7 @@ mod db {
                 &c,
                 &job(9, STORED, None, 10),
                 &mut At(|stage, _| {
-                    if stage == Stage::BeforePublish {
+                    if stage == Stage::AfterRead {
                         c.set_config(None).unwrap();
                         c.set_config(Some(DIGEST)).unwrap();
                         assert!(!c.fenced(9, ENV).unwrap());
