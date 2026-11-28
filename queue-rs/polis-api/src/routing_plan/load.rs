@@ -383,9 +383,20 @@ fn resize(cache: &RoutingPlanCache, reserved: &mut Reserved, to: u64) -> Result<
     if reserved.grow(to)? {
         return Ok(true);
     }
+    make_room(cache)?;
+    reserved.grow(to)
+}
+
+/// Room for the one retry: destroys what is already retired, evicts the
+/// least recently used plan, and destroys it too. An evicted plan's bytes
+/// stay charged on the retired list until it is destroyed, so without the
+/// second reclaim the retry could not use the room the eviction made and
+/// would evict another conversation's plan for nothing.
+fn make_room(cache: &RoutingPlanCache) -> Result<(), Poisoned> {
     cache.reclaim()?;
     cache.evict_lru()?;
-    reserved.grow(to)
+    cache.reclaim()?;
+    Ok(())
 }
 
 /// A refused grow at `step`: the reservation is released first (the caller
@@ -642,7 +653,7 @@ impl Loader {
         let reserved = match cache.admit_read(limits.max_bytes, &limits) {
             Ok(Some(r)) => r,
             Ok(None) => {
-                if cache.reclaim().is_err() || cache.evict_lru().is_err() {
+                if make_room(cache).is_err() {
                     return Outcome::CachePoisoned;
                 }
                 match cache.admit_read(limits.max_bytes, &limits) {

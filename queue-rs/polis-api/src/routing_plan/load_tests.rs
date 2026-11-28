@@ -471,6 +471,46 @@ fn grow_refused_drops_and_keeps_last_plan() {
     }
 }
 
+/// The one retry after a refused grow uses the room its eviction made: with
+/// the budget otherwise full, another conversation's plan is evicted and
+/// destroyed before the grow is tried again, so the build goes on and
+/// publishes (an evicted plan's bytes stay charged until it is destroyed;
+/// a retry before that would lose the other plan for nothing).
+#[test]
+fn retry_uses_the_room_its_eviction_made() {
+    let c = cache();
+    let big: Vec<i32> = (1..=20_000).collect();
+    assert_eq!(
+        staged(
+            &c,
+            &job(2, FLOOR_FIXED, Some(FLOOR_POLICY), 3),
+            projected(&doc(&big, 3)),
+            &mut NoHooks
+        ),
+        Outcome::Published
+    );
+    struct FillAt<'a>(
+        &'a std::sync::Arc<RoutingPlanCache>,
+        Vec<super::cache::Reserved>,
+    );
+    impl Hooks for FillAt<'_> {
+        fn reserved(&mut self, stage: Stage, _: u64) {
+            if stage == Stage::Received {
+                self.1 = fill(self.0);
+            }
+        }
+    }
+    let small: Vec<i32> = (1..=300).collect();
+    let mut hook = FillAt(&c, vec![]);
+    let outcome = staged(
+        &c,
+        &job(1, FLOOR_FIXED, Some(FLOOR_POLICY), 2),
+        projected(&doc(&small, 2)),
+        &mut hook,
+    );
+    assert_eq!(outcome, Outcome::Published);
+}
+
 /// A key that does not match its plan ends `KeyMismatch`, nothing
 /// published.
 #[test]
