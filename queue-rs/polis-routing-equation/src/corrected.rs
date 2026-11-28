@@ -5,6 +5,10 @@
 //! - `gic-mean/1` and `gic-geomean/1`: the group-informed consensus factor in
 //!   two forms, read from the current tick's opinion groups.
 //! - `symmetric-gic/1`: `symmetric/1` times that factor.
+//! - `symmetric/2` and `symmetric-gic/2`: the same two formulas on the counts
+//!   of the math update being read (`base-counts:lag-0`), summed from its
+//!   group frame; the `/1` rules read the update before it
+//!   (`base-counts:lag-1`).
 //!
 //! Each is a pure function of validated frames. Group values are reduced in
 //! sorted order, so the order in which groups arrive, and their ids, cannot
@@ -13,6 +17,7 @@
 use crate::frames::CurrentGroupFrame;
 use crate::historical::{HistoricalWeights, MetaComments, Scored};
 use crate::importance::TermParams;
+use crate::latest::{CountPolicy, LatestCountFrame};
 use crate::registry::ParamSet;
 use crate::types::{
     CommentId, Counts, Explanation, Extremity, ExtremityFrame, Factor, FactorName,
@@ -391,13 +396,42 @@ impl SymmetricGicParams {
     }
 }
 
+/// Which counts a corrected rule's base count term read, and their source.
+/// Set only by the function that computed the weights: a `/1` rule (and
+/// `historical/1`) writes `Previous`, a `/2` rule writes `Latest`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum BaseCounts {
+    /// Summed over the opinion groups of the update before the one read
+    /// (`base-counts:lag-1`).
+    Previous(SourceId),
+    /// Summed over the opinion groups of the update read
+    /// (`base-counts:lag-0`); its source is the group frame's.
+    Latest(SourceId),
+}
+
+impl BaseCounts {
+    /// The policy these counts were read under.
+    pub fn policy(&self) -> CountPolicy {
+        match self {
+            Self::Previous(_) => CountPolicy::Lag1,
+            Self::Latest(_) => CountPolicy::Lag0,
+        }
+    }
+    /// The source of the counts, whichever update they came from.
+    pub fn source(&self) -> &SourceId {
+        match self {
+            Self::Previous(s) | Self::Latest(s) => s,
+        }
+    }
+}
+
 /// What a corrected rule gives for a conversation: the exact parameter set,
 /// the sources it read, a weight and explanation per scored comment, the
 /// comments it did not score, and the meta comments it excluded.
 #[derive(Clone, Debug, PartialEq)]
 pub struct CorrectedWeights {
     params: ParamSet,
-    previous_counts: SourceId,
+    base_counts: BaseCounts,
     current_extremity: SourceId,
     current_groups: Option<SourceId>,
     scored: BTreeMap<CommentId, Scored>,
@@ -413,7 +447,7 @@ impl CorrectedWeights {
     pub fn from_historical(weights: &HistoricalWeights) -> Self {
         Self {
             params: ParamSet::Historical1(*weights.params()),
-            previous_counts: weights.counts_source().clone(),
+            base_counts: BaseCounts::Previous(weights.counts_source().clone()),
             current_extremity: weights.extremity_source().clone(),
             current_groups: None,
             scored: weights.scored().map(|(id, s)| (id, s.clone())).collect(),
@@ -447,8 +481,22 @@ impl CorrectedWeights {
     pub fn params(&self) -> &ParamSet {
         &self.params
     }
+    /// The source of the counts the base count term read. Its name is the
+    /// `/1` rules'; for a `/2` rule's weights it is the source of the latest
+    /// counts. `base_counts()` says which policy they were read under.
     pub fn previous_counts(&self) -> &SourceId {
-        &self.previous_counts
+        self.base_counts.source()
+    }
+    /// The counts the base count term read, with their policy.
+    pub fn base_counts(&self) -> &BaseCounts {
+        &self.base_counts
+    }
+    /// The source of the latest counts, for a `/2` rule's weights only.
+    pub fn latest_counts(&self) -> Option<&SourceId> {
+        match &self.base_counts {
+            BaseCounts::Latest(s) => Some(s),
+            BaseCounts::Previous(_) => None,
+        }
     }
     pub fn current_extremity(&self) -> &SourceId {
         &self.current_extremity
@@ -497,9 +545,13 @@ impl CorrectedWeights {
         excluded: impl IntoIterator<Item = CommentId>,
     ) -> Self {
         let [previous_counts, current_extremity, current_groups] = sources;
+        let base_counts = match params.rule().count_policy() {
+            Some(CountPolicy::Lag0) => BaseCounts::Latest(previous_counts),
+            _ => BaseCounts::Previous(previous_counts),
+        };
         Self {
             params,
-            previous_counts,
+            base_counts,
             current_extremity,
             current_groups: Some(current_groups),
             scored: scored
@@ -527,9 +579,34 @@ type Weighed = (
     BTreeSet<CommentId>,
 );
 
+/// The base counts a weighing reads, under either policy. Private, so that
+/// latest counts are never put into a `HistoricalCountFrame`.
+trait CountLookup {
+    fn ids(&self) -> impl Iterator<Item = CommentId> + '_;
+    fn get(&self, id: CommentId) -> Option<Counts>;
+}
+
+impl CountLookup for HistoricalCountFrame {
+    fn ids(&self) -> impl Iterator<Item = CommentId> + '_ {
+        HistoricalCountFrame::ids(self)
+    }
+    fn get(&self, id: CommentId) -> Option<Counts> {
+        HistoricalCountFrame::get(self, id)
+    }
+}
+
+impl CountLookup for LatestCountFrame {
+    fn ids(&self) -> impl Iterator<Item = CommentId> + '_ {
+        LatestCountFrame::ids(self)
+    }
+    fn get(&self, id: CommentId) -> Option<Counts> {
+        LatestCountFrame::get(self, id)
+    }
+}
+
 fn weigh(
     base: &SymmetricParams,
-    counts: &HistoricalCountFrame,
+    counts: &impl CountLookup,
     extremity: &ExtremityFrame,
     meta: &MetaComments,
     mut outer: impl FnMut(CommentId) -> Vec<Factor>,
@@ -583,7 +660,7 @@ pub fn symmetric_1(
     let (scored, unscored, excluded) = weigh(params, counts, extremity, meta, |_| vec![])?;
     Ok(CorrectedWeights {
         params: ParamSet::Symmetric1(*params),
-        previous_counts: counts.source().clone(),
+        base_counts: BaseCounts::Previous(counts.source().clone()),
         current_extremity: extremity.source().clone(),
         current_groups: None,
         scored,
@@ -611,7 +688,91 @@ pub fn symmetric_gic_1(
     })?;
     Ok(CorrectedWeights {
         params: ParamSet::SymmetricGic1(*params),
-        previous_counts: counts.source().clone(),
+        base_counts: BaseCounts::Previous(counts.source().clone()),
+        current_extremity: extremity.source().clone(),
+        current_groups: Some(groups.source().clone()),
+        scored,
+        unscored,
+        excluded,
+        terms: vec![],
+        term_source: None,
+    })
+}
+
+/// The latest counts of one update: refused (`PolicySourceMismatch`) unless
+/// the group frame and the extremity frame name the same source, then built
+/// from the group frame (`NoLatestCounts`, `CountOverflow`), in that order.
+fn latest_counts(
+    groups: &CurrentGroupFrame,
+    extremity: &ExtremityFrame,
+) -> Result<LatestCountFrame, Refusal> {
+    if groups.source() != extremity.source() {
+        return Err(Refusal::PolicySourceMismatch {
+            policy: CountPolicy::Lag0,
+            counts: groups.source().clone(),
+            extremity: extremity.source().clone(),
+        });
+    }
+    LatestCountFrame::from_groups(groups)
+}
+
+/// `symmetric/2`: `symmetric/1`'s formula, parameters and decision table on
+/// `base-counts:lag-0`, the counts of the update being read, summed over its
+/// opinion groups. The group frame and the extremity frame must carry the
+/// same source (`PolicySourceMismatch`); a frame with no groups has no
+/// latest counts (`NoLatestCounts`); a summed count above `u32::MAX`
+/// anywhere in the frame is `CountOverflow`. Then, as `symmetric/1`:
+/// exclusion first, a comment in only one of the counts and the extremity is
+/// unscored, and the formula.
+///
+/// A count frame given on its own cannot be passed:
+///
+/// ```compile_fail,E0308
+/// use polis_routing_equation::*;
+/// let s = SourceId::new("u").unwrap();
+/// let counts = HistoricalCountFrame::new(s.clone(), []).unwrap();
+/// let extremity = ExtremityFrame::new(s, []).unwrap();
+/// let meta = MetaComments::new([]).unwrap();
+/// let _ = symmetric_2(&SymmetricParams::default(), &counts, &extremity, &meta);
+/// ```
+pub fn symmetric_2(
+    params: &SymmetricParams,
+    groups: &CurrentGroupFrame,
+    extremity: &ExtremityFrame,
+    meta: &MetaComments,
+) -> Result<CorrectedWeights, Refusal> {
+    let counts = latest_counts(groups, extremity)?;
+    let (scored, unscored, excluded) = weigh(params, &counts, extremity, meta, |_| vec![])?;
+    Ok(CorrectedWeights {
+        params: ParamSet::Symmetric2(*params),
+        base_counts: BaseCounts::Latest(counts.source().clone()),
+        current_extremity: extremity.source().clone(),
+        current_groups: Some(groups.source().clone()),
+        scored,
+        unscored,
+        excluded,
+        terms: vec![],
+        term_source: None,
+    })
+}
+
+/// `symmetric-gic/2`: `symmetric-gic/1` on `base-counts:lag-0`. The base
+/// counts and the group-informed consensus factor both come from the one
+/// group frame; refusals as `symmetric/2`.
+pub fn symmetric_gic_2(
+    params: &SymmetricGicParams,
+    groups: &CurrentGroupFrame,
+    extremity: &ExtremityFrame,
+    meta: &MetaComments,
+) -> Result<CorrectedWeights, Refusal> {
+    let counts = latest_counts(groups, extremity)?;
+    let (scored, unscored, excluded) = weigh(&params.base, &counts, extremity, meta, |id| {
+        let c = consensus(params.form, &params.gic, groups, id);
+        vec![Factor::new(FactorName::GroupConsensus, c.factor)]
+    })?;
+    Ok(CorrectedWeights {
+        params: ParamSet::SymmetricGic2(*params),
+        base_counts: BaseCounts::Latest(counts.source().clone()),
         current_extremity: extremity.source().clone(),
         current_groups: Some(groups.source().clone()),
         scored,

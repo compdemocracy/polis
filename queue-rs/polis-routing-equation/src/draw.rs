@@ -6,7 +6,7 @@
 //! running sums in the candidates' order, `random_n = unit * total`, and the
 //! first candidate whose running sum is greater than `random_n`.
 
-use crate::corrected::CorrectedWeights;
+use crate::corrected::{BaseCounts, CorrectedWeights};
 use crate::historical::{HistoricalProvenance, HistoricalWeights};
 use crate::registry::{ParamSet, RuleId};
 use crate::types::{CommentId, DrawRefusal, MAX_CANDIDATES, Refusal, SourceId, WEIGHT_CEILING};
@@ -99,8 +99,9 @@ pub enum WeightProvenance {
     /// Computed here by `historical/1`, with these parameters, from these
     /// frames.
     Historical1(HistoricalProvenance),
-    /// Computed here by a corrected rule (`symmetric/1` or
-    /// `symmetric-gic/1`), with these parameters, from these frames.
+    /// Computed here by a corrected rule (`symmetric/1`, `symmetric-gic/1`,
+    /// `symmetric/2` or `symmetric-gic/2`), with these parameters, from these
+    /// frames.
     Corrected(CorrectedProvenance),
 }
 
@@ -110,7 +111,7 @@ pub enum WeightProvenance {
 #[derive(Clone, Debug, PartialEq)]
 pub struct CorrectedProvenance {
     pub(crate) params: ParamSet,
-    pub(crate) previous_counts: SourceId,
+    pub(crate) base_counts: BaseCounts,
     pub(crate) current_extremity: SourceId,
     pub(crate) current_groups: Option<SourceId>,
     pub(crate) terms: Vec<crate::importance::TermParams>,
@@ -121,7 +122,7 @@ impl CorrectedProvenance {
     pub(crate) fn of(weights: &CorrectedWeights) -> Self {
         Self {
             params: *weights.params(),
-            previous_counts: weights.previous_counts().clone(),
+            base_counts: weights.base_counts().clone(),
             current_extremity: weights.current_extremity().clone(),
             current_groups: weights.current_groups().cloned(),
             terms: weights.terms().to_vec(),
@@ -131,8 +132,21 @@ impl CorrectedProvenance {
     pub fn params(&self) -> &ParamSet {
         &self.params
     }
+    /// The source of the counts the base count term read; for a `/2` rule
+    /// it is the latest counts' source. `base_counts()` carries the policy.
     pub fn previous_counts(&self) -> &SourceId {
-        &self.previous_counts
+        self.base_counts.source()
+    }
+    /// The counts the base count term read, with their policy.
+    pub fn base_counts(&self) -> &BaseCounts {
+        &self.base_counts
+    }
+    /// The source of the latest counts, for a `/2` rule's weights only.
+    pub fn latest_counts(&self) -> Option<&SourceId> {
+        match &self.base_counts {
+            BaseCounts::Latest(s) => Some(s),
+            BaseCounts::Previous(_) => None,
+        }
     }
     pub fn current_extremity(&self) -> &SourceId {
         &self.current_extremity
@@ -250,6 +264,34 @@ impl StoredWeights {
                 .map(|(id, s)| (id, StoredWeight::Number(s.weight().get())))
                 .collect(),
         }
+    }
+
+    /// The weights a `/2` rule (`symmetric/2` or `symmetric-gic/2`, with or
+    /// without a term) gave, as a map `stored-weights/1` draws: each scored
+    /// comment its weight; unscored comments are absent (and so draw at 1).
+    /// The provenance keeps the producing rule, its parameters, terms and
+    /// sources, under `base-counts:lag-0`.
+    ///
+    /// Refused (`BaseMismatch`): weights of any other rule (the `/1` rules'
+    /// weights are drawn by their floor plan, as before), and weights with
+    /// excluded comments, which a stored map cannot tell apart from absent
+    /// ones (a draw would give them 1).
+    pub fn from_latest(source: SourceId, weights: &CorrectedWeights) -> Result<Self, Refusal> {
+        let latest = matches!(
+            weights.params(),
+            ParamSet::Symmetric2(_) | ParamSet::SymmetricGic2(_)
+        ) && weights.latest_counts().is_some();
+        if !latest || weights.excluded().next().is_some() {
+            return Err(Refusal::BaseMismatch);
+        }
+        Ok(Self {
+            source,
+            provenance: WeightProvenance::Corrected(CorrectedProvenance::of(weights)),
+            map: weights
+                .scored()
+                .map(|(id, s)| (id, StoredWeight::Number(s.weight().get())))
+                .collect(),
+        })
     }
 
     pub fn source(&self) -> &SourceId {

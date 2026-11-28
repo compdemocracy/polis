@@ -119,6 +119,20 @@ rule runs (`src/frames.rs`):
   group whose members have voted on nothing; a group with no count for a
   comment. An absent count is not a zero count, and each rule says how it
   treats the two.
+- **The latest counts** (`LatestCountFrame`, `src/latest.rs`): the group
+  frame's counts summed over its groups, per comment, so the counts of the
+  update being read rather than of the one before it. The two ways of reading
+  base counts have names: `base-counts:lag-1` (the update before, today's
+  equation and every `/1` rule) and `base-counts:lag-0` (the update read). The
+  frame is made only from a group frame and carries that frame's source; it
+  cannot be built from a list of counts, read from JSON, or turned into the
+  lagged frame or back. A comment is present when any group has a count for it,
+  even a count of zeros. Refused: a group frame with no groups (there are no
+  latest counts), and any comment whose summed agrees, disagrees or passes go
+  above 4,294,967,295; the whole frame is checked, including comments a rule
+  would leave out. Defined: groups whose members have voted on nothing give a
+  frame with no comments. The three `/2` rules (section 4) read it; nothing
+  else does.
 - **Everyone's frame** (`EveryoneFrame`): every participant's latest votes per
   comment, grouped or not. When both frames are given (`CurrentFrames`), the
   groups' agrees, disagrees and passes for each comment, summed over groups,
@@ -489,6 +503,77 @@ would be given to the uniform lane and the receipt would record it
 (`weights->uniform:zero_mass`); under this rule's parameter ranges that
 cannot happen, and it is tested on the lane arithmetic itself.
 
+### The `/2` rules: the counts of the update being read
+
+Every rule above that reads counts reads them one math update late: the base
+count term takes A, D and P from the update before the one whose extremity
+and groups it reads (`base-counts:lag-1`), because that is what today's
+Python does. The three `/2` rules are the same formulas, parameters, defaults,
+decision tables and draws on the counts of the update being read
+(`base-counts:lag-0`): A, D and P are summed over that update's opinion
+groups, so counts, extremity and groups all come from one update. The policy
+is fixed by the rule's id, never a parameter (`RuleId::count_policy`), and
+the version number moved because what a parameter means moved: the base
+counts are different counts. Both policies leave out participants in no
+group, as the Python does.
+
+The function signature decides the policy. A `/2` rule takes the group frame
+and builds the counts itself (`LatestCountFrame`); it cannot be given a count
+frame. The group frame and the extremity frame must name the same source, or
+the rule refuses (`PolicySourceMismatch`); a frame with no groups has no
+latest counts (`NoLatestCounts`), and a summed count above 4,294,967,295
+anywhere in the frame refuses it (`CountOverflow`). Equal sources are a
+consistency check, not proof: naming the update truthfully stays the
+caller's, as it does for the `/1` rules.
+
+**Where the two policies differ.** In the constructed witness (two groups,
+ids 0 and 2; comments 7 and 8) the update before had one agree on comment 7
+and one disagree on comment 8; the update read has (3, 2, 1) and (1, 2, 2).
+`symmetric/1` weighs them 28.19 and 78.31, `symmetric/2` 14.30 and 16.66. The
+group-informed consensus factor is the same under both (0.908 and 0.816; it
+always read the update being read), and the floor's chances move from 0.31
+and 0.69 to 0.49 and 0.51. The newest votes decide.
+
+### `symmetric/2`: `symmetric/1` on the latest counts
+
+*What it changes:* only which counts: R = (A + D + 1) / (S + 2) with A, D and
+P summed over the groups of the update read. *A newcomer with no group:* the
+same weights as anyone; their own votes are not in the sums until they are in
+a group, as under `/1`. *On a conversation's first update* the counts are
+there (unlike `/1`, whose previous frame is empty), so comments with votes are
+scored from the start. *A comment no group has a count for* is unscored and
+drawn at 1; a comment whose every group has a count of zeros is scored at zero
+votes (81/16 x (1 + E)^2). *Two groups or five:* no difference; the counts
+arrive summed, and the sums are exact, so the groups' order and ids change no
+bit. *Symmetric?* In the counts, exactly, as `symmetric/1`; not in E. Its
+receipt records the groups' source too, since its counts came from them.
+
+### `symmetric-gic/2`: the consensus rule on the latest counts
+
+*What it changes:* the base counts and G now come from the one group frame.
+*Newcomer, first update, no votes:* as `symmetric/2`, times the factor (1 for
+a comment with no votes, mathematically). *Two groups or five:* as
+`symmetric-gic/1`: the factor weighs each group equally; with fewer than
+`gic_min_groups` groups it is exactly 1. *Symmetric?* The count term is; the
+factor and E are not.
+
+### `symmetric-gic-floor/2`: the floor over `symmetric-gic/2`
+
+*What it changes:* nothing in the floor: `floor_share / n` for every
+candidate, the rest by `symmetric-gic/2`'s weights, drawn with `stable-cdf/1`.
+Its plan accepts only `symmetric-gic/2` weights with its own base parameters,
+and the `/1` floor accepts only `symmetric-gic/1` weights (`BaseMismatch`
+either way); the plan takes computed weights and never rebuilds counts.
+*Newcomer, first update, no votes, two or five groups:* as `symmetric-gic/2`,
+with the floor added. Importance composes as on `/1`: `importance-lift/1` and
+`importance-normalized-lift/1` read marks, not counts, and keep their own
+source.
+
+`stored-weights/1` can draw a `/2` map (`StoredWeights::from_latest`, for
+`symmetric/2` or `symmetric-gic/2` weights with or without a term). It refuses
+`/1` weights, which their floor draws, and weights with excluded comments,
+which a stored map cannot tell from absent ones.
+
 ## 5. The terms
 
 **Group-informed consensus, G, in two forms.** For each opinion group, the
@@ -648,6 +733,11 @@ This rule has no parameters.
 | `gic_offset` | 0.5 | [1e-3, 100] | added to G, so the factor is always positive | the factor `(0.5 + G)` of the corrected equation |
 | `gic_min_groups` | 2 | an integer from 1 to 64 | with fewer opinion groups than this, the factor is exactly 1 | one group has no consensus across groups to measure |
 | `floor_share` | 0.1 | [0, 1) | the share of the chance spread evenly over the candidates; the rest follows the weights | the uniform floor of the corrected equation (`alpha = 0.10`) |
+
+**`symmetric/2`**, **`symmetric-gic/2`** and **`symmetric-gic-floor/2`**: the
+tables of `symmetric/1`, `symmetric-gic/1` and `symmetric-gic-floor/1`, with the
+same defaults (listed in `tests/golden/defaults-manifest-5.json`). Only the
+counts the defaults apply to differ: `base-counts:lag-0`.
 
 The defaults of `symmetric/1`, `gic-mean/1`, `gic-geomean/1` and
 `symmetric-gic/1` are listed in `tests/golden/defaults-manifest-3.json`, and
@@ -933,6 +1023,24 @@ frame or in neither; receipts read back byte for byte, and altered ones are
 refused. `tests/golden/receipts-2.txt` records the first receipts of the new
 shapes (and of the earlier shape with no map and with the engine's map); every
 receipt of the first golden file still reads back unchanged.
+
+### The latest-count rules
+
+`tests/latest_rules.rs` proves the `/2` rules four ways. On every input both
+policies admit, a `/2` rule equals its `/1` rule given a count frame holding
+exactly the group frame's sums: weights and explanations bit for bit, the same
+unscored and excluded comments, the same floor chances (400 constructed
+conversations, all three meta policies, both consensus forms, default and
+other parameters). With identical cells the draws are bit for bit the same and
+the receipts differ only where they should: the rule names, `input_policy`,
+`latest_counts` in place of `previous_counts`, and the sources. An independent
+statement in plain Python (`tests/fixtures/crosscheck/make_crosscheck_5.py`,
+run with `python3 -I`; its output `vectors-5.json`) agrees to 1e-12 on twelve
+constructed cases, the witness among them, with `/1` and `/2` asserted
+different there. Renaming and reordering groups changes no bit.
+`tests/sequence_latest.rs` is the floor's request-sequence test, copied for
+`symmetric-gic-floor/2` rather than assumed from `/1`. The recorded `/2`
+receipts are `tests/golden/receipts-5.txt`; every `/1` receipt keeps its bytes.
 
 ## 10. What it does not do
 

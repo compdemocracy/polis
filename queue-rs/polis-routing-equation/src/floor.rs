@@ -281,6 +281,29 @@ pub fn symmetric_gic_floor_1(
     })
 }
 
+/// Builds a `symmetric-gic-floor/2` plan: `symmetric-gic-floor/1`'s floor,
+/// draw and refusals over `symmetric-gic/2` weights (`base-counts:lag-0`).
+/// Refused (`BaseMismatch`) unless the weights were computed by
+/// `symmetric-gic/2` with exactly the floor's base parameters; it takes the
+/// computed weights, so it neither has the groups nor rebuilds the counts.
+/// `meta` is as for `symmetric_gic_floor_1`.
+pub fn symmetric_gic_floor_2(
+    params: &FloorParams,
+    weights: CorrectedWeights,
+    meta: &MetaComments,
+) -> Result<FloorPlan, Refusal> {
+    if *weights.params() != ParamSet::SymmetricGic2(params.base)
+        || weights.latest_counts().is_none()
+    {
+        return Err(Refusal::BaseMismatch);
+    }
+    Ok(FloorPlan {
+        params: *params,
+        weights,
+        meta: meta.clone(),
+    })
+}
+
 /// Why a candidate did not resolve to a base weight.
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum Unresolved<K> {
@@ -323,6 +346,14 @@ fn resolve_ids<K: Ord + Copy, V>(
 }
 
 impl FloorPlan {
+    /// The rule that draws: `symmetric-gic-floor/1` over `symmetric-gic/1`
+    /// weights, `symmetric-gic-floor/2` over `symmetric-gic/2` weights.
+    pub fn drawing_rule(&self) -> ParamSet {
+        match self.weights.params() {
+            ParamSet::SymmetricGic2(_) => ParamSet::SymmetricGicFloor2(self.params),
+            _ => ParamSet::SymmetricGicFloor1(self.params),
+        }
+    }
     pub fn params(&self) -> &FloorParams {
         &self.params
     }
@@ -404,7 +435,7 @@ impl FloorPlan {
             index: i,
             random_n: pick.random_n(),
             probability: pick.probability(),
-            rule: ParamSet::SymmetricGicFloor1(self.params),
+            rule: self.drawing_rule(),
             draw_mode: DrawMode::StableCdf1,
             weights: WeightsUsed::Map {
                 source: weights_source.clone(),
@@ -539,7 +570,7 @@ mod tests {
             index: i,
             random_n: pick.random_n(),
             probability: pick.probability(),
-            rule: ParamSet::SymmetricGicFloor1(plan.params),
+            rule: plan.drawing_rule(),
             draw_mode: DrawMode::StableCdf1,
             weights: WeightsUsed::Map {
                 source: weights_source.clone(),

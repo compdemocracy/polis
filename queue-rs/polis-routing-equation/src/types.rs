@@ -9,6 +9,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt;
 
+use crate::latest::CountPolicy;
+
 /// The largest weight any rule may produce. It keeps a sum of up to
 /// `MAX_CANDIDATES` weights finite (2^24 x 1e150 < 1.8e308).
 pub const WEIGHT_CEILING: f64 = 1e150;
@@ -546,6 +548,25 @@ pub enum Refusal {
     TermInputsMismatch,
     /// A term composed twice.
     RepeatedTerm,
+    /// A group frame with no groups has no latest counts.
+    NoLatestCounts,
+    /// Under `base-counts:lag-0` the counts (from the group frame) and the
+    /// extremity must name one math update: their sources differ.
+    PolicySourceMismatch {
+        policy: CountPolicy,
+        counts: SourceId,
+        extremity: SourceId,
+    },
+    /// A rule is not defined under the named count policy (every rule has
+    /// one fixed policy, or none).
+    PolicyNotDefined {
+        rule: &'static str,
+        policy: CountPolicy,
+    },
+    /// A count policy name this crate does not know.
+    UnknownPolicy {
+        asked: String,
+    },
 }
 
 impl fmt::Display for Refusal {
@@ -624,6 +645,24 @@ impl fmt::Display for Refusal {
             Self::InvalidVoterMarks => f.write_str("impossible issue-217 voter inputs"),
             Self::TermInputsMismatch => f.write_str("a term was given the other term's inputs"),
             Self::RepeatedTerm => f.write_str("a term is composed twice"),
+            Self::NoLatestCounts => {
+                f.write_str("the group frame has no groups, so it has no latest counts")
+            }
+            Self::PolicySourceMismatch {
+                policy,
+                counts,
+                extremity,
+            } => write!(
+                f,
+                "under {} the counts and the extremity must come from one update; the groups name {:?} and the extremity {:?}",
+                policy.name(),
+                counts.as_str(),
+                extremity.as_str()
+            ),
+            Self::PolicyNotDefined { rule, policy } => {
+                write!(f, "{rule} is not defined under {}", policy.name())
+            }
+            Self::UnknownPolicy { asked } => write!(f, "unknown count policy {asked:?}"),
             Self::BaseMismatch => {
                 f.write_str("the weights were not computed by the plan's base rule and parameters")
             }

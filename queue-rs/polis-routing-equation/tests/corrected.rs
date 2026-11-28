@@ -417,7 +417,7 @@ fn the_plain_forms_read_back_and_refuse_what_is_not_valid() {
             "\"gic_offset\":0.5",
             "\"gic_offset\":0.5,\"gic_offset\":0.5",
         ),
-        good.replace("symmetric-gic/1", "symmetric-gic/2"),
+        good.replace("symmetric-gic/1", "symmetric-gic/3"),
         good.replace("\"terms\":[]", "\"terms\":[\"importance-lift/1\"]"),
         ParamSet::default_for(RuleId::GicMean1)
             .to_plain()

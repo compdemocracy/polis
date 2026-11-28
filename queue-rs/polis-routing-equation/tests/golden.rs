@@ -25,6 +25,8 @@ const MANIFEST: &str = include_str!("golden/defaults-manifest.json");
 const MANIFEST_3: &str = include_str!("golden/defaults-manifest-3.json");
 /// The defaults of the floor and the uniform rule, added after the third.
 const MANIFEST_4: &str = include_str!("golden/defaults-manifest-4.json");
+// The base-counts:lag-0 rules, added with them.
+const MANIFEST_5: &str = include_str!("golden/defaults-manifest-5.json");
 const README: &str = include_str!("../README.md");
 
 fn ids(v: &Value) -> Vec<CommentId> {
@@ -189,25 +191,36 @@ fn the_defaults_manifest_holds_every_rules_published_defaults() {
     let first: Value = serde_json::from_str(MANIFEST).unwrap();
     let third: Value = serde_json::from_str(MANIFEST_3).unwrap();
     let fourth: Value = serde_json::from_str(MANIFEST_4).unwrap();
-    let (first, third, fourth) = (
+    let fifth: Value = serde_json::from_str(MANIFEST_5).unwrap();
+    let (first, third, fourth, fifth) = (
         first.as_object().unwrap(),
         third.as_object().unwrap(),
         fourth.as_object().unwrap(),
+        fifth.as_object().unwrap(),
     );
     // Every rule is listed exactly once across the manifest files.
-    assert_eq!(first.len() + third.len() + fourth.len(), RuleId::ALL.len());
+    assert_eq!(
+        first.len() + third.len() + fourth.len() + fifth.len(),
+        RuleId::ALL.len()
+    );
     assert!(
         first
             .keys()
-            .all(|k| !third.contains_key(k) && !fourth.contains_key(k))
+            .all(|k| !third.contains_key(k) && !fourth.contains_key(k) && !fifth.contains_key(k))
     );
-    assert!(third.keys().all(|k| !fourth.contains_key(k)));
+    assert!(
+        third
+            .keys()
+            .all(|k| !fourth.contains_key(k) && !fifth.contains_key(k))
+    );
+    assert!(fourth.keys().all(|k| !fifth.contains_key(k)));
     assert!(first.contains_key("historical/1") && first.contains_key("stored-weights/1"));
     for rule in RuleId::ALL {
         let plain = first
             .get(rule.name())
             .or_else(|| third.get(rule.name()))
             .or_else(|| fourth.get(rule.name()))
+            .or_else(|| fifth.get(rule.name()))
             .unwrap()
             .as_str()
             .unwrap();
@@ -231,7 +244,7 @@ fn the_registry_answers_by_name_and_version_and_refuses_the_rest() {
         "historical",
         "Historical/1",
         "",
-        "symmetric/2",
+        "symmetric/3",
         "gic-mean/0",
         "historical/1 ",
     ] {
@@ -248,7 +261,10 @@ fn the_registry_answers_by_name_and_version_and_refuses_the_rest() {
                         "gic-geomean/1",
                         "symmetric-gic/1",
                         "uniform/1",
-                        "symmetric-gic-floor/1"
+                        "symmetric-gic-floor/1",
+                        "symmetric/2",
+                        "symmetric-gic/2",
+                        "symmetric-gic-floor/2"
                     ]
                 );
             }

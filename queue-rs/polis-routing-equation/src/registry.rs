@@ -8,6 +8,7 @@
 use crate::corrected::{ConsensusForm, GicParams, MetaPolicy, SymmetricGicParams, SymmetricParams};
 use crate::floor::FloorParams;
 use crate::historical::HistoricalParams;
+use crate::latest::CountPolicy;
 use crate::types::Refusal;
 use serde::Serialize;
 use serde_json::{Map, Value};
@@ -24,10 +25,13 @@ pub enum RuleId {
     SymmetricGic1,
     Uniform1,
     SymmetricGicFloor1,
+    Symmetric2,
+    SymmetricGic2,
+    SymmetricGicFloor2,
 }
 
 impl RuleId {
-    pub const ALL: [RuleId; 8] = [
+    pub const ALL: [RuleId; 11] = [
         RuleId::Historical1,
         RuleId::StoredWeights1,
         RuleId::Symmetric1,
@@ -36,6 +40,9 @@ impl RuleId {
         RuleId::SymmetricGic1,
         RuleId::Uniform1,
         RuleId::SymmetricGicFloor1,
+        RuleId::Symmetric2,
+        RuleId::SymmetricGic2,
+        RuleId::SymmetricGicFloor2,
     ];
 
     /// The rule's `name/version`.
@@ -49,6 +56,25 @@ impl RuleId {
             Self::SymmetricGic1 => "symmetric-gic/1",
             Self::Uniform1 => "uniform/1",
             Self::SymmetricGicFloor1 => "symmetric-gic-floor/1",
+            Self::Symmetric2 => "symmetric/2",
+            Self::SymmetricGic2 => "symmetric-gic/2",
+            Self::SymmetricGicFloor2 => "symmetric-gic-floor/2",
+        }
+    }
+
+    /// Which math update's counts feed the rule's base count term: a fixed
+    /// property of the version, never a parameter. `None` for a rule that
+    /// reads no base counts.
+    pub fn count_policy(self) -> Option<CountPolicy> {
+        match self {
+            Self::Historical1
+            | Self::Symmetric1
+            | Self::SymmetricGic1
+            | Self::SymmetricGicFloor1 => Some(CountPolicy::Lag1),
+            Self::Symmetric2 | Self::SymmetricGic2 | Self::SymmetricGicFloor2 => {
+                Some(CountPolicy::Lag0)
+            }
+            Self::StoredWeights1 | Self::Uniform1 | Self::GicMean1 | Self::GicGeomean1 => None,
         }
     }
 }
@@ -71,6 +97,26 @@ pub fn lookup(asked: &str) -> Result<RuleId, Refusal> {
         })
 }
 
+/// Asks for a rule by its `name/version` together with the count policy a
+/// configuration names for it, for example `symmetric-gic-floor/2` with
+/// `base-counts:lag-0`. Refused: an unknown rule (`UnknownRule`), an unknown
+/// policy name (`UnknownPolicy`), and a rule the policy is not defined for
+/// (`PolicyNotDefined`), including every rule that reads no base counts.
+pub fn resolve(rule: &str, policy: &str) -> Result<RuleId, Refusal> {
+    let id = lookup(rule)?;
+    let asked = CountPolicy::from_name(policy).ok_or_else(|| Refusal::UnknownPolicy {
+        asked: policy.to_string(),
+    })?;
+    if id.count_policy() == Some(asked) {
+        Ok(id)
+    } else {
+        Err(Refusal::PolicyNotDefined {
+            rule: id.name(),
+            policy: asked,
+        })
+    }
+}
+
 /// One parameter, as the README's tables show it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct ParamDoc {
@@ -88,6 +134,15 @@ pub struct RuleDoc {
     pub summary: &'static str,
     pub formula: &'static str,
     pub params: &'static [ParamDoc],
+}
+
+impl RuleDoc {
+    /// The rule's count policy by name, or that it reads no base counts.
+    pub fn count_policy(&self) -> &'static str {
+        self.rule
+            .count_policy()
+            .map_or("reads no base counts", CountPolicy::name)
+    }
 }
 
 const HISTORICAL_PARAMS: [ParamDoc; 8] = [
@@ -296,6 +351,24 @@ pub fn describe(rule: RuleId) -> RuleDoc {
                       W = 0 donates the weighted share to the uniform lane; drawn with stable-cdf/1",
             params: &FLOOR_PARAMS,
         },
+        RuleId::Symmetric2 => RuleDoc {
+            rule,
+            summary: "symmetric/1 on the counts of the math update being read (base-counts:lag-0), not the update before it (a candidate, not chosen).",
+            formula: "symmetric/1's formula, with A, D and P summed over the opinion groups of the update whose extremity is read",
+            params: &SYMMETRIC_PARAMS,
+        },
+        RuleId::SymmetricGic2 => RuleDoc {
+            rule,
+            summary: "symmetric-gic/1 on the counts of the math update being read (base-counts:lag-0): counts, extremity and groups from one update (a candidate, not chosen).",
+            formula: "symmetric-gic/1's formula, with A, D and P summed over the same opinion groups that give G",
+            params: &SYMMETRIC_GIC_PARAMS,
+        },
+        RuleId::SymmetricGicFloor2 => RuleDoc {
+            rule,
+            summary: "symmetric-gic-floor/1 over symmetric-gic/2's weights (base-counts:lag-0) (a candidate, not chosen).",
+            formula: "symmetric-gic-floor/1's formula, w the symmetric-gic/2 weights with unscored read as 1; drawn with stable-cdf/1",
+            params: &FLOOR_PARAMS,
+        },
     }
 }
 
@@ -327,6 +400,9 @@ pub enum ParamSet {
     SymmetricGic1(SymmetricGicParams),
     Uniform1,
     SymmetricGicFloor1(FloorParams),
+    Symmetric2(SymmetricParams),
+    SymmetricGic2(SymmetricGicParams),
+    SymmetricGicFloor2(FloorParams),
 }
 
 const SYMMETRIC_KEYS: [&str; 8] = [
@@ -481,6 +557,9 @@ impl ParamSet {
             RuleId::SymmetricGic1 => Self::SymmetricGic1(SymmetricGicParams::default()),
             RuleId::Uniform1 => Self::Uniform1,
             RuleId::SymmetricGicFloor1 => Self::SymmetricGicFloor1(FloorParams::default()),
+            RuleId::Symmetric2 => Self::Symmetric2(SymmetricParams::default()),
+            RuleId::SymmetricGic2 => Self::SymmetricGic2(SymmetricGicParams::default()),
+            RuleId::SymmetricGicFloor2 => Self::SymmetricGicFloor2(FloorParams::default()),
         }
     }
 
@@ -494,6 +573,9 @@ impl ParamSet {
             Self::SymmetricGic1(_) => RuleId::SymmetricGic1,
             Self::Uniform1 => RuleId::Uniform1,
             Self::SymmetricGicFloor1(_) => RuleId::SymmetricGicFloor1,
+            Self::Symmetric2(_) => RuleId::Symmetric2,
+            Self::SymmetricGic2(_) => RuleId::SymmetricGic2,
+            Self::SymmetricGicFloor2(_) => RuleId::SymmetricGicFloor2,
         }
     }
 
@@ -520,8 +602,9 @@ impl ParamSet {
             Self::StoredWeights1 => {
                 "{\"rule\":\"stored-weights/1\",\"params\":{},\"terms\":[]}".to_string()
             }
-            Self::Symmetric1(p) => format!(
-                "{{\"rule\":\"symmetric/1\",\"params\":{{{}}},\"terms\":[]}}",
+            Self::Symmetric1(p) | Self::Symmetric2(p) => format!(
+                "{{\"rule\":\"{}\",\"params\":{{{}}},\"terms\":[]}}",
+                self.rule().name(),
                 symmetric_plain(p)
             ),
             Self::GicMean1(p) | Self::GicGeomean1(p) => format!(
@@ -529,15 +612,17 @@ impl ParamSet {
                 self.rule().name(),
                 gic_plain(p)
             ),
-            Self::SymmetricGic1(p) => format!(
-                "{{\"rule\":\"symmetric-gic/1\",\"params\":{{{},\"consensus_form\":\"{}\",{}}},\"terms\":[]}}",
+            Self::SymmetricGic1(p) | Self::SymmetricGic2(p) => format!(
+                "{{\"rule\":\"{}\",\"params\":{{{},\"consensus_form\":\"{}\",{}}},\"terms\":[]}}",
+                self.rule().name(),
                 symmetric_plain(p.base()),
                 p.form().name(),
                 gic_plain(p.gic())
             ),
             Self::Uniform1 => "{\"rule\":\"uniform/1\",\"params\":{},\"terms\":[]}".to_string(),
-            Self::SymmetricGicFloor1(p) => format!(
-                "{{\"rule\":\"symmetric-gic-floor/1\",\"params\":{{{},\"consensus_form\":\"{}\",{},\"floor_share\":{}}},\"terms\":[]}}",
+            Self::SymmetricGicFloor1(p) | Self::SymmetricGicFloor2(p) => format!(
+                "{{\"rule\":\"{}\",\"params\":{{{},\"consensus_form\":\"{}\",{},\"floor_share\":{}}},\"terms\":[]}}",
+                self.rule().name(),
                 symmetric_plain(p.base().base()),
                 p.base().form().name(),
                 gic_plain(p.base().gic()),
@@ -611,6 +696,10 @@ impl ParamSet {
                 exact_keys(params, &SYMMETRIC_KEYS, "params")?;
                 symmetric_from(params).map(Self::Symmetric1)
             }
+            RuleId::Symmetric2 => {
+                exact_keys(params, &SYMMETRIC_KEYS, "params")?;
+                symmetric_from(params).map(Self::Symmetric2)
+            }
             RuleId::GicMean1 => {
                 exact_keys(params, &GIC_KEYS, "params")?;
                 gic_from(params).map(Self::GicMean1)
@@ -619,31 +708,36 @@ impl ParamSet {
                 exact_keys(params, &GIC_KEYS, "params")?;
                 gic_from(params).map(Self::GicGeomean1)
             }
-            RuleId::SymmetricGic1 => {
+            RuleId::SymmetricGic1 | RuleId::SymmetricGic2 => {
                 exact_keys(params, &SYMMETRIC_GIC_KEYS, "params")?;
                 let form = name_of(params, "consensus_form")?;
                 let form = ConsensusForm::from_name(form)
                     .ok_or_else(|| Refusal::Plain(format!("unknown consensus_form {form:?}")))?;
-                Ok(Self::SymmetricGic1(SymmetricGicParams::new(
-                    symmetric_from(params)?,
-                    form,
-                    gic_from(params)?,
-                )))
+                let p = SymmetricGicParams::new(symmetric_from(params)?, form, gic_from(params)?);
+                Ok(if rule == RuleId::SymmetricGic1 {
+                    Self::SymmetricGic1(p)
+                } else {
+                    Self::SymmetricGic2(p)
+                })
             }
             RuleId::Uniform1 => {
                 exact_keys(params, &[], "params")?;
                 Ok(Self::Uniform1)
             }
-            RuleId::SymmetricGicFloor1 => {
+            RuleId::SymmetricGicFloor1 | RuleId::SymmetricGicFloor2 => {
                 exact_keys(params, &FLOOR_KEYS, "params")?;
                 let form = name_of(params, "consensus_form")?;
                 let form = ConsensusForm::from_name(form)
                     .ok_or_else(|| Refusal::Plain(format!("unknown consensus_form {form:?}")))?;
                 let base =
                     SymmetricGicParams::new(symmetric_from(params)?, form, gic_from(params)?);
-                FloorParams::new(base, float_of(params, "floor_share")?)
-                    .map(Self::SymmetricGicFloor1)
-                    .map_err(Refusal::Param)
+                let p = FloorParams::new(base, float_of(params, "floor_share")?)
+                    .map_err(Refusal::Param)?;
+                Ok(if rule == RuleId::SymmetricGicFloor1 {
+                    Self::SymmetricGicFloor1(p)
+                } else {
+                    Self::SymmetricGicFloor2(p)
+                })
             }
         }
     }
