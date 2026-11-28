@@ -1025,6 +1025,11 @@ fn builders_are_own_threads_and_requests_only_try_send() {
 /// A panic in the first place would leave the conversation in flight for
 /// good, never built again; a panic in the second happens while unwinding
 /// and aborts the process.
+///
+/// It matches text: it sees `clock.` written in those two places, not a
+/// clock read reached through a helper, an alias or `Clock::now(..)`, and
+/// not any other call that could panic there. Keep `turn` and the drop
+/// free of calls between the two points, not only of the word.
 #[test]
 fn nothing_reads_the_clock_around_the_in_flight_mark() {
     let text = include_str!("builder.rs");
