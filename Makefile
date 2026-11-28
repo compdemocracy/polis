@@ -384,6 +384,10 @@ check-polis-topic-names: ## Run the topic namer's checks (offline, no model call
 check-polis-routing-equation: ## Run the routing equation crate's checks
 	@bash ci/local/polis-routing-equation.sh
 
+.PHONY: check-polis-routing-plan
+check-polis-routing-plan: ## Run the routing plan crate's checks (the frames adapter)
+	@bash ci/local/polis-routing-plan.sh
+
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks
 	@bash ci/local/job-graphs.sh
