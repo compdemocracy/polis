@@ -1888,6 +1888,41 @@ selected writer refuses to start. `POLIS_API_WRITER_PRIORITIES_CACHE_BYTES`
 bounds the writer's priorities cache (default 256 MiB) for a process with a
 smaller memory limit.
 
+### Today's draw, made again by the routing library (opt-in)
+
+`POLIS_API_ROUTING_COMPARE_CONVERSATIONS` lists 1 to 51 conversation codes
+(letters and digits, 1 to 64 each, separated by commas or white space; a
+repeat is dropped), as the Delphi shadow's benchmark list does. Unset or empty
+is off; any other value stops the shadow role at startup, naming the key and
+an entry's position, never its text. It is read only by the shadow role, with
+`POLIS_API_POST_VOTES=observe`; the main role never reads it, and Compose pins
+it empty on `polis-api` and `polis-api-shadow-reads`. Nothing sets it in this
+release.
+
+For a copy whose own conversation code is on the list (exact match, no
+lookup), straight after the observed selection, the typed routing library's
+rule `stored-weights/1` draws again on the same weights, the same candidates
+in the same order and the same unit, and the two choices are compared. It adds
+no statement, connection or pool: it runs one at a time off the runtime
+threads, the copy waits at most 100 ms for it (a draw that runs longer ends
+by itself, and no other starts until it has), it sheds itself first (one
+already running, more than 20,000 candidates), and it keeps nothing but
+counters. A copy of a conversation
+not on the list has nothing computed, and its line is the line with the key
+unset.
+
+A compared copy's `shadow_observation` line gains eight keys after every other
+key: `routing_rule` (`stored-weights/1`), `routing_compare` (`compared`,
+`refused`, `no_selection`, `too_many_candidates`, `shed` or `timed_out`),
+`routing_generation` (`same` where the library ran: both sides drew from one
+generation), `agrees_with_today` (true or false when compared),
+`routing_refusal` (the library's refusal by name), `routing_p_band` (the
+library pick's probability, in decades), `routing_candidates_band` and
+`routing_config` (16 hex: a digest of the rule and the sorted list). No
+participant, comment id, vote, unit, weight or candidate list is written.
+`/health` gains `routingCompare` (the rule, the list's size, the digest and
+the counts) only when the key is set.
+
 ### Identity, observed on a copy of a vote (opt-in)
 
 `POLIS_API_POST_VOTES_IDENTITY=observe` adds identity observation to the vote

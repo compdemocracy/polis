@@ -376,6 +376,7 @@ pub(crate) fn configure(
                 identity::limits(),
             ))));
         }
+        observer.compare = observe::compare_from_env()?;
         return Ok(Configured::Observe(observer));
     }
     let first_contact = if first_contact {
@@ -998,6 +999,10 @@ pub(super) struct Selection {
     pub(super) next_tid: Option<i32>,
     pub(super) remaining: Option<i64>,
     pub(super) total: Option<i64>,
+    /// The routing comparison asks for the weights (shadow only).
+    pub(super) compare: bool,
+    /// The weights the draw used, when `compare` asked for them.
+    pub(super) weights: Option<observe::compare::DrawWeights>,
 }
 
 impl Selection {
@@ -1072,6 +1077,9 @@ fn next_selecting(
     if let Some(observed) = observed.as_deref_mut() {
         observed.candidates.clone_from(&tids);
         observed.weights_tick = weights_tick;
+        if observed.compare {
+            observed.weights = Some(observe::compare::DrawWeights(weights.clone()));
+        }
     }
     if tids.is_empty() {
         return Ok(None);

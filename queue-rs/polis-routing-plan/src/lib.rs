@@ -54,3 +54,10 @@ pub use projection::{FrameCounts, FrameNeeds, Frames, Projection};
 pub use refusal::{Key, SourceRefusal};
 pub use reserve::{REVIEWED_RUSTC, ordered_maps_charge, std_bounds_reviewed};
 pub use scan::Tally;
+// What the vote shadow's routing comparison draws with: today's rule,
+// `stored-weights/1`, and its inputs. polis-api reaches the equation crate
+// only through this crate.
+pub use polis_routing_equation::{
+    Candidates, CommentId, DrawRefusal, Drawn, ParamSet, SourceId, StoredWeight, StoredWeights,
+    Unit, stored_weights_1,
+};

@@ -996,10 +996,25 @@ async fn observation_line_carries_only_allowed_keys() {
                 .is_some_and(|e| e.starts_with("shadow_"));
         assert!(marked, "an unmarked shadow line: {line}");
         if value["message"] == "shadow_observation" {
+            // The lines are every test's in this process: a copy of a
+            // conversation the routing comparison lists (its database tests)
+            // has the routing keys, and only them, after these.
+            let routing = &observe::compare::ROUTING_KEYS;
+            let listed = object.contains_key(routing[0]);
+            let mut value = value.clone();
+            if listed {
+                for key in routing {
+                    value.as_object_mut().unwrap().remove(*key);
+                }
+            }
             assert_line_shape(&value);
+            let mut expected = LINE_KEYS.to_vec();
+            if listed {
+                expected.extend_from_slice(routing);
+            }
             assert_eq!(
                 printed_keys(line),
-                LINE_KEYS,
+                expected,
                 "observation keys in their order"
             );
             assert!(
@@ -1188,6 +1203,10 @@ async fn main_role_hands_back_without_writer() {
 // --------------------------------------------------------------- database
 
 #[cfg(feature = "db-tests")]
+#[path = "post_votes_compare_db_tests.rs"]
+mod compare_db;
+
+#[cfg(feature = "db-tests")]
 mod database_tests {
     use super::*;
     use postgres::error::SqlState;
@@ -1195,24 +1214,24 @@ mod database_tests {
     // The synchronous PostgreSQL client starts its own runtime, so fixtures
     // and digests run on this thread (outside the test's runtime) or on a
     // blocking thread, never on the runtime's own threads.
-    fn runtime() -> tokio::runtime::Runtime {
+    pub(super) fn runtime() -> tokio::runtime::Runtime {
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
     }
 
-    async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
+    pub(super) async fn blocking<T: Send + 'static>(f: impl FnOnce() -> T + Send + 'static) -> T {
         tokio::task::spawn_blocking(f).await.unwrap()
     }
 
-    fn connector(db: &Database) -> impl Fn() -> Connector + '_ {
+    pub(super) fn connector(db: &Database) -> impl Fn() -> Connector + '_ {
         || Connector::Plain(Box::new(db.config.clone()))
     }
 
     /// One conversation, a participant with prior votes and math priorities,
     /// a closed conversation, and statements of every moderation state.
-    fn fixture(label: &str) -> Database {
+    pub(super) fn fixture(label: &str) -> Database {
         let db = Database::new(label);
         let mut c = db.connect();
         c.batch_execute(
@@ -1244,7 +1263,7 @@ mod database_tests {
         db
     }
 
-    fn field(tid: i32, choice: VoteChoice) -> ParsedFields {
+    pub(super) fn field(tid: i32, choice: VoteChoice) -> ParsedFields {
         ParsedFields {
             tid: f64::from(tid),
             vote: choice,
@@ -1283,7 +1302,7 @@ mod database_tests {
         .await;
     }
 
-    fn observer_for(db: &Database, keys: &Signing) -> Observer {
+    pub(super) fn observer_for(db: &Database, keys: &Signing) -> Observer {
         let mut observer = observer_on(connector(db), &keys.public);
         observer.timing = observe::ReadbackTiming {
             first: Duration::from_millis(50),

@@ -138,6 +138,8 @@ pub(crate) struct Record {
     /// In process only, never printed: the member (zid, pid), the statement
     /// and the vote, for the readback and the membership memo.
     pub(crate) readback: Option<((i32, i32), i32, crate::votes::VoteChoice)>,
+    /// The routing comparison, for a copy of a listed conversation only.
+    pub(crate) routing: Option<post_votes::observe::compare::Routing>,
 }
 
 tokio::task_local! {
@@ -263,6 +265,9 @@ struct Line<'a> {
     /// observed by this process, and the line is the vote observer's alone.
     /// Some(None): observed, and this copy is not an identity copy.
     identity: Option<Option<post_votes::identity::Observed>>,
+    /// The routing keys, after every key above, the identity keys included.
+    /// None: not compared, and the line has none of them.
+    routing: Option<post_votes::observe::compare::Routing>,
 }
 
 fn ms(duration: Option<Duration>) -> Js {
@@ -318,11 +323,17 @@ impl Line<'_> {
                     .into(),
             ),
         );
-        let Some(observed) = &self.identity else {
-            return print(js::stringify(&Js::Obj(line)));
-        };
-        post_votes::identity::print_keys(&mut line, observed.as_ref());
-        print_with_identity(js::stringify(&Js::Obj(line)));
+        if let Some(observed) = &self.identity {
+            post_votes::identity::print_keys(&mut line, observed.as_ref());
+        }
+        if let Some(routing) = &self.routing {
+            routing.print_keys(&mut line);
+        }
+        if self.identity.is_some() {
+            print_with_identity(js::stringify(&Js::Obj(line)));
+        } else {
+            print(js::stringify(&Js::Obj(line)));
+        }
     }
 }
 
@@ -645,6 +656,7 @@ async fn observe(
         prev,
         node_vote: Some(node_vote),
         identity,
+        routing: taken.routing,
     }
     .print(&app);
 }
@@ -742,6 +754,10 @@ pub(crate) async fn health(app: &App, lane: &Lane) -> Outgoing {
     if let Some(identity) = observer.and_then(|observer| observer.identity.as_deref()) {
         let reachable = identity.ping().await;
         body.set("postVotesIdentity", identity.health(reachable));
+    }
+    // The routing comparison, only when its key lists conversations.
+    if let Some(compare) = observer.and_then(|observer| observer.compare.as_deref()) {
+        body.set("routingCompare", compare.health());
     }
     if let Some(observer) = comment_observer {
         body.set(
@@ -915,6 +931,15 @@ pub(crate) async fn run() -> Result<()> {
         install_panic_hook();
         listening.push(("post_votes_identity", Js::Str("observe".into())));
         identity.report_logging_settings().await;
+    }
+    if app
+        .post_votes_observe
+        .as_ref()
+        .is_some_and(|observer| observer.compare.is_some())
+    {
+        // The routing comparison's draw runs over comment ids: a panic there
+        // prints where it happened, never what it said.
+        install_panic_hook();
     }
     if app.read_lanes.built().next().is_some() {
         // A process that holds query strings prints no panic message.
