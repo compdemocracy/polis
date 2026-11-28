@@ -996,10 +996,25 @@ async fn observation_line_carries_only_allowed_keys() {
                 .is_some_and(|e| e.starts_with("shadow_"));
         assert!(marked, "an unmarked shadow line: {line}");
         if value["message"] == "shadow_observation" {
+            // The lines are every test's in this process: a copy of a
+            // conversation the routing comparison lists (its database tests)
+            // has the routing keys, and only them, after these.
+            let routing = &observe::compare::ROUTING_KEYS;
+            let listed = object.contains_key(routing[0]);
+            let mut value = value.clone();
+            if listed {
+                for key in routing {
+                    value.as_object_mut().unwrap().remove(*key);
+                }
+            }
             assert_line_shape(&value);
+            let mut expected = LINE_KEYS.to_vec();
+            if listed {
+                expected.extend_from_slice(routing);
+            }
             assert_eq!(
                 printed_keys(line),
-                LINE_KEYS,
+                expected,
                 "observation keys in their order"
             );
             assert!(
