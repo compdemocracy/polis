@@ -356,6 +356,24 @@ impl RoutingPlanCache {
         Ok(token.map(|token| self.reserved(token)))
     }
 
+    /// A staged build's first reservation, before anything is read: the
+    /// receive buffer for a source of at most `len` bytes, and nothing else
+    /// (the later steps grow this same reservation, `Reserved::grow`, once
+    /// the source is measured). Builder side, like `admit_build`: it takes
+    /// the lock with `lock()`. `Ok(None)`: refused at once (over
+    /// `limits.max_bytes`, over one share, or the budget is full).
+    pub(crate) fn admit_read(
+        self: &Arc<Self>,
+        len: u64,
+        limits: &SourceLimits,
+    ) -> Result<Option<Reserved>, Poisoned> {
+        if len > limits.max_bytes {
+            return Ok(None);
+        }
+        let token = self.locked()?.core.try_reserve(len);
+        Ok(token.map(|token| self.reserved(token)))
+    }
+
     /// Whether the cache holds a fence for `(zid, env)`. A builder reads it
     /// only after taking its build's reservation.
     pub(crate) fn fenced(&self, zid: i32, env: &str) -> Result<bool, Poisoned> {

@@ -2437,18 +2437,30 @@ setting is read.
   every column is named, so the statement is the same on a `jsonb` column and
   on a `json` one, in any column order. Read only; it reads no vote (the
   group counts are the math engine's).
-- **Reserve, then read, then publish with the same reservation.** A build is
-  admitted (receive buffer, parse charge, the plan crate's build allowance)
-  before anything is read; the fence is read after that; an unfenced
-  conversation is read from the primary, never a replica; the plan is
-  published with the admission's reservation cut down to the plan's charge.
-  Admission refused: reclaim, evict one plan, try once more. A full fence
-  table: evict one plan, publish once more. Each rule has its own byte
-  bound, the largest whose admission fits one conversation's share of the
-  default budget (64 MiB): 2 MiB for stored weights and uniform (an
-  admission of 63.5 MB), 54 KiB for the floor, whose build allowance at the
-  densest encoding is about 290 times the length. A longer projection is
-  `Oversized` (only its length is read) and keeps today's draw.
+- **Reserve before each step, on one reservation.** A build first reserves
+  only its receive buffer (the rule's byte bound) before anything is read;
+  the connection's own charge covers the largest byte bound of any rule.
+  The fence is read after that; an unfenced conversation is read from the
+  primary, never a replica. Then, on that same reservation, grown or cut
+  down in place and never released and taken again (so a build that began
+  before a fence was forgotten is still refused at publication): cut down to
+  the bytes received; an allocation-free measuring pass; grown by the
+  measured parse charge, and the parse; the plan's key taken and the buffer
+  dropped; resized to what the projection holds and the frames stage, and
+  the frames; the projection dropped; resized to the build stage from the
+  frames' real counts, and the build; cut down to the plan's charge, its
+  slot and its fence; published. A refused grow (after reclaiming and
+  evicting one plan, once) drops what is held, releases the reservation and
+  records the failure before any content key, so the conversation backs off
+  and is not read again at once. A full fence table: evict one plan, publish
+  once more. Each rule's byte bound is 8 MiB, an eighth of one
+  conversation's share of the default budget (64 MiB), so the read holds at
+  most the buffer and the connection's charge (about a quarter of a share)
+  before measuring. At the constructed 40,000-comment witness (7.5 MB, five
+  groups) the largest stage is the floor's build stage, about 38.9 MB; the
+  stored weights' is the parse, about 15.3 MB. A longer projection is
+  `Oversized` (only its length is read) and keeps today's draw, as does a
+  source whose own stage does not fit.
 - **Its own thread and its own connection.** The loader runs on one OS
   thread of its own and holds at most one connection, opened by its own
   connector, read only, with a 5 s statement timeout and bounded setup and
