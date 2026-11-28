@@ -994,6 +994,7 @@ dependencies = [
  "polis-auth",
  "polis-migrate",
  "polis-queue-adapter",
+ "polis-routing-plan",
  "polis-topic-map",
  "postgres",
  "rand",
@@ -1060,6 +1061,16 @@ version = "0.1.0"
 dependencies = [
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "polis-routing-plan"
+version = "0.1.0"
+dependencies = [
+ "polis-routing-equation",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
 ]
 
 [[package]]

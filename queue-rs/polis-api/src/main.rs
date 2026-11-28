@@ -108,6 +108,9 @@ mod report_export;
 mod reports_read;
 mod robots;
 mod route;
+// Dormant: nothing calls the routing plan cache until its switch is built.
+#[allow(dead_code)]
+mod routing_plan;
 mod shadow;
 mod shutdown;
 mod startup_routes;

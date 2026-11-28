@@ -2345,3 +2345,131 @@ The moderation route requires `limit` and `mod`. Missing `limit` hands back
 before any read because Node returns an unbounded array; missing `mod` hands
 back because this route serves one moderation state per request. Omitted
 `offset` defaults to zero. The replay lists both omission differences.
+
+## Comment routing plans: the cache's wrapper (dormant)
+
+`src/routing_plan/cache.rs`. The plan cache itself is a pure state machine in
+`polis-routing-plan` (its README, "The plan cache"); this is the process state
+it leaves to its caller. Nothing in polis-api constructs or calls it: no
+route, handler, startup step, pool or thread, and no setting is read. The
+routes are byte for byte what they were; the module is compiled and its tests
+run, nothing more.
+
+- **One lock, which a request never waits on.** One `Mutex` around the one
+  cache per process. A lookup takes it with `try_lock` only: held, the lookup
+  misses `lock_busy`; poisoned, `lock_poisoned`; never a wait, never a panic.
+  Under the lock it reads the clock and calls the core's lookup, which
+  allocates and frees nothing (a hit clones one `Arc`), and it releases the
+  lock before any draw. A request's reservation (`try_reserve`) is the same:
+  a held lock takes nothing. The builder side (`publish`, `evict_lru`,
+  `clear`, `set_config`, `record_failure`, `reclaim`) takes the lock as
+  briefly as the core allows; every request that meets it misses
+  `lock_busy`, so each is measured (`builder_side_calls_hold_the_lock_briefly`
+  prints them).
+- **A reservation returns its bytes to its one cache.** `Reserved` holds the
+  cache it came from and gives its bytes back there when it is dropped, on
+  every path including unwinding. It never waits: with the lock held it hands
+  the core's token to a bounded channel that the next builder-side call
+  drains (charged for the cache's life); if that channel is full the bytes
+  stay charged and are counted (`returns_lost`), an over-charge, never an
+  under-charge. Publishing, cutting down (`shrink`) and growing (`grow`),
+  both of which keep when the reservation was taken, are methods of the
+  reservation, so no call can send one cache's bytes to another, and the
+  core's token is never handed out.
+- **Growing a reservation is builder side only.** `Reserved::grow(to)` grows
+  a build's one reservation to a later stage's bound in its own cache,
+  keeping when it was taken, so a build is still dated from its first
+  reservation (never one released and taken again). It takes the lock with
+  `lock()` on the builder's own thread, as `shrink` and `publish` do, and
+  first drains the return channel. `Ok(true)` is grown; `Ok(false)` is
+  refused at once and unchanged (over one share, does not fit the budget, or
+  less than it holds), and the builder then drops it so its bytes go back.
+  While a grow holds the lock, a request's lookup misses `lock_busy` and
+  serves today's draw, the same brief window `shrink` and `publish` already
+  make; nothing on a request waits. The time under the lock is constant: the
+  drain is at most `RETURN_SLOTS` releases and the core's `grow` is two
+  comparisons and one checked addition, with nothing proportional to the
+  plans, fences or failures the cache holds. No route and no
+  participation-path handler calls it (`grow_is_builder_side_only`).
+- **The budget is read once.** `POLIS_API_ROUTING_PLAN_CACHE_BYTES`, read by
+  `cache_bytes_from_env` when the cache is made: absent or empty is 256 MiB
+  (the most accepted); otherwise a whole number of bytes from 1 MiB to
+  256 MiB, and anything else is a startup error.
+- **The configuration digest covers the rule and its parameters.**
+  `Settings::digest` is the SHA-256 of a canonical encoding of the mode, the
+  rule's canonical text with every parameter, its count policy, the
+  conversation allowlist (as a set) and every setting a plan depends on, so
+  two rules, or two parameter sets of one rule, never share a digest, and a
+  plan built under one is never served under the other.
+- **The clock** is `Instant`, from one origin taken when the cache is made,
+  read after the lock is taken; never the wall clock. The backoff's jitter is
+  drawn before the lock.
+- **Shutdown** (`shutdown`, after the caller has drained its requests and
+  observers) stops lookups, disables the configuration and destroys every plan
+  nothing borrows; a borrowed plan is destroyed by a later `reclaim`.
+- **A cache, nothing more.** Everything is in memory. Losing it at any moment
+  loses plans that are rebuilt from the stored math result; every lookup then
+  misses and the caller serves today's draw.
+
+Tests: `cargo test -p polis-api routing_plan` (the lock, the reservation,
+the budget, the digest, the lock hold, shutdown) and
+`cargo test -p polis-api --test routing_plan_cache_allocation`, which compiles
+the module on its own under a counting allocator: nothing is allocated or
+freed between taking and releasing the lock on any lookup outcome, and the
+wrapper's charge covers what it holds.
+
+## Comment routing plans: the source loader (dormant)
+
+`src/routing_plan/load.rs` reads one conversation's stored math result and
+turns it into a plan in the cache above. Nothing calls it: no route, no
+startup step, no thread is started and no connection is opened, and no
+setting is read.
+
+- **One statement.** `SOURCE_STATEMENT` reads, from the conversation's
+  current `math_main` row, the `math_env`, `math_tick` and
+  `last_vote_timestamp` columns, the database's `now()`, and a projection of
+  the stored result: its own values under `group-votes`,
+  `pca.comment-extremity`, `tids`, `meta-tids`, `comment-priorities`,
+  `group-clusters` and `base-clusters`, nothing derived. One statement is one
+  snapshot, so the row's identity and its content cannot come from two math
+  updates. The projection's length is checked in the statement: past the
+  loader's bound only the length is sent. Every value is cast to `json` and
+  every column is named, so the statement is the same on a `jsonb` column and
+  on a `json` one, in any column order. Read only; it reads no vote (the
+  group counts are the math engine's).
+- **Reserve before each step, on one reservation.** A build first reserves
+  only its receive buffer (the rule's byte bound) before anything is read;
+  the connection's own charge covers the largest byte bound of any rule.
+  The fence is read after that; an unfenced conversation is read from the
+  primary, never a replica. Then, on that same reservation, grown or cut
+  down in place and never released and taken again (so a build that began
+  before a fence was forgotten is still refused at publication): cut down to
+  the bytes received; an allocation-free measuring pass; grown by the
+  measured parse charge, and the parse; the plan's key taken and the buffer
+  dropped; resized to what the projection holds and the frames stage, and
+  the frames; the projection dropped; resized to the build stage from the
+  frames' real counts, and the build; cut down to the plan's charge, its
+  slot and its fence; published. A refused grow (after reclaiming and
+  evicting one plan, once) drops what is held, releases the reservation and
+  records the failure before any content key, so the conversation backs off
+  and is not read again at once. A full fence table: evict one plan, publish
+  once more. Each rule's byte bound is 8 MiB, an eighth of one
+  conversation's share of the default budget (64 MiB), so the read holds at
+  most the buffer and the connection's charge (about a quarter of a share)
+  before measuring. At the constructed 40,000-comment witness (7.5 MB, five
+  groups) the largest stage is the floor's build stage, about 38.9 MB; the
+  stored weights' is the parse, about 15.3 MB. A longer projection is
+  `Oversized` (only its length is read) and keeps today's draw, as does a
+  source whose own stage does not fit.
+- **Its own thread and its own connection.** The loader runs on one OS
+  thread of its own and holds at most one connection, opened by its own
+  connector, read only, with a 5 s statement timeout and bounded setup and
+  I/O; it shares no pool with votes, comments or the next comment. A failure
+  drops the connection and is remembered by the cache's negative cache, so
+  a load is never retried in a loop.
+- **Closed outcomes.** Every load ends in one `Outcome`; none carries a
+  comment id, a participant, comment text or a vote.
+
+The database tests (`--features db-tests`) build their own `math_main` in a
+schema of their own in both shapes, `jsonb` in the migrations' column order
+and `json` in an older one.
