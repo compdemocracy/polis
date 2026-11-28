@@ -109,6 +109,12 @@ fn called() -> u64 {
     compare::CALLED.with(std::cell::Cell::get)
 }
 
+/// The selections' weights dropped on this thread so far: a copy whose
+/// selection carried them drops them here.
+fn weights_dropped() -> u64 {
+    compare::WEIGHTS_DROPPED.with(std::cell::Cell::get)
+}
+
 async fn send(app: &Arc<App>, lane: &Arc<shadow::Lane>, body: &Value, token: &str) -> String {
     let id = request_id();
     let out = shadow::accept(app.clone(), lane.clone(), copy(body, Some(token), &id)).await;
@@ -218,6 +224,7 @@ fn compare_off_calls_nothing_witnessed() {
             .await;
             let holders = Arc::strong_count(&weights);
             let before = called();
+            let dropped = weights_dropped();
             let mut lines = vec![];
             for body in &bodies[1..] {
                 lines.push(send(&app, &lane, body, &member).await);
@@ -234,6 +241,7 @@ fn compare_off_calls_nothing_witnessed() {
                 }
             } else {
                 assert_eq!(called(), before, "off called the comparison");
+                assert_eq!(weights_dropped(), dropped, "off carried the weights");
                 for line in &lines {
                     assert_eq!(printed_keys(line), unlisted_keys(), "{line}");
                 }
@@ -253,12 +261,18 @@ fn compare_unlisted_writes_nothing_computes_nothing() {
     let off = lines_of(&db, &keys, None, &bodies);
     let app = app_with(&db, &keys, Some("2example00,3example01"));
     let member = token(&keys, "2fixture");
+    let dropped = weights_dropped();
     let unlisted = runtime().block_on(async {
         let lane = shadow::Lane::new(1000);
         let mut lines = vec![];
         for body in &bodies {
             lines.push(send(&app, &lane, body, &member).await);
         }
+        assert_eq!(
+            weights_dropped(),
+            dropped,
+            "an unlisted copy's selection carried the weights"
+        );
         let health = body_of(shadow::health(&app, &lane).await);
         let counts = &health["routingCompare"];
         for key in [
@@ -288,8 +302,11 @@ fn compare_unlisted_writes_nothing_computes_nothing() {
     for ask in [false, true] {
         let mut selection = Selection::new(2);
         selection.compare = ask;
+        let dropped = weights_dropped();
         next_selecting(&mut c, &actor(), "test", 0.5, None, Some(&mut selection)).unwrap();
         assert_eq!(selection.weights.is_some(), ask, "compare={ask}");
+        drop(selection);
+        assert_eq!(weights_dropped() - dropped, u64::from(ask), "compare={ask}");
     }
 }
 

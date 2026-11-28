@@ -39,6 +39,15 @@ const SOURCE: &str = "math_main comment-priorities, read by the vote shadow";
 /// the comparison. Never printed: its `Debug` names the type only.
 pub(crate) struct DrawWeights(pub(in crate::post_votes) Arc<writer_priorities::Weights>);
 
+/// Tests: a `DrawWeights` dropped on this thread, so a test can see that a
+/// selection carried the weights at all.
+#[cfg(test)]
+impl Drop for DrawWeights {
+    fn drop(&mut self) {
+        WEIGHTS_DROPPED.with(|n| n.set(n.get() + 1));
+    }
+}
+
 impl std::fmt::Debug for DrawWeights {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str("DrawWeights(..)")
@@ -77,6 +86,8 @@ thread_local! {
     /// Tests: the comparison's entry points (`lists`, `run`) called on this
     /// thread, by any comparison.
     pub(crate) static CALLED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+    /// Tests: the `DrawWeights` dropped on this thread.
+    pub(crate) static WEIGHTS_DROPPED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
 }
 
 /// The key as the process environment holds it. Absent or empty: off.
