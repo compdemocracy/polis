@@ -1,7 +1,7 @@
 //! The scheduler's decisions, as pure functions: whether to pause, which
 //! conversation is next, and what its admission says.
 use super::{
-    config::{Config, SCOPE, Share},
+    config::{Config, NAMING_ATTEMPTS, SCOPE, Share},
     db::{Admission, CommentSet, Live, RuleRun, Signals},
     state::State,
     storage::Ledger,
@@ -644,16 +644,37 @@ impl NamingRoom {
     }
 }
 
-/// The day's spend so far (`spent`), plus the next run's bound, against the
-/// limit, all in millionths of a US dollar: admitted when the sum is at most
-/// the limit, so the day's requests never cost more than the limit except
-/// for one request sent twice (a box lost while it was out).
+/// The day's spend so far (`spent`), plus the next run's bound once for each
+/// attempt the queue gives it ([`NAMING_ATTEMPTS`]), against the limit, all
+/// in millionths of a US dollar: admitted when the sum is at most the limit.
+/// Each attempt that reaches the naming step may send one request, and the
+/// scheduler admits no other named run until this one has ended, so the
+/// counted spend of a UTC day never passes the limit (with one scheduler).
 pub fn naming_room(spent: i64, bound: i64, limit: Option<i64>) -> NamingRoom {
     match limit {
         None => NamingRoom::NoLimit,
-        Some(limit) if spent.saturating_add(bound) > limit => NamingRoom::Spent,
+        Some(limit) if spent.saturating_add(naming_reserve(bound)) > limit => NamingRoom::Spent,
         Some(_) => NamingRoom::Room,
     }
+}
+
+/// What a named run's admission reserves of the day's limit: its bound for
+/// each of the queue's attempts.
+pub fn naming_reserve(bound: i64) -> i64 {
+    bound.saturating_mul(NAMING_ATTEMPTS)
+}
+
+/// The admission of the `asks`-th earlier ask's successor of the same
+/// source: the first ask (`asks` 0) keeps its key; a source asked again
+/// after earlier named runs that all kept keyword names (on a later UTC day,
+/// `db::naming_sources`) gets the key `<first key>:<asks + 1>`, so the queue
+/// makes a new job rather than answering `existing`, and a restart that asks
+/// again the same day, reading the same history, gets the same key back.
+pub fn asked_again(mut admission: Admission, asks: i64) -> Admission {
+    if asks > 0 {
+        admission.key = format!("{}:{}", admission.key, asks + 1);
+    }
+    admission
 }
 
 /// The admission of a run that names the topics of `source`, a finished
@@ -1720,33 +1741,66 @@ mod naming_room_tests {
     fn a_run_is_admitted_up_to_exactly_the_limit_and_not_past_it() {
         let limit = Some(5_000_000);
         let bound = 550_000;
+        // Room for three attempts at 0.55: 1.65.
+        assert_eq!(naming_reserve(bound), 1_650_000);
         assert_eq!(
-            naming_room(4_449_999, bound, limit),
+            naming_room(3_349_999, bound, limit),
             NamingRoom::Room,
             "just under"
         );
         assert_eq!(
-            naming_room(4_450_000, bound, limit),
+            naming_room(3_350_000, bound, limit),
             NamingRoom::Room,
             "exactly at"
         );
         assert_eq!(
-            naming_room(4_450_001, bound, limit),
+            naming_room(3_350_001, bound, limit),
             NamingRoom::Spent,
             "just over"
         );
-        assert_eq!(naming_room(0, 5_000_001, limit), NamingRoom::Spent);
+        assert_eq!(naming_room(0, 1_666_667, limit), NamingRoom::Spent);
         assert_eq!(naming_room(0, bound, None), NamingRoom::NoLimit);
         assert_eq!(naming_room(i64::MAX, bound, limit), NamingRoom::Spent);
-        // Nine runs at the proposed bound fit in the proposed limit; a tenth
-        // does not.
+        assert_eq!(naming_room(0, i64::MAX, limit), NamingRoom::Spent);
+        // The worst day: every run takes all three of its attempts, each
+        // sending its one request. Three runs at the proposed bound fit in
+        // the proposed limit; a fourth does not; the day's count stays
+        // within the limit.
         let mut spent = 0;
         let mut admitted = 0;
+        while naming_room(spent, bound, limit) == NamingRoom::Room {
+            spent += NAMING_ATTEMPTS * bound;
+            admitted += 1;
+        }
+        assert_eq!((admitted, spent), (3, 4_950_000));
+        assert!(spent <= 5_000_000);
+        // The best day: each run sends once, and the room for three
+        // attempts still holds: seven are admitted.
+        let (mut spent, mut admitted) = (0, 0);
         while naming_room(spent, bound, limit) == NamingRoom::Room {
             spent += bound;
             admitted += 1;
         }
-        assert_eq!((admitted, spent), (9, 4_950_000));
+        assert_eq!((admitted, spent), (7, 3_850_000));
+    }
+
+    #[test]
+    fn a_source_asked_again_gets_a_key_of_its_own() {
+        let source = "6f0c6a51-8d2b-4b7e-9a51-2f6c1d3e4b5a";
+        let config = json!({"selection": SELECTION, "shadow": {
+            "comment_set_sha256": "a".repeat(64), "comments": 30,
+            "selection_sha256": "b".repeat(64), "selected": 30, "size_class": "small"}});
+        let first = names_admission(7, source, &config, &shadow_naming()).unwrap();
+        let key = first.key.clone();
+        assert_eq!(asked_again(first.clone(), 0).key, key);
+        assert_eq!(asked_again(first.clone(), 1).key, format!("{key}:2"));
+        let again = asked_again(first.clone(), 2);
+        assert_eq!(again.key, format!("{key}:3"));
+        assert!(again.key.len() <= 128, "{}", again.key.len());
+        assert_eq!(
+            (again.config, again.request_sha, again.scope),
+            (first.config, first.request_sha, first.scope)
+        );
     }
 
     #[test]

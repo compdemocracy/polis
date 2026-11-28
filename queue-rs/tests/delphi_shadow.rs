@@ -1283,6 +1283,76 @@ fn attempt_now(f: &Fixture, job: &str, epoch: i64) {
     tx.commit().unwrap();
 }
 
+/// One attempt of the job started at `started`, an SQL expression over `d`,
+/// the start of the current UTC day by the database's clock.
+fn attempt_started(f: &Fixture, job: &str, epoch: i64, started: &str) {
+    let mut c = f.superuser();
+    let mut tx = c.transaction().unwrap();
+    tx.batch_execute("SET LOCAL session_replication_role = replica")
+        .unwrap();
+    tx.execute(
+        &format!(
+            "INSERT INTO polis_queue_attempts(env,attempt_id,job_id,owner_id,lease_epoch,outcome,started_at) \
+             SELECT $1,$2,$3::text::uuid,$4,$5,'dead',{started} \
+             FROM (SELECT date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') \
+                          AT TIME ZONE 'UTC' AS start) d"
+        ),
+        &[&ENV, &Uuid::new_v4(), &job, &Uuid::new_v4(), &epoch],
+    )
+    .unwrap();
+    tx.commit().unwrap();
+}
+
+/// A constructed succeeded named run of `source`, admitted today or (with
+/// `yesterday`) an hour before today's UTC start, with one attempt and the
+/// finalized output manifest that attempt wrote, whose topic model is
+/// `topic` (`keywords` for a run that kept its keyword names).
+fn named_outcome(f: &Fixture, zid: i32, source: &str, digest: &str, topic: &str, yesterday: bool) {
+    let job = Uuid::new_v4();
+    let attempt = Uuid::new_v4();
+    let config = serde_json::json!({
+        "selection": plan::SELECTION, "names_of": source,
+        "result_scope": plan::names_scope(&namer()),
+        "shadow": {"namer": namer(), "selection_sha256": digest,
+                   "comment_set_sha256": format!("{digest}-set"), "comments": 3,
+                   "names_of": source, "price_bound_micro_usd": 500_000}});
+    let manifest = serde_json::json!({
+        "schema": "polis-jobs.output-manifest/2",
+        "models": {"embed": "fixture-embed", "topic": topic, "narrative": null}})
+    .to_string();
+    let when = if yesterday {
+        "date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' - interval '1 hour'"
+    } else {
+        "clock_timestamp()"
+    };
+    let mut c = f.superuser();
+    let mut tx = c.transaction().unwrap();
+    tx.batch_execute("SET LOCAL session_replication_role = replica")
+        .unwrap();
+    tx.execute(
+        &format!(
+            "INSERT INTO delphi_jobs(job_id,env,zid,kind,origin,status,config_effective,created_at,output_manifest_digest) \
+             VALUES($1,$2,$3,'full_pipeline','queued','succeeded',$4,{when},sha256(convert_to($5::text,'UTF8')))"
+        ),
+        &[&job, &ENV, &zid, &config, &manifest],
+    )
+    .unwrap();
+    tx.execute(
+        &format!(
+            "INSERT INTO polis_queue_attempts(env,attempt_id,job_id,owner_id,lease_epoch,outcome,started_at) \
+             VALUES($1,$2,$3,$4,1,'succeeded',{when})"
+        ),
+        &[&ENV, &attempt, &job, &Uuid::new_v4()],
+    )
+    .unwrap();
+    tx.execute(
+        "INSERT INTO polis_queue_logs(env,attempt_id,seq,stream,line) VALUES($1,$2,0,'manifest',$3)",
+        &[&ENV, &attempt, &manifest],
+    )
+    .unwrap();
+    tx.commit().unwrap();
+}
+
 /// The named runs of the shadow env, oldest first: (zid, job, config).
 fn named_jobs(f: &Fixture) -> Vec<(i32, String, Value)> {
     f.jobs()
@@ -1432,8 +1502,9 @@ fn a_listed_conversation_is_named_once_and_only_under_a_daily_limit() {
 /// The limit's boundary, from stored attempts alone: today's attempts count
 /// at their run's frozen bound, whichever conversation (listed or not) they
 /// named; an attempt before today and a named run of another env do not.
-/// With the bound at 0.50 under a limit of 5: spent 4.499999 and 4.5 admit
-/// (the second exactly at the limit), 4.500001 does not.
+/// With the bound at 0.50 under a limit of 5, an admission reserves the
+/// bound for each of the queue's three attempts (1.50): spent 3.499999 and
+/// 3.5 admit (the second exactly at the limit), 3.500001 does not.
 #[test]
 fn the_daily_limit_admits_up_to_exactly_its_amount_and_not_past_it() {
     for (last, admitted) in [(499_999, true), (500_000, true), (500_001, false)] {
@@ -1442,8 +1513,8 @@ fn the_daily_limit_admits_up_to_exactly_its_amount_and_not_past_it() {
         f.conversation(393, 3);
         keyword_source(&f, 391, "digest391");
         let (other, _) = keyword_source(&f, 393, "digest393");
-        // 2 attempts today at 2.00 (4.00), 1 today at `last`, 3 before today.
-        stored_named_run(&f, ENV, 393, &other, "digest393", 2_000_000, "dead", (2, 0));
+        // 2 attempts today at 1.50 (3.00), 1 today at `last`, 3 before today.
+        stored_named_run(&f, ENV, 393, &other, "digest393", 1_500_000, "dead", (2, 0));
         stored_named_run(&f, ENV, 393, &other, "digest393", last, "succeeded", (1, 3));
         stored_named_run(
             &f,
@@ -1463,7 +1534,7 @@ fn the_daily_limit_admits_up_to_exactly_its_amount_and_not_past_it() {
         ]);
         let mut s = Scheduler::new(&cfg).unwrap();
         s.cycle().unwrap();
-        let spent = 4_000_000 + last;
+        let spent = 3_000_000 + last;
         if admitted {
             assert_eq!(s.state.in_flight.as_ref().map(|i| i.zid), Some(391));
             assert!(kept_events(&f, "naming_held").is_empty());
@@ -1474,6 +1545,7 @@ fn the_daily_limit_admits_up_to_exactly_its_amount_and_not_past_it() {
             assert_eq!(held[0]["reason"], "daily_limit");
             assert_eq!(held[0]["spent_micro_usd"], spent);
             assert_eq!(held[0]["bound_micro_usd"], 500_000);
+            assert_eq!(held[0]["reserve_micro_usd"], 1_500_000);
             assert_eq!(held[0]["limit_micro_usd"], 5_000_000);
         }
         let read = db::read_only(&mut f.superuser(), 30_000, |tx| {
@@ -1500,7 +1572,8 @@ fn a_restart_mid_day_reaches_the_same_tally_from_what_is_stored() {
     let cfg = f.config(&[
         ("DELPHI_SHADOW_BENCHMARK", "c401 c402"),
         (NAMED, "c401 c402"),
-        (DAILY, "1"),
+        // The least that admits a 0.50 run: room for its three attempts.
+        (DAILY, "1.5"),
     ]);
     let mut s = Scheduler::new(&cfg).unwrap();
     s.cycle().unwrap();
@@ -1513,7 +1586,10 @@ fn a_restart_mid_day_reaches_the_same_tally_from_what_is_stored() {
     s.cycle().unwrap();
     assert!(s.state.in_flight.is_none());
     s.cycle().unwrap();
-    assert!(s.state.in_flight.is_none(), "1.00 spent: 402 waits");
+    assert!(
+        s.state.in_flight.is_none(),
+        "1.00 spent, 1.50 to reserve: 402 waits"
+    );
     let before = kept_events(&f, "naming_held");
     assert_eq!(before.len(), 1);
     assert_eq!(before[0]["spent_micro_usd"], 1_000_000);
@@ -1526,6 +1602,144 @@ fn a_restart_mid_day_reaches_the_same_tally_from_what_is_stored() {
     let after = kept_events(&f, "naming_held");
     assert_eq!(after, before, "the same tally, read from Postgres");
     assert_eq!(named_jobs(&f).len(), 1);
+}
+
+/// The worst case the simple controls leave, with one scheduler: the queue
+/// gives a named run three attempts (read from the queue's own record), each
+/// of which may send its one request, so one named run can send three; its
+/// admission reserved all three, so the day's count reaches the limit and
+/// never passes it, and the next conversation waits.
+#[test]
+fn a_named_run_sends_at_most_its_three_attempts_and_the_day_stays_within_its_limit() {
+    let f = Fixture::new();
+    f.conversation(421, 3);
+    f.conversation(422, 3);
+    keyword_source(&f, 421, "digest421");
+    keyword_source(&f, 422, "digest422");
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_BENCHMARK", "c421 c422"),
+        (NAMED, "c421 c422"),
+        (DAILY, "1.5"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.in_flight.clone().unwrap();
+    assert_eq!(flight.zid, 421);
+    let attempts: i64 = f
+        .superuser()
+        .query_one(
+            "SELECT max_attempts::bigint FROM polis_queue_jobs \
+             WHERE env = $1 AND job_id = $2::text::uuid",
+            &[&ENV, &flight.job_id],
+        )
+        .unwrap()
+        .get(0);
+    assert_eq!(
+        attempts,
+        config::NAMING_ATTEMPTS,
+        "the queue's attempts are the ones the admission reserved"
+    );
+    // Every attempt reaches the naming step, sends, and fails after it.
+    f.cancel(&flight.job_id);
+    for epoch in 1..=attempts {
+        attempt_now(&f, &flight.job_id, epoch);
+    }
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_none());
+    s.cycle().unwrap();
+    assert!(s.state.in_flight.is_none(), "422 waits");
+    let held = kept_events(&f, "naming_held");
+    assert_eq!(held.len(), 1, "{held:?}");
+    assert_eq!(
+        held[0]["spent_micro_usd"], 1_500_000,
+        "three requests at 0.50"
+    );
+    assert_eq!(
+        held[0]["limit_micro_usd"], 1_500_000,
+        "at the limit, not past it"
+    );
+    assert_eq!(named_jobs(&f).len(), 1);
+}
+
+/// An attempt is counted on the UTC day it started (by the database's
+/// clock), whenever its request left: one started a microsecond before
+/// today's start is yesterday's, one started exactly at it is today's.
+#[test]
+fn an_attempt_is_counted_on_the_utc_day_it_started() {
+    let f = Fixture::new();
+    f.conversation(431, 3);
+    let (source, _) = keyword_source(&f, 431, "digest431");
+    let job = stored_named_run(&f, ENV, 431, &source, "digest431", 500_000, "dead", (0, 0));
+    let spent = |f: &Fixture| {
+        db::read_only(&mut f.superuser(), 30_000, |tx| {
+            db::naming_state(tx, ENV, 500_000)
+        })
+        .unwrap()
+        .spent_micro_usd
+    };
+    attempt_started(&f, &job, 1, "d.start - interval '1 microsecond'");
+    assert_eq!(spent(&f), 0, "started before midnight: yesterday's");
+    attempt_started(&f, &job, 2, "d.start");
+    assert_eq!(spent(&f), 500_000, "started at midnight: today's");
+}
+
+/// A named run that kept keyword names (its manifest's topic model is
+/// `keywords`) does not make its conversation named: its source is asked
+/// again on a later UTC day, under a key of its own, counted against that
+/// day's limit, and never again the same day. One whose manifest names the
+/// model is named for good.
+#[test]
+fn a_named_run_that_fell_back_is_asked_again_on_a_later_day_only() {
+    let f = Fixture::new();
+    for zid in [441, 442, 443] {
+        f.conversation(zid, 3);
+    }
+    let (s441, _) = keyword_source(&f, 441, "digest441");
+    let (s442, _) = keyword_source(&f, 442, "digest442");
+    let (s443, _) = keyword_source(&f, 443, "digest443");
+    named_outcome(&f, 441, &s441, "digest441", "keywords", true);
+    named_outcome(&f, 442, &s442, "digest442", "keywords", false);
+    named_outcome(&f, 443, &s443, "digest443", "claude-sonnet-5-5", true);
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_BENCHMARK", "c441 c442 c443"),
+        (NAMED, "c443 c442 c441"),
+        (DAILY, "5"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    let flight = s.state.in_flight.clone().unwrap();
+    assert_eq!(
+        flight.zid, 441,
+        "443 has the model's names; 442 fell back today; 441 fell back yesterday"
+    );
+    let keys: Vec<String> = f
+        .superuser()
+        .query(
+            "SELECT request_key FROM polis_queue_requests \
+             WHERE env = $1 AND request_key LIKE 'shadow:names:%' ORDER BY request_key",
+            &[&ENV],
+        )
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    assert_eq!(keys.len(), 1, "{keys:?}");
+    assert!(keys[0].starts_with("shadow:names:441:"), "{keys:?}");
+    assert!(keys[0].ends_with(":2"), "a key of its own: {keys:?}");
+    // Counted against today's limit: the fallback of today (one attempt at
+    // 0.50) and the new run (queued, one bound).
+    let read = db::read_only(&mut f.superuser(), 30_000, |tx| {
+        db::naming_state(tx, ENV, 500_000)
+    })
+    .unwrap();
+    assert_eq!(read.spent_micro_usd, 1_000_000);
+    // Once it has ended, nothing is asked again today.
+    f.cancel(&flight.job_id);
+    for _ in 0..3 {
+        s.cycle().unwrap();
+    }
+    assert!(s.state.in_flight.is_none());
+    assert_eq!(named_jobs(&f).len(), 4, "the three stored and the one ask");
 }
 
 /// A newer keyword run of the same comments (the same selection and

@@ -193,8 +193,11 @@ pub struct Scheduler<'a> {
     pub named_failed_at_ms: Option<i64>,
     /// Source runs this process has said it will not name (already named, or
     /// its admission refused), so the line is written once. Memory only: the
-    /// next decision reads Postgres again.
+    /// next decision reads Postgres again; it decides nothing.
     pub named_passed: std::collections::BTreeSet<String>,
+    /// Source runs whose admission this process saw refused (by the plan or
+    /// by the queue): not asked again until a restart.
+    pub named_refused: std::collections::BTreeSet<String>,
     /// The last `naming_held` or `naming_unread` line's content, so each is
     /// written once per change.
     pub naming_said: Option<Value>,
@@ -227,6 +230,7 @@ impl<'a> Scheduler<'a> {
             named: None,
             named_failed_at_ms: None,
             named_passed: Default::default(),
+            named_refused: Default::default(),
             naming_said: None,
             derived: Backfill::new(None),
             sets_seen: None,
@@ -893,8 +897,10 @@ impl<'a> Scheduler<'a> {
     /// (so at most one is in flight, whatever was lost); a conversation whose
     /// newest finished keyword run is already named by this namer (the same
     /// selection and comment-set digests) or already asked about (its key
-    /// taken) is passed over; otherwise the day's spend so far plus this
-    /// run's bound must be within the daily limit (`plan::naming_room`).
+    /// taken, unless every earlier ask kept keyword names and was admitted
+    /// before today) is passed over; otherwise the day's spend so far plus
+    /// this run's bound once for each of the queue's attempts must be within
+    /// the daily limit (`plan::naming_room`).
     /// The namer is fixed: `plan::shadow_naming`. No line names a code or a
     /// conversation id.
     fn admit_named(
@@ -941,12 +947,13 @@ impl<'a> Scheduler<'a> {
             source,
             named,
             asked,
+            asks,
         } in sources
         {
             let Some((source_job, source_config)) = source else {
                 continue;
             };
-            if named || asked || self.named_passed.contains(&source_job) {
+            if named || asked || self.named_refused.contains(&source_job) {
                 if self.named_passed.insert(source_job.clone()) {
                     log(
                         "already_named",
@@ -979,13 +986,15 @@ impl<'a> Scheduler<'a> {
                     "naming_held",
                     json!({"reason": room.word(), "spent_micro_usd": state.spent_micro_usd,
                            "bound_micro_usd": bound,
+                           "reserve_micro_usd": plan::naming_reserve(bound),
                            "limit_micro_usd": limit.map_or(Value::Null, Value::from)}),
                 );
                 return Ok(None);
             }
             let request = match plan::names_admission(zid, &source_job, &source_config, &naming) {
-                Ok(a) => plan::priced(a, bound),
+                Ok(a) => plan::priced(plan::asked_again(a, asks), bound),
                 Err(reason) => {
+                    self.named_refused.insert(source_job.clone());
                     if self.named_passed.insert(source_job.clone()) {
                         log(
                             "naming_refused",
@@ -1026,7 +1035,7 @@ impl<'a> Scheduler<'a> {
                        "selection": plan::SELECTION, "names_of": source_job}),
             );
             // Not asked again in this process.
-            self.named_passed.insert(source_job);
+            self.named_refused.insert(source_job);
             return Ok(());
         };
         self.state.totals.admitted += 1;

@@ -398,7 +398,7 @@ is as it was.
 |---|---|---|
 | `DELPHI_SHADOW_NAMED` | empty: nothing is named | Conversation codes, read as `DELPHI_SHADOW_BENCHMARK` is. Each must also be on `DELPHI_SHADOW_BENCHMARK`, or the scheduler refuses to start, naming the entry's position, never the code. |
 | `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. Read by the scheduler only when the list is set. |
-| `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one named run may cost, in US dollars, 0 to 2, and no more than the daily limit. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
+| `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one attempt of a named run may cost, in US dollars, 0 to 2; three times it must be no more than the daily limit, or the scheduler refuses to start. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
 
 For each listed conversation, in list order, after the benchmark, featured
 and current sets' runs and the comment rules' runs, the scheduler reads the
@@ -408,10 +408,18 @@ database and:
   holds;
 - passes over a conversation whose newest finished keyword run under
   `participant_visible/1` is already named by the same namer for the same
-  comments (the same selection and comment-set digests), or already has a
-  named run of its own in any state;
-- admits a named run only when today's spend plus this run's bound is at most
-  the daily limit.
+  comments (the same selection and comment-set digests) with the model's
+  names, or already has a named run of its own that is not a keyword
+  fallback admitted on an earlier UTC day;
+- admits a named run only when today's spend plus this run's bound, once for
+  each of the queue's three attempts, is at most the daily limit.
+
+A named run that ended on keyword names (its manifest records the topic
+model as `keywords`: the request was refused, timed out or its answer was
+rejected) does not count as named. Its conversation is asked again on a later
+UTC day, under a key of its own, counted against that day's limit; never
+again on the day that run was admitted. A named run that failed or was
+cancelled is not asked again for the same keyword run.
 
 Today's spend is read from the run records at every decision, never from
 the box: every attempt of a named run of the env started since the start of
@@ -422,13 +430,26 @@ more than was spent and never less. The queue gives a run up to three
 attempts, and each attempt that reaches the naming step may send its one
 request, so a run repeated after a failure past the send (a box lost while
 its request was out, or a later step of the run failing) counts at its cap
-once per attempt. The limit is checked when a run is admitted, not before
-each of its attempts, so the last run admitted in a day can take that day's
-tally past the limit by up to two caps. An attempt is counted on the UTC day
-it started. The named run is its own job in its
+once per attempt: one named run can send up to three requests. The limit
+is checked when a run is admitted, with room for all three attempts, and no
+other named run is admitted until it has ended, so with one scheduler the
+day's count never passes the limit. An attempt is counted on the UTC day it
+started, not the day its request left: an attempt started just before
+midnight UTC whose request leaves after it is counted on the earlier day, so
+by when the money left one UTC day can carry one run cap more than its
+limit. The named run is its own job in its
 own publication scope (`delphi:names:<namer>`), so it never replaces the
 keyword run it names. The two reads run on the scheduler's own read login,
-which needs to read `delphi_jobs` and `polis_queue_attempts`.
+which needs to read `delphi_jobs`, `polis_queue_attempts` and
+`polis_queue_logs`.
+
+Known limits:
+- The spend read scans every run record of the shadow's env at each
+  decision while the list is set, so its cost grows with the shadow's
+  history; a read that times out admits nothing.
+- Two schedulers running at once with different lists (an overlapping
+  deploy) can each admit a named run, so the day can pass its limit by up to
+  one more run's three attempts.
 
 ### Delphi Shadow Resources
 

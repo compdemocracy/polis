@@ -79,6 +79,13 @@ pub const NAMING_RUN_MAX_USD: f64 = 2.0;
 /// (`polis_topic_names::DEFAULT_RUN_MAX_USD`, 0.50), in millionths of a
 /// dollar. The two must agree: the program's is what a run is held to.
 pub const NAMING_RUN_DEFAULT_MICRO_USD: i64 = 500_000;
+/// The attempts the queue gives a run the scheduler admits: the
+/// `max_attempts` that `pd_writer_admit` (migration 000050) passes for every
+/// writer admission. Each attempt that reaches the naming step may send its
+/// one request, so a named run is admitted only when the day's spend plus
+/// this many caps is within the daily limit. A test reads the queue's own
+/// `max_attempts` of an admitted named run, so the two cannot drift apart.
+pub const NAMING_ATTEMPTS: i64 = 3;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
@@ -520,11 +527,15 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     } else {
         micro_usd(&get, NAMING_RUN_KEY, NAMING_RUN_MAX_USD)?.unwrap_or(NAMING_RUN_DEFAULT_MICRO_USD)
     };
+    // A named run is admitted only with room for every attempt the queue
+    // gives it, so a limit under that many caps could admit none.
     if !named.is_empty()
-        && naming_daily_max_micro_usd.is_some_and(|daily| naming_run_max_micro_usd > daily)
+        && naming_daily_max_micro_usd
+            .is_some_and(|daily| naming_run_max_micro_usd.saturating_mul(NAMING_ATTEMPTS) > daily)
     {
         return err(format!(
-            "{NAMING_RUN_KEY} must not exceed {NAMING_DAILY_KEY}: no named run could be admitted"
+            "{NAMING_RUN_KEY} times the queue's {NAMING_ATTEMPTS} attempts must not exceed \
+             {NAMING_DAILY_KEY}: no named run could be admitted"
         ));
     }
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
@@ -1093,10 +1104,39 @@ mod naming_tests {
             e.0,
             "DELPHI_NAMING_RUN_MAX_USD must be a number of US dollars in 0..=2"
         );
-        let e = load_with(&[bench, named, (NAMING_DAILY_KEY, "0.4")]).unwrap_err();
+        // The limit must hold the cap once for each of the queue's three
+        // attempts: 1.50 for the default 0.50, not 1.499999.
+        for short in ["0.4", "1.499999"] {
+            let e = load_with(&[bench, named, (NAMING_DAILY_KEY, short)]).unwrap_err();
+            assert_eq!(
+                e.0,
+                "DELPHI_NAMING_RUN_MAX_USD times the queue's 3 attempts must not exceed \
+                 DELPHI_NAMING_DAILY_MAX_USD: no named run could be admitted",
+                "{short}"
+            );
+        }
+        let c = load_with(&[bench, named, (NAMING_DAILY_KEY, "1.5")]).unwrap();
+        assert_eq!(c.naming_daily_max_micro_usd, Some(1_500_000));
         assert!(
-            e.0.starts_with("DELPHI_NAMING_RUN_MAX_USD must not exceed"),
-            "{e}"
+            load_with(&[bench, named, (NAMING_DAILY_KEY, "5"), (NAMING_RUN_KEY, "2")]).is_err(),
+            "3 x 2.00 is over 5"
         );
+    }
+
+    /// The scheduler counts a named run at its default cap, and the naming
+    /// program in the executor holds the run to its own default: the two
+    /// are one number. The program's constant is read from its source, since
+    /// this crate does not depend on it.
+    #[test]
+    fn the_run_cap_default_is_the_naming_programs_own() {
+        let source = include_str!("../../polis-topic-names/src/lib.rs");
+        let prefix = "pub const DEFAULT_RUN_MAX_USD: f64 = ";
+        let line = source.lines().find(|l| l.starts_with(prefix)).unwrap();
+        let usd: f64 = line[prefix.len()..]
+            .trim_end_matches(';')
+            .trim()
+            .parse()
+            .unwrap();
+        assert_eq!((usd * 1e6).round() as i64, NAMING_RUN_DEFAULT_MICRO_USD);
     }
 }
