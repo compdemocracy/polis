@@ -323,8 +323,15 @@ fn grow_called_only_by_the_loader() {
             continue;
         }
         assert!(!text.contains(".grow("), "{rel} grows a reservation");
+        // The module `routing_plan` is the plan cache. The crate
+        // `polis_routing_plan` is the pure library beside it, which holds no
+        // cache and no reservation: naming the crate is not naming the cache.
         let allowed = usize::from(rel == "main.rs");
-        assert_eq!(text.matches("routing_plan").count(), allowed, "{rel}");
+        let named = text
+            .match_indices("routing_plan")
+            .filter(|(at, _)| !text[..*at].ends_with("polis_"))
+            .count();
+        assert_eq!(named, allowed, "{rel}");
     }
 }
 
