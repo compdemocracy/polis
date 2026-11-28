@@ -386,6 +386,44 @@ of that list still names the conversation; when none does, nothing is queued
 and the codes are read again. The job-graph path is separate and follows none
 of these rules. No reader serves these runs.
 
+### Delphi Shadow Named Runs
+
+A named run gives the topics of a finished keyword run names written by a
+model: Claude Sonnet through Amazon Bedrock, naming prompt version 1, fixed in
+code (`bedrock.claude-sonnet-5-5.p1.default`). It is off by default. With the
+list empty nothing is read for it, no line is written about it, and every run
+is as it was.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DELPHI_SHADOW_NAMED` | empty: nothing is named | Conversation codes, read as `DELPHI_SHADOW_BENCHMARK` is. Each must also be on `DELPHI_SHADOW_BENCHMARK`, or the scheduler refuses to start, naming the entry's position, never the code. |
+| `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. |
+| `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one named run may cost, in US dollars, 0 to 2, and no more than the daily limit. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
+
+For each listed conversation, in list order, after the benchmark, featured
+and current sets' runs and the comment rules' runs, the scheduler reads the
+database and:
+- takes up a named run of its env that has not ended, and watches it, so at
+  most one named run is in flight, whatever the scheduler's own state file
+  holds;
+- passes over a conversation whose newest finished keyword run under
+  `participant_visible/1` is already named by the same namer for the same
+  comments (the same selection and comment-set digests), or already has a
+  named run of its own in any state;
+- admits a named run only when today's spend plus this run's bound is at most
+  the daily limit.
+
+Today's spend is read from the run records at every decision, never from
+the box: every attempt of a named run of the env started since the start of
+the UTC day (by the database's clock), counted at the run cap frozen into
+that run's configuration, plus one cap for each named run not yet ended that
+has no attempt yet. An attempt sends at most one request, so this can count
+more than was spent and never less. A run repeated because a box was lost
+while its request was out counts twice. The named run is its own job in its
+own publication scope (`delphi:names:<namer>`), so it never replaces the
+keyword run it names. The two reads run on the scheduler's own read login,
+which needs to read `delphi_jobs` and `polis_queue_attempts`.
+
 ### Delphi Shadow Resources
 
 Read only where the Delphi shadow runs (its services start on the exact line `DELPHI_SHADOW_ENABLED=1`). Compose alone reads this key, for the `delphi-shadow` container's limit; no service sees it.
