@@ -212,6 +212,9 @@ struct Pace {
     /// After a failure that belongs to the tick read (the content was
     /// refused): a request for a tick newer than this lifts the backoff.
     lift_above: Option<i64>,
+    /// After a failure that belongs to the configuration (the build was
+    /// refused): a request under another configuration lifts the backoff.
+    held_digest: Option<[u8; 32]>,
     /// When it was last built, for forgetting the oldest.
     stamp: u64,
 }
@@ -225,16 +228,20 @@ impl Pace {
             failures: 0,
             retry_at: None,
             lift_above: None,
+            held_digest: None,
             stamp: 0,
         }
     }
 
-    /// When a request for `tick` may be built; `None` while in flight.
-    fn eligible_at(&self, tick: Option<i64>) -> Option<Monotonic> {
+    /// When a request for `tick` under configuration `digest` may be built;
+    /// `None` while in flight.
+    fn eligible_at(&self, tick: Option<i64>, digest: &[u8; 32]) -> Option<Monotonic> {
         if self.in_flight {
             return None;
         }
-        let lifted = matches!((self.lift_above, tick), (Some(held), Some(t)) if t > held);
+        let newer = matches!((self.lift_above, tick), (Some(held), Some(t)) if t > held);
+        let other_config = self.held_digest.is_some_and(|held| held != *digest);
+        let lifted = newer || other_config;
         Some(match self.retry_at {
             Some(retry) if !lifted => retry.max(self.interval_at),
             _ => self.interval_at,
@@ -369,7 +376,7 @@ impl Schedule {
             let tick = self.pending.get(key).and_then(|w| w.desired_tick);
             let at = match self.paces.get(&key.conversation) {
                 None => Some(Monotonic::from_nanos(0)),
-                Some(pace) => pace.eligible_at(tick),
+                Some(pace) => pace.eligible_at(tick, &key.digest),
             };
             match at {
                 Some(at) if at <= now => {
@@ -460,10 +467,12 @@ impl Schedule {
             pace.failures = pace.failures.saturating_add(1);
             pace.retry_at = Some(plus(ended, retry_delay_ns(pace.failures, jitter_permille)));
             pace.lift_above = pacing.tick_keyed.then(|| ticket.desired_tick.unwrap_or(-1));
+            pace.held_digest = pacing.config_keyed.then_some(ticket.key.digest);
         } else {
             pace.failures = 0;
             pace.retry_at = None;
             pace.lift_above = None;
+            pace.held_digest = None;
         }
     }
 
@@ -487,6 +496,9 @@ struct Pacing {
     failed: bool,
     /// The failure belongs to the tick read: a newer tick lifts it.
     tick_keyed: bool,
+    /// The failure belongs to the configuration as well (the cache keys a
+    /// build refusal by its digest): another configuration lifts it.
+    config_keyed: bool,
 }
 
 impl Pacing {
@@ -495,6 +507,7 @@ impl Pacing {
             admitted,
             failed,
             tick_keyed,
+            config_keyed: false,
         }
     }
 
@@ -517,16 +530,24 @@ impl Pacing {
             // The content of the tick read is what was refused, or a newer
             // plan or row may answer it.
             Outcome::NoRow
-            | Outcome::Oversized
             | Outcome::SourceRefused
-            | Outcome::BuildRefused
             | Outcome::KeyMismatch
             | Outcome::Refused(Rejection::Superseded | Rejection::GenerationConflict) => {
                 Self::new(true, true, true)
             }
+            // Refused under this rule: a newer tick, or another rule, may
+            // build.
+            Outcome::BuildRefused => Self {
+                config_keyed: true,
+                ..Self::new(true, true, true)
+            },
             // The database, the budget or the cache's room: a newer tick
-            // does not help.
-            Outcome::StepRefused(_)
+            // does not help. A projection over the size limit at one tick is
+            // over it at the next (a conversation's result only grows), so it
+            // backs off over every tick rather than paying for the
+            // projection's length again at every new tick.
+            Outcome::Oversized
+            | Outcome::StepRefused(_)
             | Outcome::DatabaseUnavailable
             | Outcome::StatementTimeout
             | Outcome::Undercharged
@@ -557,8 +578,8 @@ pub(crate) enum StartError {
     Spawn(std::io::Error),
 }
 
-/// The scheduler's settings. B7 reads them; nothing here reads the
-/// environment.
+/// The scheduler's settings. Whatever starts the scheduler supplies them;
+/// nothing here reads the environment.
 #[derive(Clone, Copy, Debug)]
 pub(crate) struct SchedulerSettings {
     pub(crate) factor: u32,
@@ -769,15 +790,15 @@ struct InFlight<'a> {
 
 impl Drop for InFlight<'_> {
     fn drop(&mut self) {
+        // Reads no clock: this runs while unwinding, where a second panic
+        // would abort the process. The backoff runs from the build's start.
         if let Some(ticket) = self.ticket.take() {
-            let now = self.shared.clock.now();
-            let jitter = self.shared.clock.jitter_permille();
             locked(&self.shared.schedule).finish(
                 ticket,
                 BuildResult::Panicked,
                 self.started,
-                now,
-                jitter,
+                self.started,
+                0,
             );
         }
     }
@@ -820,7 +841,10 @@ fn turn(shared: &Shared, build: &mut dyn Build) {
             return;
         }
     };
-    let started = shared.clock.now();
+    // The time read before `next`, so nothing that can panic runs between
+    // marking the conversation in flight and holding the record that
+    // returns its permit.
+    let started = now;
     let mut in_flight = InFlight {
         shared,
         ticket: Some(&ticket),

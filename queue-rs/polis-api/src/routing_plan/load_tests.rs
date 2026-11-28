@@ -1018,9 +1018,9 @@ mod db {
         handle.join().unwrap();
     }
 
-    /// The loader review's witness, kept: the loader alone reads a stored
-    /// result it refused again for the same tick (its refusal is keyed by
-    /// content, known only after the read). Through the scheduler, a second
+    /// On its own, the loader reads a stored result it refused again for
+    /// the same tick (its refusal is keyed by content, known only after the
+    /// read). Through the scheduler, a second
     /// request for that tick sends no statement until the backoff passes;
     /// a newer tick is new content and is read at once.
     #[test]

@@ -11,7 +11,7 @@ use polis_routing_plan::{
     retry_delay_ns,
 };
 use std::sync::atomic::{AtomicU16, AtomicU64, Ordering};
-use std::sync::mpsc::{Receiver, SyncSender, sync_channel};
+use std::sync::mpsc::{Receiver, SyncSender, TrySendError, sync_channel};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -246,7 +246,7 @@ fn pending_map_bounded() {
     assert_eq!(s.pending(), PENDING_ENTRIES);
 }
 
-// ---- Failures: the cache's backoff, and the refused source (review F2) ----
+// ---- Failures: the cache's backoff, and the refused source ----
 
 /// Failures that a newer tick does not help (the database is unavailable)
 /// back off by the cache's own delay: doubling from 30 s, capped at 30
@@ -288,7 +288,7 @@ fn backoff_capped_and_jittered() {
     }
 }
 
-/// Review F2: a stored result refused for its content is not read again for
+/// A stored result refused for its content is not read again for
 /// the same tick (nor by a request that saw no tick) until the backoff
 /// passes; the loader cannot tell before reading, so the scheduler holds
 /// it. A newer tick is new content and is read as soon as the interval
@@ -341,6 +341,62 @@ fn discarded_is_not_a_failure() {
     s.finish(&t, discarded, at(0), at(0), 0);
     s.offer(req(7, Some(1), &c));
     take(&mut s, at(0));
+}
+
+/// A build refused under one rule is held for that rule and tick, but a
+/// request under another configuration is built at once (the cache keys a
+/// build refusal by its digest, and a new configuration clears it). A
+/// refused source is not keyed by configuration: it stays held.
+#[test]
+fn build_refusal_lifted_by_new_configuration() {
+    let (c1, c2) = (config(1), config(2));
+    let mut s = Schedule::new(MIN_INTERVAL_FACTOR);
+    s.offer(req(12, Some(4), &c1));
+    let t = take(&mut s, at(0));
+    s.finish(
+        &t,
+        BuildResult::Loaded(Outcome::BuildRefused),
+        at(0),
+        at(0),
+        0,
+    );
+    s.offer(req(12, Some(4), &c1));
+    assert_eq!(waits(&mut s, at(0)), Some(at(retry_delay_ns(1, 0))));
+    s.offer(req(12, Some(4), &c2));
+    assert_eq!(take(&mut s, at(0)).job.config_digest, [2; 32]);
+
+    let mut s = Schedule::new(MIN_INTERVAL_FACTOR);
+    s.offer(req(12, Some(4), &c1));
+    let t = take(&mut s, at(0));
+    s.finish(
+        &t,
+        BuildResult::Loaded(Outcome::SourceRefused),
+        at(0),
+        at(0),
+        0,
+    );
+    s.offer(req(12, Some(4), &c2));
+    assert_eq!(waits(&mut s, at(0)), Some(at(retry_delay_ns(1, 0))));
+}
+
+/// A projection over the size limit is held for every tick: a newer tick
+/// waits out the backoff, so a large hot conversation does not pay for its
+/// projection's length on the database at every new tick.
+#[test]
+fn oversized_holds_every_tick() {
+    let c = config(1);
+    let mut s = Schedule::new(MIN_INTERVAL_FACTOR);
+    s.offer(req(12, Some(4), &c));
+    let t = take(&mut s, at(0));
+    s.finish(
+        &t,
+        BuildResult::Loaded(Outcome::Oversized),
+        at(0),
+        at(MS),
+        0,
+    );
+    s.offer(req(12, Some(5), &c));
+    assert_eq!(waits(&mut s, at(MS)), Some(at(MS + retry_delay_ns(1, 0))));
 }
 
 // ---- The threads ----
@@ -491,15 +547,42 @@ fn full_queue_drops_request_not_caller() {
     for zid in 2..6 {
         assert_eq!(requests.request(req(zid, Some(1), &c)), Enqueued::Queued);
     }
-    let mut slowest = Duration::ZERO;
-    for zid in 100..10_100 {
+    // Ten thousand requests in batches of a hundred, each batch timed beside
+    // a batch of the bare operation (a `try_send` into a full channel of
+    // the same type), alternately so the machine's speed and load fall on
+    // both alike. The medians compare the two in the same run: no bound in
+    // wall time.
+    const BATCHES: usize = 100;
+    const BATCH: i32 = 100;
+    let (bare, _bare_rx) = sync_channel::<BuildRequest>(1);
+    bare.try_send(req(0, Some(1), &c)).unwrap();
+    let (mut ours, mut theirs) = (Vec::new(), Vec::new());
+    let mut all_dropped = true;
+    for b in 0..BATCHES as i32 {
+        let zids = 100 + b * BATCH..100 + (b + 1) * BATCH;
+        let batch: Vec<BuildRequest> = zids.clone().map(|z| req(z, Some(1), &c)).collect();
+        let baseline: Vec<BuildRequest> = zids.map(|z| req(z, Some(1), &c)).collect();
         let t = Instant::now();
-        let enqueued = requests.request(req(zid, Some(1), &c));
-        slowest = slowest.max(t.elapsed());
-        assert_eq!(enqueued, Enqueued::Dropped);
+        for request in baseline {
+            all_dropped &= matches!(bare.try_send(request), Err(TrySendError::Full(_)));
+        }
+        theirs.push(t.elapsed());
+        let t = Instant::now();
+        for request in batch {
+            all_dropped &= requests.request(request) == Enqueued::Dropped;
+        }
+        ours.push(t.elapsed());
     }
-    // A bound far above a `try_send` (nanoseconds), far below any wait.
-    assert!(slowest < Duration::from_millis(50), "slowest {slowest:?}");
+    assert!(all_dropped, "every request was dropped at once");
+    ours.sort_unstable();
+    theirs.sort_unstable();
+    let (ours, theirs) = (ours[BATCHES / 2], theirs[BATCHES / 2]);
+    // The request side is the bare `try_send` and a counter: within a
+    // small multiple of it, and nowhere near a wait.
+    assert!(
+        ours <= theirs * 10 + Duration::from_micros(1),
+        "a request batch takes {ours:?}, a bare batch {theirs:?}"
+    );
     assert_eq!(scheduler.counts().dropped_full, 10_000);
     assert_eq!(scheduler.counts().builds, 0, "the builder is still parked");
     go.send(()).unwrap();
@@ -607,7 +690,7 @@ fn config_captured_at_request() {
     scheduler.shutdown();
 }
 
-/// Review F3: each report names the conversation, environment, tick and
+/// Each report names the conversation, environment, tick and
 /// configuration its build was for, so an outcome is matched to its job
 /// whatever order builds end in and whether or not a report was dropped.
 #[test]
@@ -766,6 +849,65 @@ fn panic_in_build_counted_and_survived() {
     scheduler.shutdown();
 }
 
+/// A clock whose jitter panics every time while armed. A build's jitter is
+/// read after the build returns, so that panic is outside the build.
+#[derive(Default)]
+struct PanickingJitterClock {
+    hand: HandClock,
+    armed: std::sync::atomic::AtomicBool,
+}
+
+impl Clock for PanickingJitterClock {
+    fn now(&self) -> Monotonic {
+        self.hand.now()
+    }
+    fn jitter_permille(&self) -> u16 {
+        if self.armed.load(Ordering::SeqCst) {
+            panic!("a jitter that panics (expected by this test)");
+        }
+        0
+    }
+}
+
+/// A panic after the build, before `finish`: the thread's top catches it,
+/// the in-flight record returns the conversation's permit as it unwinds,
+/// and the conversation builds again after the backoff. The clock still
+/// panics while the record unwinds, so a record that read the clock would
+/// panic during unwinding and abort the test process.
+#[test]
+fn panic_outside_build_returns_permit() {
+    let cache = uniform_cache();
+    let clock = Arc::new(PanickingJitterClock::default());
+    clock.armed.store(true, Ordering::SeqCst);
+    let (reports, finished) = sync_channel(16);
+    let scheduler = Scheduler::start(
+        cache.clone(),
+        vec![Box::new(Fake(fake(|_, _| Outcome::Published)))],
+        clock.clone(),
+        settings_with(8),
+        Some(reports),
+    )
+    .unwrap();
+    let requests = scheduler.requests();
+    let c = config(1);
+    requests.request(req(7, Some(1), &c));
+    let deadline = Instant::now() + PATIENCE;
+    while scheduler.counts().panics == 0 {
+        assert!(Instant::now() < deadline, "the panic was not caught");
+        std::thread::yield_now();
+    }
+    // Backed off, the conversation is not built again until the clock
+    // moves, so nothing reads the jitter while it is disarmed here.
+    clock.armed.store(false, Ordering::SeqCst);
+    assert_eq!(scheduler.counts().panics, 1);
+    clock.hand.advance(retry_delay_ns(1, 0));
+    scheduler.nudge();
+    requests.request(req(7, Some(2), &c));
+    let report = next_report(&finished);
+    assert_eq!((report.zid, report.result), (7, PUBLISHED));
+    scheduler.shutdown();
+}
+
 /// The builders destroy retired plans between builds and while idle: a plan
 /// replaced while a request borrows it stays retired and charged until the
 /// borrow ends, then the idle builder reclaims it, with no new build.
@@ -874,6 +1016,167 @@ fn builders_are_own_threads_and_requests_only_try_send() {
     // never has a receiver to wake.
     for word in [".recv(", ".recv_timeout(", "for request in"] {
         assert!(!text.contains(word), "builder.rs names {word}");
+    }
+}
+
+/// The module's source: between marking a conversation in flight (`next`)
+/// and holding the record that returns its permit (`InFlight`), a turn
+/// calls nothing on the clock, and the record reads no clock as it drops.
+/// A panic in the first place would leave the conversation in flight for
+/// good, never built again; a panic in the second happens while unwinding
+/// and aborts the process.
+#[test]
+fn nothing_reads_the_clock_around_the_in_flight_mark() {
+    let text = include_str!("builder.rs");
+    let turn = text.split("\nfn turn(").nth(1).unwrap();
+    let marked = turn.split(".next(now)").nth(1).unwrap();
+    let before_record = marked.split("InFlight {").next().unwrap();
+    assert!(
+        !before_record.contains("clock."),
+        "the turn reads the clock before the in-flight record exists"
+    );
+    let drop = text
+        .split("impl Drop for InFlight")
+        .nth(1)
+        .and_then(|rest| rest.split("\n}\n").next())
+        .unwrap();
+    assert!(drop.contains("finish("));
+    assert!(
+        !drop.contains("clock."),
+        "the in-flight record reads the clock"
+    );
+}
+
+/// How each outcome paces its conversation, observed through the schedule
+/// for every outcome there is: whether its time is charged as the
+/// conversation's cost (`admitted`), whether it backs off (`failed`), and
+/// whether a newer tick or another configuration lifts the backoff.
+#[test]
+fn every_outcome_paced_as_decided() {
+    use super::load::Step;
+
+    #[derive(Debug, PartialEq, Eq)]
+    struct Paced {
+        admitted: bool,
+        failed: bool,
+        tick_keyed: bool,
+        config_keyed: bool,
+    }
+    const fn p(admitted: bool, failed: bool, tick_keyed: bool, config_keyed: bool) -> Paced {
+        Paced {
+            admitted,
+            failed,
+            tick_keyed,
+            config_keyed,
+        }
+    }
+    // The decision for each outcome, in a match the compiler holds to
+    // every outcome.
+    fn decided(result: BuildResult) -> Paced {
+        let outcome = match result {
+            BuildResult::Panicked => return p(true, true, false, false),
+            BuildResult::Loaded(outcome) => outcome,
+        };
+        match outcome {
+            Outcome::Published | Outcome::Refused(Rejection::Discarded) => {
+                p(true, false, false, false)
+            }
+            Outcome::BackingOff => p(false, true, true, false),
+            Outcome::NoAllowance
+            | Outcome::NotAdmitted
+            | Outcome::ConnectionNotReserved
+            | Outcome::CachePoisoned => p(false, true, false, false),
+            Outcome::NoRow
+            | Outcome::SourceRefused
+            | Outcome::KeyMismatch
+            | Outcome::Refused(Rejection::Superseded | Rejection::GenerationConflict) => {
+                p(true, true, true, false)
+            }
+            Outcome::BuildRefused => p(true, true, true, true),
+            Outcome::Oversized
+            | Outcome::StepRefused(Step::Parse | Step::Frames | Step::Build)
+            | Outcome::DatabaseUnavailable
+            | Outcome::StatementTimeout
+            | Outcome::Undercharged
+            | Outcome::Refused(
+                Rejection::Busy
+                | Rejection::OverShare
+                | Rejection::Undercharged
+                | Rejection::FenceForgotten
+                | Rejection::FenceFull,
+            ) => p(true, true, false, false),
+        }
+    }
+    // When conversation 12, built for tick 4 under configuration 1 from 0
+    // to `cost` and ending in `result`, may next be built for `tick` under
+    // `digest`, counted from the build's end.
+    fn eligible_after(result: BuildResult, cost: u64, tick: i64, digest: u8) -> u64 {
+        let mut s = Schedule::new(MIN_INTERVAL_FACTOR);
+        s.offer(req(12, Some(4), &config(1)));
+        let t = take(&mut s, at(0));
+        s.finish(&t, result, at(0), at(cost), 0);
+        s.offer(req(12, Some(tick), &config(digest)));
+        match s.next(at(cost)) {
+            Next::Build(_) => 0,
+            Next::Wait(Some(until)) => until.since(at(cost)),
+            Next::Wait(None) => panic!("{result:?}: no time given"),
+        }
+    }
+    let retry = retry_delay_ns(1, 0);
+    let observed = |result: BuildResult| {
+        // A build that took no time: only a backoff can make it wait.
+        let held = eligible_after(result, 0, 4, 1);
+        let failed = held == retry;
+        assert!(failed || held == 0, "{result:?} waits {held}");
+        // A build whose interval is longer than the first backoff: it waits
+        // out that interval only if its time was charged.
+        let cost = retry;
+        let charged = eligible_after(result, cost, 4, 1);
+        Paced {
+            admitted: charged == cost * u64::from(MIN_INTERVAL_FACTOR),
+            failed,
+            tick_keyed: failed && eligible_after(result, 0, 5, 1) == 0,
+            config_keyed: failed && eligible_after(result, 0, 4, 2) == 0,
+        }
+    };
+    let mut results = vec![BuildResult::Panicked];
+    results.extend(
+        [
+            Outcome::Published,
+            Outcome::NoAllowance,
+            Outcome::BackingOff,
+            Outcome::NotAdmitted,
+            Outcome::StepRefused(Step::Parse),
+            Outcome::StepRefused(Step::Frames),
+            Outcome::StepRefused(Step::Build),
+            Outcome::ConnectionNotReserved,
+            Outcome::CachePoisoned,
+            Outcome::DatabaseUnavailable,
+            Outcome::StatementTimeout,
+            Outcome::NoRow,
+            Outcome::Oversized,
+            Outcome::SourceRefused,
+            Outcome::BuildRefused,
+            Outcome::KeyMismatch,
+            Outcome::Undercharged,
+        ]
+        .map(BuildResult::Loaded),
+    );
+    results.extend(
+        [
+            Rejection::Discarded,
+            Rejection::Superseded,
+            Rejection::GenerationConflict,
+            Rejection::Busy,
+            Rejection::OverShare,
+            Rejection::Undercharged,
+            Rejection::FenceForgotten,
+            Rejection::FenceFull,
+        ]
+        .map(|r| BuildResult::Loaded(Outcome::Refused(r))),
+    );
+    for result in results {
+        assert_eq!(observed(result), decided(result), "{result:?}");
     }
 }
 
