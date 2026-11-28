@@ -1,0 +1,5 @@
+{
+  "symmetric/2": "{\"rule\":\"symmetric/2\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+  "symmetric-gic/2": "{\"rule\":\"symmetric-gic/2\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+  "symmetric-gic-floor/2": "{\"rule\":\"symmetric-gic-floor/2\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2,\"floor_share\":0.1},\"terms\":[]}"
+}

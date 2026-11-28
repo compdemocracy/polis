@@ -1542,6 +1542,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "polis-routing-equation"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "polis-topic-map"
 version = "0.1.0"
 dependencies = [

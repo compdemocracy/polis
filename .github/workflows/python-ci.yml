@@ -31,6 +31,8 @@ on:
       - 'server/Dockerfile-db'
       - 'server/postgres/**'
       - 'queue-rs/polis-migrate/**'
+      # The routing equation's recorded fixtures, read by the Python drift test.
+      - 'queue-rs/polis-routing-equation/tests/fixtures/**'
       # server/src so a new server-side wildcard runs the projection-gate sweep
       - 'server/src/**'
       # Representative payload tests execute the probe planner and independent gate.

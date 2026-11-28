@@ -1,0 +1,39 @@
+[package]
+name = "polis-routing-equation"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Comment routing's equation and its draw as named, versioned rules with typed inputs: today's weight (historical/1) and today's weighted draw (stored-weights/1), each draw with a receipt of the chance it had."
+
+[lib]
+name = "polis_routing_equation"
+path = "src/lib.rs"
+
+# No features: a feature would be a way to switch something on.
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+# float_roundtrip: every number is read correctly rounded (the fixtures and
+# the stored weights are compared bit for bit).
+serde_json = { version = "1", features = ["float_roundtrip"] }
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"
+panic = "deny"
+indexing_slicing = "deny"
+unreachable = "deny"
+todo = "deny"
+unimplemented = "deny"
+
+# The precomputation benchmark: timed only by hand (`cargo bench -p
+# polis-routing-equation --bench routing_precompute`). The crate's check lints
+# it and runs it once in its smoke mode (`cargo test ... --bench
+# routing_precompute -- --smoke`), with no timing assertion. Not part of a
+# plain `cargo test`.
+[[bench]]
+name = "routing_precompute"
+harness = false
+test = false

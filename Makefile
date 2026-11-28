@@ -380,6 +380,10 @@ check-polis-topic-map: ## Run the topic map generator's checks
 check-polis-topic-names: ## Run the topic namer's checks (offline, no model call)
 	@bash ci/local/polis-topic-names.sh
 
+.PHONY: check-polis-routing-equation
+check-polis-routing-equation: ## Run the routing equation crate's checks
+	@bash ci/local/polis-routing-equation.sh
+
 .PHONY: check-job-graphs
 check-job-graphs: ## Run job-graphs checks
 	@bash ci/local/job-graphs.sh
