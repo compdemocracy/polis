@@ -72,6 +72,13 @@ pub(crate) struct Compare {
     pub(crate) hold: Mutex<Option<Duration>>,
 }
 
+#[cfg(test)]
+thread_local! {
+    /// Tests: the comparison's entry points (`lists`, `run`) called on this
+    /// thread, by any comparison.
+    pub(crate) static CALLED: std::cell::Cell<u64> = const { std::cell::Cell::new(0) };
+}
+
 /// The key as the process environment holds it. Absent or empty: off.
 pub(crate) fn from_env() -> Result<Option<Box<Compare>>> {
     match std::env::var(SWITCH) {
@@ -153,6 +160,8 @@ impl Compare {
     /// Whether the copy's conversation code is on the list: exact match, no
     /// lookup, no allocation.
     pub(crate) fn lists(&self, code: &str) -> bool {
+        #[cfg(test)]
+        CALLED.with(|n| n.set(n.get() + 1));
         self.codes
             .binary_search_by(|listed| listed.as_str().cmp(code))
             .is_ok()
@@ -164,6 +173,8 @@ impl Compare {
     pub(crate) async fn run(&self, selection: Option<&mut Selection>, unit: f64) -> Routing {
         #[cfg(test)]
         self.entered.fetch_add(1, Ordering::Relaxed);
+        #[cfg(test)]
+        CALLED.with(|n| n.set(n.get() + 1));
         let Some(selection) = selection else {
             return self.ended(Outcome::NoSelection, None);
         };
