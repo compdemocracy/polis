@@ -409,8 +409,8 @@ database and:
 - passes over a conversation whose newest finished keyword run under
   `participant_visible/1` is already named by the same namer for the same
   comments (the same selection and comment-set digests) with the model's
-  names, or already has a named run of its own that is not a keyword
-  fallback admitted on an earlier UTC day;
+  names or by a run admitted today, or already has a named run of its own
+  that is not a keyword fallback admitted on an earlier UTC day;
 - admits a named run only when today's spend plus this run's bound, once for
   each of the queue's three attempts, is at most the daily limit.
 
@@ -418,8 +418,11 @@ A named run that ended on keyword names (its manifest records the topic
 model as `keywords`: the request was refused, timed out or its answer was
 rejected) does not count as named. Its conversation is asked again on a later
 UTC day, under a key of its own, counted against that day's limit; never
-again on the day that run was admitted. A named run that failed or was
-cancelled is not asked again for the same keyword run.
+again on the day that run was admitted, by any keyword run of the same
+comments. Nothing else bounds the asking: a conversation whose naming keeps
+falling back is asked once on each later UTC day while its comments are
+unchanged, each ask counted against that day's limit. A named run that failed
+or was cancelled is not asked again for the same keyword run.
 
 Today's spend is read from the run records at every decision, never from
 the box: every attempt of a named run of the env started since the start of
@@ -437,7 +440,8 @@ day's count never passes the limit. An attempt is counted on the UTC day it
 started, not the day its request left: an attempt started just before
 midnight UTC whose request leaves after it is counted on the earlier day, so
 by when the money left one UTC day can carry one run cap more than its
-limit. The named run is its own job in its
+limit. A run already admitted keeps its remaining attempts when the limit is
+lowered; the lower limit only stops further admissions. The named run is its own job in its
 own publication scope (`delphi:names:<namer>`), so it never replaces the
 keyword run it names. The two reads run on the scheduler's own read login,
 which needs to read `delphi_jobs`, `polis_queue_attempts` and

@@ -1742,6 +1742,31 @@ fn a_named_run_that_fell_back_is_asked_again_on_a_later_day_only() {
     assert_eq!(named_jobs(&f).len(), 4, "the three stored and the one ask");
 }
 
+/// A named run of these comments that kept keyword names today holds every
+/// keyword run of the same comments until the next UTC day, not only its own
+/// source: a newer keyword run of the same comments (a repeat) is not asked
+/// the same day.
+#[test]
+fn a_fallback_today_holds_a_newer_keyword_run_of_the_same_comments() {
+    let f = Fixture::new();
+    f.conversation(451, 3);
+    let (first, _) = keyword_source(&f, 451, "digest451");
+    named_outcome(&f, 451, &first, "digest451", "keywords", false);
+    let (_rerun, _) = keyword_source(&f, 451, "digest451");
+    let cfg = f.config(&[
+        ("DELPHI_SHADOW_BENCHMARK", "c451"),
+        (NAMED, "c451"),
+        (DAILY, "5"),
+    ]);
+    let mut s = Scheduler::new(&cfg).unwrap();
+    s.cycle().unwrap();
+    assert!(
+        s.state.in_flight.is_none(),
+        "fell back today: the repeat waits for a later day"
+    );
+    assert_eq!(named_jobs(&f).len(), 1, "only the fallback of today");
+}
+
 /// A newer keyword run of the same comments (the same selection and
 /// comment-set digests) as one this namer has already named is not named
 /// again: no second record. A run of other comments is.

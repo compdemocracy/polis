@@ -453,8 +453,11 @@ pub struct NamingSource {
     /// A named run by the same namer of the same comments has succeeded with
     /// the model's names: the same selection and comment-set digests as the
     /// source, and its output manifest does not record the topic model as
-    /// `keywords` (the fallback). A run whose manifest cannot be found counts
-    /// as named, so nothing is asked again on a guess.
+    /// `keywords` (the fallback), or it was admitted today (UTC, by the
+    /// database's clock): a fallback of these comments today holds every
+    /// keyword run of them, not only its own source, until the next day. A
+    /// run whose manifest cannot be found counts as named, so nothing is
+    /// asked again on a guess.
     pub named: bool,
     /// A named run of this very source by the same namer exists that is not
     /// a fallback admitted before today (UTC, by the database's clock): one
@@ -558,7 +561,7 @@ pub fn naming_sources(
         "WITH d AS (SELECT date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') \
                            AT TIME ZONE 'UTC' AS start) \
          SELECT l.zid, s.job_id::text, s.config_effective, \
-                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n \
+                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n, d \
                    WHERE n.env = $1 AND n.zid = l.zid AND n.status = 'succeeded' \
                      AND n.config_effective ->> 'names_of' IS NOT NULL \
                      AND n.config_effective #>> '{{shadow,namer}}' = $3 \
@@ -566,7 +569,7 @@ pub fn naming_sources(
                          = s.config_effective #>> '{{shadow,selection_sha256}}' \
                      AND n.config_effective #>> '{{shadow,comment_set_sha256}}' \
                          = s.config_effective #>> '{{shadow,comment_set_sha256}}' \
-                     AND NOT ({FELL_BACK})), \
+                     AND NOT (n.created_at < d.start AND {FELL_BACK})), \
                 s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n, d \
                    WHERE n.env = $1 AND n.zid = l.zid \
                      AND n.config_effective ->> 'names_of' = s.job_id::text \
