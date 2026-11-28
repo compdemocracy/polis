@@ -281,6 +281,7 @@ fn no_fs_in_routing_plan() {
         ("mod.rs", include_str!("mod.rs")),
         ("cache.rs", include_str!("cache.rs")),
         ("load.rs", include_str!("load.rs")),
+        ("builder.rs", include_str!("builder.rs")),
     ] {
         for word in ["std::fs", "fs::", "File::", "OpenOptions", "tempfile"] {
             assert!(!text.contains(word), "{name} names {word}");
@@ -323,8 +324,15 @@ fn grow_called_only_by_the_loader() {
             continue;
         }
         assert!(!text.contains(".grow("), "{rel} grows a reservation");
+        // The module `routing_plan` is the plan cache. The crate
+        // `polis_routing_plan` is the pure library beside it, which holds no
+        // cache and no reservation: naming the crate is not naming the cache.
         let allowed = usize::from(rel == "main.rs");
-        assert_eq!(text.matches("routing_plan").count(), allowed, "{rel}");
+        let named = text
+            .match_indices("routing_plan")
+            .filter(|(at, _)| !text[..*at].ends_with("polis_"))
+            .count();
+        assert_eq!(named, allowed, "{rel}");
     }
 }
 
@@ -1008,5 +1016,69 @@ mod db {
             Some("polis-api-routing-plan-loader")
         );
         handle.join().unwrap();
+    }
+
+    /// On its own, the loader reads a stored result it refused again for
+    /// the same tick (its refusal is keyed by content, known only after the
+    /// read). Through the scheduler, a second
+    /// request for that tick sends no statement until the backoff passes;
+    /// a newer tick is new content and is read at once.
+    #[test]
+    fn refused_source_not_read_again_through_the_scheduler() {
+        use super::super::builder::{BuildConfig, BuildRequest, BuildResult, Next, Schedule};
+        use polis_routing_plan::Monotonic;
+        for shape in SHAPES {
+            let db = Db::new(shape);
+            db.put(12, 4, &json!({"comment-priorities": "not a map"}));
+            let c = cache();
+            let mut loader = Loader::new(db.connector(), None);
+            let rule = RuleConfig::parse(STORED, None).unwrap();
+            let config = Arc::new(BuildConfig {
+                digest: DIGEST,
+                rule,
+                rule_plain: rule.to_plain(),
+                policy: None,
+            });
+            let request = |tick| BuildRequest {
+                zid: 12,
+                env: Arc::from(ENV),
+                desired_tick: Some(tick),
+                config: config.clone(),
+            };
+            let now = Monotonic::from_nanos(0);
+            let mut s = Schedule::new(10);
+            let mut reads = 0;
+            let mut counted = |stage: Stage, _: Option<i32>| {
+                if stage == Stage::BeforeRead {
+                    reads += 1;
+                }
+            };
+            s.offer(request(4));
+            let Next::Build(t) = s.next(now) else {
+                panic!("the first request is built")
+            };
+            let first = loader.load(&c, &t.job, &mut At(&mut counted));
+            assert_eq!(first, Outcome::SourceRefused, "{shape:?}");
+            s.finish(&t, BuildResult::Loaded(first), now, now, 0);
+            // The loader alone sends the statement again for tick 4.
+            let again = loader.load(&c, &t.job, &mut At(&mut counted));
+            assert_eq!(again, Outcome::SourceRefused, "{shape:?}");
+            // The scheduler does not.
+            s.offer(request(4));
+            assert!(
+                matches!(s.next(now), Next::Wait(Some(_))),
+                "tick 4 is held: {shape:?}"
+            );
+            // Tick 5 is built at once (and refused again: same document).
+            db.put(12, 5, &json!({"comment-priorities": "not a map"}));
+            s.offer(request(5));
+            let Next::Build(t) = s.next(now) else {
+                panic!("tick 5 is built: {shape:?}")
+            };
+            assert_eq!(t.job.desired_tick, 5);
+            let newer = loader.load(&c, &t.job, &mut At(&mut counted));
+            assert_eq!(newer, Outcome::SourceRefused, "{shape:?}");
+            assert_eq!(reads, 3, "{shape:?}");
+        }
     }
 }

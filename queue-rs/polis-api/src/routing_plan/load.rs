@@ -626,6 +626,12 @@ impl Loader {
         self.open.as_ref().map(|o| o.target)
     }
 
+    /// Closes the open connection, if any, and gives back its charge: after
+    /// a build that panicked, so a half-used connection is never reused.
+    pub(crate) fn close(&mut self) {
+        self.open = None;
+    }
+
     /// The open connection's server process id, if one is open.
     pub(crate) fn backend(&self) -> Option<i32> {
         self.open.as_ref().map(|o| o.backend)

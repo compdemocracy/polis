@@ -12,10 +12,10 @@ use serde_json::{Value, json};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-const UNIFORM: &str = r#"{"rule":"uniform/1","params":{},"terms":[]}"#;
+pub(super) const UNIFORM: &str = r#"{"rule":"uniform/1","params":{},"terms":[]}"#;
 const STORED: &str = r#"{"rule":"stored-weights/1","params":{},"terms":[]}"#;
 const FLOOR_POLICY: &str = "base-counts:lag-0";
-const ENV: &str = "example";
+pub(super) const ENV: &str = "example";
 
 /// Runs `probe` on its own thread while the caller holds the lock, and fails
 /// the test, rather than hanging it, if the probe has not finished within
@@ -86,14 +86,20 @@ fn projection(zid: i32, tick: i64) -> Projection {
     Projection::parse(&bytes, row, &SourceLimits::default()).unwrap()
 }
 
-fn plan(zid: i32, tick: i64, rule: &RuleConfig, policy: Option<&str>, d: [u8; 32]) -> PlanRef {
+pub(super) fn plan(
+    zid: i32,
+    tick: i64,
+    rule: &RuleConfig,
+    policy: Option<&str>,
+    d: [u8; 32],
+) -> PlanRef {
     let p = projection(zid, tick);
     let built = Plan::build(&p.frames(rule.needs()).unwrap(), rule).unwrap();
     let key = BundleKey::of(&p, rule, policy, d);
     PlanRef::new(CachedPlan::new(key, built, Monotonic::from_nanos(0)).unwrap())
 }
 
-fn settings(rule: RuleConfig, policy: Option<&str>) -> Settings {
+pub(super) fn settings(rule: RuleConfig, policy: Option<&str>) -> Settings {
     Settings {
         mode: Mode::Serve,
         rule,
@@ -104,7 +110,7 @@ fn settings(rule: RuleConfig, policy: Option<&str>) -> Settings {
     }
 }
 
-fn uniform_settings() -> Settings {
+pub(super) fn uniform_settings() -> Settings {
     settings(rule(UNIFORM, None), None)
 }
 
