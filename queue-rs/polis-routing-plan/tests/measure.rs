@@ -679,6 +679,41 @@ fn other_bytes_than_measured_are_refused() {
     assert!(Projection::parse_measured(a, row(), &limits, &m).is_ok());
 }
 
+#[test]
+fn other_limits_than_measured_are_refused() {
+    // The union runs only past `max_comments`, so a charge taken under
+    // wider limits does not cover a parse under narrower ones.
+    let wide = SourceLimits {
+        max_comments: 40_000,
+        ..SourceLimits::default()
+    };
+    let narrow = SourceLimits {
+        max_comments: 9_999,
+        ..SourceLimits::default()
+    };
+    let tids: Vec<String> = (0..5_000).map(|i| i.to_string()).collect();
+    let meta: Vec<String> = (5_000..10_000).map(|i| i.to_string()).collect();
+    let b = format!(
+        "{{\"tids\":[{}],\"meta-tids\":[{}]}}",
+        tids.join(","),
+        meta.join(",")
+    )
+    .into_bytes();
+    let m = Projection::measure(&b, &wide).unwrap();
+    let disagrees = SourceRefusal::TooLarge {
+        what: Limit::Reservation,
+    };
+    assert_eq!(
+        Projection::measured_parse_reservation(&m, &narrow).unwrap_err(),
+        disagrees
+    );
+    let r0 = row();
+    let (r, allocs, _, _) = counted(|| Projection::parse_measured(&b, r0, &narrow, &m));
+    assert_eq!(r.unwrap_err(), disagrees);
+    assert_eq!(allocs, 0, "allocated before refusing other limits");
+    assert!(Projection::parse_measured(&b, row(), &wide, &m).is_ok());
+}
+
 /// Parses `b` charged from its measure, and checks it held no more than
 /// that; gives the peak and the charge.
 fn within_measured(

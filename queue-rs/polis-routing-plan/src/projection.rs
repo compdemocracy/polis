@@ -375,6 +375,13 @@ impl Projection {
         m: &Measure,
         limits: &SourceLimits,
     ) -> Result<u64, SourceRefusal> {
+        // A charge under other limits than the measure's would not cover
+        // the parse: the union runs past `max_comments`.
+        if m.limits() != limits {
+            return Err(SourceRefusal::TooLarge {
+                what: Limit::Reservation,
+            });
+        }
         measured_parse_reservation(m, limits).ok_or(SourceRefusal::TooLarge {
             what: Limit::Reservation,
         })
@@ -382,7 +389,8 @@ impl Projection {
 
     /// `parse`, for bytes the caller measured (`Projection::measure`) and
     /// charged (`measured_parse_reservation`) first: the measure is not
-    /// taken again. Bytes other than those measured are refused before
+    /// taken again. Bytes other than those measured, or limits other than
+    /// the ones they were measured under, are refused before
     /// anything is allocated, and where the walk or the split would meet
     /// more than the measure counted, the parse is refused
     /// (`TooLarge { Reservation }`): the walk before the spill is given room
@@ -417,7 +425,7 @@ impl Projection {
         // allocated.
         let content = ContentId::of(bytes);
         if let Ok(m) = measured
-            && (m.len() != len || *m.content() != content)
+            && (m.len() != len || *m.content() != content || m.limits() != limits)
         {
             return Err(disagrees);
         }

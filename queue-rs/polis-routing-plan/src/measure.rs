@@ -24,6 +24,7 @@ pub(crate) const SERDE_DEPTH: usize = 127;
 pub struct Measure {
     len: u64,
     content: ContentId,
+    limits: SourceLimits,
     longest_string: u64,
     longest_number: u64,
     depth: u64,
@@ -46,6 +47,12 @@ impl Measure {
     /// The content id of the bytes measured.
     pub fn content(&self) -> &ContentId {
         &self.content
+    }
+    /// The limits the bytes were measured under. Whether the parse sets the
+    /// comment ids' union apart depends on them, so the measure is charged
+    /// and parsed under these limits only.
+    pub fn limits(&self) -> &SourceLimits {
+        &self.limits
     }
     /// The longest string or object key, in bytes as written between its
     /// quotes: no decoded string or key is longer.
@@ -308,6 +315,7 @@ pub(crate) fn measure(bytes: &[u8], limits: &SourceLimits) -> Result<Measure, So
     let mut m = Measure {
         len,
         content: ContentId::of(bytes),
+        limits: *limits,
         longest_string: 0,
         longest_number: 0,
         depth: 0,
