@@ -505,9 +505,14 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     let benchmark = benchmark_codes(&get("DELPHI_SHADOW_BENCHMARK").unwrap_or_default())?;
     let rule_lists = rule_lists(&get)?;
     let named = named_codes(&get(NAMED_KEY).unwrap_or_default(), &benchmark)?;
-    // Unset, empty or 0: no named run is admitted.
-    let naming_daily_max_micro_usd =
-        micro_usd(&get, NAMING_DAILY_KEY, NAMING_DAILY_MAX_USD)?.filter(|m| *m > 0);
+    // Unset, empty or 0: no named run is admitted. Read, like the run cap,
+    // only when a conversation may be named, so a stray value cannot stop
+    // the start while the list is empty.
+    let naming_daily_max_micro_usd = if named.is_empty() {
+        None
+    } else {
+        micro_usd(&get, NAMING_DAILY_KEY, NAMING_DAILY_MAX_USD)?.filter(|m| *m > 0)
+    };
     // The program's cap is read only when a conversation may be named, so
     // without the list nothing new is read or refused.
     let naming_run_max_micro_usd = if named.is_empty() {
@@ -1013,6 +1018,9 @@ mod naming_tests {
         // refused.
         let c = load_with(&[(NAMING_RUN_KEY, "not a number")]).unwrap();
         assert_eq!(c.naming_run_max_micro_usd, NAMING_RUN_DEFAULT_MICRO_USD);
+        // Nor is the daily limit.
+        let c = load_with(&[(NAMING_DAILY_KEY, "five")]).unwrap();
+        assert_eq!(c.naming_daily_max_micro_usd, None);
     }
 
     #[test]
@@ -1064,13 +1072,13 @@ mod naming_tests {
         .unwrap();
         assert_eq!(c.naming_run_max_micro_usd, 550_000);
         assert_eq!(
-            load_with(&[(NAMING_DAILY_KEY, "50")])
+            load_with(&[bench, named, (NAMING_DAILY_KEY, "50")])
                 .unwrap()
                 .naming_daily_max_micro_usd,
             Some(50_000_000)
         );
         for bad in ["50.01", "-1", "five", "NaN", "inf"] {
-            let e = load_with(&[(NAMING_DAILY_KEY, bad)]).unwrap_err();
+            let e = load_with(&[bench, named, (NAMING_DAILY_KEY, bad)]).unwrap_err();
             assert_eq!(
                 e.0, "DELPHI_NAMING_DAILY_MAX_USD must be a number of US dollars in 0..=50",
                 "{bad}"

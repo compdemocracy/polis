@@ -397,7 +397,7 @@ is as it was.
 | Setting | Default | Meaning |
 |---|---|---|
 | `DELPHI_SHADOW_NAMED` | empty: nothing is named | Conversation codes, read as `DELPHI_SHADOW_BENCHMARK` is. Each must also be on `DELPHI_SHADOW_BENCHMARK`, or the scheduler refuses to start, naming the entry's position, never the code. |
-| `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. |
+| `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. Read by the scheduler only when the list is set. |
 | `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one named run may cost, in US dollars, 0 to 2, and no more than the daily limit. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
 
 For each listed conversation, in list order, after the benchmark, featured
@@ -418,8 +418,14 @@ the box: every attempt of a named run of the env started since the start of
 the UTC day (by the database's clock), counted at the run cap frozen into
 that run's configuration, plus one cap for each named run not yet ended that
 has no attempt yet. An attempt sends at most one request, so this can count
-more than was spent and never less. A run repeated because a box was lost
-while its request was out counts twice. The named run is its own job in its
+more than was spent and never less. The queue gives a run up to three
+attempts, and each attempt that reaches the naming step may send its one
+request, so a run repeated after a failure past the send (a box lost while
+its request was out, or a later step of the run failing) counts at its cap
+once per attempt. The limit is checked when a run is admitted, not before
+each of its attempts, so the last run admitted in a day can take that day's
+tally past the limit by up to two caps. An attempt is counted on the UTC day
+it started. The named run is its own job in its
 own publication scope (`delphi:names:<namer>`), so it never replaces the
 keyword run it names. The two reads run on the scheduler's own read login,
 which needs to read `delphi_jobs` and `polis_queue_attempts`.
