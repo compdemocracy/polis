@@ -1,0 +1,3448 @@
+{
+ "header": {
+  "generator": "make_crosscheck.py",
+  "numpy": "2.1.3",
+  "statement": "symmetric/1: (R*R*(E+1)*(1+8*2^(-S/5)))^2 with R=(A+D+1)/(S+2); gic-mean/1: mean over groups with a count of (A+1)/(A+D+2), 0.5 with none; gic-geomean/1: exp(mean over every group of ln((A+1)/(S+2))), absent as no votes; factor 0.5+G, exactly 1 with fewer than 2 groups; symmetric-gic/1: symmetric/1 times the factor; unscored comments weigh nothing here and 1 in a draw, unmultiplied; a fixed meta comment weighs 7^2",
+  "tolerance": 1e-12,
+  "scope": "constructed cases; importance, the floor and zero mass are not in this file"
+ },
+ "cases": [
+  {
+   "name": "two groups, every cell present",
+   "candidates": [
+    3,
+    1,
+    2,
+    0
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      10
+     ],
+     [
+      1,
+      12
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      9,
+      1,
+      0
+     ],
+     [
+      1,
+      0,
+      2,
+      8,
+      1
+     ],
+     [
+      0,
+      1,
+      5,
+      5,
+      0
+     ],
+     [
+      1,
+      1,
+      6,
+      6,
+      0
+     ],
+     [
+      0,
+      2,
+      0,
+      0,
+      10
+     ],
+     [
+      1,
+      2,
+      1,
+      0,
+      0
+     ],
+     [
+      0,
+      3,
+      0,
+      0,
+      0
+     ],
+     [
+      1,
+      3,
+      0,
+      0,
+      0
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     11,
+     9,
+     1
+    ],
+    "1": [
+     10,
+     10,
+     0
+    ],
+    "2": [
+     1,
+     0,
+     9
+    ],
+    "3": [
+     0,
+     0,
+     0
+    ]
+   },
+   "extremity": {
+    "0": 0.4,
+    "1": 0.0,
+    "2": 3.0,
+    "3": 1.25
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 2.806030047283245
+      },
+      "1": {
+       "weight": 1.8679660286182644
+      },
+      "2": {
+       "weight": 0.1111111111111111
+      },
+      "3": {
+       "weight": 25.62890625
+      }
+     },
+     "probabilities": [
+      0.8426676835359933,
+      0.061417939216960614,
+      0.0036532867107861994,
+      0.09226109053625986
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.5416666666666667,
+       "factor": 1.0416666666666667
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "2": {
+       "g": 0.5833333333333333,
+       "factor": 1.0833333333333333
+      },
+      "3": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.4385290096535146,
+       "factor": 0.9385290096535146
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "2": {
+       "g": 0.2357022603955158,
+       "factor": 0.7357022603955158
+      },
+      "3": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.4385290096535146,
+       "factor": 0.9385290096535146,
+       "weight": 2.6335406013347487
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 1.8679660286182644
+      },
+      "2": {
+       "g": 0.2357022603955158,
+       "factor": 0.7357022603955158,
+       "weight": 0.08174469559950175
+      },
+      "3": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 25.62890625
+      }
+     },
+     "probabilities": [
+      0.8482977816433325,
+      0.061828289619732774,
+      0.0027056887742982327,
+      0.08716823996263653
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.5416666666666667,
+       "factor": 1.0416666666666667,
+       "weight": 2.9229479659200472
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 1.8679660286182644
+      },
+      "2": {
+       "g": 0.5833333333333333,
+       "factor": 1.0833333333333333,
+       "weight": 0.12037037037037035
+      },
+      "3": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 25.62890625
+      }
+     },
+     "probabilities": [
+      0.8391861915062455,
+      0.0611641902361404,
+      0.003941375870509781,
+      0.09570824238710426
+     ]
+    }
+   ]
+  },
+  {
+   "name": "three sparse groups, absent and zero cells",
+   "candidates": [
+    0,
+    1,
+    2,
+    3,
+    4
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      20
+     ],
+     [
+      2,
+      20
+     ],
+     [
+      7,
+      5
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      9,
+      1,
+      0
+     ],
+     [
+      2,
+      0,
+      0,
+      0,
+      0
+     ],
+     [
+      0,
+      1,
+      9,
+      1,
+      0
+     ],
+     [
+      2,
+      2,
+      3,
+      3,
+      3
+     ],
+     [
+      7,
+      2,
+      5,
+      0,
+      0
+     ],
+     [
+      0,
+      3,
+      1,
+      1,
+      0
+     ],
+     [
+      2,
+      3,
+      1,
+      1,
+      0
+     ],
+     [
+      7,
+      3,
+      0,
+      4,
+      1
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     9,
+     1,
+     0
+    ],
+    "1": [
+     9,
+     1,
+     0
+    ],
+    "2": [
+     8,
+     3,
+     3
+    ],
+    "3": [
+     2,
+     6,
+     1
+    ],
+    "4": [
+     0,
+     0,
+     0
+    ]
+   },
+   "extremity": {
+    "0": 0.5,
+    "1": 0.5,
+    "2": 0.5,
+    "3": 0.5,
+    "4": 0.5
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 14.297851562499996
+      },
+      "1": {
+       "weight": 14.297851562499996
+      },
+      "2": {
+       "weight": 3.286839324745231
+      },
+      "3": {
+       "weight": 10.962868778597676
+      },
+      "4": {
+       "weight": 11.390625
+      }
+     },
+     "probabilities": [
+      0.26362272313381496,
+      0.26362272313381496,
+      0.060602498879289056,
+      0.20213255873718614,
+      0.21001949611589496
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.6666666666666667,
+       "factor": 1.1666666666666667
+      },
+      "1": {
+       "g": 0.8333333333333334,
+       "factor": 1.3333333333333335
+      },
+      "2": {
+       "g": 0.6785714285714286,
+       "factor": 1.1785714285714286
+      },
+      "3": {
+       "g": 0.3888888888888889,
+       "factor": 0.8888888888888888
+      },
+      "4": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.5928155507483438,
+       "factor": 1.0928155507483437
+      },
+      "1": {
+       "g": 0.5928155507483438,
+       "factor": 1.0928155507483437
+      },
+      "2": {
+       "g": 0.5381419403223067,
+       "factor": 1.0381419403223067
+      },
+      "3": {
+       "g": 0.32931687800417475,
+       "factor": 0.8293168780041748
+      },
+      "4": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.5928155507483438,
+       "factor": 1.0928155507483437,
+       "weight": 15.6249145297915
+      },
+      "1": {
+       "g": 0.5928155507483438,
+       "factor": 1.0928155507483437,
+       "weight": 15.6249145297915
+      },
+      "2": {
+       "g": 0.5381419403223067,
+       "factor": 1.0381419403223067,
+       "weight": 3.4122057541186748
+      },
+      "3": {
+       "g": 0.32931687800417475,
+       "factor": 0.8293168780041748,
+       "weight": 9.091692109436064
+      },
+      "4": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 11.390625
+      }
+     },
+     "probabilities": [
+      0.28334569153283534,
+      0.28334569153283534,
+      0.061877701616200605,
+      0.16487077628745017,
+      0.20656013903067863
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.6666666666666667,
+       "factor": 1.1666666666666667,
+       "weight": 16.680826822916664
+      },
+      "1": {
+       "g": 0.8333333333333334,
+       "factor": 1.3333333333333335,
+       "weight": 19.063802083333332
+      },
+      "2": {
+       "g": 0.6785714285714286,
+       "factor": 1.1785714285714286,
+       "weight": 3.8737749184497368
+      },
+      "3": {
+       "g": 0.3888888888888889,
+       "factor": 0.8888888888888888,
+       "weight": 9.744772247642377
+      },
+      "4": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 11.390625
+      }
+     },
+     "probabilities": [
+      0.27456433224736176,
+      0.3137878082826992,
+      0.06376185275777345,
+      0.16039773768292895,
+      0.18748826902923657
+     ]
+    }
+   ]
+  },
+  {
+   "name": "one candidate",
+   "candidates": [
+    5
+   ],
+   "groups": {
+    "members": [
+     [
+      1,
+      3
+     ],
+     [
+      4,
+      3
+     ]
+    ],
+    "cells": [
+     [
+      1,
+      5,
+      3,
+      0,
+      0
+     ],
+     [
+      4,
+      5,
+      0,
+      3,
+      0
+     ]
+    ]
+   },
+   "previous": {
+    "5": [
+     3,
+     3,
+     0
+    ]
+   },
+   "extremity": {
+    "5": 2.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "5": {
+       "weight": 105.98822540622876
+      }
+     },
+     "probabilities": [
+      1.0
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "5": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "5": {
+       "g": 0.4,
+       "factor": 0.9
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "5": {
+       "g": 0.4,
+       "factor": 0.9,
+       "weight": 95.38940286560589
+      }
+     },
+     "probabilities": [
+      1.0
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "5": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 105.98822540622876
+      }
+     },
+     "probabilities": [
+      1.0
+     ]
+    }
+   ]
+  },
+  {
+   "name": "one group: the factor is 1",
+   "candidates": [
+    0,
+    1
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      9
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      8,
+      0,
+      0
+     ],
+     [
+      0,
+      1,
+      0,
+      8,
+      0
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     8,
+     0,
+     0
+    ],
+    "1": [
+     0,
+     8,
+     0
+    ]
+   },
+   "extremity": {
+    "0": 1.0,
+    "1": 1.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 34.753449430644324
+      },
+      "1": {
+       "weight": 34.753449430644324
+      }
+     },
+     "probabilities": [
+      0.5,
+      0.5
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0,
+       "weight": 34.753449430644324
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0,
+       "weight": 34.753449430644324
+      }
+     },
+     "probabilities": [
+      0.5,
+      0.5
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0,
+       "weight": 34.753449430644324
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0,
+       "weight": 34.753449430644324
+      }
+     },
+     "probabilities": [
+      0.5,
+      0.5
+     ]
+    }
+   ]
+  },
+  {
+   "name": "first tick: no previous counts, no groups",
+   "candidates": [
+    0,
+    1,
+    2
+   ],
+   "groups": {
+    "members": [],
+    "cells": []
+   },
+   "previous": {},
+   "extremity": {
+    "0": 0.0,
+    "1": 1.0,
+    "2": 2.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": null
+      },
+      "1": {
+       "weight": null
+      },
+      "2": {
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0
+      },
+      "2": {
+       "g": null,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0
+      },
+      "2": {
+       "g": null,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      },
+      "2": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      },
+      "1": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      },
+      "2": {
+       "g": null,
+       "factor": 1.0,
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.3333333333333333,
+      0.3333333333333333,
+      0.3333333333333333
+     ]
+    }
+   ]
+  },
+  {
+   "name": "new comments unscored beside scored ones",
+   "candidates": [
+    0,
+    1,
+    2,
+    3
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      6
+     ],
+     [
+      1,
+      6
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      6,
+      0,
+      0
+     ],
+     [
+      1,
+      0,
+      6,
+      0,
+      0
+     ],
+     [
+      0,
+      2,
+      1,
+      0,
+      0
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     12,
+     0,
+     0
+    ],
+    "1": [
+     0,
+     0,
+     1
+    ]
+   },
+   "extremity": {
+    "0": 0.5,
+    "1": 0.5,
+    "2": 0.5
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 10.586860828282019
+      },
+      "1": {
+       "weight": 1.7619927539186309
+      },
+      "2": {
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.7378192806577051,
+      0.12279676169421182,
+      0.06969197882404152,
+      0.06969197882404152
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "2": {
+       "g": 0.6666666666666666,
+       "factor": 1.1666666666666665
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "2": {
+       "g": 0.5773502691896257,
+       "factor": 1.0773502691896257
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375,
+       "weight": 14.556933638887775
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 1.7619927539186309
+      },
+      "2": {
+       "g": 0.5773502691896257,
+       "factor": 1.0773502691896257,
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.7946390157779162,
+      0.09618428046146534,
+      0.05458835188030923,
+      0.05458835188030923
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375,
+       "weight": 14.556933638887775
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 1.7619927539186309
+      },
+      "2": {
+       "g": 0.6666666666666666,
+       "factor": 1.1666666666666665,
+       "weight": null
+      }
+     },
+     "probabilities": [
+      0.7946390157779162,
+      0.09618428046146534,
+      0.05458835188030923,
+      0.05458835188030923
+     ]
+    }
+   ]
+  },
+  {
+   "name": "a fixed meta comment",
+   "candidates": [
+    0,
+    1
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      6
+     ],
+     [
+      1,
+      6
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      6,
+      0,
+      0
+     ],
+     [
+      1,
+      0,
+      6,
+      0,
+      0
+     ],
+     [
+      0,
+      1,
+      6,
+      0,
+      0
+     ],
+     [
+      1,
+      1,
+      0,
+      6,
+      0
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     12,
+     0,
+     0
+    ],
+    "1": [
+     6,
+     6,
+     0
+    ]
+   },
+   "extremity": {
+    "0": 0.5,
+    "1": 0.5
+   },
+   "meta": [
+    1
+   ],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 10.586860828282019
+      },
+      "1": {
+       "weight": 49.0
+      }
+     },
+     "probabilities": [
+      0.1776710617260294,
+      0.8223289382739706
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375
+      },
+      "1": {
+       "g": 0.33071891388307384,
+       "factor": 0.8307189138830738
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375,
+       "weight": 14.556933638887775
+      },
+      "1": {
+       "g": 0.33071891388307384,
+       "factor": 0.8307189138830738,
+       "weight": 49.0
+      }
+     },
+     "probabilities": [
+      0.22903769589634526,
+      0.7709623041036547
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.875,
+       "factor": 1.375,
+       "weight": 14.556933638887775
+      },
+      "1": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 49.0
+      }
+     },
+     "probabilities": [
+      0.22903769589634526,
+      0.7709623041036547
+     ]
+    }
+   ]
+  },
+  {
+   "name": "five groups, twelve candidates",
+   "candidates": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      7
+     ],
+     [
+      1,
+      11
+     ],
+     [
+      2,
+      19
+     ],
+     [
+      3,
+      40
+     ],
+     [
+      4,
+      23
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      0,
+      0,
+      1
+     ],
+     [
+      1,
+      0,
+      1,
+      3,
+      5
+     ],
+     [
+      2,
+      0,
+      1,
+      5,
+      11
+     ],
+     [
+      3,
+      0,
+      7,
+      23,
+      4
+     ],
+     [
+      4,
+      0,
+      9,
+      9,
+      1
+     ],
+     [
+      0,
+      1,
+      4,
+      2,
+      1
+     ],
+     [
+      1,
+      1,
+      5,
+      5,
+      0
+     ],
+     [
+      2,
+      1,
+      17,
+      1,
+      0
+     ],
+     [
+      3,
+      1,
+      11,
+      9,
+      17
+     ],
+     [
+      4,
+      1,
+      15,
+      6,
+      1
+     ],
+     [
+      0,
+      2,
+      1,
+      0,
+      0
+     ],
+     [
+      1,
+      2,
+      8,
+      1,
+      2
+     ],
+     [
+      2,
+      2,
+      16,
+      2,
+      0
+     ],
+     [
+      3,
+      2,
+      8,
+      27,
+      5
+     ],
+     [
+      4,
+      2,
+      14,
+      3,
+      5
+     ],
+     [
+      0,
+      3,
+      7,
+      0,
+      0
+     ],
+     [
+      1,
+      3,
+      2,
+      6,
+      2
+     ],
+     [
+      2,
+      3,
+      11,
+      8,
+      0
+     ],
+     [
+      3,
+      3,
+      26,
+      1,
+      5
+     ],
+     [
+      4,
+      3,
+      21,
+      0,
+      0
+     ],
+     [
+      0,
+      4,
+      6,
+      1,
+      0
+     ],
+     [
+      1,
+      4,
+      5,
+      1,
+      4
+     ],
+     [
+      2,
+      4,
+      17,
+      1,
+      1
+     ],
+     [
+      3,
+      4,
+      33,
+      6,
+      0
+     ],
+     [
+      4,
+      4,
+      20,
+      0,
+      2
+     ],
+     [
+      0,
+      5,
+      7,
+      0,
+      0
+     ],
+     [
+      1,
+      5,
+      1,
+      7,
+      0
+     ],
+     [
+      2,
+      5,
+      4,
+      10,
+      1
+     ],
+     [
+      3,
+      5,
+      2,
+      17,
+      2
+     ],
+     [
+      4,
+      5,
+      8,
+      3,
+      3
+     ],
+     [
+      0,
+      6,
+      4,
+      0,
+      3
+     ],
+     [
+      1,
+      6,
+      7,
+      1,
+      1
+     ],
+     [
+      2,
+      6,
+      16,
+      1,
+      0
+     ],
+     [
+      3,
+      6,
+      17,
+      4,
+      11
+     ],
+     [
+      4,
+      6,
+      21,
+      1,
+      0
+     ],
+     [
+      0,
+      7,
+      0,
+      1,
+      5
+     ],
+     [
+      1,
+      7,
+      4,
+      5,
+      2
+     ],
+     [
+      2,
+      7,
+      11,
+      6,
+      2
+     ],
+     [
+      3,
+      7,
+      34,
+      0,
+      6
+     ],
+     [
+      4,
+      7,
+      19,
+      3,
+      0
+     ],
+     [
+      0,
+      8,
+      2,
+      3,
+      1
+     ],
+     [
+      1,
+      8,
+      6,
+      2,
+      2
+     ],
+     [
+      2,
+      8,
+      12,
+      6,
+      0
+     ],
+     [
+      3,
+      8,
+      11,
+      11,
+      9
+     ],
+     [
+      4,
+      8,
+      0,
+      10,
+      5
+     ],
+     [
+      0,
+      9,
+      1,
+      4,
+      0
+     ],
+     [
+      1,
+      9,
+      4,
+      4,
+      2
+     ],
+     [
+      2,
+      9,
+      8,
+      7,
+      4
+     ],
+     [
+      3,
+      9,
+      28,
+      11,
+      1
+     ],
+     [
+      4,
+      9,
+      19,
+      2,
+      2
+     ],
+     [
+      0,
+      10,
+      6,
+      1,
+      0
+     ],
+     [
+      1,
+      10,
+      2,
+      5,
+      3
+     ],
+     [
+      2,
+      10,
+      19,
+      0,
+      0
+     ],
+     [
+      3,
+      10,
+      34,
+      0,
+      2
+     ],
+     [
+      4,
+      10,
+      6,
+      12,
+      1
+     ],
+     [
+      0,
+      11,
+      2,
+      5,
+      0
+     ],
+     [
+      1,
+      11,
+      6,
+      5,
+      0
+     ],
+     [
+      2,
+      11,
+      0,
+      0,
+      16
+     ],
+     [
+      3,
+      11,
+      37,
+      2,
+      1
+     ],
+     [
+      4,
+      11,
+      7,
+      2,
+      3
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     17,
+     38,
+     22
+    ],
+    "1": [
+     50,
+     21,
+     19
+    ],
+    "2": [
+     47,
+     32,
+     12
+    ],
+    "3": [
+     66,
+     14,
+     5
+    ],
+    "4": [
+     80,
+     8,
+     5
+    ],
+    "5": [
+     22,
+     37,
+     4
+    ],
+    "6": [
+     63,
+     6,
+     13
+    ],
+    "7": [
+     68,
+     14,
+     15
+    ],
+    "8": [
+     31,
+     31,
+     17
+    ],
+    "9": [
+     60,
+     26,
+     8
+    ],
+    "10": [
+     67,
+     16,
+     4
+    ],
+    "11": [
+     52,
+     13,
+     19
+    ]
+   },
+   "extremity": {
+    "0": 2.5,
+    "1": 0.0,
+    "2": 1.0,
+    "3": 0.0,
+    "4": 7.0,
+    "5": 0.25,
+    "6": 7.0,
+    "7": 0.0,
+    "8": 1.0,
+    "9": 2.5,
+    "10": 7.0,
+    "11": 7.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 3.0941440342274733
+      },
+      "1": {
+       "weight": 0.3751502007365935
+      },
+      "2": {
+       "weight": 2.190338418063645
+      },
+      "3": {
+       "weight": 0.7514776660884674
+      },
+      "4": {
+       "weight": 49.30183313713779
+      },
+      "5": {
+       "weight": 1.137339515715333
+      },
+      "6": {
+       "weight": 30.86990841214214
+      },
+      "7": {
+       "weight": 0.49406220854867416
+      },
+      "8": {
+       "weight": 1.4642117927726004
+      },
+      "9": {
+       "weight": 8.263107280904885
+      },
+      "10": {
+       "weight": 50.789889524207425
+      },
+      "11": {
+       "weight": 22.20356992767883
+      }
+     },
+     "probabilities": [
+      0.018101286763075396,
+      0.002194694651457568,
+      0.012813864957469575,
+      0.004396276507958431,
+      0.28842439449766594,
+      0.00665363618926701,
+      0.18059439325925639,
+      0.002890350810049082,
+      0.008565896496628655,
+      0.048340630814576784,
+      0.2971297860644481,
+      0.12989478898814708
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.36666666666666664,
+       "factor": 0.8666666666666667
+      },
+      "1": {
+       "g": 0.6532213438735177,
+       "factor": 1.1532213438735177
+      },
+      "2": {
+       "g": 0.6735130824604509,
+       "factor": 1.173513082460451
+      },
+      "3": {
+       "g": 0.7295747364413032,
+       "factor": 1.2295747364413032
+      },
+      "4": {
+       "g": 0.8423183050012317,
+       "factor": 1.3423183050012317
+      },
+      "5": {
+       "g": 0.4473107448107448,
+       "factor": 0.9473107448107447
+      },
+      "6": {
+       "g": 0.8454691075514875,
+       "factor": 1.3454691075514875
+      },
+      "7": {
+       "g": 0.6450026581605529,
+       "factor": 1.145002658160553
+      },
+      "8": {
+       "g": 0.4723809523809524,
+       "factor": 0.9723809523809523
+      },
+      "9": {
+       "g": 0.5784016681964408,
+       "factor": 1.0784016681964408
+      },
+      "10": {
+       "g": 0.6771428571428572,
+       "factor": 1.177142857142857
+      },
+      "11": {
+       "g": 0.6051793734720563,
+       "factor": 1.1051793734720563
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.2322053001449813,
+       "factor": 0.7322053001449813
+      },
+      "1": {
+       "g": 0.5520686397215171,
+       "factor": 1.052068639721517
+      },
+      "2": {
+       "g": 0.5547534503252897,
+       "factor": 1.0547534503252898
+      },
+      "3": {
+       "g": 0.6264203039116016,
+       "factor": 1.1264203039116016
+      },
+      "4": {
+       "g": 0.7528637242319698,
+       "factor": 1.2528637242319698
+      },
+      "5": {
+       "g": 0.32868728216477633,
+       "factor": 0.8286872821647764
+      },
+      "6": {
+       "g": 0.7060330461770629,
+       "factor": 1.2060330461770628
+      },
+      "7": {
+       "g": 0.45300941155916724,
+       "factor": 0.9530094115591672
+      },
+      "8": {
+       "g": 0.31377328218739775,
+       "factor": 0.8137732821873978
+      },
+      "9": {
+       "g": 0.4897749000068243,
+       "factor": 0.9897749000068243
+      },
+      "10": {
+       "g": 0.5635778119908973,
+       "factor": 1.0635778119908972
+      },
+      "11": {
+       "g": 0.34869959028051317,
+       "factor": 0.8486995902805132
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.2322053001449813,
+       "factor": 0.7322053001449813,
+       "weight": 2.26554866127333
+      },
+      "1": {
+       "g": 0.5520686397215171,
+       "factor": 1.052068639721517,
+       "weight": 0.394683761380202
+      },
+      "2": {
+       "g": 0.5547534503252897,
+       "factor": 1.0547534503252898,
+       "weight": 2.3102670038326667
+      },
+      "3": {
+       "g": 0.6264203039116016,
+       "factor": 1.1264203039116016,
+       "weight": 0.8464797010181526
+      },
+      "4": {
+       "g": 0.7528637242319698,
+       "factor": 1.2528637242319698,
+       "weight": 61.76847827565759
+      },
+      "5": {
+       "g": 0.32868728216477633,
+       "factor": 0.8286872821647764,
+       "weight": 0.9424987921767423
+      },
+      "6": {
+       "g": 0.7060330461770629,
+       "factor": 1.2060330461770628,
+       "weight": 37.230129677502724
+      },
+      "7": {
+       "g": 0.45300941155916724,
+       "factor": 0.9530094115591672,
+       "weight": 0.4708459346425945
+      },
+      "8": {
+       "g": 0.31377328218739775,
+       "factor": 0.8137732821873978,
+       "weight": 1.1915364364220529
+      },
+      "9": {
+       "g": 0.4897749000068243,
+       "factor": 0.9897749000068243,
+       "weight": 8.178616182703294
+      },
+      "10": {
+       "g": 0.5635778119908973,
+       "factor": 1.0635778119908972,
+       "weight": 54.018999571415925
+      },
+      "11": {
+       "g": 0.34869959028051317,
+       "factor": 0.8486995902805132,
+       "weight": 18.84416070038575
+      }
+     },
+     "probabilities": [
+      0.012021233562715979,
+      0.0020942325186235544,
+      0.012258513674872646,
+      0.004491508112793318,
+      0.32774988101464747,
+      0.005000995258678932,
+      0.1975468865771003,
+      0.0024983568215271516,
+      0.006322414541590668,
+      0.04339657630519695,
+      0.2866303521846536,
+      0.09998904942759937
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.36666666666666664,
+       "factor": 0.8666666666666667,
+       "weight": 2.6815914963304768
+      },
+      "1": {
+       "g": 0.6532213438735177,
+       "factor": 1.1532213438735177,
+       "weight": 0.4326312186478743
+      },
+      "2": {
+       "g": 0.6735130824604509,
+       "factor": 1.173513082460451,
+       "weight": 2.570390788613416
+      },
+      "3": {
+       "g": 0.7295747364413032,
+       "factor": 1.2295747364413032,
+       "weight": 0.923997953222253
+      },
+      "4": {
+       "g": 0.8423183050012317,
+       "factor": 1.3423183050012317,
+       "weight": 66.17875309009636
+      },
+      "5": {
+       "g": 0.4473107448107448,
+       "factor": 0.9473107448107447,
+       "weight": 1.077413943734984
+      },
+      "6": {
+       "g": 0.8454691075514875,
+       "factor": 1.3454691075514875,
+       "weight": 41.534508121481046
+      },
+      "7": {
+       "g": 0.6450026581605529,
+       "factor": 1.145002658160553,
+       "weight": 0.5657025420849054
+      },
+      "8": {
+       "g": 0.4723809523809524,
+       "factor": 0.9723809523809523,
+       "weight": 1.4237716575436428
+      },
+      "9": {
+       "g": 0.5784016681964408,
+       "factor": 1.0784016681964408,
+       "weight": 8.910948676213984
+      },
+      "10": {
+       "g": 0.6771428571428572,
+       "factor": 1.177142857142857,
+       "weight": 59.786955668495594
+      },
+      "11": {
+       "g": 0.6051793734720563,
+       "factor": 1.1051793734720563,
+       "weight": 24.538927501515083
+      }
+     },
+     "probabilities": [
+      0.012731555849838856,
+      0.0020540296798138595,
+      0.01220360145306414,
+      0.00438692155859079,
+      0.3142009109859668,
+      0.0051153040337530205,
+      0.19719592285694393,
+      0.0026858205356056174,
+      0.006759727721481631,
+      0.04230705567999924,
+      0.2838541836916253,
+      0.11650496595331676
+     ]
+    }
+   ]
+  },
+  {
+   "name": "five sparse groups, twelve candidates, absent cells",
+   "candidates": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "groups": {
+    "members": [
+     [
+      2,
+      43
+     ],
+     [
+      3,
+      36
+     ],
+     [
+      5,
+      38
+     ],
+     [
+      11,
+      38
+     ],
+     [
+      40,
+      30
+     ]
+    ],
+    "cells": [
+     [
+      2,
+      0,
+      0,
+      4,
+      19
+     ],
+     [
+      3,
+      0,
+      26,
+      5,
+      2
+     ],
+     [
+      5,
+      0,
+      30,
+      4,
+      0
+     ],
+     [
+      3,
+      1,
+      34,
+      2,
+      0
+     ],
+     [
+      11,
+      1,
+      37,
+      1,
+      0
+     ],
+     [
+      40,
+      1,
+      12,
+      9,
+      9
+     ],
+     [
+      2,
+      2,
+      32,
+      2,
+      0
+     ],
+     [
+      3,
+      2,
+      25,
+      8,
+      2
+     ],
+     [
+      11,
+      2,
+      21,
+      5,
+      5
+     ],
+     [
+      40,
+      2,
+      27,
+      0,
+      0
+     ],
+     [
+      2,
+      3,
+      20,
+      11,
+      9
+     ],
+     [
+      5,
+      3,
+      38,
+      0,
+      0
+     ],
+     [
+      11,
+      3,
+      14,
+      23,
+      0
+     ],
+     [
+      3,
+      4,
+      3,
+      4,
+      7
+     ],
+     [
+      5,
+      4,
+      5,
+      29,
+      4
+     ],
+     [
+      11,
+      4,
+      9,
+      21,
+      1
+     ],
+     [
+      40,
+      4,
+      19,
+      10,
+      1
+     ],
+     [
+      2,
+      5,
+      29,
+      2,
+      10
+     ],
+     [
+      3,
+      5,
+      7,
+      24,
+      2
+     ],
+     [
+      5,
+      5,
+      8,
+      22,
+      3
+     ],
+     [
+      11,
+      5,
+      16,
+      18,
+      2
+     ],
+     [
+      40,
+      5,
+      29,
+      1,
+      0
+     ],
+     [
+      3,
+      6,
+      10,
+      17,
+      3
+     ],
+     [
+      5,
+      6,
+      2,
+      3,
+      25
+     ],
+     [
+      11,
+      6,
+      30,
+      5,
+      3
+     ],
+     [
+      40,
+      6,
+      3,
+      0,
+      16
+     ],
+     [
+      5,
+      7,
+      32,
+      0,
+      0
+     ],
+     [
+      11,
+      7,
+      4,
+      30,
+      4
+     ],
+     [
+      2,
+      8,
+      28,
+      3,
+      3
+     ],
+     [
+      3,
+      8,
+      7,
+      24,
+      1
+     ],
+     [
+      5,
+      8,
+      2,
+      26,
+      0
+     ],
+     [
+      3,
+      9,
+      13,
+      11,
+      5
+     ],
+     [
+      11,
+      9,
+      31,
+      4,
+      1
+     ],
+     [
+      40,
+      9,
+      22,
+      6,
+      1
+     ],
+     [
+      2,
+      10,
+      10,
+      6,
+      4
+     ],
+     [
+      5,
+      10,
+      10,
+      4,
+      2
+     ],
+     [
+      40,
+      10,
+      24,
+      6,
+      0
+     ],
+     [
+      2,
+      11,
+      33,
+      9,
+      1
+     ],
+     [
+      5,
+      11,
+      5,
+      31,
+      2
+     ],
+     [
+      11,
+      11,
+      7,
+      14,
+      2
+     ],
+     [
+      40,
+      11,
+      4,
+      19,
+      4
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     54,
+     12,
+     20
+    ],
+    "1": [
+     82,
+     11,
+     9
+    ],
+    "2": [
+     105,
+     14,
+     6
+    ],
+    "3": [
+     72,
+     33,
+     7
+    ],
+    "4": [
+     36,
+     64,
+     11
+    ],
+    "5": [
+     87,
+     66,
+     17
+    ],
+    "6": [
+     45,
+     25,
+     46
+    ],
+    "7": [
+     34,
+     30,
+     2
+    ],
+    "8": [
+     37,
+     51,
+     3
+    ],
+    "9": [
+     66,
+     20,
+     7
+    ],
+    "10": [
+     44,
+     16,
+     4
+    ],
+    "11": [
+     47,
+     72,
+     9
+    ]
+   },
+   "extremity": {
+    "0": 7.0,
+    "1": 0.0,
+    "2": 2.5,
+    "3": 7.0,
+    "4": 0.25,
+    "5": 0.0,
+    "6": 2.5,
+    "7": 1.0,
+    "8": 7.0,
+    "9": 0.25,
+    "10": 1.0,
+    "11": 7.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 21.507733509345986
+      },
+      "1": {
+       "weight": 0.6673952008410555
+      },
+      "2": {
+       "weight": 9.764418753653358
+      },
+      "3": {
+       "weight": 47.8393516568795
+      },
+      "4": {
+       "weight": 0.9972250732747269
+      },
+      "5": {
+       "weight": 0.6426419860489618
+      },
+      "6": {
+       "weight": 1.6056178049761793
+      },
+      "7": {
+       "weight": 3.3451521947611225
+      },
+      "8": {
+       "weight": 53.682320663167175
+      },
+      "9": {
+       "weight": 1.099056713383912
+      },
+      "10": {
+       "weight": 2.9253471100379405
+      },
+      "11": {
+       "weight": 46.46561456183547
+      }
+     },
+     "probabilities": [
+      0.11287667597260141,
+      0.003502616944657123,
+      0.05124552669568751,
+      0.2510700159719955,
+      0.0052336268449147206,
+      0.0033727073656606554,
+      0.00842658760995811,
+      0.017555994926337058,
+      0.28173502858032506,
+      0.005768058659376633,
+      0.015352777999767,
+      0.24386038242871924
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.6153198653198654,
+       "factor": 1.1153198653198655
+      },
+      "1": {
+       "g": 0.8120900076277651,
+       "factor": 1.312090007627765
+      },
+      "2": {
+       "g": 0.8526888341543514,
+       "factor": 1.3526888341543515
+      },
+      "3": {
+       "g": 0.6653263403263403,
+       "factor": 1.1653263403263403
+      },
+      "4": {
+       "g": 0.3921931003584229,
+       "factor": 0.8921931003584229
+      },
+      "5": {
+       "g": 0.5684974747474747,
+       "factor": 1.0684974747474747
+      },
+      "6": {
+       "g": 0.6114299028092132,
+       "factor": 1.1114299028092132
+      },
+      "7": {
+       "g": 0.5547385620915033,
+       "factor": 1.0547385620915033
+      },
+      "8": {
+       "g": 0.4070707070707071,
+       "factor": 0.9070707070707071
+      },
+      "9": {
+       "g": 0.7233310233310233,
+       "factor": 1.2233310233310233
+      },
+      "10": {
+       "g": 0.6932870370370371,
+       "factor": 1.1932870370370372
+      },
+      "11": {
+       "g": 0.3696120241314749,
+       "factor": 0.8696120241314749
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.3668351834967291,
+       "factor": 0.8668351834967292
+      },
+      "1": {
+       "g": 0.6162377329317172,
+       "factor": 1.1162377329317172
+      },
+      "2": {
+       "g": 0.7300025351639875,
+       "factor": 1.2300025351639876
+      },
+      "3": {
+       "g": 0.5422358855988493,
+       "factor": 1.0422358855988492
+      },
+      "4": {
+       "g": 0.32364840412910195,
+       "factor": 0.8236484041291019
+      },
+      "5": {
+       "g": 0.44370790043142366,
+       "factor": 0.9437079004314237
+      },
+      "6": {
+       "g": 0.29872067182313367,
+       "factor": 0.7987206718231337
+      },
+      "7": {
+       "g": 0.4326841731833221,
+       "factor": 0.9326841731833221
+      },
+      "8": {
+       "g": 0.3428698639836836,
+       "factor": 0.8428698639836836
+      },
+      "9": {
+       "g": 0.5884204731224488,
+       "factor": 1.088420473122449
+      },
+      "10": {
+       "g": 0.5690678424511927,
+       "factor": 1.0690678424511928
+      },
+      "11": {
+       "g": 0.3155076764395609,
+       "factor": 0.8155076764395609
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.3668351834967291,
+       "factor": 0.8668351834967292,
+       "weight": 18.64366012317268
+      },
+      "1": {
+       "g": 0.6162377329317172,
+       "factor": 1.1162377329317172,
+       "weight": 0.7449717059563279
+      },
+      "2": {
+       "g": 0.7300025351639875,
+       "factor": 1.2300025351639876,
+       "weight": 12.010259821396414
+      },
+      "3": {
+       "g": 0.5422358855988493,
+       "factor": 1.0422358855988492,
+       "weight": 49.85988904058258
+      },
+      "4": {
+       "g": 0.32364840412910195,
+       "factor": 0.8236484041291019,
+       "weight": 0.8213628401602555
+      },
+      "5": {
+       "g": 0.44370790043142366,
+       "factor": 0.9437079004314237,
+       "weight": 0.606466319383346
+      },
+      "6": {
+       "g": 0.29872067182313367,
+       "factor": 0.7987206718231337,
+       "weight": 1.282440131881759
+      },
+      "7": {
+       "g": 0.4326841731833221,
+       "factor": 0.9326841731833221,
+       "weight": 3.119970508943153
+      },
+      "8": {
+       "g": 0.3428698639836836,
+       "factor": 0.8428698639836836,
+       "weight": 45.2472103156922
+      },
+      "9": {
+       "g": 0.5884204731224488,
+       "factor": 1.088420473122449,
+       "weight": 1.1962358279697212
+      },
+      "10": {
+       "g": 0.5690678424511927,
+       "factor": 1.0690678424511928,
+       "weight": 3.127394523349093
+      },
+      "11": {
+       "g": 0.3155076764395609,
+       "factor": 0.8155076764395609,
+       "weight": 37.89306536565867
+      }
+     },
+     "probabilities": [
+      0.1068080638601821,
+      0.004267884364879295,
+      0.06880583477203984,
+      0.2856433864125755,
+      0.004705523170054872,
+      0.003474397888708286,
+      0.0073469987436982735,
+      0.01787406588403181,
+      0.2592177124537243,
+      0.006853141060366261,
+      0.017916597479197667,
+      0.21708639391054188
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.6153198653198654,
+       "factor": 1.1153198653198655,
+       "weight": 23.988002440979322
+      },
+      "1": {
+       "g": 0.8120900076277651,
+       "factor": 1.312090007627765,
+       "weight": 0.8756825741622744
+      },
+      "2": {
+       "g": 0.8526888341543514,
+       "factor": 1.3526888341543515,
+       "weight": 13.208220220074246
+      },
+      "3": {
+       "g": 0.6653263403263403,
+       "factor": 1.1653263403263403,
+       "weight": 55.748456589896236
+      },
+      "4": {
+       "g": 0.3921931003584229,
+       "factor": 0.8921931003584229,
+       "weight": 0.8897173298801341
+      },
+      "5": {
+       "g": 0.5684974747474747,
+       "factor": 1.0684974747474747,
+       "weight": 0.6866613392600176
+      },
+      "6": {
+       "g": 0.6114299028092132,
+       "factor": 1.1114299028092132,
+       "weight": 1.784531640933417
+      },
+      "7": {
+       "g": 0.5547385620915033,
+       "factor": 1.0547385620915033,
+       "weight": 3.5282610158795826
+      },
+      "8": {
+       "g": 0.4070707070707071,
+       "factor": 0.9070707070707071,
+       "weight": 48.69366056113548
+      },
+      "9": {
+       "g": 0.7233310233310233,
+       "factor": 1.2233310233310233,
+       "weight": 1.3445101738827723
+      },
+      "10": {
+       "g": 0.6932870370370371,
+       "factor": 1.1932870370370372,
+       "weight": 3.4907787852420338
+      },
+      "11": {
+       "g": 0.3696120241314749,
+       "factor": 0.8696120241314749,
+       "weight": 40.40705713163068
+      }
+     },
+     "probabilities": [
+      0.12323941491422247,
+      0.004498857641684194,
+      0.06785781083627812,
+      0.28641014146191884,
+      0.004570961814901147,
+      0.003527752754854488,
+      0.009168109594188165,
+      0.018126595756837355,
+      0.25016581736436966,
+      0.006907480003106408,
+      0.017934029152560205,
+      0.20759302870507898
+     ]
+    }
+   ]
+  },
+  {
+   "name": "three groups, twelve candidates",
+   "candidates": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11
+   ],
+   "groups": {
+    "members": [
+     [
+      0,
+      38
+     ],
+     [
+      1,
+      41
+     ],
+     [
+      2,
+      37
+     ]
+    ],
+    "cells": [
+     [
+      0,
+      0,
+      2,
+      24,
+      6
+     ],
+     [
+      2,
+      0,
+      22,
+      6,
+      6
+     ],
+     [
+      0,
+      1,
+      8,
+      30,
+      0
+     ],
+     [
+      1,
+      1,
+      25,
+      16,
+      0
+     ],
+     [
+      2,
+      1,
+      37,
+      0,
+      0
+     ],
+     [
+      0,
+      2,
+      34,
+      0,
+      4
+     ],
+     [
+      1,
+      2,
+      22,
+      19,
+      0
+     ],
+     [
+      2,
+      2,
+      18,
+      5,
+      0
+     ],
+     [
+      0,
+      3,
+      20,
+      11,
+      4
+     ],
+     [
+      1,
+      3,
+      24,
+      2,
+      0
+     ],
+     [
+      2,
+      3,
+      14,
+      4,
+      18
+     ],
+     [
+      1,
+      4,
+      21,
+      9,
+      11
+     ],
+     [
+      1,
+      5,
+      8,
+      26,
+      5
+     ],
+     [
+      2,
+      5,
+      13,
+      10,
+      13
+     ],
+     [
+      0,
+      7,
+      14,
+      23,
+      0
+     ],
+     [
+      1,
+      7,
+      24,
+      11,
+      3
+     ],
+     [
+      0,
+      8,
+      30,
+      1,
+      3
+     ],
+     [
+      1,
+      8,
+      10,
+      25,
+      2
+     ],
+     [
+      2,
+      8,
+      1,
+      0,
+      19
+     ],
+     [
+      0,
+      9,
+      28,
+      9,
+      1
+     ],
+     [
+      1,
+      9,
+      38,
+      2,
+      1
+     ],
+     [
+      0,
+      10,
+      26,
+      3,
+      6
+     ],
+     [
+      1,
+      10,
+      27,
+      3,
+      1
+     ],
+     [
+      2,
+      10,
+      35,
+      2,
+      0
+     ],
+     [
+      0,
+      11,
+      23,
+      5,
+      5
+     ],
+     [
+      1,
+      11,
+      0,
+      31,
+      5
+     ]
+    ]
+   },
+   "previous": {
+    "0": [
+     23,
+     30,
+     12
+    ],
+    "1": [
+     70,
+     45,
+     0
+    ],
+    "2": [
+     72,
+     24,
+     3
+    ],
+    "3": [
+     56,
+     17,
+     20
+    ],
+    "4": [
+     20,
+     9,
+     10
+    ],
+    "5": [
+     21,
+     34,
+     16
+    ],
+    "6": [
+     0,
+     0,
+     0
+    ],
+    "7": [
+     38,
+     32,
+     1
+    ],
+    "8": [
+     41,
+     24,
+     23
+    ],
+    "9": [
+     65,
+     10,
+     1
+    ],
+    "10": [
+     86,
+     6,
+     5
+    ],
+    "11": [
+     21,
+     35,
+     8
+    ]
+   },
+   "extremity": {
+    "0": 0.25,
+    "1": 0.0,
+    "2": 0.25,
+    "3": 7.0,
+    "4": 0.25,
+    "5": 7.0,
+    "6": 1.0,
+    "7": 7.0,
+    "8": 0.0,
+    "9": 0.25,
+    "10": 0.0,
+    "11": 0.0
+   },
+   "meta": [],
+   "results": [
+    {
+     "rule": "symmetric",
+     "params": "{\"rule\":\"symmetric/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\"},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "weight": 0.6606077616286923
+      },
+      "1": {
+       "weight": 0.9662496247691209
+      },
+      "2": {
+       "weight": 1.3293185957803306
+      },
+      "3": {
+       "weight": 23.562964005479188
+      },
+      "4": {
+       "weight": 0.4806208650499688
+      },
+      "5": {
+       "weight": 22.182463584738997
+      },
+      "6": {
+       "weight": 20.25
+      },
+      "7": {
+       "weight": 57.318004746710336
+      },
+      "8": {
+       "weight": 0.28922823025690875
+      },
+      "9": {
+       "weight": 1.4089013064595468
+      },
+      "10": {
+       "weight": 0.778755380262768
+      },
+      "11": {
+       "weight": 0.5575675579928229
+      }
+     },
+     "probabilities": [
+      0.005090028755194216,
+      0.0074450205711249886,
+      0.010242492247827079,
+      0.1815542767008963,
+      0.0037032171971750055,
+      0.17091742493154816,
+      0.15602765858905718,
+      0.44163921361114467,
+      0.0022285236328317124,
+      0.010855682569380088,
+      0.006000364375112621,
+      0.0042960968187080745
+     ]
+    },
+    {
+     "rule": "gic-mean",
+     "params": "{\"rule\":\"gic-mean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.4369047619047619,
+       "factor": 0.9369047619047619
+      },
+      "1": {
+       "g": 0.601336712383224,
+       "factor": 1.1013367123832238
+      },
+      "2": {
+       "g": 0.7557019810508182,
+       "factor": 1.255701981050818
+      },
+      "3": {
+       "g": 0.7597402597402597,
+       "factor": 1.2597402597402598
+      },
+      "4": {
+       "g": 0.6875,
+       "factor": 1.1875
+      },
+      "5": {
+       "g": 0.405,
+       "factor": 0.905
+      },
+      "6": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "7": {
+       "g": 0.5301455301455301,
+       "factor": 1.0301455301455302
+      },
+      "8": {
+       "g": 0.6344526344526344,
+       "factor": 1.1344526344526344
+      },
+      "9": {
+       "g": 0.8360805860805861,
+       "factor": 1.3360805860805862
+      },
+      "10": {
+       "g": 0.8896815550041358,
+       "factor": 1.389681555004136
+      },
+      "11": {
+       "g": 0.41515151515151516,
+       "factor": 0.9151515151515152
+      }
+     }
+    },
+    {
+     "rule": "gic-geomean",
+     "params": "{\"rule\":\"gic-geomean/1\",\"params\":{\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.3043307893334654,
+       "factor": 0.8043307893334655
+      },
+      "1": {
+       "g": 0.5098809661129039,
+       "factor": 1.0098809661129038
+      },
+      "2": {
+       "g": 0.7085334234406484,
+       "factor": 1.2085334234406484
+      },
+      "3": {
+       "g": 0.584838206775449,
+       "factor": 1.084838206775449
+      },
+      "4": {
+       "g": 0.5038463049980059,
+       "factor": 1.0038463049980058
+      },
+      "5": {
+       "g": 0.34323457731884216,
+       "factor": 0.8432345773188421
+      },
+      "6": {
+       "g": 0.5,
+       "factor": 1.0
+      },
+      "7": {
+       "g": 0.4935057584371428,
+       "factor": 0.9935057584371427
+      },
+      "8": {
+       "g": 0.28054219803681996,
+       "factor": 0.7805421980368199
+      },
+      "9": {
+       "g": 0.6901890329709559,
+       "factor": 1.190189032970956
+      },
+      "10": {
+       "g": 0.8298788091968824,
+       "factor": 1.3298788091968823
+      },
+      "11": {
+       "g": 0.20818201208723297,
+       "factor": 0.708182012087233
+      }
+     }
+    },
+    {
+     "rule": "symmetric-gic-geomean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-geomean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.3043307893334654,
+       "factor": 0.8043307893334655,
+       "weight": 0.5313471623506199
+      },
+      "1": {
+       "g": 0.5098809661129039,
+       "factor": 1.0098809661129038,
+       "weight": 0.9757971045680706
+      },
+      "2": {
+       "g": 0.7085334234406484,
+       "factor": 1.2085334234406484,
+       "weight": 1.6065259534017184
+      },
+      "3": {
+       "g": 0.584838206775449,
+       "factor": 1.084838206775449,
+       "weight": 25.56200361801849
+      },
+      "4": {
+       "g": 0.5038463049980059,
+       "factor": 1.0038463049980058,
+       "weight": 0.48246947948535635
+      },
+      "5": {
+       "g": 0.34323457731884216,
+       "factor": 0.8432345773188421,
+       "weight": 18.705020304767995
+      },
+      "6": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 20.25
+      },
+      "7": {
+       "g": 0.4935057584371428,
+       "factor": 0.9935057584371427,
+       "weight": 56.9457677779842
+      },
+      "8": {
+       "g": 0.28054219803681996,
+       "factor": 0.7805421980368199,
+       "weight": 0.225754838579027
+      },
+      "9": {
+       "g": 0.6901890329709559,
+       "factor": 1.190189032970956,
+       "weight": 1.6768588834866045
+      },
+      "10": {
+       "g": 0.8298788091968824,
+       "factor": 1.3298788091968823,
+       "weight": 1.0356502777595151
+      },
+      "11": {
+       "g": 0.20818201208723297,
+       "factor": 0.708182012087233,
+       "weight": 0.39485931509392225
+      }
+     },
+     "probabilities": [
+      0.0041384738606141495,
+      0.007600136213493455,
+      0.012512658645128984,
+      0.1990933447919456,
+      0.0037577829917471335,
+      0.14568674320398195,
+      0.15772003995786235,
+      0.44353030959875644,
+      0.0017583240573513532,
+      0.013060456795417468,
+      0.008066311268671703,
+      0.00307541861502951
+     ]
+    },
+    {
+     "rule": "symmetric-gic-mean",
+     "params": "{\"rule\":\"symmetric-gic/1\",\"params\":{\"side_prior\":1.0,\"seen_prior\":2.0,\"extremity_offset\":1.0,\"novelty_amplitude\":8.0,\"novelty_halving_votes\":5.0,\"exponent\":2,\"meta_inner\":7.0,\"meta_policy\":\"fixed\",\"consensus_form\":\"gic-mean/1\",\"gic_offset\":0.5,\"gic_min_groups\":2},\"terms\":[]}",
+     "comments": {
+      "0": {
+       "g": 0.4369047619047619,
+       "factor": 0.9369047619047619,
+       "weight": 0.6189265576211677
+      },
+      "1": {
+       "g": 0.601336712383224,
+       "factor": 1.1013367123832238,
+       "weight": 1.0641661850847473
+      },
+      "2": {
+       "g": 0.7557019810508182,
+       "factor": 1.255701981050818,
+       "weight": 1.6692279941690529
+      },
+      "3": {
+       "g": 0.7597402597402597,
+       "factor": 1.2597402597402598,
+       "weight": 29.683214396512746
+      },
+      "4": {
+       "g": 0.6875,
+       "factor": 1.1875,
+       "weight": 0.570737277246838
+      },
+      "5": {
+       "g": 0.405,
+       "factor": 0.905,
+       "weight": 20.075129544188794
+      },
+      "6": {
+       "g": 0.5,
+       "factor": 1.0,
+       "weight": 20.25
+      },
+      "7": {
+       "g": 0.5301455301455301,
+       "factor": 1.0301455301455302,
+       "weight": 59.04588638668394
+      },
+      "8": {
+       "g": 0.6344526344526344,
+       "factor": 1.1344526344526344,
+       "weight": 0.3281157277730233
+      },
+      "9": {
+       "g": 0.8360805860805861,
+       "factor": 1.3360805860805862,
+       "weight": 1.882405683264175
+      },
+      "10": {
+       "g": 0.8896815550041358,
+       "factor": 1.389681555004136,
+       "weight": 1.0822219878114006
+      },
+      "11": {
+       "g": 0.41515151515151516,
+       "factor": 0.9151515151515152,
+       "weight": 0.5102587954964621
+      }
+     },
+     "probabilities": [
+      0.004524968876703305,
+      0.007780113501117412,
+      0.012203717272639662,
+      0.2170138276518157,
+      0.004172657295951849,
+      0.14676916875627466,
+      0.148047645758525,
+      0.4316841714209332,
+      0.0023988523966983295,
+      0.013762258260233518,
+      0.007912119381905629,
+      0.003730499427201574
+     ]
+    }
+   ]
+  }
+ ]
+}

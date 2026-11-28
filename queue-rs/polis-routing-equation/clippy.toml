@@ -1,0 +1,24 @@
+# A second witness to the source scan in ci/local/polis-routing-equation.sh:
+# the crate computes and draws, and reaches nothing outside its arguments.
+disallowed-methods = [
+  "std::time::Instant::now",
+  "std::time::SystemTime::now",
+  "std::env::var",
+  "std::env::var_os",
+  "std::fs::read",
+  "std::fs::read_to_string",
+  "std::fs::write",
+  "std::fs::File::open",
+  "std::fs::File::create",
+  "std::process::Command::new",
+  "std::thread::spawn",
+  "std::net::TcpStream::connect",
+]
+disallowed-types = [
+  "std::fs::File",
+  "std::net::TcpStream",
+  "std::net::UdpSocket",
+  "std::sync::Mutex",
+  "std::sync::RwLock",
+  "std::sync::OnceLock",
+]
