@@ -11,7 +11,9 @@ echo "POLIS_API_ROUTING_COMPARE_CONVERSATIONS=2example00,3example00" >> "$work/.
 # The services read the project's `.env` as their env file: the fixture is
 # that file, in a project directory of its own, so no checkout is touched.
 cp "$root/docker-compose.yml" "$work/docker-compose.yml"
-config="$(cd "$work" && docker compose -f docker-compose.yml config --format json 2>/dev/null)"
+# The three Rust services are in the rust-api profile; without it `config`
+# leaves them out.
+config="$(cd "$work" && docker compose -f docker-compose.yml --profile rust-api config --format json 2>/dev/null)"
 value() {
   printf '%s' "$config" | python3 -c '
 import json, sys
