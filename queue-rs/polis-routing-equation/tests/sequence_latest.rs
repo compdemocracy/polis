@@ -357,3 +357,63 @@ fn no_admitted_unit_reaches_the_branches_after_the_unit_is_read() {
     );
     assert!(accepted > 5_000);
 }
+
+/// The caller's filter, then one draw, for `symmetric-gic-floor/2`: the candidate
+/// query's rows with `FloorPlan::excludes` dropped, in their order, then one
+/// `draw` with no `probabilities` preflight. The reference for the filter is
+/// the draw itself: an id is excluded exactly when the plan, given that id
+/// alone, refuses it as `ExcludedCandidate`. After the filter no draw refuses
+/// for exclusion, the drawn comment is one the plan does not exclude, and the
+/// sequence with the preflight and without it agree at every unit.
+#[test]
+fn filtering_with_excludes_then_one_draw_matches_the_reference() {
+    let mut rng = XorShift(0x9e37_79b9_7f4a_7c15);
+    let (ws, input) = (src("plan"), src("participant"));
+    let alone = Unit::new(0.5).unwrap();
+    let (mut dropped, mut drawn, mut baseline) = (0usize, 0usize, 0usize);
+    for case in 0..300 {
+        let n = rng.below(120) as usize + 1;
+        let b = constructed(&mut rng, n);
+        for ids in lists(&mut rng, &b) {
+            let reference: Vec<CommentId> = ids
+                .iter()
+                .copied()
+                .filter(|c| {
+                    let one = Candidates::new(vec![*c]).unwrap();
+                    b.plan.draw(&one, alone, &ws, &input) != Err(DrawRefusal::ExcludedCandidate(*c))
+                })
+                .collect();
+            let kept: Vec<CommentId> = ids
+                .iter()
+                .copied()
+                .filter(|c| !b.plan.excludes(*c))
+                .collect();
+            assert_eq!(kept, reference, "case {case}: the filter");
+            dropped += ids.len() - kept.len();
+            let Ok(c) = Candidates::new(kept) else {
+                continue;
+            };
+            for u in units(&mut rng) {
+                let s = b.plan.draw(&c, u, &ws, &input);
+                let p = b
+                    .plan
+                    .probabilities(&c)
+                    .and_then(|_| b.plan.draw(&c, u, &ws, &input));
+                assert_eq!(p, s, "case {case}: P and S at {u:?}");
+                match s {
+                    Ok(d) => {
+                        assert_eq!(c.ids()[d.index()], d.comment());
+                        assert!(!b.plan.excludes(d.comment()), "case {case}");
+                        drawn += 1;
+                    }
+                    Err(DrawRefusal::NeedsBaseline(_)) => baseline += 1,
+                    Err(e) => panic!("case {case}: an unexpected refusal after the filter {e:?}"),
+                }
+            }
+        }
+    }
+    println!(
+        "sequence /2 with the filter: {dropped} excluded rows dropped, {drawn} draws, {baseline} needing a baseline"
+    );
+    assert!(dropped > 0 && drawn > 0 && baseline > 0, "coverage");
+}
