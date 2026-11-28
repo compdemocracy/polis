@@ -490,6 +490,14 @@ services:
       # no model call follow from it: a named run is admitted only for a
       # conversation on DELPHI_SHADOW_NAMED under a daily limit.
       - DELPHI_NAMING_RUN_MAX_USD=${DELPHI_NAMING_RUN_MAX_USD:-}
+      # The Amazon Bedrock price of the naming model, given by the operator
+      # (dollars per million input and output tokens, and where and when the
+      # figures were read). There is no default price: empty, the default,
+      # the naming program refuses before sending (outcome no_price) and the
+      # run keeps its keyword names. Bedrock's region is AWS_REGION above.
+      - DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK=${DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK:-}
+      - DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK=${DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK:-}
+      - DELPHI_NAMING_BEDROCK_PRICE_SOURCE=${DELPHI_NAMING_BEDROCK_PRICE_SOURCE:-}
       - SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_BY_ENV

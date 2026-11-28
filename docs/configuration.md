@@ -399,6 +399,16 @@ is as it was.
 | `DELPHI_SHADOW_NAMED` | empty: nothing is named | Conversation codes, read as `DELPHI_SHADOW_BENCHMARK` is. Each must also be on `DELPHI_SHADOW_BENCHMARK`, or the scheduler refuses to start, naming the entry's position, never the code. |
 | `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. Read by the scheduler only when the list is set. |
 | `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one attempt of a named run may cost, in US dollars, 0 to 2; three times it must be no more than the daily limit, or the scheduler refuses to start. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
+| `DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK` | empty: no price, no request | The naming model's Amazon Bedrock price for input, in US dollars per million tokens, above 0 and at most 100. Read by the naming program in the executor (`delphi-shadow`) only. |
+| `DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK` | empty: no price, no request | The same for output tokens. |
+| `DELPHI_NAMING_BEDROCK_PRICE_SOURCE` | empty: no price, no request | Where and when the two figures were read (free text, at most 500 characters), recorded with each named run. |
+
+There is no default price. If any of the three price settings is empty, the
+naming program refuses before reading a credential or sending anything (its
+outcome is `no_price`, naming the first setting that is missing), and the run
+keeps its keyword names. Bedrock is called in the executor's `AWS_REGION`,
+which Compose already gives it (`us-east-1` unless the environment document
+sets another).
 
 For each listed conversation, in list order, after the benchmark, featured
 and current sets' runs and the comment rules' runs, the scheduler reads the
