@@ -1904,8 +1904,10 @@ lookup), straight after the observed selection, the typed routing library's
 rule `stored-weights/1` draws again on the same weights, the same candidates
 in the same order and the same unit, and the two choices are compared. It adds
 no statement, connection or pool: it runs one at a time off the runtime
-threads, within 100 ms, sheds itself first (one already running, more than
-20,000 candidates), and keeps nothing but counters. A copy of a conversation
+threads, the copy waits at most 100 ms for it (a draw that runs longer ends
+by itself, and no other starts until it has), it sheds itself first (one
+already running, more than 20,000 candidates), and it keeps nothing but
+counters. A copy of a conversation
 not on the list has nothing computed, and its line is the line with the key
 unset.
 

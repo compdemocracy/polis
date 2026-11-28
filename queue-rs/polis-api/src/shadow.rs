@@ -932,6 +932,15 @@ pub(crate) async fn run() -> Result<()> {
         listening.push(("post_votes_identity", Js::Str("observe".into())));
         identity.report_logging_settings().await;
     }
+    if app
+        .post_votes_observe
+        .as_ref()
+        .is_some_and(|observer| observer.compare.is_some())
+    {
+        // The routing comparison's draw runs over comment ids: a panic there
+        // prints where it happened, never what it said.
+        install_panic_hook();
+    }
     if app.read_lanes.built().next().is_some() {
         // A process that holds query strings prints no panic message.
         install_panic_hook();
