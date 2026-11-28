@@ -208,7 +208,11 @@ fn compare_off_calls_nothing_witnessed() {
                 let cache = cache.clone();
                 move || {
                     let mut c = config.connect(postgres::NoTls).unwrap();
-                    cache.snapshot(&mut c, 1, "test").unwrap().validate().unwrap()
+                    cache
+                        .snapshot(&mut c, 1, "test")
+                        .unwrap()
+                        .validate()
+                        .unwrap()
                 }
             })
             .await;
@@ -298,7 +302,8 @@ fn compare_refusal_changes_nothing() {
     let db = fixture("compare_refusal");
     // Above the library's ceiling of 1e150: the writer draws, the library
     // refuses.
-    set_priorities(&db, &json!({"comment-priorities": {"4": 1e151, "9": 4}}));
+    // Statement 9 is a candidate of every copy below.
+    set_priorities(&db, &json!({"comment-priorities": {"4": 1.5, "9": 1e151}}));
     let bodies = three_copies();
     let off = lines_of(&db, &keys, None, &bodies);
     let on = lines_of(&db, &keys, Some("2fixture"), &bodies);
