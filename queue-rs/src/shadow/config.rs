@@ -59,6 +59,27 @@ pub const RETIRED: [(&str, &str); 2] = [
     ),
 ];
 
+/// The conversations whose topics may be named by a model: conversation
+/// codes, read as `DELPHI_SHADOW_BENCHMARK` is, each also on that list. Empty
+/// or absent, the default, names none.
+pub const NAMED_KEY: &str = "DELPHI_SHADOW_NAMED";
+/// The most a day's named runs may spend, in US dollars: absent, empty or 0,
+/// the default, admits no named run.
+pub const NAMING_DAILY_KEY: &str = "DELPHI_NAMING_DAILY_MAX_USD";
+/// The highest daily limit the setting accepts, in US dollars.
+pub const NAMING_DAILY_MAX_USD: f64 = 50.0;
+/// The naming program's per-run cap (`polis-topic-names`): it refuses, before
+/// any request, a run whose worst case is over it, so it bounds what one
+/// named run can cost. Read here only when `DELPHI_SHADOW_NAMED` lists a
+/// conversation.
+pub const NAMING_RUN_KEY: &str = "DELPHI_NAMING_RUN_MAX_USD";
+/// The highest per-run cap the scheduler accepts, in US dollars.
+pub const NAMING_RUN_MAX_USD: f64 = 2.0;
+/// The naming program's own default cap when its setting is absent or empty
+/// (`polis_topic_names::DEFAULT_RUN_MAX_USD`, 0.50), in millionths of a
+/// dollar. The two must agree: the program's is what a run is held to.
+pub const NAMING_RUN_DEFAULT_MICRO_USD: i64 = 500_000;
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct Config {
     /// The queue login (a member of `polis_queue_executor`): admission, job
@@ -145,6 +166,18 @@ pub struct Config {
     pub statement_timeout: Duration,
     /// The derived-map backfill (`backfill`), off by default.
     pub derived: super::backfill::Settings,
+    /// The conversations that may be given a named run ([`NAMED_KEY`]), in
+    /// the order listed, each on the benchmark list. Empty by default: no
+    /// conversation is named.
+    pub named: Vec<String>,
+    /// The day's limit on named runs, in millionths of a US dollar
+    /// ([`NAMING_DAILY_KEY`]). `None`, the default (unset, empty or 0),
+    /// admits no named run.
+    pub naming_daily_max_micro_usd: Option<i64>,
+    /// What one named run can cost at most, in millionths of a US dollar: the
+    /// naming program's per-run cap ([`NAMING_RUN_KEY`], its default when
+    /// unset).
+    pub naming_run_max_micro_usd: i64,
 }
 
 /// The part of the storage budget a run may spend.
@@ -332,6 +365,43 @@ pub fn rule_lists<F: Fn(&str) -> Option<String>>(get: &F) -> Result<Vec<RuleList
     Ok(out)
 }
 
+/// `DELPHI_SHADOW_NAMED`, read as the benchmark list is (separated by commas
+/// or white space, a repeat kept at its first place, an entry that is not a
+/// code refused by its position, never its text, at most [`RULE_LIST_MAX`]),
+/// and each code also on the benchmark list: a named run names the topics of
+/// a finished keyword run, and the benchmark set is the operator's closed
+/// list of conversations the shadow runs whatever their activity. A code
+/// that is not on it is refused at start by its position.
+pub fn named_codes(raw: &str, benchmark: &[String]) -> Result<Vec<String>, ConfigError> {
+    let codes = conversation_codes(NAMED_KEY, raw, RULE_LIST_MAX)?;
+    for (i, entry) in entries(raw).enumerate() {
+        if !benchmark.iter().any(|b| b == entry) {
+            return err(format!(
+                "{NAMED_KEY} entry {} is not on DELPHI_SHADOW_BENCHMARK: a conversation is named only after a keyword run of the benchmark set",
+                i + 1
+            ));
+        }
+    }
+    Ok(codes)
+}
+
+/// A setting in US dollars as millionths of a dollar: `None` when unset or
+/// empty; refused unless a number in `0..=max` (the message names the
+/// setting and its bounds, never the value).
+pub fn micro_usd<F: Fn(&str) -> Option<String>>(
+    get: &F,
+    key: &str,
+    max: f64,
+) -> Result<Option<i64>, ConfigError> {
+    let Some(raw) = get(key).filter(|v| !v.trim().is_empty()) else {
+        return Ok(None);
+    };
+    match raw.trim().parse::<f64>() {
+        Ok(v) if v.is_finite() && (0.0..=max).contains(&v) => Ok(Some((v * 1e6).round() as i64)),
+        _ => err(format!("{key} must be a number of US dollars in 0..={max}")),
+    }
+}
+
 /// A shadow env: the prefix, then 1 to 57 characters of `[a-z0-9_-]`.
 pub fn valid_env(env: &str) -> bool {
     env.strip_prefix(ENV_PREFIX).is_some_and(|rest| {
@@ -434,6 +504,24 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
     let graph = super::graph::Config::load(&get, &env)?;
     let benchmark = benchmark_codes(&get("DELPHI_SHADOW_BENCHMARK").unwrap_or_default())?;
     let rule_lists = rule_lists(&get)?;
+    let named = named_codes(&get(NAMED_KEY).unwrap_or_default(), &benchmark)?;
+    // Unset, empty or 0: no named run is admitted.
+    let naming_daily_max_micro_usd =
+        micro_usd(&get, NAMING_DAILY_KEY, NAMING_DAILY_MAX_USD)?.filter(|m| *m > 0);
+    // The program's cap is read only when a conversation may be named, so
+    // without the list nothing new is read or refused.
+    let naming_run_max_micro_usd = if named.is_empty() {
+        NAMING_RUN_DEFAULT_MICRO_USD
+    } else {
+        micro_usd(&get, NAMING_RUN_KEY, NAMING_RUN_MAX_USD)?.unwrap_or(NAMING_RUN_DEFAULT_MICRO_USD)
+    };
+    if !named.is_empty()
+        && naming_daily_max_micro_usd.is_some_and(|daily| naming_run_max_micro_usd > daily)
+    {
+        return err(format!(
+            "{NAMING_RUN_KEY} must not exceed {NAMING_DAILY_KEY}: no named run could be admitted"
+        ));
+    }
     let state_dir = PathBuf::from("/var/lib/delphi-shadow");
     Ok(Load::Ready(Box::new(Config {
         queue_dsn,
@@ -513,6 +601,9 @@ pub fn load<F: Fn(&str) -> Option<String>>(get: F) -> Result<Load, ConfigError> 
             600_000,
         )?),
         derived: derived_settings(&get)?,
+        named,
+        naming_daily_max_micro_usd,
+        naming_run_max_micro_usd,
     })))
 }
 
@@ -872,5 +963,132 @@ mod tests {
         assert_eq!(c.storage_daily_log(), serde_json::json!(300u64 << 20));
         assert_eq!(c.storage_run_max_bytes(Share::Whole), 300 << 20);
         assert_eq!(c.storage_run_max_bytes(Share::Shared), 300 << 20);
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod naming_tests {
+    use super::*;
+    use std::collections::HashMap;
+
+    fn load_with(changes: &[(&str, &str)]) -> Result<Config, ConfigError> {
+        let mut m: HashMap<String, String> = [
+            ("DELPHI_SHADOW_ENABLED", "1"),
+            ("QUEUE_DATABASE_URL", "postgresql://queue@127.0.0.1/polis"),
+            (
+                "DELPHI_SHADOW_READ_DATABASE_URL",
+                "postgresql://reader@127.0.0.1/polis",
+            ),
+            (
+                "DELPHI_SHADOW_CODE_VERSION",
+                "0123456789abcdef0123456789abcdef01234567",
+            ),
+            ("POLIS_JOBS_TRANSPORT", "local"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+        for (k, v) in changes {
+            m.insert((*k).to_owned(), (*v).to_owned());
+        }
+        match load(|k| m.get(k).cloned())? {
+            Load::Ready(c) => Ok(*c),
+            Load::Disabled => panic!("disabled"),
+        }
+    }
+
+    #[test]
+    fn with_neither_setting_no_conversation_is_named_and_nothing_is_admitted() {
+        let c = load_with(&[]).unwrap();
+        assert!(c.named.is_empty());
+        assert_eq!(c.naming_daily_max_micro_usd, None);
+        assert_eq!(c.naming_run_max_micro_usd, NAMING_RUN_DEFAULT_MICRO_USD);
+        for blank in ["", " ", "0", "0.0"] {
+            let c = load_with(&[(NAMED_KEY, " , "), (NAMING_DAILY_KEY, blank)]).unwrap();
+            assert!(c.named.is_empty(), "{blank:?}");
+            assert_eq!(c.naming_daily_max_micro_usd, None, "{blank:?}");
+        }
+        // Without the list the run cap is not read, so nothing it holds is
+        // refused.
+        let c = load_with(&[(NAMING_RUN_KEY, "not a number")]).unwrap();
+        assert_eq!(c.naming_run_max_micro_usd, NAMING_RUN_DEFAULT_MICRO_USD);
+    }
+
+    #[test]
+    fn the_named_list_is_read_as_the_benchmark_list_and_each_code_is_on_it() {
+        let bench = (
+            "DELPHI_SHADOW_BENCHMARK",
+            "3example00 2example00,1example00",
+        );
+        let c = load_with(&[bench, (NAMED_KEY, "2example00, 3example00 2example00")]).unwrap();
+        assert_eq!(
+            c.named,
+            ["2example00", "3example00"],
+            "order kept, repeat dropped"
+        );
+        let e = load_with(&[bench, (NAMED_KEY, "2example00,not-a-code")]).unwrap_err();
+        assert_eq!(
+            e.0,
+            "DELPHI_SHADOW_NAMED entry 2 is not a conversation code (1-64 letters and digits)"
+        );
+        let e = load_with(&[bench, (NAMED_KEY, "2example00 9example00")]).unwrap_err();
+        assert!(
+            e.0.starts_with("DELPHI_SHADOW_NAMED entry 2 is not on DELPHI_SHADOW_BENCHMARK"),
+            "{e}"
+        );
+        assert!(!e.0.contains("9example00"), "never the code: {e}");
+        let many: Vec<String> = (0..=RULE_LIST_MAX).map(|i| format!("c{i}")).collect();
+        let joined = many.join(",");
+        let e = load_with(&[
+            ("DELPHI_SHADOW_BENCHMARK", &many[..BENCHMARK_MAX].join(",")),
+            (NAMED_KEY, &joined),
+        ])
+        .unwrap_err();
+        assert!(e.0.contains("lists more than"), "{e}");
+    }
+
+    #[test]
+    fn the_daily_limit_and_the_run_cap_are_dollars_within_their_bounds() {
+        let bench = ("DELPHI_SHADOW_BENCHMARK", "2example00");
+        let named = (NAMED_KEY, "2example00");
+        let c = load_with(&[bench, named, (NAMING_DAILY_KEY, "5")]).unwrap();
+        assert_eq!(c.naming_daily_max_micro_usd, Some(5_000_000));
+        assert_eq!(c.naming_run_max_micro_usd, 500_000);
+        let c = load_with(&[
+            bench,
+            named,
+            (NAMING_DAILY_KEY, "5"),
+            (NAMING_RUN_KEY, "0.55"),
+        ])
+        .unwrap();
+        assert_eq!(c.naming_run_max_micro_usd, 550_000);
+        assert_eq!(
+            load_with(&[(NAMING_DAILY_KEY, "50")])
+                .unwrap()
+                .naming_daily_max_micro_usd,
+            Some(50_000_000)
+        );
+        for bad in ["50.01", "-1", "five", "NaN", "inf"] {
+            let e = load_with(&[(NAMING_DAILY_KEY, bad)]).unwrap_err();
+            assert_eq!(
+                e.0, "DELPHI_NAMING_DAILY_MAX_USD must be a number of US dollars in 0..=50",
+                "{bad}"
+            );
+            let e = load_with(&[bench, named, (NAMING_RUN_KEY, bad)]);
+            if bad != "50.01" {
+                assert!(e.is_err(), "{bad}");
+            }
+        }
+        let e = load_with(&[bench, named, (NAMING_RUN_KEY, "2.5")]).unwrap_err();
+        assert_eq!(
+            e.0,
+            "DELPHI_NAMING_RUN_MAX_USD must be a number of US dollars in 0..=2"
+        );
+        let e = load_with(&[bench, named, (NAMING_DAILY_KEY, "0.4")]).unwrap_err();
+        assert!(
+            e.0.starts_with("DELPHI_NAMING_RUN_MAX_USD must not exceed"),
+            "{e}"
+        );
     }
 }

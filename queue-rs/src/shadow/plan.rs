@@ -603,6 +603,59 @@ pub fn names_scope(namer: &str) -> String {
     format!("{SCOPE}:names:{namer}")
 }
 
+/// The namer every named run of the shadow asks for: Claude Sonnet through
+/// Amazon Bedrock, prompt version 1, the model's default thinking
+/// (`bedrock.claude-sonnet-5-5.p1.default`).
+pub fn shadow_naming() -> Value {
+    json!({"by": "model", "provider": "bedrock", "model": "claude-sonnet-5-5",
+           "prompt": "polis-topic-names/1", "thinking": "default"})
+}
+
+/// A named run's admission ([`names_admission`]) with what it can cost at
+/// most frozen into its configuration (`shadow.price_bound_micro_usd`, in
+/// millionths of a US dollar), so the day's spend is read from the run
+/// records whatever the setting says later. The key is unchanged; the
+/// request digest covers the bound, as it covers the rest of the
+/// configuration.
+pub fn priced(mut a: Admission, bound_micro_usd: i64) -> Admission {
+    a.config["shadow"]["price_bound_micro_usd"] = bound_micro_usd.into();
+    let request = json!({"zid": a.zid, "kind": "names", "scope": a.scope, "config": a.config});
+    a.request_sha = sha256_hex(request.to_string().as_bytes());
+    a
+}
+
+/// Whether a named run may be admitted under the day's limit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NamingRoom {
+    Room,
+    /// No daily limit is set: no named run is admitted.
+    NoLimit,
+    /// The day's spend and this run's bound would pass the limit.
+    Spent,
+}
+
+impl NamingRoom {
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Room => "room",
+            Self::NoLimit => "no_daily_limit",
+            Self::Spent => "daily_limit",
+        }
+    }
+}
+
+/// The day's spend so far (`spent`), plus the next run's bound, against the
+/// limit, all in millionths of a US dollar: admitted when the sum is at most
+/// the limit, so the day's requests never cost more than the limit except
+/// for one request sent twice (a box lost while it was out).
+pub fn naming_room(spent: i64, bound: i64, limit: Option<i64>) -> NamingRoom {
+    match limit {
+        None => NamingRoom::NoLimit,
+        Some(limit) if spent.saturating_add(bound) > limit => NamingRoom::Spent,
+        Some(_) => NamingRoom::Room,
+    }
+}
+
 /// The admission of a run that names the topics of `source`, a finished
 /// keyword run of conversation `zid` under [`SELECTION`], with `naming` (the
 /// configuration's `naming` object, `by: model`). `source_config` is the
@@ -1647,5 +1700,75 @@ mod tests {
         let d = disk(&std::env::temp_dir())?;
         assert!(d.used_pct >= 0.0 && d.used_pct <= 100.0);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod naming_room_tests {
+    use super::*;
+
+    #[test]
+    fn the_shadow_namer_is_sonnet_through_bedrock_on_prompt_one() {
+        assert_eq!(
+            namer_word(&shadow_naming()).unwrap(),
+            "bedrock.claude-sonnet-5-5.p1.default"
+        );
+    }
+
+    #[test]
+    fn a_run_is_admitted_up_to_exactly_the_limit_and_not_past_it() {
+        let limit = Some(5_000_000);
+        let bound = 550_000;
+        assert_eq!(
+            naming_room(4_449_999, bound, limit),
+            NamingRoom::Room,
+            "just under"
+        );
+        assert_eq!(
+            naming_room(4_450_000, bound, limit),
+            NamingRoom::Room,
+            "exactly at"
+        );
+        assert_eq!(
+            naming_room(4_450_001, bound, limit),
+            NamingRoom::Spent,
+            "just over"
+        );
+        assert_eq!(naming_room(0, 5_000_001, limit), NamingRoom::Spent);
+        assert_eq!(naming_room(0, bound, None), NamingRoom::NoLimit);
+        assert_eq!(naming_room(i64::MAX, bound, limit), NamingRoom::Spent);
+        // Nine runs at the proposed bound fit in the proposed limit; a tenth
+        // does not.
+        let mut spent = 0;
+        let mut admitted = 0;
+        while naming_room(spent, bound, limit) == NamingRoom::Room {
+            spent += bound;
+            admitted += 1;
+        }
+        assert_eq!((admitted, spent), (9, 4_950_000));
+    }
+
+    #[test]
+    fn the_price_bound_is_frozen_in_the_configuration_and_keeps_the_key() {
+        let source = "6f0c6a51-8d2b-4b7e-9a51-2f6c1d3e4b5a";
+        let config = json!({"selection": SELECTION, "shadow": {
+            "comment_set_sha256": "a".repeat(64), "comments": 30,
+            "selection_sha256": "b".repeat(64), "selected": 30, "size_class": "small"}});
+        let a = names_admission(7, source, &config, &shadow_naming()).unwrap();
+        let p = priced(a.clone(), 550_000);
+        assert_eq!(p.key, a.key);
+        assert_eq!(p.scope, a.scope);
+        assert_ne!(p.request_sha, a.request_sha);
+        assert_eq!(p.config["shadow"]["price_bound_micro_usd"], 550_000);
+        let again = priced(
+            names_admission(7, source, &config, &shadow_naming()).unwrap(),
+            550_000,
+        );
+        assert_eq!(
+            again.request_sha, p.request_sha,
+            "the same request, the same digest"
+        );
+        assert_ne!(priced(a, 500_000).request_sha, p.request_sha);
     }
 }
