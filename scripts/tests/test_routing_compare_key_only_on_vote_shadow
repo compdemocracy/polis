@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# The routing comparison's key reaches the vote shadow alone: with an env file
+# that sets it, `docker compose config` shows it on polis-api-shadow and empty
+# on polis-api and polis-api-shadow-reads.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/../.." && pwd)"
+work="$(mktemp -d)"
+trap 'rm -rf "$work"' EXIT
+cp "$root/example.env" "$work/.env"
+echo "POLIS_API_ROUTING_COMPARE_CONVERSATIONS=2example00,3example00" >> "$work/.env"
+# The services read the project's `.env` as their env file: the fixture is
+# that file, in a project directory of its own, so no checkout is touched.
+cp "$root/docker-compose.yml" "$work/docker-compose.yml"
+config="$(cd "$work" && docker compose -f docker-compose.yml config --format json 2>/dev/null)"
+value() {
+  printf '%s' "$config" | python3 -c '
+import json, sys
+env = json.load(sys.stdin)["services"][sys.argv[1]].get("environment", {})
+print(env.get("POLIS_API_ROUTING_COMPARE_CONVERSATIONS", "<unset>"))' "$1"
+}
+fail=0
+check() {
+  local got
+  got="$(value "$1")"
+  if [ "$got" != "$2" ]; then
+    echo "FAIL $1: POLIS_API_ROUTING_COMPARE_CONVERSATIONS is '$got', expected '$2'"
+    fail=1
+  fi
+}
+check polis-api-shadow "2example00,3example00"
+check polis-api ""
+check polis-api-shadow-reads ""
+[ "$fail" = 0 ] && echo "PASS routing compare key only on the vote shadow"
+exit "$fail"

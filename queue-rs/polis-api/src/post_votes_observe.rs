@@ -20,6 +20,15 @@ use crate::{
 };
 use std::collections::{BTreeMap, HashMap};
 
+#[path = "post_votes_compare.rs"]
+pub(crate) mod compare;
+
+/// The routing comparison's key, read only here, in the shadow role's observe
+/// branch of `configure` (`compare::SWITCH`).
+pub(super) fn compare_from_env() -> Result<Option<Box<compare::Compare>>> {
+    compare::from_env()
+}
+
 /// `readback`: one connection for the database-time anchor, the readback and
 /// the membership lookups. Never an admission slot.
 pub(crate) fn readback_limits() -> db::Limits {
@@ -60,6 +69,9 @@ pub(crate) struct Observer {
     /// and its own bound on waiting copies; nothing above is shared with it
     /// but the verifier and the configured administrators, which it reads.
     pub(crate) identity: Option<Box<super::identity::IdentityObserver>>,
+    /// The routing comparison, when its key lists conversations. It holds no
+    /// pool; nothing above is shared with it.
+    pub(crate) compare: Option<Box<compare::Compare>>,
 }
 
 impl Observer {
@@ -80,6 +92,7 @@ impl Observer {
             memo: Mutex::new(Memo::default()),
             timing: ReadbackTiming::default(),
             identity: None,
+            compare: None,
         }
     }
 
@@ -111,6 +124,8 @@ impl Observer {
             timing: _,
             // Its pool is listed by `IdentityObserver::startup_pools`.
             identity: _,
+            // Builds no pool.
+            compare: _,
         } = self;
         [("reads", reads), ("readback", readback)]
     }
@@ -373,19 +388,34 @@ pub(super) async fn handle(app: &App, observer: &Observer, req: &Request, res: R
         record.admission = Some(admission);
         record.readback = Some(((admitted.zid, admitted.pid), tid, fields.vote));
     });
+    // The routing comparison runs only for a copy whose own conversation
+    // code, as the route validated it, is on its list: exact match, no lookup.
+    // Off, nothing here is called.
+    let compare = observer
+        .compare
+        .as_deref()
+        .filter(|compare| request_reasoned(req).is_ok_and(|(cid, _)| compare.lists(&cid)));
     // The live writer sets its reply deadline here, then draws.
     let reply_deadline = tokio::time::Instant::now() + DISPATCH_DEADLINE;
     let unit = next_comment::draw(req);
-    let (follow_on, selection, took) = select(
+    let (follow_on, mut selection, took) = select(
         &observer.reads,
         admitted,
         &fields,
         app.math_env.clone(),
         unit,
         reply_deadline,
+        compare.is_some(),
     )
     .await;
+    // After today's selection, with its connection returned and its permits
+    // and priority lease released: the same weights, candidates and unit.
+    let routing = match compare {
+        Some(compare) => Some(compare.run(selection.as_mut(), unit).await),
+        None => None,
+    };
     crate::shadow::record(|record| {
+        record.routing = routing;
         record.follow_on = Some(follow_on);
         record.selection = took;
         if let Some(selection) = selection {
@@ -416,6 +446,7 @@ async fn select(
     env: String,
     unit: f64,
     reply_deadline: tokio::time::Instant,
+    compare: bool,
 ) -> (&'static str, Option<Selection>, Option<Duration>) {
     let a = admitted.clone();
     let lang = fields.lang.clone();
@@ -438,6 +469,7 @@ async fn select(
                     return Ok(None);
                 }
                 let mut selection = Selection::new(voted);
+                selection.compare = compare;
                 let selected =
                     next_selecting(c, &a, &env, unit, lang.as_deref(), Some(&mut selection));
                 a.follow_on.record_selection(selection_started.elapsed());

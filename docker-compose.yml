@@ -849,6 +849,8 @@ services:
     env_file:
       - ${SERVER_ENV_FILE:-.env}
     environment:
+      # The routing comparison runs only in polis-api-shadow: empty here.
+      - POLIS_API_ROUTING_COMPARE_CONVERSATIONS=
       # Empty: READ_ONLY_DATABASE_URL, else DATABASE_URL, from the env file,
       # which is how Node picks the database for this route.
       - POLIS_API_DATABASE_URL=${POLIS_API_DATABASE_URL:-}
@@ -932,6 +934,9 @@ services:
       - SHOULD_USE_TRANSLATION_API=false
       # 128 MiB, so the priorities cache fits the memory limit below.
       - POLIS_API_WRITER_PRIORITIES_CACHE_BYTES=134217728
+      # The routing comparison: conversation codes, empty (off) unless the
+      # env file lists them. Read only by this process.
+      - POLIS_API_ROUTING_COMPARE_CONVERSATIONS=${POLIS_API_ROUTING_COMPARE_CONVERSATIONS:-}
       # The process mints nothing: it verifies with the public key alone.
       - JWT_PRIVATE_KEY=
       - JWT_PRIVATE_KEY_PATH=
@@ -977,6 +982,7 @@ services:
       # No observer in this process, whatever the env file holds.
       - POLIS_API_POST_VOTES=
       - POLIS_API_POST_VOTES_IDENTITY=
+      - POLIS_API_ROUTING_COMPARE_CONVERSATIONS=
       - POLIS_API_POST_COMMENTS=
       # The three lanes' switches: empty (off); see above.
       - POLIS_API_VOTES_READS=

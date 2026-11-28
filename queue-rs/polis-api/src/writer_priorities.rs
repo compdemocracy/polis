@@ -98,6 +98,15 @@ impl Weights {
         }
         Ok(Self(weights))
     }
+    /// The stored value for `tid`, looked up as `select` looks it up. Read
+    /// only by the vote shadow's routing comparison.
+    pub(super) fn stored(&self, tid: i32) -> Option<polis_routing_plan::StoredWeight> {
+        self.0.get(&tid.to_string()).map(|weight| match *weight {
+            Weight::Null => polis_routing_plan::StoredWeight::Null,
+            Weight::False => polis_routing_plan::StoredWeight::False,
+            Weight::Number(n) => polis_routing_plan::StoredWeight::Number(n),
+        })
+    }
     pub(super) fn select(&self, tids: &[i32], unit: f64) -> Result<(usize, f64)> {
         let mut cumulative = Vec::with_capacity(tids.len());
         let mut total = 0.0;
@@ -401,6 +410,96 @@ fn read_generation(c: &mut Client, zid: i32, env: &str) -> Result<Option<(i64, O
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The routing library's `stored-weights/1`, as the vote shadow's
+    /// comparison calls it, against this selector: the same index and the
+    /// same random number, bit for bit, on seeded units and the two ends.
+    #[test]
+    fn stage1_library_matches_writer_select_seeded() {
+        use crate::post_votes::observe::compare;
+        let source = polis_routing_plan::SourceId::new("test source").unwrap();
+        let equal: Vec<i32> = (0..1200).collect();
+        let mut created_order: Vec<i32> = (0..14).filter(|t| ![3, 5, 8].contains(t)).collect();
+        created_order.retain(|t| *t != 2);
+        let tiny = format!(
+            "{{\"0\":{:e},\"1\":{:e}}}",
+            2f64.powi(-1021),
+            2f64.powi(-1021)
+        );
+        let fixtures: Vec<(Option<String>, Vec<i32>)> = vec![
+            (None, vec![0, 1, 2, 3]),
+            (
+                Some(r#"{"0":null,"1":false,"2":0,"4":2.5,"5":0.25}"#.into()),
+                vec![0, 1, 2, 3, 4, 5],
+            ),
+            (Some("{}".into()), equal),
+            (Some(r#"{"7":1e6}"#.into()), (0..20).collect()),
+            (Some(r#"{"0":1e150,"1":1e150,"2":1}"#.into()), vec![0, 1, 2]),
+            (Some(tiny), vec![0, 1]),
+            (Some(r#"{"0":3}"#.into()), vec![0]),
+            (
+                Some(r#"{"0":2,"1":0.5,"2":3,"4":1.5,"9":4,"unused":7}"#.into()),
+                created_order,
+            ),
+        ];
+        let mut units = vec![0.0, 1.0 - f64::EPSILON / 2.0];
+        let mut n: u32 = 0x0027_0027;
+        for _ in 0..10_000 {
+            n ^= n << 13;
+            n ^= n >> 17;
+            n ^= n << 5;
+            units.push(f64::from(n) / 4_294_967_296.0);
+        }
+        for (text, tids) in &fixtures {
+            let weights = Weights::parse(text.as_deref()).unwrap();
+            for unit in &units {
+                let (index, random) = weights.select(tids, *unit).unwrap();
+                let drawn = compare::drawn(Some(&weights), tids, *unit, &source)
+                    .unwrap_or_else(|r| panic!("{text:?} {unit}: {r}"));
+                assert_eq!(drawn.index(), index, "{text:?} {unit}");
+                assert_eq!(
+                    drawn.random_n().to_bits(),
+                    random.to_bits(),
+                    "{text:?} {unit}"
+                );
+                assert_eq!(i64::from(drawn.comment().get()), i64::from(tids[index]));
+                assert_eq!(
+                    compare::draw(Some(&weights), tids, *unit, tids[index], &source),
+                    compare::Drew::Compared {
+                        agrees: true,
+                        p_band: compare::p_band(drawn.probability()),
+                    }
+                );
+            }
+        }
+    }
+
+    /// Where the library refuses and today's selector draws: a refusal by
+    /// name, never a difference, and today's choice is what it was.
+    #[test]
+    fn stage1_domain_edges_refused_and_recorded() {
+        use crate::post_votes::observe::compare;
+        let source = polis_routing_plan::SourceId::new("test source").unwrap();
+        let subnormal = format!("{{\"0\":{:e},\"1\":{:e}}}", 5e-324, 5e-324);
+        for (text, tids, name) in [
+            (
+                r#"{"1":1e151}"#.to_owned(),
+                vec![0, 1, 2],
+                "unsupported_legacy_weight",
+            ),
+            (subnormal, vec![0, 1], "total_below_normal"),
+            ("{}".to_owned(), vec![0, -1, 2], "candidate_id"),
+        ] {
+            let weights = Weights::parse(Some(&text)).unwrap();
+            let today = weights.select(&tids, 0.5).unwrap();
+            assert_eq!(
+                compare::draw(Some(&weights), &tids, 0.5, tids[today.0], &source),
+                compare::Drew::Refused(name),
+                "{text}"
+            );
+            assert_eq!(weights.select(&tids, 0.5).unwrap(), today);
+        }
+    }
     #[test]
     fn typed_weights_keep_node_fallbacks_and_reject_unsupported_values() {
         let weights = Weights::parse(Some(r#"{"0":null,"1":false,"2":0,"3":3}"#)).unwrap();
