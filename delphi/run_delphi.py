@@ -2,8 +2,11 @@
 import argparse
 import os
 import shutil
+import signal
 import subprocess
 import sys
+import tempfile
+import uuid
 
 from polismath import step_log
 from polismath.utils.cli_flags import parse_bool_flag
@@ -109,8 +112,10 @@ def _start_daemon_job(zid):
     return job
 
 
-def _finish_daemon_job(job, zid, region):
-    """Count what the run wrote and write the output manifest; exit 5 if that cannot be done."""
+def _finish_daemon_job(job, zid, region, naming=None):
+    """Count what the run wrote and write the output manifest; exit 5 if that cannot be done.
+    ``naming`` is how the naming of a run given --namer ended (None for every
+    other run, whose manifest is what it was)."""
     from polismath import embedding_model, job_child
     from polismath.job_child import census
 
@@ -120,16 +125,63 @@ def _finish_daemon_job(job, zid, region):
             job, outcome="succeeded", inputs=job.inputs, outputs=outputs,
             # The embedding model run_pipeline.py loaded (repo@revision:384),
             # the topic model, and the clustering (UMAP and EVoC, default seed).
-            models=job_child.full_pipeline_models(),
+            models=job_child.full_pipeline_models() if naming is None else job_child.full_pipeline_models(naming),
             # Topic naming's provider batches are submitted and awaited inside
             # the UMAP stage; P1 does not observe them, so cost stays unknown.
-            cost={"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None},
+            # A run given --namer counts the tokens of its one naming call.
+            cost=({"llm_tokens_in": None, "llm_tokens_out": None, "provider_batches": None}
+                  if naming is None else job_child.naming_cost(naming)),
         )
         job_child.write_manifest(job, manifest)
     except (census.CensusError, job_child.ManifestError, embedding_model.ModelMismatch, OSError) as e:
         print(f"polis-jobs child: the stages succeeded but the manifest could not be written: {e}",
               file=sys.stderr, flush=True)
         sys.exit(job_child.EXIT_MANIFEST_UNBUILDABLE)
+
+
+def namer_scratch_path():
+    """Where a run given --namer keeps its naming's scratch files (not yet
+    made). Under the job daemon it is inside the attempt directory that holds
+    DELPHI_OUTPUT_MANIFEST: the daemon removes that directory once it has
+    reaped this process group after a normal end, a timeout, a fence or
+    SIGKILL (not on its recovery path; see umap_narrative/topic_namer.py).
+    Otherwise a new name in the temporary directory, removed by this run
+    (not after SIGKILL)."""
+    manifest = os.environ.get("DELPHI_OUTPUT_MANIFEST", "").strip()
+    parent = os.path.dirname(os.path.abspath(manifest)) if manifest else tempfile.gettempdir()
+    return os.path.join(parent, f"delphi-topic-names-{uuid.uuid4().hex}")
+
+
+def recorded_naming(pipeline_exit_code, record, unreceived, namer):
+    """The pipeline's exit code as a stage, and the naming the manifest
+    records, from how the naming's exchange ended (topic_namer.RecordExchange).
+
+    The pipeline writes the model's names only after this run acknowledged
+    their record, and exits topic_namer.UNACKNOWLEDGED_EXIT when it kept the
+    keyword labels because the acknowledgement did not reach it. So: that
+    exit is a completed pipeline whose naming is keywords, with the counts of
+    any record held; exit 0 with a record is that record; exit 0 with none
+    means no model name was written, so keywords, with why none was received.
+    A naming failure of any kind ends here, never in a failed run. Any other
+    exit is a failed pipeline, as for a run without a namer."""
+    from umap_narrative import topic_namer
+
+    if pipeline_exit_code == topic_namer.UNACKNOWLEDGED_EXIT:
+        reason = "record_unacknowledged" if record is not None else unreceived
+    elif pipeline_exit_code == 0 and record is not None:
+        return 0, record
+    elif pipeline_exit_code == 0:
+        reason = unreceived
+    else:
+        return pipeline_exit_code, None
+    if record is None:
+        return 0, topic_namer.record_of(topic_namer._result(namer, topic_namer.NAMER_FAILED, reason))
+    return 0, topic_namer.record_of(topic_namer.keep_keywords(record, reason))
+
+
+def _exit_on_sigterm(signum, frame):
+    # A terminated run still runs its finally (the naming's scratch is removed).
+    raise SystemExit(128 + signum)
 
 
 def main():
@@ -146,16 +198,34 @@ def main():
     from polismath.selection import SELECTIONS
     parser.add_argument('--selection', choices=SELECTIONS, default=None, help='Embed every comment and lay out, cluster and name only those this selection keeps (the Delphi shadow passes participant_visible/1). Absent, the run is what it was.')
 
+    parser.add_argument('--namer', default=None, help='Name the topics with a model (umap_narrative/topic_namer.py): a JSON object of model, prompt and thinking. Only with --selection=participant_visible/1. Absent, the run is what it was.')
+
     args = parser.parse_args()
 
     if args.help:
         show_usage()
         sys.exit(0)
 
+    args.namer_dir = None
+    if args.namer is not None:
+        from umap_narrative import topic_namer
+        try:
+            args.namer = topic_namer.parse_namer(args.namer)
+            topic_namer.check_selection(args.namer, args.selection)
+        except topic_namer.NamerRefused as e:
+            parser.error(f"--namer refused: {e}")
+        # This attempt's directory for the naming's files. The naming step
+        # makes it (a failure to is a naming outcome, never a failed run);
+        # this run removes it when it ends, and on SIGTERM too.
+        args.namer_dir = namer_scratch_path()
+        signal.signal(signal.SIGTERM, _exit_on_sigterm)
+
     try:
         with step_log.step("run"):
             run(args)
     finally:
+        if args.namer_dir is not None:
+            shutil.rmtree(args.namer_dir, ignore_errors=True)
         if switch_on(LOCAL_OUTPUT_CLEANUP):
             remove_local_outputs(args.zid, os.environ.get('DELPHI_APP_PATH', '/app'))
 
@@ -245,10 +315,43 @@ def run(args):
     # arguments are byte for byte what they were.
     if args.selection is not None:
         umap_command.append(f"--selection={args.selection}")
+    # Likewise a run given a namer: every other run's arguments are unchanged.
+    namer = getattr(args, "namer", None)
+    exchange = naming = None
+    if namer is not None:
+        from umap_narrative import topic_namer
+        # Keep the named path even when its exchange cannot be set up: the
+        # older provider path is not a keyword fallback.
+        umap_command.append(f"--namer={topic_namer.namer_argument(namer)}")
+        umap_command.append(f"--namer-dir={args.namer_dir}")
+        try:
+            exchange = topic_namer.RecordExchange()
+        except Exception:  # Naming setup must not fail or retry the run.
+            naming = topic_namer.record_of(topic_namer.exchange_unavailable(namer))
+            umap_command.append("--naming-keywords-only")
+        else:
+            umap_command.append(f"--naming-record-fd={exchange.child_fd}")
     if verbose_arg:
         umap_command.append(verbose_arg)
 
-    pipeline_exit_code = step_log.run_child("pipeline", umap_command)
+    if namer is None:
+        pipeline_exit_code = step_log.run_child("pipeline", umap_command)
+    elif exchange is None:
+        pipeline_exit_code = step_log.run_child("pipeline", umap_command, stop_on_interrupt=True)
+        if pipeline_exit_code != 0:
+            naming = None
+    else:
+        try:
+            # Stopped with this run (SIGTERM, then SIGKILL) if this run is
+            # interrupted, so nothing of it outlives the scratch's removal.
+            pipeline_exit_code = step_log.run_child("pipeline", umap_command, pass_fds=(exchange.child_fd,))
+        finally:
+            record, unreceived = exchange.finish()
+        pipeline_exit_code, naming = recorded_naming(pipeline_exit_code, record, unreceived, namer)
+    if naming is not None:
+        from polismath import job_child
+        topic = job_child.full_pipeline_models(naming)["topic"]
+        print(f"Topic naming recorded by {topic}" + (f" ({naming['reason']})" if naming.get("reason") else ""))
     if pipeline_exit_code != 0:
         failed_stages.append(("UMAP narrative pipeline", pipeline_exit_code))
 
@@ -348,7 +451,12 @@ def run(args):
         print(f"Results stored in DynamoDB for conversation {zid}")
         if job is not None:
             with step_log.step("manifest"):
-                _finish_daemon_job(job, zid, args.region)
+                if namer is None:
+                    _finish_daemon_job(job, zid, args.region)
+                else:
+                    # How the naming ended (recorded_naming): what the
+                    # pipeline sent, or keywords when it kept them.
+                    _finish_daemon_job(job, zid, args.region, naming=naming)
         sys.exit(0)
 
     summary = ", ".join(f"{name} (exit code {code})" for name, code in failed_stages)

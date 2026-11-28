@@ -1,7 +1,7 @@
 //! The scheduler's decisions, as pure functions: whether to pause, which
 //! conversation is next, and what its admission says.
 use super::{
-    config::{Config, SCOPE, Share},
+    config::{Config, NAMING_ATTEMPTS, SCOPE, Share},
     db::{Admission, CommentSet, Live, RuleRun, Signals},
     state::State,
     storage::Ledger,
@@ -553,6 +553,203 @@ pub fn rule_admission(
     a.request_sha = sha256_hex(request.to_string().as_bytes());
     a.scope = scope;
     a
+}
+
+/// The word a namer is recorded under: `<model>.p<prompt version>.<thinking>`
+/// (`claude-haiku-5-5.p1.default`), the word `polis-topic-names` records.
+/// Through Amazon Bedrock it is prefixed with the provider
+/// (`bedrock.claude-sonnet-5-5.p1.default`, as `polis-topic-names` writes it);
+/// a namer with no `provider`, or `anthropic`, has no prefix, so every word
+/// stored before the provider existed keeps its meaning.
+/// Refused unless the provider, model, prompt and thinking are ones the child
+/// passes on (`jobs::child::namer`), so an admission never names a namer no
+/// child runs.
+pub fn namer_word(naming: &Value) -> Result<String, &'static str> {
+    use crate::jobs::child::{NAMER_MODELS, NAMER_PROMPTS, NAMER_THINKING, namer_provider};
+    let field = |key: &str, known: &[&'static str], refusal: &'static str| {
+        naming
+            .get(key)
+            .and_then(Value::as_str)
+            .and_then(|v| known.iter().copied().find(|k| *k == v))
+            .ok_or(refusal)
+    };
+    let fields = naming.as_object().ok_or("naming_not_an_object")?;
+    if fields.get("by").and_then(Value::as_str) != Some("model") {
+        return Err("naming_unknown_by");
+    }
+    if fields.keys().any(|k| {
+        !matches!(
+            k.as_str(),
+            "by" | "provider" | "model" | "prompt" | "thinking"
+        )
+    }) {
+        return Err("naming_unknown_key");
+    }
+    let provider = namer_provider(fields)?;
+    let model = field("model", &NAMER_MODELS, "naming_unknown_model")?;
+    let prompt = field("prompt", &NAMER_PROMPTS, "naming_unknown_prompt")?;
+    let thinking = field("thinking", &NAMER_THINKING, "naming_unknown_thinking")?;
+    let version = prompt.rsplit('/').next().unwrap_or(prompt);
+    Ok(match provider {
+        None => format!("{model}.p{version}.{thinking}"),
+        Some(p) => format!("{p}.{model}.p{version}.{thinking}"),
+    })
+}
+
+/// The publication scope of runs named by `namer` (a [`namer_word`]): its
+/// own, so a named run never moves the keyword run's current pointer and two
+/// namers never move each other's.
+pub fn names_scope(namer: &str) -> String {
+    format!("{SCOPE}:names:{namer}")
+}
+
+/// The namer every named run of the shadow asks for: Claude Sonnet through
+/// Amazon Bedrock, prompt version 1, the model's default thinking
+/// (`bedrock.claude-sonnet-5-5.p1.default`).
+pub fn shadow_naming() -> Value {
+    json!({"by": "model", "provider": "bedrock", "model": "claude-sonnet-5-5",
+           "prompt": "polis-topic-names/1", "thinking": "default"})
+}
+
+/// A named run's admission ([`names_admission`]) with what it can cost at
+/// most frozen into its configuration (`shadow.price_bound_micro_usd`, in
+/// millionths of a US dollar), so the day's spend is read from the run
+/// records whatever the setting says later. The key is unchanged; the
+/// request digest covers the bound, as it covers the rest of the
+/// configuration.
+pub fn priced(mut a: Admission, bound_micro_usd: i64) -> Admission {
+    a.config["shadow"]["price_bound_micro_usd"] = bound_micro_usd.into();
+    let request = json!({"zid": a.zid, "kind": "names", "scope": a.scope, "config": a.config});
+    a.request_sha = sha256_hex(request.to_string().as_bytes());
+    a
+}
+
+/// Whether a named run may be admitted under the day's limit.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NamingRoom {
+    Room,
+    /// No daily limit is set: no named run is admitted.
+    NoLimit,
+    /// The day's spend and this run's bound would pass the limit.
+    Spent,
+}
+
+impl NamingRoom {
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Room => "room",
+            Self::NoLimit => "no_daily_limit",
+            Self::Spent => "daily_limit",
+        }
+    }
+}
+
+/// The day's spend so far (`spent`), plus the next run's bound once for each
+/// attempt the queue gives it ([`NAMING_ATTEMPTS`]), against the limit, all
+/// in millionths of a US dollar: admitted when the sum is at most the limit.
+/// Each attempt that reaches the naming step may send one request, and the
+/// scheduler admits no other named run until this one has ended, so the
+/// counted spend of a UTC day never passes the limit (with one scheduler).
+pub fn naming_room(spent: i64, bound: i64, limit: Option<i64>) -> NamingRoom {
+    match limit {
+        None => NamingRoom::NoLimit,
+        Some(limit) if spent.saturating_add(naming_reserve(bound)) > limit => NamingRoom::Spent,
+        Some(_) => NamingRoom::Room,
+    }
+}
+
+/// What a named run's admission reserves of the day's limit: its bound for
+/// each of the queue's attempts.
+pub fn naming_reserve(bound: i64) -> i64 {
+    bound.saturating_mul(NAMING_ATTEMPTS)
+}
+
+/// The admission of the `asks`-th earlier ask's successor of the same
+/// source: the first ask (`asks` 0) keeps its key; a source asked again
+/// after earlier named runs that all kept keyword names (on a later UTC day,
+/// `db::naming_sources`) gets the key `<first key>:<asks + 1>`, so the queue
+/// makes a new job rather than answering `existing`, and a restart that asks
+/// again the same day, reading the same history, gets the same key back.
+pub fn asked_again(mut admission: Admission, asks: i64) -> Admission {
+    if asks > 0 {
+        admission.key = format!("{}:{}", admission.key, asks + 1);
+    }
+    admission
+}
+
+/// The admission of a run that names the topics of `source`, a finished
+/// keyword run of conversation `zid` under [`SELECTION`], with `naming` (the
+/// configuration's `naming` object, `by: model`). `source_config` is the
+/// source's own `config_effective`, read from its run record in Postgres.
+///
+/// Identity. The key is `shadow:names:<zid>:<source, no dashes>:<namer>`,
+/// derived from the durable history alone, so a restart that asks again gets
+/// the same job back (`existing`) and two identical requests are one job. The
+/// scope is the namer's ([`names_scope`]). So a named run is never its
+/// source's duplicate (another key shape and another scope), and two named
+/// runs of one source with different namers are two jobs (another key and
+/// another scope). The configuration carries the source's selection and
+/// census digests, `names_of` and `naming`, and is stored in the job's run
+/// record (`config_effective`).
+///
+/// Refused: a source under another comment rule (only the comments
+/// participants are shown are ever sent to a model), a source that is itself
+/// a named run (only keyword runs are named), and a namer no child runs.
+pub fn names_admission(
+    zid: i32,
+    source: &str,
+    source_config: &Value,
+    naming: &Value,
+) -> Result<Admission, &'static str> {
+    let source = uuid::Uuid::parse_str(source).map_err(|_| "names_of_not_a_job")?;
+    if source_config["selection"] != SELECTION {
+        return Err("names_of_source_other_rule");
+    }
+    if !source_config["names_of"].is_null() || source_config["naming"]["by"] == "model" {
+        return Err("names_of_source_named");
+    }
+    let namer = namer_word(naming)?;
+    // `anthropic` is the default: stored as no `provider`, so a request that
+    // names it is the same job (key, scope and request digest) as one that
+    // does not.
+    let mut naming = naming.clone();
+    if naming["provider"] == "anthropic"
+        && let Some(fields) = naming.as_object_mut()
+    {
+        fields.remove("provider");
+    }
+    let shadow = &source_config["shadow"];
+    let source = source.hyphenated().to_string();
+    let config = json!({
+        "selection": SELECTION,
+        "exclude_comment_selections": false,
+        "names_of": source,
+        "naming": naming,
+        "shadow": {
+            "schema": "delphi-shadow/2",
+            "comment_set_sha256": shadow["comment_set_sha256"],
+            "comments": shadow["comments"],
+            "selection": SELECTION,
+            "selection_sha256": shadow["selection_sha256"],
+            "selected": shadow["selected"],
+            "size_class": shadow["size_class"],
+            "names_of": source,
+            "namer": namer,
+            "scheduler": concat!("polis-delphi-shadow ", env!("CARGO_PKG_VERSION")),
+        }
+    });
+    let scope = names_scope(&namer);
+    let key = format!("shadow:names:{zid}:{}:{namer}", source.replace('-', ""));
+    let request = json!({"zid": zid, "kind": "names", "scope": scope, "config": config});
+    Ok(Admission {
+        zid,
+        scope,
+        key,
+        request_sha: sha256_hex(request.to_string().as_bytes()),
+        job_id: uuid::Uuid::new_v4(),
+        run_id: uuid::Uuid::new_v4(),
+        config,
+    })
 }
 
 /// Rest after a run: d·(1−duty)/duty.
@@ -1323,10 +1520,309 @@ mod tests {
         );
     }
 
+    const SOURCE: &str = "0e8a7c1e-1111-4222-8333-444455556666";
+
+    fn haiku() -> Value {
+        json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "default"})
+    }
+
+    fn source_config() -> Value {
+        admission(7, &census("d", "s", 40, 30), Some(Set::Current), None).config
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn a_named_run_is_keyed_by_its_source_and_namer_in_the_namers_scope() {
+        let a = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        assert_eq!(
+            a.key,
+            "shadow:names:7:0e8a7c1e111142228333444455556666:claude-haiku-5-5.p1.default"
+        );
+        assert!(a.key.len() <= 128);
+        assert_eq!(a.scope, "delphi:names:claude-haiku-5-5.p1.default");
+        assert_eq!(a.config["names_of"], SOURCE);
+        assert_eq!(a.config["naming"], haiku());
+        assert_eq!(a.config["selection"], SELECTION);
+        // The source's census digests travel with it.
+        let src = source_config();
+        assert_eq!(
+            a.config["shadow"]["selection_sha256"],
+            src["shadow"]["selection_sha256"]
+        );
+        assert_eq!(
+            a.config["shadow"]["comment_set_sha256"],
+            src["shadow"]["comment_set_sha256"]
+        );
+        // The child's own checks accept the configuration.
+        assert_eq!(
+            crate::jobs::names_of::source(&a.config),
+            Ok(Some(SOURCE.to_owned()))
+        );
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn two_identical_requests_are_one_job_and_every_other_is_another() {
+        let a = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        let again = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        assert_eq!(
+            (&a.key, &a.scope, &a.request_sha),
+            (&again.key, &again.scope, &again.request_sha)
+        );
+
+        // Another namer: another key and another scope.
+        let mut sonnet = haiku();
+        sonnet["model"] = json!("claude-sonnet-5-5");
+        let s = names_admission(7, SOURCE, &source_config(), &sonnet).unwrap();
+        assert_ne!(s.key, a.key);
+        assert_ne!(s.scope, a.scope);
+        let mut off = haiku();
+        off["thinking"] = json!("off");
+        let o = names_admission(7, SOURCE, &source_config(), &off).unwrap();
+        assert_ne!(o.key, a.key);
+        assert_ne!(o.scope, a.scope);
+
+        // Another source run: another key, the namer's scope.
+        let other = names_admission(
+            7,
+            "0e8a7c1e-1111-4222-8333-444455556667",
+            &source_config(),
+            &haiku(),
+        )
+        .unwrap();
+        assert_ne!(other.key, a.key);
+        assert_eq!(other.scope, a.scope);
+
+        // Never its source's duplicate, nor any keyword or rule run's.
+        let c = census("d", "s", 40, 30);
+        let first = admission(7, &c, Some(Set::Current), None);
+        let rule = rule_admission(7, &census_under(ALL_COMMENTS, "d"), None, None);
+        for keyword in [&first, &rule] {
+            assert_ne!(keyword.key, a.key);
+            assert_ne!(keyword.scope, a.scope);
+        }
+        // The keyword runs' admissions are what they were: no naming, no source.
+        assert!(first.config.get("naming").is_none() && first.config.get("names_of").is_none());
+        assert!(rule.config.get("naming").is_none() && rule.config.get("names_of").is_none());
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn the_provider_names_its_own_job_and_its_absence_is_todays() {
+        let today = names_admission(7, SOURCE, &source_config(), &haiku()).unwrap();
+        // Today's word, key and scope, byte for byte, for an absent provider
+        // and for the default named.
+        let mut anthropic = haiku();
+        anthropic["provider"] = json!("anthropic");
+        assert_eq!(namer_word(&haiku()).unwrap(), "claude-haiku-5-5.p1.default");
+        assert_eq!(
+            namer_word(&anthropic).unwrap(),
+            "claude-haiku-5-5.p1.default"
+        );
+        let named = names_admission(7, SOURCE, &source_config(), &anthropic).unwrap();
+        assert_eq!(
+            (&named.key, &named.scope, &named.request_sha, &named.config),
+            (&today.key, &today.scope, &today.request_sha, &today.config)
+        );
+        assert_eq!(named.config["naming"], haiku());
+
+        // Through Amazon Bedrock: another word, key and scope.
+        let mut bedrock = haiku();
+        bedrock["provider"] = json!("bedrock");
+        assert_eq!(
+            namer_word(&bedrock).unwrap(),
+            "bedrock.claude-haiku-5-5.p1.default"
+        );
+        let b = names_admission(7, SOURCE, &source_config(), &bedrock).unwrap();
+        assert_eq!(
+            b.key,
+            "shadow:names:7:0e8a7c1e111142228333444455556666:bedrock.claude-haiku-5-5.p1.default"
+        );
+        assert!(b.key.len() <= 128);
+        assert_eq!(b.scope, "delphi:names:bedrock.claude-haiku-5-5.p1.default");
+        assert_eq!(
+            b.config["shadow"]["namer"],
+            "bedrock.claude-haiku-5-5.p1.default"
+        );
+        assert_eq!(b.config["naming"], bedrock);
+        assert_ne!(b.key, today.key);
+        assert_ne!(b.scope, today.scope);
+        assert_ne!(b.request_sha, today.request_sha);
+        // The child accepts what the admission stores.
+        assert_eq!(
+            crate::jobs::names_of::source(&b.config),
+            Ok(Some(SOURCE.to_owned()))
+        );
+
+        for provider in [json!("vertex"), json!("Bedrock"), Value::Null, json!(1)] {
+            let mut n = haiku();
+            n["provider"] = provider;
+            assert_eq!(
+                names_admission(7, SOURCE, &source_config(), &n).unwrap_err(),
+                "naming_unknown_provider"
+            );
+        }
+    }
+
+    #[test]
+    #[allow(clippy::unwrap_used)]
+    fn only_a_keyword_run_of_the_shown_rule_is_named_and_only_by_a_known_namer() {
+        let rule = rule_admission(7, &census_under(ALL_COMMENTS, "d"), None, None).config;
+        assert_eq!(
+            names_admission(7, SOURCE, &rule, &haiku()).unwrap_err(),
+            "names_of_source_other_rule"
+        );
+        let not_out =
+            rule_admission(7, &census_under(ALL_BUT_MODERATED_OUT, "d"), None, None).config;
+        assert_eq!(
+            names_admission(7, SOURCE, &not_out, &haiku()).unwrap_err(),
+            "names_of_source_other_rule"
+        );
+        let named = names_admission(7, SOURCE, &source_config(), &haiku())
+            .unwrap()
+            .config;
+        assert_eq!(
+            names_admission(7, SOURCE, &named, &haiku()).unwrap_err(),
+            "names_of_source_named"
+        );
+        assert_eq!(
+            names_admission(7, "nope", &source_config(), &haiku()).unwrap_err(),
+            "names_of_not_a_job"
+        );
+        for (change, word) in [
+            (json!({"by": "keywords"}), "naming_unknown_by"),
+            (json!("haiku"), "naming_not_an_object"),
+            (
+                json!({"by": "model", "model": "claude-opus", "prompt": "polis-topic-names/1", "thinking": "default"}),
+                "naming_unknown_model",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/2", "thinking": "default"}),
+                "naming_unknown_prompt",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "max"}),
+                "naming_unknown_thinking",
+            ),
+            (
+                json!({"by": "model", "model": "claude-haiku-5-5", "prompt": "polis-topic-names/1", "thinking": "off", "extra": 1}),
+                "naming_unknown_key",
+            ),
+        ] {
+            assert_eq!(
+                names_admission(7, SOURCE, &source_config(), &change).unwrap_err(),
+                word
+            );
+        }
+    }
+
     #[test]
     fn the_disk_of_the_temporary_directory_reads() -> std::io::Result<()> {
         let d = disk(&std::env::temp_dir())?;
         assert!(d.used_pct >= 0.0 && d.used_pct <= 100.0);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used)]
+mod naming_room_tests {
+    use super::*;
+
+    #[test]
+    fn the_shadow_namer_is_sonnet_through_bedrock_on_prompt_one() {
+        assert_eq!(
+            namer_word(&shadow_naming()).unwrap(),
+            "bedrock.claude-sonnet-5-5.p1.default"
+        );
+    }
+
+    #[test]
+    fn a_run_is_admitted_up_to_exactly_the_limit_and_not_past_it() {
+        let limit = Some(5_000_000);
+        let bound = 550_000;
+        // Room for three attempts at 0.55: 1.65.
+        assert_eq!(naming_reserve(bound), 1_650_000);
+        assert_eq!(
+            naming_room(3_349_999, bound, limit),
+            NamingRoom::Room,
+            "just under"
+        );
+        assert_eq!(
+            naming_room(3_350_000, bound, limit),
+            NamingRoom::Room,
+            "exactly at"
+        );
+        assert_eq!(
+            naming_room(3_350_001, bound, limit),
+            NamingRoom::Spent,
+            "just over"
+        );
+        assert_eq!(naming_room(0, 1_666_667, limit), NamingRoom::Spent);
+        assert_eq!(naming_room(0, bound, None), NamingRoom::NoLimit);
+        assert_eq!(naming_room(i64::MAX, bound, limit), NamingRoom::Spent);
+        assert_eq!(naming_room(0, i64::MAX, limit), NamingRoom::Spent);
+        // The worst day: every run takes all three of its attempts, each
+        // sending its one request. Three runs at the proposed bound fit in
+        // the proposed limit; a fourth does not; the day's count stays
+        // within the limit.
+        let mut spent = 0;
+        let mut admitted = 0;
+        while naming_room(spent, bound, limit) == NamingRoom::Room {
+            spent += NAMING_ATTEMPTS * bound;
+            admitted += 1;
+        }
+        assert_eq!((admitted, spent), (3, 4_950_000));
+        assert!(spent <= 5_000_000);
+        // The best day: each run sends once, and the room for three
+        // attempts still holds: seven are admitted.
+        let (mut spent, mut admitted) = (0, 0);
+        while naming_room(spent, bound, limit) == NamingRoom::Room {
+            spent += bound;
+            admitted += 1;
+        }
+        assert_eq!((admitted, spent), (7, 3_850_000));
+    }
+
+    #[test]
+    fn a_source_asked_again_gets_a_key_of_its_own() {
+        let source = "6f0c6a51-8d2b-4b7e-9a51-2f6c1d3e4b5a";
+        let config = json!({"selection": SELECTION, "shadow": {
+            "comment_set_sha256": "a".repeat(64), "comments": 30,
+            "selection_sha256": "b".repeat(64), "selected": 30, "size_class": "small"}});
+        let first = names_admission(7, source, &config, &shadow_naming()).unwrap();
+        let key = first.key.clone();
+        assert_eq!(asked_again(first.clone(), 0).key, key);
+        assert_eq!(asked_again(first.clone(), 1).key, format!("{key}:2"));
+        let again = asked_again(first.clone(), 2);
+        assert_eq!(again.key, format!("{key}:3"));
+        assert!(again.key.len() <= 128, "{}", again.key.len());
+        assert_eq!(
+            (again.config, again.request_sha, again.scope),
+            (first.config, first.request_sha, first.scope)
+        );
+    }
+
+    #[test]
+    fn the_price_bound_is_frozen_in_the_configuration_and_keeps_the_key() {
+        let source = "6f0c6a51-8d2b-4b7e-9a51-2f6c1d3e4b5a";
+        let config = json!({"selection": SELECTION, "shadow": {
+            "comment_set_sha256": "a".repeat(64), "comments": 30,
+            "selection_sha256": "b".repeat(64), "selected": 30, "size_class": "small"}});
+        let a = names_admission(7, source, &config, &shadow_naming()).unwrap();
+        let p = priced(a.clone(), 550_000);
+        assert_eq!(p.key, a.key);
+        assert_eq!(p.scope, a.scope);
+        assert_ne!(p.request_sha, a.request_sha);
+        assert_eq!(p.config["shadow"]["price_bound_micro_usd"], 550_000);
+        let again = priced(
+            names_admission(7, source, &config, &shadow_naming()).unwrap(),
+            550_000,
+        );
+        assert_eq!(
+            again.request_sha, p.request_sha,
+            "the same request, the same digest"
+        );
+        assert_ne!(priced(a, 500_000).request_sha, p.request_sha);
     }
 }

@@ -1,0 +1,3526 @@
+{
+ "schema": "polis-topic-names.hierarchy/1",
+ "layers": [
+  0,
+  1,
+  2,
+  3
+ ],
+ "topics": {
+  "0_0": {
+   "id": "0_0",
+   "layer": 0,
+   "cluster": 0,
+   "size": 12,
+   "keywords": [
+    "skypac",
+    "future",
+    "love",
+    "better",
+    "music"
+   ],
+   "parent": null,
+   "samples3": [
+    "I would love to see a wider variety of performances at SKyPAC in the future.",
+    "SKYPAC will get better bookings.",
+    "Since we have heavily subsidized SKyPAC with tax dollars, we will develop a room at SKyPAC to create an art gallery."
+   ]
+  },
+  "0_1": {
+   "id": "0_1",
+   "layer": 0,
+   "cluster": 1,
+   "size": 19,
+   "keywords": [
+    "golf",
+    "disc",
+    "course",
+    "courses",
+    "bg"
+   ],
+   "parent": null,
+   "samples3": [
+    "Mini golf courses as good and elaborate as the ones you go to in vacation destinations.",
+    "Better public golf courses!!!",
+    "The city should continue to fund local golf courses."
+   ]
+  },
+  "0_2": {
+   "id": "0_2",
+   "layer": 0,
+   "cluster": 2,
+   "size": 50,
+   "keywords": [
+    "churches",
+    "christian",
+    "community",
+    "faith",
+    "festivals"
+   ],
+   "parent": "1_0",
+   "samples3": [
+    "Should be a traditional conservative and Christian influenced culture.",
+    "We need to celebrate our Christianity more with Christ like festivals.",
+    "I hope we will have more bible study options in the future."
+   ]
+  },
+  "0_3": {
+   "id": "0_3",
+   "layer": 0,
+   "cluster": 3,
+   "size": 45,
+   "keywords": [
+    "recycling",
+    "trash",
+    "waste",
+    "composting",
+    "pick"
+   ],
+   "parent": "1_2",
+   "samples3": [
+    "I hope that we have county-wide recycling in the future.",
+    "City-sponsored yard waste disposal/mulching service like in Owensboro.",
+    "Bring in a Microcenter. Its like bestbuy before it became a dumpster fire."
+   ]
+  },
+  "0_4": {
+   "id": "0_4",
+   "layer": 0,
+   "cluster": 4,
+   "size": 10,
+   "keywords": [
+    "dollars",
+    "tax",
+    "use",
+    "pay",
+    "future"
+   ],
+   "parent": "1_1",
+   "samples3": [
+    "In the future, we will not use tax dollars to pay for food pantries.",
+    "In the future, we will not use tax dollars to pay for indoor riverfront development.",
+    "In the future, we will not use tax dollars to pay for indoor water parks."
+   ]
+  },
+  "0_5": {
+   "id": "0_5",
+   "layer": 0,
+   "cluster": 5,
+   "size": 26,
+   "keywords": [
+    "vape",
+    "smoke",
+    "shops",
+    "marijuana",
+    "areas"
+   ],
+   "parent": "1_1",
+   "samples3": [
+    "It will be illegal to smoke marijuana publicly that causes an odor that bothers others.",
+    "Tattoo parlors negatively affect areas and should be strictly zoned to be made invisible.",
+    "In 2050, we should tax smoke and vape shops."
+   ]
+  },
+  "0_6": {
+   "id": "0_6",
+   "layer": 0,
+   "cluster": 6,
+   "size": 12,
+   "keywords": [
+    "beech",
+    "bend",
+    "expand",
+    "park",
+    "car"
+   ],
+   "parent": null,
+   "samples3": [
+    "Beech bend upgrade its park newer rides and upgrades to the water park.",
+    "BG will be a major hub in the transportation & automotive market; leading to an expansion of Beech Bend into NASCAR/Formula One world racing",
+    "Beech Bend will expand to a larger amusement park like Opryland use to be."
+   ]
+  },
+  "0_7": {
+   "id": "0_7",
+   "layer": 0,
+   "cluster": 7,
+   "size": 95,
+   "keywords": [
+    "wku",
+    "campus",
+    "students",
+    "community",
+    "bg"
+   ],
+   "parent": "1_3",
+   "samples3": [
+    "WKU should focus on building up or adequately developing and redeveloping their current buildings without sprawling further into BG",
+    "The town will collaborate with WKU to increase opportunities for arts in the area.",
+    "BG needs a university for the working adult trying to return to class. WKU is focused on teenage students with its inflexible schedule."
+   ]
+  },
+  "0_8": {
+   "id": "0_8",
+   "layer": 0,
+   "cluster": 8,
+   "size": 11,
+   "keywords": [
+    "flag",
+    "american",
+    "flags",
+    "usa",
+    "town"
+   ],
+   "parent": null,
+   "samples3": [
+    "More giant USA flags at every exit.",
+    "We will have the whole town put up an American flag on 4th of July.",
+    "I love the American flag, and we have enough in the community today. We should maintain the same proportion in the future."
+   ]
+  },
+  "0_9": {
+   "id": "0_9",
+   "layer": 0,
+   "cluster": 9,
+   "size": 23,
+   "keywords": [
+    "movie",
+    "theater",
+    "theaters",
+    "house",
+    "drive"
+   ],
+   "parent": "1_4",
+   "samples3": [
+    "We will have a movie theater with a balcony.",
+    "A discount movie theater.",
+    "The theater in the old mall will be brought back to life again. That thing was amazing back in the day!"
+   ]
+  },
+  "0_10": {
+   "id": "0_10",
+   "layer": 0,
+   "cluster": 10,
+   "size": 7,
+   "keywords": [
+    "airport",
+    "nashville",
+    "broadway",
+    "need",
+    "transit"
+   ],
+   "parent": "1_5",
+   "samples3": [
+    "We need a $50 shuttle to Nashville Airport.",
+    "A commuter service to Nashville airport / Broadway would be nice to have by 2050.",
+    "We won’t have commercial flights at the airport but we will have air shuttles to the Nashville airport."
+   ]
+  },
+  "0_11": {
+   "id": "0_11",
+   "layer": 0,
+   "cluster": 11,
+   "size": 5,
+   "keywords": [
+    "airport",
+    "hub",
+    "commercial",
+    "flights",
+    "travel"
+   ],
+   "parent": "1_5",
+   "samples3": [
+    "A legitimate airport shuttle service sponsored by the city and that is regulated and tax funded to promote tourism and travel",
+    "Commercial airline service must happen for our businesses to grow and to attract new companies.",
+    "A new modern airport hub, maybe Southwest or Delta, as well as an option like UPS hub for package transport."
+   ]
+  },
+  "0_12": {
+   "id": "0_12",
+   "layer": 0,
+   "cluster": 12,
+   "size": 12,
+   "keywords": [
+    "lane",
+    "lovers",
+    "dave",
+    "develop",
+    "hall"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Add a beer garden on lovers lane into the next year",
+    "We will have a Dave and Busters on Lovers Lane.",
+    "Pickleball added to Lovers Lane complex."
+   ]
+  },
+  "0_13": {
+   "id": "0_13",
+   "layer": 0,
+   "cluster": 13,
+   "size": 6,
+   "keywords": [
+    "bowling",
+    "green",
+    "school",
+    "schools",
+    "language"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will have dual immersion language schools.",
+    "Bowling Green needs arts magnet schools in addition to STEM magnet schools.",
+    "Bowling green needs a secular private school, it would be better if it is low tech."
+   ]
+  },
+  "0_14": {
+   "id": "0_14",
+   "layer": 0,
+   "cluster": 14,
+   "size": 22,
+   "keywords": [
+    "solar",
+    "energy",
+    "parking",
+    "infrastructure",
+    "make"
+   ],
+   "parent": "1_7",
+   "samples3": [
+    "Make it easier to be compensated for private solar panels feeding back into the grid.",
+    "Subsidies for property owners esp. local homeowners to install solar power",
+    "Solar panels on businesses and apartments to help offset the cost of rent"
+   ]
+  },
+  "0_15": {
+   "id": "0_15",
+   "layer": 0,
+   "cluster": 15,
+   "size": 12,
+   "keywords": [
+    "bowling",
+    "green",
+    "care",
+    "medical",
+    "health"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will have a freestanding birth center to attract modern, growing families looking for evidence-based care options.",
+    "Bowling Green will be a leader in preventative medicine and healthy living.",
+    "Bowling Green should develop more and better mental health services options."
+   ]
+  },
+  "0_16": {
+   "id": "0_16",
+   "layer": 0,
+   "cluster": 16,
+   "size": 6,
+   "keywords": [
+    "music",
+    "bowling",
+    "green",
+    "artists",
+    "tours"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will have music venues of different sizes to attract regional and national touring artists",
+    "Bowling Green needs a jungle drum and bass (DnB) music scene.",
+    "Bowling Green will have wineries with tours and musical entertainment."
+   ]
+  },
+  "0_17": {
+   "id": "0_17",
+   "layer": 0,
+   "cluster": 17,
+   "size": 15,
+   "keywords": [
+    "corvette",
+    "museum",
+    "nashville",
+    "want",
+    "national"
+   ],
+   "parent": null,
+   "samples3": [
+    "An interstate rest stop by the Corvette Museum.",
+    "We will have a tourist welcome center at the Corvette Museum I-65 exit, where the majority of tourists are entering our city.",
+    "Nashville has too many people. I’d like to see us have smaller communities. Big is not always great!"
+   ]
+  },
+  "0_18": {
+   "id": "0_18",
+   "layer": 0,
+   "cluster": 18,
+   "size": 13,
+   "keywords": [
+    "crime",
+    "hope",
+    "crimes",
+    "2050",
+    "light"
+   ],
+   "parent": "1_8",
+   "samples3": [
+    "We need to crack down on repeat offenders that are arrested dozens of times (yes there are A LOT in BG already).",
+    "Chage the jail into a for profit prison",
+    "We should bring back an entertainment attraction like Raceworld. Busy minds don’t commit crimes."
+   ]
+  },
+  "0_19": {
+   "id": "0_19",
+   "layer": 0,
+   "cluster": 19,
+   "size": 18,
+   "keywords": [
+    "police",
+    "hope",
+    "state",
+    "community",
+    "local"
+   ],
+   "parent": "1_8",
+   "samples3": [
+    "Our police will not become a paramilitary of unaccountable white men with guns.",
+    "There will be a team of social workers embedded in the police department",
+    "I would like to see an increase in staff of BG police and WC sheriffs department to have more officers for our growing community."
+   ]
+  },
+  "0_20": {
+   "id": "0_20",
+   "layer": 0,
+   "cluster": 20,
+   "size": 5,
+   "keywords": [
+    "homeless",
+    "bowling",
+    "green",
+    "homelessness",
+    "remove"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will approach homelessness with a Carrot AND stick mentality. Not tolerated, but help is provided to get on your feet.",
+    "Remove homeless camps in the Bowling Green area.",
+    "Bowling Green will prioritize mid-to-low income housing to prevent homelessness for its community members"
+   ]
+  },
+  "0_21": {
+   "id": "0_21",
+   "layer": 0,
+   "cluster": 21,
+   "size": 26,
+   "keywords": [
+    "animal",
+    "laws",
+    "humane",
+    "county",
+    "society"
+   ],
+   "parent": "1_10",
+   "samples3": [
+    "Stop illegal home shooting ranges, especially w/n close proximity to houses and agriculture animals.",
+    "We will have a noise ordinance for neighborhoods located within the county like the upcoming leash ordinance for the same.",
+    "Restrictions on individuals shooting guns within certain proximities to other houses."
+   ]
+  },
+  "0_22": {
+   "id": "0_22",
+   "layer": 0,
+   "cluster": 22,
+   "size": 8,
+   "keywords": [
+    "refugees",
+    "immigrants",
+    "refugee",
+    "capacity",
+    "safety"
+   ],
+   "parent": "1_9",
+   "samples3": [
+    "More industry and businesses willing to hire refugees and work with the challenges faced by refugees",
+    "Put a max capacity on incoming immigrant and refugees",
+    "Refugees and immigrants find belonging, safety and freedom always."
+   ]
+  },
+  "0_23": {
+   "id": "0_23",
+   "layer": 0,
+   "cluster": 23,
+   "size": 13,
+   "keywords": [
+    "english",
+    "immigrants",
+    "refugees",
+    "language",
+    "assistance"
+   ],
+   "parent": "1_9",
+   "samples3": [
+    "Stop overloading schools with immigrants without sufficient translators, staff, & funding.",
+    "WCPL should offer some classes to teach our immigrants, or those lacking education, English",
+    "We will have a smooth system for teaching immigrants English and absorbing them into our city, as contributing members of the city."
+   ]
+  },
+  "0_24": {
+   "id": "0_24",
+   "layer": 0,
+   "cluster": 24,
+   "size": 9,
+   "keywords": [
+    "bowling",
+    "green",
+    "airport",
+    "transportation",
+    "service"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will have a larger airport, offering commercial flights across the country.",
+    "Airline service between Bowling Green and Atlanta will be offered on weekdays.",
+    "We need Vertical Take-Off and Landing (VTOL) transportation throughout Bowling Green."
+   ]
+  },
+  "0_25": {
+   "id": "0_25",
+   "layer": 0,
+   "cluster": 25,
+   "size": 15,
+   "keywords": [
+    "senior",
+    "seniors",
+    "living",
+    "elderly",
+    "center"
+   ],
+   "parent": "1_11",
+   "samples3": [
+    "We will have more resources for our seniors!",
+    "More opportunities for senior citizens to age in place.",
+    "We need more help and resources to accommodate the elderly.Elderly are struggling to pay rent,mortgage,etc.This community is very prominent!"
+   ]
+  },
+  "0_26": {
+   "id": "0_26",
+   "layer": 0,
+   "cluster": 26,
+   "size": 24,
+   "keywords": [
+    "childcare",
+    "care",
+    "child",
+    "parents",
+    "affordable"
+   ],
+   "parent": "1_11",
+   "samples3": [
+    "Better-found support for new parents. Access to information and groups.",
+    "We need a place where single mothers can all come together and share their tales.",
+    "24 hour childcare"
+   ]
+  },
+  "0_27": {
+   "id": "0_27",
+   "layer": 0,
+   "cluster": 27,
+   "size": 10,
+   "keywords": [
+    "bowling",
+    "green",
+    "children",
+    "play",
+    "kids"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling green will have more dance studios to offer various types of dance to all ages, not just children.",
+    "Bowling Green will prioritize building more unique outdoor fitness parks to encourage year-round physical activity.",
+    "Bowling Green will have an indoor pool/Waterpark for lessons, fitness, open swim and rentals."
+   ]
+  },
+  "0_28": {
+   "id": "0_28",
+   "layer": 0,
+   "cluster": 28,
+   "size": 5,
+   "keywords": [
+    "taxes",
+    "bowling",
+    "green",
+    "support",
+    "2050"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "In 2050, Bowling Green will have no city taxes. City taxes are a scam.",
+    "In 2050, the Bowling Green area will have no taxes that support the military.",
+    "In 2050, the Bowling Green area will have no taxes that support police."
+   ]
+  },
+  "0_29": {
+   "id": "0_29",
+   "layer": 0,
+   "cluster": 29,
+   "size": 10,
+   "keywords": [
+    "cave",
+    "lost",
+    "river",
+    "mammoth",
+    "area"
+   ],
+   "parent": null,
+   "samples3": [
+    "Climbing obstacles will be added at Lost River Cave.",
+    "Underground speakeasy scene utilizing the cave systems we have",
+    "Designation of Lost River Cave as a state park or a natural preserve"
+   ]
+  },
+  "0_30": {
+   "id": "0_30",
+   "layer": 0,
+   "cluster": 30,
+   "size": 15,
+   "keywords": [
+    "2050",
+    "bowling",
+    "green",
+    "infrastructure",
+    "hope"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "By 2050, Bowling Green will have a building that wins ArchDaily's Building of the Year.",
+    "Bowling Green will feature more modern architecture in 2050.",
+    "The Bowling Green of 2050 should have infrastructure that meets the demands of our growing community."
+   ]
+  },
+  "0_31": {
+   "id": "0_31",
+   "layer": 0,
+   "cluster": 31,
+   "size": 8,
+   "keywords": [
+    "meetings",
+    "public",
+    "like",
+    "board",
+    "input"
+   ],
+   "parent": null,
+   "samples3": [
+    "Promote and incentivize participation in town meetings in every district.",
+    "Communication channels between city council/ board on upcoming meetings. More public input like this initiative",
+    "More accessibility around city council meetings and town halls"
+   ]
+  },
+  "0_32": {
+   "id": "0_32",
+   "layer": 0,
+   "cluster": 32,
+   "size": 9,
+   "keywords": [
+    "square",
+    "fountain",
+    "circus",
+    "events",
+    "music"
+   ],
+   "parent": null,
+   "samples3": [
+    "Build a gazebo-style stage in Fountain Square on the State Street end for music, theater, weddings, and other events.",
+    "More events / concerts / music on Historic Fountain Square in lieu of Circus Square !",
+    "Utilize local high school marching bands,have more parades downtown that will culminate on Fountain Square, possibly with Fall pep rallies"
+   ]
+  },
+  "0_33": {
+   "id": "0_33",
+   "layer": 0,
+   "cluster": 33,
+   "size": 13,
+   "keywords": [
+    "bowling",
+    "green",
+    "events",
+    "entertainment",
+    "center"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will increase its entertainment options, such as more concerts/sporting events.",
+    "Bowling Green will have a Main Event.",
+    "Make Bowling Green fun!"
+   ]
+  },
+  "0_34": {
+   "id": "0_34",
+   "layer": 0,
+   "cluster": 34,
+   "size": 6,
+   "keywords": [
+    "wellness",
+    "ll",
+    "related",
+    "fitness",
+    "foods"
+   ],
+   "parent": null,
+   "samples3": [
+    "In 2050, we'll have a citywide \"Healthy Lifestyle\" campaign to promote fitness, nutrition, and mental wellness across all age groups.",
+    "We'll establish a \"Wellness Week\" each year with free health screenings, fitness classes, and nutrition workshops citywide.",
+    "More nutritionists that will teach you how to eat correctly and with natural foods"
+   ]
+  },
+  "0_35": {
+   "id": "0_35",
+   "layer": 0,
+   "cluster": 35,
+   "size": 5,
+   "keywords": [
+    "lanes",
+    "bowling",
+    "green",
+    "greenways",
+    "lines"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "We will make more greenways or bike lanes in the surrounding counties not just inside of bowling green",
+    "Bowling Green will not have congested access roads along Scottsville Road, instead the road will be widened with sufficient turning lanes.",
+    "Bowling Green will have a network of greenways, bike lanes, and transit lines connecting all schools and downtown."
+   ]
+  },
+  "0_36": {
+   "id": "0_36",
+   "layer": 0,
+   "cluster": 36,
+   "size": 9,
+   "keywords": [
+    "town",
+    "neighborhoods",
+    "hope",
+    "city",
+    "rag"
+   ],
+   "parent": null,
+   "samples3": [
+    "I hope the expansion of the Shake Rag district continues and our community supports those locally owned businesses!",
+    "We would have less leftist ruining our town",
+    "We'll continue telling grassroots stories & growing from them as neighbors...even when it’s uncomfortable/unsettling, like Jonesville & Shake Rag."
+   ]
+  },
+  "0_37": {
+   "id": "0_37",
+   "layer": 0,
+   "cluster": 37,
+   "size": 11,
+   "keywords": [
+    "bowling",
+    "green",
+    "cultures",
+    "culture",
+    "working"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will be a national model for focusing on the local instead of national culture wars.",
+    "Bowling Green will retain its local historic character and be sparer the devastating effects of multiculturalism and diversity.",
+    "Bowling Green will be known nationally for its focus on working to keep key stakeholders aligned and the ease of collaboration here."
+   ]
+  },
+  "0_38": {
+   "id": "0_38",
+   "layer": 0,
+   "cluster": 38,
+   "size": 6,
+   "keywords": [
+    "stop",
+    "ways",
+    "local",
+    "money",
+    "future"
+   ],
+   "parent": null,
+   "samples3": [
+    "Those who move here will not dilute our ways by continuing to live their ways.",
+    "Please stop immigration",
+    "U.S. Immigration and Customs Enforcement will deport all immigrants who are here illegally out of the country."
+   ]
+  },
+  "0_39": {
+   "id": "0_39",
+   "layer": 0,
+   "cluster": 39,
+   "size": 7,
+   "keywords": [
+    "green",
+    "bowling",
+    "day",
+    "rural",
+    "news"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will even further embrace a regional attitude & will become the focal point for promoting attractions/stories of the region.",
+    "Bowling green should start using the green blue white Grey yellow Seychelles 🇸🇨 looking flag",
+    "Spotted in Bowling Green will be the #1 news outlet"
+   ]
+  },
+  "0_40": {
+   "id": "0_40",
+   "layer": 0,
+   "cluster": 40,
+   "size": 10,
+   "keywords": [
+    "green",
+    "bowling",
+    "hope",
+    "city",
+    "safe"
+   ],
+   "parent": "1_6",
+   "samples3": [
+    "Bowling Green will become a safe-haven and sanctuary city for the marginalized and dispossessed.",
+    "I hope Bowling Green grows with green spaces, affordable housing, and local businesses while maintaining its charm and natural beauty.",
+    "Bowling Green will embrace and encourage regenerative agriculture."
+   ]
+  },
+  "0_41": {
+   "id": "0_41",
+   "layer": 0,
+   "cluster": 41,
+   "size": 9,
+   "keywords": [
+    "library",
+    "public",
+    "funding",
+    "space",
+    "county"
+   ],
+   "parent": null,
+   "samples3": [
+    "Expand the library to include more DVD rentals, not everyone can afford streaming",
+    "Public library with welcoming space to visit, lounge, participate in activities, etc. For example: Blount County and Williamson County",
+    "Public library is great but need more space for classes etc"
+   ]
+  },
+  "0_42": {
+   "id": "0_42",
+   "layer": 0,
+   "cluster": 42,
+   "size": 18,
+   "keywords": [
+    "community",
+    "hope",
+    "diversity",
+    "different",
+    "communities"
+   ],
+   "parent": null,
+   "samples3": [
+    "I would like to see us lose the labels. We are ALL people. Labeling causes separation.",
+    "We need to be a more diverse community.",
+    "I hope that people are no longer categorized by their skin color but what they bring to our society."
+   ]
+  },
+  "0_43": {
+   "id": "0_43",
+   "layer": 0,
+   "cluster": 43,
+   "size": 5,
+   "keywords": [
+    "exit",
+    "65",
+    "entrance",
+    "165",
+    "warren"
+   ],
+   "parent": "1_12",
+   "samples3": [
+    "Warren County will have a new exit/entrance off I-65 in southern Warren County",
+    "We need another entrance/exit on I-65 farther south",
+    "Exit 24 on I-65, serving the rapidly developing lovers lane area and to reduce traffic on exit 22"
+   ]
+  },
+  "0_44": {
+   "id": "0_44",
+   "layer": 0,
+   "cluster": 44,
+   "size": 6,
+   "keywords": [
+    "65",
+    "165",
+    "new",
+    "additional",
+    "learn"
+   ],
+   "parent": "1_12",
+   "samples3": [
+    "The I-165 to I-65 interchange will be renovated to make it safer and more efficient.",
+    "We will learn how to merge into I 165 from I 65 without stopping.",
+    "additional interchanges to I-65 & I-165"
+   ]
+  },
+  "0_45": {
+   "id": "0_45",
+   "layer": 0,
+   "cluster": 45,
+   "size": 25,
+   "keywords": [
+    "county",
+    "city",
+    "government",
+    "elected",
+    "officials"
+   ],
+   "parent": "1_13",
+   "samples3": [
+    "Do away with voting districts. If you live in the County - you vote for any person running in the county.",
+    "Use ranked choice voting in local elections to give more voice to the people",
+    "Have city government that runs our city like it is the 3rd largest city in Kentucky, because it actually is. *Officials that are appointed*"
+   ]
+  },
+  "0_46": {
+   "id": "0_46",
+   "layer": 0,
+   "cluster": 46,
+   "size": 9,
+   "keywords": [
+    "bar",
+    "bars",
+    "underground",
+    "ll",
+    "clubs"
+   ],
+   "parent": null,
+   "samples3": [
+    "wine and dessert bar maybe even underground",
+    "We'll have quaint wine clubs.",
+    "Wine and tapas bar"
+   ]
+  },
+  "0_47": {
+   "id": "0_47",
+   "layer": 0,
+   "cluster": 47,
+   "size": 17,
+   "keywords": [
+    "jobs",
+    "job",
+    "opportunities",
+    "pay",
+    "higher"
+   ],
+   "parent": "1_14",
+   "samples3": [
+    "We need more office type jobs that pay well.",
+    "Higher paying jobs",
+    "more job opportunities for young people"
+   ]
+  },
+  "0_48": {
+   "id": "0_48",
+   "layer": 0,
+   "cluster": 48,
+   "size": 11,
+   "keywords": [
+    "taxes",
+    "tax",
+    "raise",
+    "low",
+    "income"
+   ],
+   "parent": "1_14",
+   "samples3": [
+    "Double or triple all local taxes so we can afford a massive densification, pedestrianization, and public transportation rework of our city",
+    "Tax residents less",
+    "Prioritize making these changes through crowdfunding and not heavier taxation."
+   ]
+  },
+  "0_49": {
+   "id": "0_49",
+   "layer": 0,
+   "cluster": 49,
+   "size": 8,
+   "keywords": [
+    "shelters",
+    "tornado",
+    "public",
+    "plan",
+    "moved"
+   ],
+   "parent": null,
+   "samples3": [
+    "Create a disaster plan that accommodates people without cars. Currently, public tornado shelters are difficult/impossible to reach.",
+    "I believe that multiple, public tornado shelters should be made available asap for the city of BG.",
+    "An area designated for a tiny house community similar to a trailer park but for tiny homes. It would need to have on site tornado shelter."
+   ]
+  },
+  "0_50": {
+   "id": "0_50",
+   "layer": 0,
+   "cluster": 50,
+   "size": 5,
+   "keywords": [
+    "manufacturing",
+    "tech",
+    "invest",
+    "businesses",
+    "like"
+   ],
+   "parent": "1_14",
+   "samples3": [
+    "Encourage investment in manufacturing of computer chips and anything to do with that aspect of manufacturing",
+    "More industries like finance, tech, and others on the same level of the recent boom of manufacturing plants in the area",
+    "Private investors will have resources to help them invest smartly in tech innovation, even if they are unfamiliar with it."
+   ]
+  },
+  "0_51": {
+   "id": "0_51",
+   "layer": 0,
+   "cluster": 51,
+   "size": 12,
+   "keywords": [
+    "local",
+    "incentives",
+    "corporations",
+    "tax",
+    "state"
+   ],
+   "parent": "1_14",
+   "samples3": [
+    "Less money grabs by local leaders.",
+    "Look at how Carmel IN attracts businesses through tax benefits and follow suit.",
+    "Instead of so many tax incentives to lure multinational corporations, incentivize small business and local agriculture."
+   ]
+  },
+  "0_52": {
+   "id": "0_52",
+   "layer": 0,
+   "cluster": 52,
+   "size": 26,
+   "keywords": [
+    "businesses",
+    "small",
+    "business",
+    "support",
+    "entrepreneurs"
+   ],
+   "parent": "1_14",
+   "samples3": [
+    "Our small businesses will be strong regional leaders with economic security to support their families.",
+    "I hope our business community support all businesses regardless of political party affiliation.",
+    "Small Business support from the state"
+   ]
+  },
+  "0_53": {
+   "id": "0_53",
+   "layer": 0,
+   "cluster": 53,
+   "size": 18,
+   "keywords": [
+    "parking",
+    "downtown",
+    "structure",
+    "free",
+    "garage"
+   ],
+   "parent": "1_16",
+   "samples3": [
+    "A second parking garage built downtown. The existing parking structure is not accessible to downtown for seniors and the disabled.",
+    "Construct a parking garage behind 922 State Street. Free parking for employees & free parking for others w/ proof of purchase downtown.",
+    "Downtown’s parking structure will have exterior projecting signage that shows you can actually park and dine there."
+   ]
+  },
+  "0_54": {
+   "id": "0_54",
+   "layer": 0,
+   "cluster": 54,
+   "size": 5,
+   "keywords": [
+    "parking",
+    "square",
+    "close",
+    "better",
+    "provided"
+   ],
+   "parent": "1_16",
+   "samples3": [
+    "More (free) parking options close to the square.",
+    "Parking on the square will be fixed so customers shopping actually have a place to park instead of people working taking up all the parking",
+    "More parking spaces need to be provided around the square which can done by revamping the striped areas at each end and in the middle of it."
+   ]
+  },
+  "0_55": {
+   "id": "0_55",
+   "layer": 0,
+   "cluster": 55,
+   "size": 15,
+   "keywords": [
+    "landlords",
+    "rights",
+    "section",
+    "rent",
+    "properties"
+   ],
+   "parent": null,
+   "samples3": [
+    "Pass laws to disincentivize out-of-state landlords. They are stripping away local revenue and don't respect tenants' rights.",
+    "In the future, we do NOT want government controlling landlord rent!",
+    "Adopt Uniform Residential Landlord Tenant Act (URLTA)"
+   ]
+  },
+  "0_56": {
+   "id": "0_56",
+   "layer": 0,
+   "cluster": 56,
+   "size": 14,
+   "keywords": [
+    "greenwood",
+    "mall",
+    "build",
+    "needs",
+    "shopping"
+   ],
+   "parent": null,
+   "samples3": [
+    "Redevelop Greenwood Mall with housing, activities, restaurants and shops! Make it an exciting place to live/work/dine/shop.",
+    "Greenwood mall needs to go. Replace with outdoor shopping like Greenhills",
+    "Greenwood mall would be upgraded by 2050. Sit down restaurants inside it. Fun activities for kids. Stores + vendors that are updated!"
+   ]
+  },
+  "0_57": {
+   "id": "0_57",
+   "layer": 0,
+   "cluster": 57,
+   "size": 43,
+   "keywords": [
+    "schools",
+    "school",
+    "public",
+    "teachers",
+    "prioritize"
+   ],
+   "parent": "1_15",
+   "samples3": [
+    "As a community we will prioritize our school systems. Allowing each child to know they have a purpose in this world.",
+    "Schools to include a government class which also teaches public service prior to graduating.",
+    "We will invest in kindergarten readiness programs to ease the burden on our public schools. So many kids are not ready for school."
+   ]
+  },
+  "0_58": {
+   "id": "0_58",
+   "layer": 0,
+   "cluster": 58,
+   "size": 6,
+   "keywords": [
+    "homeschool",
+    "kids",
+    "bg",
+    "welcoming",
+    "community"
+   ],
+   "parent": "1_15",
+   "samples3": [
+    "We will have a model early childhood education system that is accessible for working parents of all shifts, creating lasting change for BG.",
+    "WC&BG will have a unified school public system, with a standard course of study on all levels, so children can move easily and not lose out",
+    "we need to keep our kids engaged and want to grow up and have a part in the BG of the future"
+   ]
+  },
+  "0_59": {
+   "id": "0_59",
+   "layer": 0,
+   "cluster": 59,
+   "size": 14,
+   "keywords": [
+    "warren",
+    "county",
+    "develop",
+    "2050",
+    "housing"
+   ],
+   "parent": null,
+   "samples3": [
+    "In 2050, we'll have various \"districts\" throughout Warren County with their own style, color(s), etc.",
+    "Warren county will have 100,000 humanoid robots and not one extra person. And 100,000 less jobs, sadly.",
+    "In 2050, the area will still have some Warren County natives."
+   ]
+  },
+  "0_60": {
+   "id": "0_60",
+   "layer": 0,
+   "cluster": 60,
+   "size": 9,
+   "keywords": [
+    "land",
+    "farmland",
+    "encourage",
+    "preserving",
+    "farms"
+   ],
+   "parent": "1_19",
+   "samples3": [
+    "Encourage small family farming on what’s left of the county land",
+    "Preserving our rich farmlands and greater protections for farmers",
+    "Needs to bulldozed down and turn the land back into farm land"
+   ]
+  },
+  "0_61": {
+   "id": "0_61",
+   "layer": 0,
+   "cluster": 61,
+   "size": 9,
+   "keywords": [
+    "book",
+    "independent",
+    "locally",
+    "bigger",
+    "owned"
+   ],
+   "parent": null,
+   "samples3": [
+    "I hope we have an independent, locally owned bookstore in downtown Bowling Green.",
+    "We need a bigger Half Price Books.",
+    "Locally owned book, music, & movie stores"
+   ]
+  },
+  "0_62": {
+   "id": "0_62",
+   "layer": 0,
+   "cluster": 62,
+   "size": 5,
+   "keywords": [
+    "homelessness",
+    "shelter",
+    "bg",
+    "offering",
+    "address"
+   ],
+   "parent": "1_17",
+   "samples3": [
+    "BG will better address homelessness in the community by offering housing transition programs.",
+    "We moved to BG from a state with very high homeless population. Do not start offering a lot of services or in some other way attract them.",
+    "BG needs a comprehensive plan to solve the homelessness problem in our city: shelter, mental health help, transportation, help finding jobs."
+   ]
+  },
+  "0_63": {
+   "id": "0_63",
+   "layer": 0,
+   "cluster": 63,
+   "size": 17,
+   "keywords": [
+    "homeless",
+    "shelters",
+    "homelessness",
+    "streets",
+    "folks"
+   ],
+   "parent": "1_17",
+   "samples3": [
+    "We need effective solutions for homelessness so that our parks don't become their bedrooms e.g. Circus Square Park.",
+    "Design and develop an area as a hostel for the homeless to clean, find rest, feel safe--similar to other countries for hikers.",
+    "Relocate and update the Salvation Army to be able to house the homeless and provide them with showers food and rehabilitation"
+   ]
+  },
+  "0_64": {
+   "id": "0_64",
+   "layer": 0,
+   "cluster": 64,
+   "size": 16,
+   "keywords": [
+    "service",
+    "need",
+    "time",
+    "ems",
+    "emergency"
+   ],
+   "parent": null,
+   "samples3": [
+    "The county will be served with full time firefighters, not solely volunteers.",
+    "Better emergency services. In particular, funding EMS and replacing volunteer fire departments with paid staff.",
+    "We need a unified public safety communication center."
+   ]
+  },
+  "0_65": {
+   "id": "0_65",
+   "layer": 0,
+   "cluster": 65,
+   "size": 18,
+   "keywords": [
+    "lights",
+    "night",
+    "street",
+    "light",
+    "roads"
+   ],
+   "parent": "1_18",
+   "samples3": [
+    "Improved streetlights system and better maintenance of the current system.",
+    "We need light poles in places where they have none and hard to see at night, especially with the curvy country roads.",
+    "Wildlife-safe street lights that are reddish in color and reflected downward"
+   ]
+  },
+  "0_66": {
+   "id": "0_66",
+   "layer": 0,
+   "cluster": 66,
+   "size": 7,
+   "keywords": [
+    "billboards",
+    "signs",
+    "business",
+    "large",
+    "interstate"
+   ],
+   "parent": "1_18",
+   "samples3": [
+    "Restrict large business signs on main roadways for a better aesthetic.",
+    "We need a sign ordinance for new businesses. Similar to Cary, NC",
+    "An intersection or large billboard dedicated to auction advertising. Where the public can find upcoming auctions while driving through town"
+   ]
+  },
+  "0_67": {
+   "id": "0_67",
+   "layer": 0,
+   "cluster": 67,
+   "size": 21,
+   "keywords": [
+    "farmers",
+    "markets",
+    "food",
+    "market",
+    "local"
+   ],
+   "parent": "1_19",
+   "samples3": [
+    "Have thriving agri-communitites where children participate in growing vegetables, raising chickens for eggs, etc",
+    "We'll have more community-supported agriculture (CSA) programs to make fresh, locally-grown food accessible to all families.",
+    "A great offering would be a fruit tree for each home that wants one. Neighbors can trade, and our city has more sustainability as a result."
+   ]
+  },
+  "0_68": {
+   "id": "0_68",
+   "layer": 0,
+   "cluster": 68,
+   "size": 6,
+   "keywords": [
+    "gardens",
+    "garden",
+    "community",
+    "international",
+    "house"
+   ],
+   "parent": "1_19",
+   "samples3": [
+    "Botanical garden",
+    "Community gardens",
+    "Zen garden and Tea house coordinated through international center or something"
+   ]
+  },
+  "0_69": {
+   "id": "0_69",
+   "layer": 0,
+   "cluster": 69,
+   "size": 8,
+   "keywords": [
+    "restaurants",
+    "zoning",
+    "fewer",
+    "flooding",
+    "flights"
+   ],
+   "parent": null,
+   "samples3": [
+    "Que Buenos back",
+    "Hola me gustaria ke siga mejorando está bien todas las ayudas ke están brindando está bien",
+    "Empleos mejores"
+   ]
+  },
+  "0_70": {
+   "id": "0_70",
+   "layer": 0,
+   "cluster": 70,
+   "size": 41,
+   "keywords": [
+    "trees",
+    "native",
+    "plant",
+    "tree",
+    "landscaping"
+   ],
+   "parent": "1_20",
+   "samples3": [
+    "Plant more trees as visual barriers between commercial and residential areas.",
+    "The preservation of old tree growth and inclusion of native landscaping with new developments",
+    "I'd like to see less concrete in our city and more trees."
+   ]
+  },
+  "0_71": {
+   "id": "0_71",
+   "layer": 0,
+   "cluster": 71,
+   "size": 18,
+   "keywords": [
+    "historic",
+    "history",
+    "preservation",
+    "preserved",
+    "buildings"
+   ],
+   "parent": null,
+   "samples3": [
+    "Historic properties should be preserved as best as possible.",
+    "The history, heritage, and \"specialness\" of historic properties will continue to be preserved.",
+    "The city will have a historic preservationist on its staff."
+   ]
+  },
+  "0_72": {
+   "id": "0_72",
+   "layer": 0,
+   "cluster": 72,
+   "size": 15,
+   "keywords": [
+    "water",
+    "protect",
+    "resources",
+    "systems",
+    "river"
+   ],
+   "parent": "1_22",
+   "samples3": [
+    "Implement a rain garden initiative",
+    "More water features through out the city",
+    "Improve wastewater treatment to protect local water resources."
+   ]
+  },
+  "0_73": {
+   "id": "0_73",
+   "layer": 0,
+   "cluster": 73,
+   "size": 14,
+   "keywords": [
+    "flooding",
+    "building",
+    "fix",
+    "issues",
+    "work"
+   ],
+   "parent": "1_22",
+   "samples3": [
+    "Expanded infrastructure and something to help prevent the flooding of subdivisions when we get excessive rain.",
+    "Nashville and Denver have both done studies on how paving natural land too quickly contributed to flooding. Let's learn from this.",
+    "With recent events, we need to look at flood zones and plan better for an expanding city. Neighborhoods should not flood."
+   ]
+  },
+  "0_74": {
+   "id": "0_74",
+   "layer": 0,
+   "cluster": 74,
+   "size": 12,
+   "keywords": [
+    "coffee",
+    "shops",
+    "breweries",
+    "need",
+    "local"
+   ],
+   "parent": null,
+   "samples3": [
+    "Let's invest in great local coffee shops to have more locations.",
+    "Spencer’s coffee to expand to have a rooftop hangout area",
+    "More small coffee shops"
+   ]
+  },
+  "0_75": {
+   "id": "0_75",
+   "layer": 0,
+   "cluster": 75,
+   "size": 47,
+   "keywords": [
+    "restaurants",
+    "restaurant",
+    "options",
+    "need",
+    "dining"
+   ],
+   "parent": "1_23",
+   "samples3": [
+    "We will have more aesthetically pleasing locally owned restaurants!",
+    "In the future, we'll have a couple of true/real seafood restaurants.",
+    "A restaurant district"
+   ]
+  },
+  "0_76": {
+   "id": "0_76",
+   "layer": 0,
+   "cluster": 76,
+   "size": 40,
+   "keywords": [
+    "stores",
+    "grocery",
+    "store",
+    "food",
+    "shops"
+   ],
+   "parent": "1_24",
+   "samples3": [
+    "A hardware store in the Plano/Alvaton area.",
+    "More grocery stores not located in just the central part of town",
+    "Grocery Store on the southside of I65. Greenwood Area"
+   ]
+  },
+  "0_77": {
+   "id": "0_77",
+   "layer": 0,
+   "cluster": 77,
+   "size": 7,
+   "keywords": [
+    "mall",
+    "open",
+    "work",
+    "expanded",
+    "malls"
+   ],
+   "parent": null,
+   "samples3": [
+    "Revitalize the mall to become a hub of activity and shopping in town. Make our mall more like Opry Mills on a BG scale",
+    "The mall should be expanded",
+    "Let’s work to keep the mall open"
+   ]
+  },
+  "0_78": {
+   "id": "0_78",
+   "layer": 0,
+   "cluster": 78,
+   "size": 12,
+   "keywords": [
+    "bus",
+    "buses",
+    "route",
+    "stops",
+    "run"
+   ],
+   "parent": "1_21",
+   "samples3": [
+    "We need the buses to run for events such as Hot Rod games so all our neighbors can attend.",
+    "I hope bus tickets are available in an easy way.",
+    "We need the buses to run for events such as Harvest Fest."
+   ]
+  },
+  "0_79": {
+   "id": "0_79",
+   "layer": 0,
+   "cluster": 79,
+   "size": 18,
+   "keywords": [
+    "public",
+    "transit",
+    "transportation",
+    "routes",
+    "way"
+   ],
+   "parent": "1_21",
+   "samples3": [
+    "Expand public transit routes to nearby small towns.",
+    "We could have an efficient transit system that runs BACK AND FORTH not one way.",
+    "Reduce costs for public transit by making some routes only once/twice weekly."
+   ]
+  },
+  "0_80": {
+   "id": "0_80",
+   "layer": 0,
+   "cluster": 80,
+   "size": 8,
+   "keywords": [
+    "drivers",
+    "process",
+    "drive",
+    "teaching",
+    "shop"
+   ],
+   "parent": null,
+   "samples3": [
+    "Add drivers ed back into schools",
+    "Better drivers licenses location and easier process.",
+    "We will have a process for getting your driver's license here that sets a good first impression."
+   ]
+  },
+  "0_81": {
+   "id": "0_81",
+   "layer": 0,
+   "cluster": 81,
+   "size": 6,
+   "keywords": [
+    "scottsville",
+    "away",
+    "development",
+    "road",
+    "areas"
+   ],
+   "parent": null,
+   "samples3": [
+    "Development away from Scottsville, Campbell and Nashville Rds",
+    "No one will visit downtown development if they can’t get there via major roads ( Scottsville road)",
+    "If Scottsville Post Office continues to handle apartment mailbox keys then the bus needs to go there!"
+   ]
+  },
+  "0_82": {
+   "id": "0_82",
+   "layer": 0,
+   "cluster": 82,
+   "size": 5,
+   "keywords": [
+    "drag",
+    "shows",
+    "public",
+    "pride",
+    "allow"
+   ],
+   "parent": null,
+   "samples3": [
+    "Do not allow drag shows under any circumstances",
+    "We will have no more drag shows in public spaces.",
+    "We will have no minors at drag shows anywhere."
+   ]
+  },
+  "0_83": {
+   "id": "0_83",
+   "layer": 0,
+   "cluster": 83,
+   "size": 45,
+   "keywords": [
+    "2050",
+    "hope",
+    "public",
+    "research",
+    "vote"
+   ],
+   "parent": "1_26",
+   "samples3": [
+    "In 2050, robots will be cooking us meals.",
+    "At 2050 maybe our citizens who always depend on handouts and various other free stuff will be persuaded to make their own way.",
+    "Virtually everyone will have a humanoid robot to respond to their needs. These robots will do the majority of the work that we do now."
+   ]
+  },
+  "0_84": {
+   "id": "0_84",
+   "layer": 0,
+   "cluster": 84,
+   "size": 13,
+   "keywords": [
+    "car",
+    "lots",
+    "louisville",
+    "clean",
+    "road"
+   ],
+   "parent": null,
+   "samples3": [
+    "Louisville Road will not have as many unattractive car washes.",
+    "Louisville Road will have fewer used car lots.",
+    "We will discontinue beautification projects that make our interstates louder and less safe, and that increase the cost of maintenance."
+   ]
+  },
+  "0_85": {
+   "id": "0_85",
+   "layer": 0,
+   "cluster": 85,
+   "size": 12,
+   "keywords": [
+    "children",
+    "special",
+    "services",
+    "needs",
+    "disabilities"
+   ],
+   "parent": null,
+   "samples3": [
+    "More services and opportunities for autistic children and young adults.",
+    "Invest in support programs for children with disabilities, such as Cincinnati’s school and job training programs for children with autism.",
+    "I would like to see more programs like LifeWorks that serve our autistic citizens."
+   ]
+  },
+  "0_86": {
+   "id": "0_86",
+   "layer": 0,
+   "cluster": 86,
+   "size": 7,
+   "keywords": [
+    "disabled",
+    "disabilities",
+    "people",
+    "folks",
+    "live"
+   ],
+   "parent": null,
+   "samples3": [
+    "We need more employment opportunities for people with disabilities which allow them to live independently.",
+    "We will ensure that accommodations for disabled communities are actually accessible.",
+    "The region will provide way more access for disabled community members."
+   ]
+  },
+  "0_87": {
+   "id": "0_87",
+   "layer": 0,
+   "cluster": 87,
+   "size": 7,
+   "keywords": [
+    "activities",
+    "children",
+    "kids",
+    "summer",
+    "classes"
+   ],
+   "parent": null,
+   "samples3": [
+    "Kids activities like Cooking classes, photography classes which are affordable",
+    "More children activities",
+    "Create activities for children and teens that incentives them (and parents) to get offline/off tiktok and read, go outside, socialize."
+   ]
+  },
+  "0_88": {
+   "id": "0_88",
+   "layer": 0,
+   "cluster": 88,
+   "size": 19,
+   "keywords": [
+    "pool",
+    "indoor",
+    "pools",
+    "center",
+    "water"
+   ],
+   "parent": "1_25",
+   "samples3": [
+    "Schools with indoor fitness facilities such as pools will be open to the public after hours.",
+    "Indoor year round pools for entertainment with restaurants and classes in water exercise",
+    "Community Center with Indoor Pool"
+   ]
+  },
+  "0_89": {
+   "id": "0_89",
+   "layer": 0,
+   "cluster": 89,
+   "size": 14,
+   "keywords": [
+    "developers",
+    "infrastructure",
+    "development",
+    "subdivisions",
+    "roads"
+   ],
+   "parent": null,
+   "samples3": [
+    "All utilities should participate in a data sharing initiative to ensure development corridors can be planned preumtively",
+    "That the people who are critical of developers realize that we all live on a developed street/road",
+    "We need to plan ahead MUCH better for access to roads when planning subdivisions."
+   ]
+  },
+  "0_90": {
+   "id": "0_90",
+   "layer": 0,
+   "cluster": 90,
+   "size": 45,
+   "keywords": [
+    "healthcare",
+    "health",
+    "medical",
+    "care",
+    "mental"
+   ],
+   "parent": "1_28",
+   "samples3": [
+    "More holistic practices that focus on healing through root cause rather than pushing pharmaceuticals and surgeries.",
+    "FREE/AFFORDABLE HEALTHCARE FOR ALL—Why not make it happen HERE! if we can’t do this on the national level. W/ GGC,G-view, MCBG as partners!",
+    "More health options — advanced modern medicine AND more holistic options like acupuncture, chiropractic care, and health spas"
+   ]
+  },
+  "0_91": {
+   "id": "0_91",
+   "layer": 0,
+   "cluster": 91,
+   "size": 13,
+   "keywords": [
+    "hospital",
+    "center",
+    "women",
+    "need",
+    "health"
+   ],
+   "parent": "1_28",
+   "samples3": [
+    "We need a Planned Parenthood",
+    "Women's Hospital",
+    "Specialized children's and fetal hospital"
+   ]
+  },
+  "0_92": {
+   "id": "0_92",
+   "layer": 0,
+   "cluster": 92,
+   "size": 14,
+   "keywords": [
+    "art",
+    "arts",
+    "community",
+    "opportunities",
+    "center"
+   ],
+   "parent": "1_27",
+   "samples3": [
+    "Creative Placemaking: arts opportunities and beautiful surroundings",
+    "An Arts Center to showcase local and Kentuckian based artwork that also gets involved in the community",
+    "We need an art museum downtown that features local, regional and national talent"
+   ]
+  },
+  "0_93": {
+   "id": "0_93",
+   "layer": 0,
+   "cluster": 93,
+   "size": 8,
+   "keywords": [
+    "museum",
+    "museums",
+    "children",
+    "history",
+    "art"
+   ],
+   "parent": "1_27",
+   "samples3": [
+    "An Adventure Museum would be an asset to this community.",
+    "I would love to see a big hands on museum, for all ages.",
+    "Would have family-friendly Public museums"
+   ]
+  },
+  "0_94": {
+   "id": "0_94",
+   "layer": 0,
+   "cluster": 94,
+   "size": 32,
+   "keywords": [
+    "trails",
+    "greenways",
+    "hiking",
+    "walking",
+    "bike"
+   ],
+   "parent": "1_29",
+   "samples3": [
+    "More paved walking and biking trails in safe and well-lit areas.",
+    "More green space and walking trails",
+    "we need more hiking trails"
+   ]
+  },
+  "0_95": {
+   "id": "0_95",
+   "layer": 0,
+   "cluster": 95,
+   "size": 54,
+   "keywords": [
+    "park",
+    "parks",
+    "like",
+    "river",
+    "need"
+   ],
+   "parent": "1_30",
+   "samples3": [
+    "Creating a campground at Shanty Hollow Lake. To include tent camping, RV access, and glamping.",
+    "We need a state park for recreation.",
+    "Make Shanty Hollow a park with some activities but not ruined like Three Springs is."
+   ]
+  },
+  "0_96": {
+   "id": "0_96",
+   "layer": 0,
+   "cluster": 96,
+   "size": 8,
+   "keywords": [
+    "roller",
+    "sports",
+    "hockey",
+    "bg",
+    "travel"
+   ],
+   "parent": "1_25",
+   "samples3": [
+    "BG will have an indoor track to attract large meets, so athletes do not have to travel to Louisville or beyond.",
+    "Outdoor sports complex that mimics Indy’s World Sports Park. Let athletes play travel ball in BG instead of supporting other economies .",
+    "BG will have facilities for non traditional sports that are currently excluded by Parks and Rec. like roller derby!"
+   ]
+  },
+  "0_97": {
+   "id": "0_97",
+   "layer": 0,
+   "cluster": 97,
+   "size": 16,
+   "keywords": [
+    "hockey",
+    "facility",
+    "sports",
+    "indoor",
+    "youth"
+   ],
+   "parent": "1_25",
+   "samples3": [
+    "We will have a two sheet ice facility for public use, hockey teams, and figure skating",
+    "We need to help grow youth hockey in this area, being so close to an NHL market!",
+    "A public ice hockey rink like Owensboro."
+   ]
+  },
+  "0_98": {
+   "id": "0_98",
+   "layer": 0,
+   "cluster": 98,
+   "size": 24,
+   "keywords": [
+    "sidewalks",
+    "walking",
+    "streets",
+    "neighborhoods",
+    "safer"
+   ],
+   "parent": "1_32",
+   "samples3": [
+    "Add more side streets and sidewalks to create a better traffic flow, better walking experience and a distinction between streets and roads",
+    "We will have more walkable sidewalks in the west end.",
+    "There will be wider sidewalks to keep runners/bikers safer."
+   ]
+  },
+  "0_99": {
+   "id": "0_99",
+   "layer": 0,
+   "cluster": 99,
+   "size": 6,
+   "keywords": [
+    "town",
+    "look",
+    "architecture",
+    "beautiful",
+    "style"
+   ],
+   "parent": "1_31",
+   "samples3": [
+    "We will look back at investing in developing an architecture plan and guidelines as the blueprint that made our town an extraordinary place",
+    "We will be a well designed town with architecture and planning to create spaces and places people want to be. Designed for experiences",
+    "Our Board of Design proved to be pivotal in making our town making the top 10 most beautiful places to live in the US!"
+   ]
+  },
+  "0_100": {
+   "id": "0_100",
+   "layer": 0,
+   "cluster": 100,
+   "size": 34,
+   "keywords": [
+    "downtown",
+    "need",
+    "buildings",
+    "building",
+    "area"
+   ],
+   "parent": "1_31",
+   "samples3": [
+    "Try to keep downtown's character. No more concrete.",
+    "High rises in downtown",
+    "We need corporate center high rises."
+   ]
+  },
+  "0_101": {
+   "id": "0_101",
+   "layer": 0,
+   "cluster": 101,
+   "size": 11,
+   "keywords": [
+    "bypass",
+    "northern",
+    "roads",
+    "need",
+    "31w"
+   ],
+   "parent": null,
+   "samples3": [
+    "We will take the 31W Bypass back to two lanes on each side.",
+    "Add a Northern Bypass",
+    "A southern bypass before a northern one"
+   ]
+  },
+  "0_102": {
+   "id": "0_102",
+   "layer": 0,
+   "cluster": 102,
+   "size": 9,
+   "keywords": [
+    "lanes",
+    "bike",
+    "drivers",
+    "traffic",
+    "protected"
+   ],
+   "parent": null,
+   "samples3": [
+    "Bike lanes that are wide enough and protected from traffic with a barrier.",
+    "Remove Bicycle Lanes downtown & on By-Pass. There are 0 bicycles using these lanes & they’re confusing. Cycle at your own risk as always.",
+    "B.G. should not have any bike lanes until they are warranted"
+   ]
+  },
+  "0_103": {
+   "id": "0_103",
+   "layer": 0,
+   "cluster": 103,
+   "size": 24,
+   "keywords": [
+    "zoning",
+    "allow",
+    "homes",
+    "restrictions",
+    "housing"
+   ],
+   "parent": "1_33",
+   "samples3": [
+    "Planning commission must require tasteful landscapes in the design Of apartments to not make them look like prisons.",
+    "The community should remove policy roadblocks to allow for faster developments and housing construction.",
+    "Zoning laws should be changed to allow for more diverse and robust housing options."
+   ]
+  },
+  "0_104": {
+   "id": "0_104",
+   "layer": 0,
+   "cluster": 104,
+   "size": 39,
+   "keywords": [
+    "housing",
+    "homes",
+    "single",
+    "family",
+    "community"
+   ],
+   "parent": "1_34",
+   "samples3": [
+    "Since housing affordability is a national crisis, the Planning Commission should stop insisting on upgrades that raise the prices.",
+    "Fund a public housing project which builds tiny homes & condos which can then be purchased, not rented.",
+    "A must to figure out the housing shortage. Each builder given a % of portion of their builds supporting affordable housing"
+   ]
+  },
+  "0_105": {
+   "id": "0_105",
+   "layer": 0,
+   "cluster": 105,
+   "size": 5,
+   "keywords": [
+    "density",
+    "subdivisions",
+    "need",
+    "apartments",
+    "housing"
+   ],
+   "parent": "1_34",
+   "samples3": [
+    "The community needs more large scaled housing developments with community amenities.",
+    "We need less populated subdivisions and apartments",
+    "We need a more walkable city with different kinds of housing. Not just 3 story apartment complexes"
+   ]
+  },
+  "0_106": {
+   "id": "0_106",
+   "layer": 0,
+   "cluster": 106,
+   "size": 5,
+   "keywords": [
+    "left",
+    "turn",
+    "traffic",
+    "lights",
+    "pedestrian"
+   ],
+   "parent": null,
+   "samples3": [
+    "Make it easier to turn left on busy roads when there is not a stop light",
+    "We need to slow down the \"Go\" time on pedestrian walks at lights. Some older people have a hard time making it across!",
+    "Pedestrian traffic signal flashing \"Walk\" will activate \"No Turn\" signal that prevents vehicles entering crosswalks from the right and left."
+   ]
+  },
+  "0_107": {
+   "id": "0_107",
+   "layer": 0,
+   "cluster": 107,
+   "size": 28,
+   "keywords": [
+    "scottsville",
+    "road",
+    "traffic",
+    "rd",
+    "lanes"
+   ],
+   "parent": "1_36",
+   "samples3": [
+    "Four lanes on scottsville road to improve traffic flow",
+    "Hire a traffic consulting firm for Scottsville Rd",
+    "Scottsville Road will be accessible to pedestrians and bicyclists."
+   ]
+  },
+  "0_108": {
+   "id": "0_108",
+   "layer": 0,
+   "cluster": 108,
+   "size": 58,
+   "keywords": [
+    "events",
+    "festival",
+    "music",
+    "festivals",
+    "like"
+   ],
+   "parent": "1_37",
+   "samples3": [
+    "Bring back SOKY book fest",
+    "We will combine SKy Arts Film Festival, SOKY BookFest, art festival, etc., into a celebration of film, books, art, music, food from here.",
+    "Cultural and art festivals (music, etc) should continue and increase in number and diversity, reflecting the community."
+   ]
+  },
+  "0_109": {
+   "id": "0_109",
+   "layer": 0,
+   "cluster": 109,
+   "size": 9,
+   "keywords": [
+    "things",
+    "families",
+    "entertainment",
+    "need",
+    "adult"
+   ],
+   "parent": "1_37",
+   "samples3": [
+    "There will be more entertainment options for 18-21 year olds",
+    "I hope we have more family friendly things that there's no drinking,beer, alcohol not allowed. For kids and family's. Dancing, concerts.",
+    "We will have more places to go and things to do for our teens."
+   ]
+  },
+  "0_110": {
+   "id": "0_110",
+   "layer": 0,
+   "cluster": 110,
+   "size": 8,
+   "keywords": [
+    "roundabouts",
+    "road",
+    "lane",
+    "turn",
+    "lanes"
+   ],
+   "parent": "1_35",
+   "samples3": [
+    "More roundabouts",
+    "By 2050, roundabouts will be in use in most intersections.",
+    "No more roundabouts at simple four way stops!"
+   ]
+  },
+  "0_111": {
+   "id": "0_111",
+   "layer": 0,
+   "cluster": 111,
+   "size": 15,
+   "keywords": [
+    "roads",
+    "traffic",
+    "cars",
+    "county",
+    "fairview"
+   ],
+   "parent": "1_35",
+   "samples3": [
+    "Narrow our roadways city wide.",
+    "Widening roads only encourages more car traffic, we should be aware of “induced demand” and work to actually fix traffic by having less cars",
+    "The by-pass will be turned into a 5 lane road, all utilities are buried and businesses are all shopping/food based."
+   ]
+  },
+  "0_112": {
+   "id": "0_112",
+   "layer": 0,
+   "cluster": 112,
+   "size": 11,
+   "keywords": [
+    "bg",
+    "railroad",
+    "transportation",
+    "transport",
+    "infrastructure"
+   ],
+   "parent": null,
+   "samples3": [
+    "I hope BG will bring back trains for both material transport and passengers so we can reduce road traffic",
+    "Bring back BG’s electric rail cars of the 1920s all though downtown with spokes continuing through the county.",
+    "BG will be known for being the most accessible city in the country through more transportation methods and more accessible architecture"
+   ]
+  },
+  "0_113": {
+   "id": "0_113",
+   "layer": 0,
+   "cluster": 113,
+   "size": 13,
+   "keywords": [
+    "bg",
+    "medical",
+    "better",
+    "care",
+    "recovery"
+   ],
+   "parent": null,
+   "samples3": [
+    "I think BG should have better mental health provisions for adults, instead of sending everyone to Vanderbilt for eating disorders, OCD, etc.",
+    "BG will have better disability friendly areas",
+    "BG needs a Long Term Treatment Center for women."
+   ]
+  },
+  "0_114": {
+   "id": "0_114",
+   "layer": 0,
+   "cluster": 114,
+   "size": 30,
+   "keywords": [
+    "bg",
+    "housing",
+    "trees",
+    "allow",
+    "rural"
+   ],
+   "parent": "1_38",
+   "samples3": [
+    "BG will focus on beautification and including small attractions to low-income neighborhoods instead gentrifying or destroying them.",
+    "BG will invest in natural and weather-safe building. LEED certified and architectural materials and aesthetic that works w/our environment.",
+    "BG will have uniform neighborhood policies like requiring manicured lawns, sidewalks, no street parking, and maintenance upkeep."
+   ]
+  },
+  "0_115": {
+   "id": "0_115",
+   "layer": 0,
+   "cluster": 115,
+   "size": 17,
+   "keywords": [
+    "2050",
+    "bg",
+    "people",
+    "care",
+    "longer"
+   ],
+   "parent": null,
+   "samples3": [
+    "In 2050, BG will have more free workout equipment.",
+    "In 2050 BG will continue to support and champion local businesses",
+    "The BG of 2050 values, attracts, and takes care of people of all ages and perspectives."
+   ]
+  },
+  "0_116": {
+   "id": "0_116",
+   "layer": 0,
+   "cluster": 116,
+   "size": 10,
+   "keywords": [
+    "bg",
+    "small",
+    "businesses",
+    "funding",
+    "retail"
+   ],
+   "parent": "1_39",
+   "samples3": [
+    "BG’s locally owned businesses will be very big",
+    "BG will have an annual business pitch competition with funding for winners.",
+    "BG will have pop-up retail spaces for testing new business ideas."
+   ]
+  },
+  "0_117": {
+   "id": "0_117",
+   "layer": 0,
+   "cluster": 117,
+   "size": 15,
+   "keywords": [
+    "jobs",
+    "bg",
+    "work",
+    "manufacturing",
+    "leader"
+   ],
+   "parent": "1_39",
+   "samples3": [
+    "BG could be an example of how DEI is beneficial to keep workers protected and allow everyone an equal opportunity in the workforce.",
+    "In BG/WC we will respect our employees off the clock time and disallow their employer to 'fire' them for off the clock, after work THC use.",
+    "AI steals jobs and is evil. BG should steer clear."
+   ]
+  },
+  "0_118": {
+   "id": "0_118",
+   "layer": 0,
+   "cluster": 118,
+   "size": 7,
+   "keywords": [
+    "bourbon",
+    "bg",
+    "kentucky",
+    "room",
+    "competition"
+   ],
+   "parent": null,
+   "samples3": [
+    "BG will attract a flagship bourbon distillery to establish a BG location.",
+    "BG will have a more accessible and robust bourbon and craft beer trail featuring Kentucky distilleries.",
+    "BG will have a downtown bourbon tasting room featuring Kentucky brands."
+   ]
+  },
+  "0_119": {
+   "id": "0_119",
+   "layer": 0,
+   "cluster": 119,
+   "size": 13,
+   "keywords": [
+    "bg",
+    "music",
+    "festival",
+    "scene",
+    "musicians"
+   ],
+   "parent": "1_41",
+   "samples3": [
+    "I would love it if we brought more comedy acts to BG or had a dedicated comedy club or something similar to a Howl At The Moon.",
+    "BG should bring back the Humpfest festival by Tom Humphrey",
+    "We will have more signage, events, and attractions dedicated to BG’s rich music heritage - Ernest Hogan, Sam Bush, Nappy Roots, Cage the Elephant, etc."
+   ]
+  },
+  "0_120": {
+   "id": "0_120",
+   "layer": 0,
+   "cluster": 120,
+   "size": 16,
+   "keywords": [
+    "bg",
+    "like",
+    "tourism",
+    "attractions",
+    "experiences"
+   ],
+   "parent": "1_41",
+   "samples3": [
+    "We need to celebrate our local farmers and agriculture! Let’s do a BG version of Paris’s Ag events on the Champs Elysées. Family fun!",
+    "BG attractions will continue collaborating to make the region a destination for holidays (Halloween, Christmas, etc.) with combined special tours and offers.",
+    "I would like to see PF Changs in BG"
+   ]
+  },
+  "0_121": {
+   "id": "0_121",
+   "layer": 0,
+   "cluster": 121,
+   "size": 5,
+   "keywords": [
+    "bg",
+    "art",
+    "heritage",
+    "bringing",
+    "public"
+   ],
+   "parent": "1_41",
+   "samples3": [
+    "BG needs more collaboration, diversity, to increase the art scene",
+    "BG will have a walkable, vibrant arts district with studios and galleries.",
+    "BG will have new public sculptures and murals reflecting BG’s heritage."
+   ]
+  },
+  "0_122": {
+   "id": "0_122",
+   "layer": 0,
+   "cluster": 122,
+   "size": 5,
+   "keywords": [
+    "people",
+    "bg",
+    "attractive",
+    "color",
+    "want"
+   ],
+   "parent": "1_40",
+   "samples3": [
+    "I like to see BG become a more multiverse city for all color of people .",
+    "BG should be an attractive community for global talent where a variety of people want to live.",
+    "I see more saved people in bg"
+   ]
+  },
+  "0_123": {
+   "id": "0_123",
+   "layer": 0,
+   "cluster": 123,
+   "size": 5,
+   "keywords": [
+    "bg",
+    "cultures",
+    "community",
+    "faith",
+    "let"
+   ],
+   "parent": "1_40",
+   "samples3": [
+    "Hope to see BG have more centers of reason and less buildings of faith.",
+    "BG will continue welcoming people from diverse perspectives who want to contribute to our community.",
+    "We should work to maintain the character and charm of BG as it grows, enhancing but not replacing our current culture"
+   ]
+  },
+  "1_0": {
+   "id": "1_0",
+   "layer": 1,
+   "cluster": 0,
+   "size": 50,
+   "keywords": [
+    "churches",
+    "christian",
+    "community",
+    "faith",
+    "festivals"
+   ],
+   "parent": null,
+   "samples3": [
+    "Should be a traditional conservative and Christian influenced culture.",
+    "We need to celebrate our Christianity more with Christ like festivals.",
+    "I hope we will have more bible study options in the future."
+   ]
+  },
+  "1_1": {
+   "id": "1_1",
+   "layer": 1,
+   "cluster": 1,
+   "size": 40,
+   "keywords": [
+    "vape",
+    "smoke",
+    "shops",
+    "marijuana",
+    "tax"
+   ],
+   "parent": "2_0",
+   "samples3": [
+    "As marijuana is legalized, we learn from best practices in other communities to create responsible laws and zoning.",
+    "Legalize Marijuana so that the product can be regulated and taxed. It's already in our community but unregulated",
+    "hopefully weed will be legal in ky and we will have small business dispensaries providing safe locally grown thc products"
+   ]
+  },
+  "1_2": {
+   "id": "1_2",
+   "layer": 1,
+   "cluster": 2,
+   "size": 45,
+   "keywords": [
+    "recycling",
+    "trash",
+    "waste",
+    "composting",
+    "pick"
+   ],
+   "parent": "2_0",
+   "samples3": [
+    "I hope that we have county-wide recycling in the future.",
+    "City-sponsored yard waste disposal/mulching service like in Owensboro.",
+    "Bring in a Microcenter. Its like bestbuy before it became a dumpster fire."
+   ]
+  },
+  "1_3": {
+   "id": "1_3",
+   "layer": 1,
+   "cluster": 3,
+   "size": 95,
+   "keywords": [
+    "wku",
+    "campus",
+    "students",
+    "community",
+    "bg"
+   ],
+   "parent": "2_1",
+   "samples3": [
+    "WKU should focus on building up or adequately developing and redeveloping their current buildings without sprawling further into BG",
+    "The town will collaborate with WKU to increase opportunities for arts in the area.",
+    "BG needs a university for the working adult trying to return to class. WKU is focused on teenage students with its inflexible schedule."
+   ]
+  },
+  "1_4": {
+   "id": "1_4",
+   "layer": 1,
+   "cluster": 4,
+   "size": 23,
+   "keywords": [
+    "movie",
+    "theater",
+    "theaters",
+    "house",
+    "drive"
+   ],
+   "parent": null,
+   "samples3": [
+    "We will have a movie theater with a balcony.",
+    "A discount movie theater.",
+    "The theater in the old mall will be brought back to life again. That thing was amazing back in the day!"
+   ]
+  },
+  "1_5": {
+   "id": "1_5",
+   "layer": 1,
+   "cluster": 5,
+   "size": 39,
+   "keywords": [
+    "airport",
+    "nashville",
+    "hub",
+    "flights",
+    "commercial"
+   ],
+   "parent": null,
+   "samples3": [
+    "We will have commercial flights to Chicago.",
+    "We will have commercial flights to Orlando.",
+    "Commercial flights to Charlotte, NC."
+   ]
+  },
+  "1_6": {
+   "id": "1_6",
+   "layer": 1,
+   "cluster": 6,
+   "size": 387,
+   "keywords": [
+    "bowling",
+    "green",
+    "2050",
+    "area",
+    "hope"
+   ],
+   "parent": "2_2",
+   "samples3": [
+    "Bring recycling back to Bowling Green!!!",
+    "We need more signs that tell us we are in Bowling Green.",
+    "I'd like Bowling Green to be quaint and charming, especially the Downtown area. I'd like to see revitalization rather than new growth."
+   ]
+  },
+  "1_7": {
+   "id": "1_7",
+   "layer": 1,
+   "cluster": 7,
+   "size": 22,
+   "keywords": [
+    "solar",
+    "energy",
+    "parking",
+    "infrastructure",
+    "make"
+   ],
+   "parent": null,
+   "samples3": [
+    "Make it easier to be compensated for private solar panels feeding back into the grid.",
+    "Subsidies for property owners esp. local homeowners to install solar power",
+    "Solar panels on businesses and apartments to help offset the cost of rent"
+   ]
+  },
+  "1_8": {
+   "id": "1_8",
+   "layer": 1,
+   "cluster": 8,
+   "size": 65,
+   "keywords": [
+    "police",
+    "crime",
+    "hope",
+    "enforcement",
+    "2050"
+   ],
+   "parent": "2_3",
+   "samples3": [
+    "We should bring back an entertainment attraction like Zap Zone. Busy minds don’t commit crimes.",
+    "We will have a citizen law enforcement agency oversight board to review policy adherence in use-of-force and internal affairs compliance cases.",
+    "We will improve community policing efforts to ensure a safer city."
+   ]
+  },
+  "1_9": {
+   "id": "1_9",
+   "layer": 1,
+   "cluster": 9,
+   "size": 30,
+   "keywords": [
+    "immigrants",
+    "refugees",
+    "english",
+    "language",
+    "schools"
+   ],
+   "parent": null,
+   "samples3": [
+    "One stop shop refugee/new American housing development, on site job training, English courses, etc for new American success.",
+    "More industry and businesses willing to hire refugees and work with the challenges faced by refugees",
+    "More safety and help for immigrants"
+   ]
+  },
+  "1_10": {
+   "id": "1_10",
+   "layer": 1,
+   "cluster": 10,
+   "size": 26,
+   "keywords": [
+    "animal",
+    "laws",
+    "humane",
+    "county",
+    "society"
+   ],
+   "parent": null,
+   "samples3": [
+    "Stop illegal home shooting ranges, especially w/n close proximity to houses and agriculture animals.",
+    "We will have a noise ordinance for neighborhoods located within the county like the upcoming leash ordinance for the same.",
+    "Restrictions on individuals shooting guns within certain proximities to other houses."
+   ]
+  },
+  "1_11": {
+   "id": "1_11",
+   "layer": 1,
+   "cluster": 11,
+   "size": 42,
+   "keywords": [
+    "senior",
+    "childcare",
+    "care",
+    "affordable",
+    "elderly"
+   ],
+   "parent": null,
+   "samples3": [
+    "I’d love to see more low-cost childcare and housing options for low income and unhoused families.",
+    "We'll have many conbined childcare-elder care concept facilities where both generations benefit.",
+    "We'll lift zoning restrictions for regulated, in-home childcare to alleviate extreme childcare waitlists."
+   ]
+  },
+  "1_12": {
+   "id": "1_12",
+   "layer": 1,
+   "cluster": 12,
+   "size": 28,
+   "keywords": [
+    "65",
+    "exit",
+    "165",
+    "road",
+    "new"
+   ],
+   "parent": null,
+   "samples3": [
+    "We need another entrance/exit on I-65 farther south",
+    "It would be awesome to see an exit from the Natcher/165 towards the Richardsville and Oakland area. This would allow more/quicker access!",
+    "Warren County will have a new exit/entrance off I-65 in southern Warren County"
+   ]
+  },
+  "1_13": {
+   "id": "1_13",
+   "layer": 1,
+   "cluster": 13,
+   "size": 25,
+   "keywords": [
+    "county",
+    "city",
+    "government",
+    "elected",
+    "officials"
+   ],
+   "parent": null,
+   "samples3": [
+    "Do away with voting districts. If you live in the County - you vote for any person running in the county.",
+    "Use ranked choice voting in local elections to give more voice to the people",
+    "Have city government that runs our city like it is the 3rd largest city in Kentucky, because it actually is. *Officials that are appointed*"
+   ]
+  },
+  "1_14": {
+   "id": "1_14",
+   "layer": 1,
+   "cluster": 14,
+   "size": 93,
+   "keywords": [
+    "businesses",
+    "local",
+    "small",
+    "business",
+    "jobs"
+   ],
+   "parent": "2_4",
+   "samples3": [
+    "Locally owned businesses will continue promoting one another and building partnerships across them—and even grow that vibe.",
+    "Increased partnerships in our economic sector to drive small business",
+    "Keeping small businesses success a priority"
+   ]
+  },
+  "1_15": {
+   "id": "1_15",
+   "layer": 1,
+   "cluster": 15,
+   "size": 113,
+   "keywords": [
+    "schools",
+    "school",
+    "public",
+    "children",
+    "homeschool"
+   ],
+   "parent": "2_5",
+   "samples3": [
+    "More school choice",
+    "I would like to see an easier way to access education.",
+    "Hopefully locally funded extended education programs ...outside regular schools that are free to public. To teach skills that they can use"
+   ]
+  },
+  "1_16": {
+   "id": "1_16",
+   "layer": 1,
+   "cluster": 16,
+   "size": 48,
+   "keywords": [
+    "parking",
+    "downtown",
+    "square",
+    "structure",
+    "free"
+   ],
+   "parent": null,
+   "samples3": [
+    "A second parking garage built downtown. The existing parking structure is not accessible to downtown for seniors and the disabled.",
+    "Construct a parking garage behind 922 State Street. Free parking for employees & free parking for others w/ proof of purchase downtown.",
+    "The Fringe will actually be used and create revenue for the city instead of being a waste of parking spaces."
+   ]
+  },
+  "1_17": {
+   "id": "1_17",
+   "layer": 1,
+   "cluster": 17,
+   "size": 42,
+   "keywords": [
+    "homeless",
+    "homelessness",
+    "shelter",
+    "need",
+    "help"
+   ],
+   "parent": null,
+   "samples3": [
+    "In 2050, instances of homelessness in BG/WC will be rare and very brief, or functionally zero.",
+    "We will have comprehensive wrap-around services so BG leads the nation in decreased rates of homelessness",
+    "BG will better address homelessness in the community by offering housing transition programs."
+   ]
+  },
+  "1_18": {
+   "id": "1_18",
+   "layer": 1,
+   "cluster": 18,
+   "size": 38,
+   "keywords": [
+    "lights",
+    "billboards",
+    "night",
+    "signs",
+    "light"
+   ],
+   "parent": null,
+   "samples3": [
+    "Outlaw hazardous led billboards",
+    "Remove illegal signs in r/w",
+    "Replace cheap looking stop signs with black decorative poles."
+   ]
+  },
+  "1_19": {
+   "id": "1_19",
+   "layer": 1,
+   "cluster": 19,
+   "size": 48,
+   "keywords": [
+    "farmers",
+    "gardens",
+    "food",
+    "community",
+    "market"
+   ],
+   "parent": "2_6",
+   "samples3": [
+    "Reserve land within the city specifically for community -ran sustainable gardens to feed homeless or community",
+    "Community gardens need to have easily accessible water. Kereiakes gardens are great only if you have a car to transport water. :(",
+    "Botanical garden"
+   ]
+  },
+  "1_20": {
+   "id": "1_20",
+   "layer": 1,
+   "cluster": 20,
+   "size": 41,
+   "keywords": [
+    "trees",
+    "native",
+    "plant",
+    "tree",
+    "landscaping"
+   ],
+   "parent": null,
+   "samples3": [
+    "Plant more trees as visual barriers between commercial and residential areas.",
+    "The preservation of old tree growth and inclusion of native landscaping with new developments",
+    "I'd like to see less concrete in our city and more trees."
+   ]
+  },
+  "1_21": {
+   "id": "1_21",
+   "layer": 1,
+   "cluster": 21,
+   "size": 45,
+   "keywords": [
+    "bus",
+    "public",
+    "transit",
+    "transportation",
+    "transport"
+   ],
+   "parent": null,
+   "samples3": [
+    "All industries that require workers to drive further than a mile to work will provide shuttle services for their employees.",
+    "Have special event bus routes/services during the fair, festivals, concerts, etc. so people w/o cars aren’t excluded.",
+    "The businesses operating at the Transpark need to sponsor a bus route to transport workers for all shifts."
+   ]
+  },
+  "1_22": {
+   "id": "1_22",
+   "layer": 1,
+   "cluster": 22,
+   "size": 29,
+   "keywords": [
+    "water",
+    "flooding",
+    "protect",
+    "infrastructure",
+    "building"
+   ],
+   "parent": null,
+   "samples3": [
+    "Expand water supply throughout the area to support development.",
+    "Rainwater collection systems",
+    "Our stormwater & karst ecosystem work overtime in weather events and will work harder as we grow. Support its maintenance & utilities teams."
+   ]
+  },
+  "1_23": {
+   "id": "1_23",
+   "layer": 1,
+   "cluster": 23,
+   "size": 47,
+   "keywords": [
+    "restaurants",
+    "restaurant",
+    "options",
+    "need",
+    "dining"
+   ],
+   "parent": "2_6",
+   "samples3": [
+    "We will have more aesthetically pleasing locally owned restaurants!",
+    "In the future, we'll have a couple of true/real seafood restaurants.",
+    "A restaurant district"
+   ]
+  },
+  "1_24": {
+   "id": "1_24",
+   "layer": 1,
+   "cluster": 24,
+   "size": 40,
+   "keywords": [
+    "stores",
+    "grocery",
+    "store",
+    "food",
+    "shops"
+   ],
+   "parent": "2_6",
+   "samples3": [
+    "A hardware store in the Plano/Alvaton area.",
+    "More grocery stores not located in just the central part of town",
+    "Grocery Store on the southside of I65. Greenwood Area"
+   ]
+  },
+  "1_25": {
+   "id": "1_25",
+   "layer": 1,
+   "cluster": 25,
+   "size": 82,
+   "keywords": [
+    "indoor",
+    "sports",
+    "facility",
+    "pool",
+    "hockey"
+   ],
+   "parent": "2_7",
+   "samples3": [
+    "I believe having a do all turf field or several turf and grass fields would be a great idea for tournaments and to rent out for teams",
+    "A destination place for youth sports. I would like to see more indoor facilities. Imagine more college recruiters recruiting our athletes",
+    "We need an indoor facility for inline hockey."
+   ]
+  },
+  "1_26": {
+   "id": "1_26",
+   "layer": 1,
+   "cluster": 26,
+   "size": 45,
+   "keywords": [
+    "2050",
+    "hope",
+    "public",
+    "research",
+    "vote"
+   ],
+   "parent": null,
+   "samples3": [
+    "In 2050, robots will be cooking us meals.",
+    "At 2050 maybe our citizens who always depend on handouts and various other free stuff will be persuaded to make their own way.",
+    "Virtually everyone will have a humanoid robot to respond to their needs. These robots will do the majority of the work that we do now."
+   ]
+  },
+  "1_27": {
+   "id": "1_27",
+   "layer": 1,
+   "cluster": 27,
+   "size": 38,
+   "keywords": [
+    "art",
+    "museum",
+    "arts",
+    "community",
+    "museums"
+   ],
+   "parent": null,
+   "samples3": [
+    "A dedicated Art District along College St where the public can access art in all forms from paintings, music, sculptures, theater, and dance",
+    "Activities to build community: city-wide visual scavenger hunt via socials; all places have a hidden Big Red inside, we collect pics of them",
+    "We need an art museum downtown that features local, regional and national talent"
+   ]
+  },
+  "1_28": {
+   "id": "1_28",
+   "layer": 1,
+   "cluster": 28,
+   "size": 58,
+   "keywords": [
+    "healthcare",
+    "health",
+    "hospital",
+    "medical",
+    "care"
+   ],
+   "parent": "2_9",
+   "samples3": [
+    "We need better health facilities for women.",
+    "FREE/AFFORDABLE HEALTHCARE FOR ALL—Why not make it happen HERE! if we can’t do this on the national level. W/ GGC,G-view, MCBG as partners!",
+    "More health options — advanced modern medicine AND more holistic options like acupuncture, chiropractic care, and health spas"
+   ]
+  },
+  "1_29": {
+   "id": "1_29",
+   "layer": 1,
+   "cluster": 29,
+   "size": 32,
+   "keywords": [
+    "trails",
+    "greenways",
+    "hiking",
+    "walking",
+    "bike"
+   ],
+   "parent": "2_10",
+   "samples3": [
+    "More paved walking and biking trails in safe and well-lit areas.",
+    "More green space and walking trails",
+    "we need more hiking trails"
+   ]
+  },
+  "1_30": {
+   "id": "1_30",
+   "layer": 1,
+   "cluster": 30,
+   "size": 54,
+   "keywords": [
+    "park",
+    "parks",
+    "like",
+    "river",
+    "need"
+   ],
+   "parent": "2_10",
+   "samples3": [
+    "Creating a campground at Shanty Hollow Lake. To include tent camping, RV access, and glamping.",
+    "We need a state park for recreation.",
+    "Make Shanty Hollow a park with some activities but not ruined like Three Springs is."
+   ]
+  },
+  "1_31": {
+   "id": "1_31",
+   "layer": 1,
+   "cluster": 31,
+   "size": 47,
+   "keywords": [
+    "downtown",
+    "buildings",
+    "building",
+    "need",
+    "city"
+   ],
+   "parent": "2_8",
+   "samples3": [
+    "turn one of the abandoned buildings downtown into an artistic communal living center/hostel",
+    "Downtown will have a new residential tower that allows more people to live in the area and support the sustainability of local businesses.",
+    "We need corporate center high rises."
+   ]
+  },
+  "1_32": {
+   "id": "1_32",
+   "layer": 1,
+   "cluster": 32,
+   "size": 24,
+   "keywords": [
+    "sidewalks",
+    "walking",
+    "streets",
+    "neighborhoods",
+    "safer"
+   ],
+   "parent": "2_11",
+   "samples3": [
+    "Add more side streets and sidewalks to create a better traffic flow, better walking experience and a distinction between streets and roads",
+    "We will have more walkable sidewalks in the west end.",
+    "There will be wider sidewalks to keep runners/bikers safer."
+   ]
+  },
+  "1_33": {
+   "id": "1_33",
+   "layer": 1,
+   "cluster": 33,
+   "size": 24,
+   "keywords": [
+    "zoning",
+    "allow",
+    "homes",
+    "restrictions",
+    "housing"
+   ],
+   "parent": "2_8",
+   "samples3": [
+    "Planning commission must require tasteful landscapes in the design Of apartments to not make them look like prisons.",
+    "The community should remove policy roadblocks to allow for faster developments and housing construction.",
+    "Zoning laws should be changed to allow for more diverse and robust housing options."
+   ]
+  },
+  "1_34": {
+   "id": "1_34",
+   "layer": 1,
+   "cluster": 34,
+   "size": 45,
+   "keywords": [
+    "housing",
+    "homes",
+    "single",
+    "family",
+    "community"
+   ],
+   "parent": "2_8",
+   "samples3": [
+    "Make housing cheaper to build",
+    "A must to figure out the housing shortage. Each builder given a % of portion of their builds supporting affordable housing",
+    "Less rent - more ownership. We need apartments, condos, and tiny homes for sale not just unaffordable 3-4 bedroom single family homes."
+   ]
+  },
+  "1_35": {
+   "id": "1_35",
+   "layer": 1,
+   "cluster": 35,
+   "size": 51,
+   "keywords": [
+    "roads",
+    "traffic",
+    "road",
+    "lanes",
+    "roundabouts"
+   ],
+   "parent": "2_11",
+   "samples3": [
+    "We will add turn lanes to many of our roads.",
+    "Fairview/keriakas area should have wider roads to avoid accidents.",
+    "We will extend turn lanes on many of our roads."
+   ]
+  },
+  "1_36": {
+   "id": "1_36",
+   "layer": 1,
+   "cluster": 36,
+   "size": 28,
+   "keywords": [
+    "scottsville",
+    "road",
+    "traffic",
+    "rd",
+    "lanes"
+   ],
+   "parent": "2_11",
+   "samples3": [
+    "Four lanes on scottsville road to improve traffic flow",
+    "Hire a traffic consulting firm for Scottsville Rd",
+    "Scottsville Road will be accessible to pedestrians and bicyclists."
+   ]
+  },
+  "1_37": {
+   "id": "1_37",
+   "layer": 1,
+   "cluster": 37,
+   "size": 69,
+   "keywords": [
+    "events",
+    "festival",
+    "music",
+    "festivals",
+    "like"
+   ],
+   "parent": "2_12",
+   "samples3": [
+    "We need one central -easy to locate - updated daily communication place to get information on any and all non commercial events.",
+    "We will have an online community calendar that people know about",
+    "We will have a single, central, print and digital information system available for posting all community events daily, repeatedly."
+   ]
+  },
+  "1_38": {
+   "id": "1_38",
+   "layer": 1,
+   "cluster": 38,
+   "size": 30,
+   "keywords": [
+    "bg",
+    "housing",
+    "trees",
+    "allow",
+    "rural"
+   ],
+   "parent": "2_13",
+   "samples3": [
+    "BG will focus on beautification and including small attractions to low-income neighborhoods instead gentrifying or destroying them.",
+    "BG will invest in natural and weather-safe building. LEED certified and architectural materials and aesthetic that works w/our environment.",
+    "BG will have uniform neighborhood policies like requiring manicured lawns, sidewalks, no street parking, and maintenance upkeep."
+   ]
+  },
+  "1_39": {
+   "id": "1_39",
+   "layer": 1,
+   "cluster": 39,
+   "size": 27,
+   "keywords": [
+    "bg",
+    "jobs",
+    "work",
+    "manufacturing",
+    "incentives"
+   ],
+   "parent": "2_13",
+   "samples3": [
+    "BG will have remote work incentives to attract digital professionals.",
+    "I hope BG is a national leader in manufacturing and transportation",
+    "BG will put people over profit"
+   ]
+  },
+  "1_40": {
+   "id": "1_40",
+   "layer": 1,
+   "cluster": 40,
+   "size": 28,
+   "keywords": [
+    "bg",
+    "people",
+    "diverse",
+    "city",
+    "culture"
+   ],
+   "parent": "2_13",
+   "samples3": [
+    "Hope to see BG have more centers of reason and less buildings of faith.",
+    "BG will be home, where we want to be, where we learn to love, where we experience art, good work, faith, love, family, acceptance. Home.",
+    "BG should continue to foster a spirit of collaboration. It’s our differentiator."
+   ]
+  },
+  "1_41": {
+   "id": "1_41",
+   "layer": 1,
+   "cluster": 41,
+   "size": 40,
+   "keywords": [
+    "bg",
+    "local",
+    "festival",
+    "music",
+    "like"
+   ],
+   "parent": "2_13",
+   "samples3": [
+    "BG will have a new annual signature event other than Duncan Hines days.",
+    "Duncan Hines Days will grow into a signature/legacy BG event w/free accessible activities, engrained into our culinary & education culture.",
+    "BG will launch a BG Storytelling Festival to celebrate local legends, folklore, and first-hand historical accounts."
+   ]
+  },
+  "2_0": {
+   "id": "2_0",
+   "layer": 2,
+   "cluster": 0,
+   "size": 85,
+   "keywords": [
+    "recycling",
+    "trash",
+    "vape",
+    "smoke",
+    "shops"
+   ],
+   "parent": null,
+   "samples3": [
+    "On many days the city reeks of dogfood. There should be a “scrubber” ordinance for industrial facilities to reduce odor.",
+    "People in the city will not be allowed to leave trash bins blocking the sidewalk all week long.",
+    "The Church Street area of downtown and the west end will no longer have a sewage smell that is prominent (especially after rainfall)."
+   ]
+  },
+  "2_1": {
+   "id": "2_1",
+   "layer": 2,
+   "cluster": 1,
+   "size": 95,
+   "keywords": [
+    "wku",
+    "campus",
+    "students",
+    "community",
+    "bg"
+   ],
+   "parent": null,
+   "samples3": [
+    "WKU should focus on building up or adequately developing and redeveloping their current buildings without sprawling further into BG",
+    "The town will collaborate with WKU to increase opportunities for arts in the area.",
+    "BG needs a university for the working adult trying to return to class. WKU is focused on teenage students with its inflexible schedule."
+   ]
+  },
+  "2_2": {
+   "id": "2_2",
+   "layer": 2,
+   "cluster": 2,
+   "size": 387,
+   "keywords": [
+    "bowling",
+    "green",
+    "2050",
+    "area",
+    "hope"
+   ],
+   "parent": "3_0",
+   "samples3": [
+    "Bring recycling back to Bowling Green!!!",
+    "We need more signs that tell us we are in Bowling Green.",
+    "I'd like Bowling Green to be quaint and charming, especially the Downtown area. I'd like to see revitalization rather than new growth."
+   ]
+  },
+  "2_3": {
+   "id": "2_3",
+   "layer": 2,
+   "cluster": 3,
+   "size": 65,
+   "keywords": [
+    "police",
+    "crime",
+    "hope",
+    "enforcement",
+    "2050"
+   ],
+   "parent": null,
+   "samples3": [
+    "We should bring back an entertainment attraction like Zap Zone. Busy minds don’t commit crimes.",
+    "We will have a citizen law enforcement agency oversight board to review policy adherence in use-of-force and internal affairs compliance cases.",
+    "We will improve community policing efforts to ensure a safer city."
+   ]
+  },
+  "2_4": {
+   "id": "2_4",
+   "layer": 2,
+   "cluster": 4,
+   "size": 93,
+   "keywords": [
+    "businesses",
+    "local",
+    "small",
+    "business",
+    "jobs"
+   ],
+   "parent": "3_1",
+   "samples3": [
+    "Locally owned businesses will continue promoting one another and building partnerships across them—and even grow that vibe.",
+    "Increased partnerships in our economic sector to drive small business",
+    "Keeping small businesses success a priority"
+   ]
+  },
+  "2_5": {
+   "id": "2_5",
+   "layer": 2,
+   "cluster": 5,
+   "size": 113,
+   "keywords": [
+    "schools",
+    "school",
+    "public",
+    "children",
+    "homeschool"
+   ],
+   "parent": "3_1",
+   "samples3": [
+    "More school choice",
+    "I would like to see an easier way to access education.",
+    "Hopefully locally funded extended education programs ...outside regular schools that are free to public. To teach skills that they can use"
+   ]
+  },
+  "2_6": {
+   "id": "2_6",
+   "layer": 2,
+   "cluster": 6,
+   "size": 284,
+   "keywords": [
+    "restaurants",
+    "food",
+    "need",
+    "grocery",
+    "stores"
+   ],
+   "parent": "3_2",
+   "samples3": [
+    "We will have a place where people wanting to open a food truck can go & get all the requirements in one place & help getting started.",
+    "Allow food trucks to register and then park in city and county parks to service visitors. Two trucks per day, register online.",
+    "We need to allow more food trucks & possibly have a food truck park."
+   ]
+  },
+  "2_7": {
+   "id": "2_7",
+   "layer": 2,
+   "cluster": 7,
+   "size": 82,
+   "keywords": [
+    "indoor",
+    "sports",
+    "facility",
+    "pool",
+    "hockey"
+   ],
+   "parent": "3_3",
+   "samples3": [
+    "I believe having a do all turf field or several turf and grass fields would be a great idea for tournaments and to rent out for teams",
+    "A destination place for youth sports. I would like to see more indoor facilities. Imagine more college recruiters recruiting our athletes",
+    "We need an indoor facility for inline hockey."
+   ]
+  },
+  "2_8": {
+   "id": "2_8",
+   "layer": 2,
+   "cluster": 8,
+   "size": 166,
+   "keywords": [
+    "housing",
+    "homes",
+    "downtown",
+    "zoning",
+    "single"
+   ],
+   "parent": "3_3",
+   "samples3": [
+    "I feel we should build communities within housing developments that have grocery, stores, and more within walking distance--not just houses.",
+    "We will have increased density in housing downtown, with more vertical development and condo ownership opportunities.",
+    "City & county help subsidize taller apt buildings to increase density without decreasing ubran sprawl"
+   ]
+  },
+  "2_9": {
+   "id": "2_9",
+   "layer": 2,
+   "cluster": 9,
+   "size": 58,
+   "keywords": [
+    "healthcare",
+    "health",
+    "hospital",
+    "medical",
+    "care"
+   ],
+   "parent": "3_4",
+   "samples3": [
+    "We need better health facilities for women.",
+    "FREE/AFFORDABLE HEALTHCARE FOR ALL—Why not make it happen HERE! if we can’t do this on the national level. W/ GGC,G-view, MCBG as partners!",
+    "More health options — advanced modern medicine AND more holistic options like acupuncture, chiropractic care, and health spas"
+   ]
+  },
+  "2_10": {
+   "id": "2_10",
+   "layer": 2,
+   "cluster": 10,
+   "size": 93,
+   "keywords": [
+    "park",
+    "trails",
+    "parks",
+    "like",
+    "river"
+   ],
+   "parent": "3_3",
+   "samples3": [
+    "I would like to see us increase development of the riverfront, connecting it with downtown.",
+    "Develop the river front area into something like Bernheim Forest.",
+    "we have a river port for public, private, and governmental use"
+   ]
+  },
+  "2_11": {
+   "id": "2_11",
+   "layer": 2,
+   "cluster": 11,
+   "size": 164,
+   "keywords": [
+    "road",
+    "lanes",
+    "traffic",
+    "roads",
+    "scottsville"
+   ],
+   "parent": "3_3",
+   "samples3": [
+    "Pedestrian traffic signal flashing \"Walk\" will activate \"No Turn\" signal that prevents vehicles entering crosswalks from the right and left.",
+    "We need to slow down the \"Go\" time on pedestrian walks at lights. Some older people have a hard time making it across!",
+    "I hope the police might stop the daily, and nightly, motorcycle races on Campbell Lane."
+   ]
+  },
+  "2_12": {
+   "id": "2_12",
+   "layer": 2,
+   "cluster": 12,
+   "size": 69,
+   "keywords": [
+    "events",
+    "festival",
+    "music",
+    "festivals",
+    "like"
+   ],
+   "parent": "3_4",
+   "samples3": [
+    "We need one central -easy to locate - updated daily communication place to get information on any and all non commercial events.",
+    "We will have an online community calendar that people know about",
+    "We will have a single, central, print and digital information system available for posting all community events daily, repeatedly."
+   ]
+  },
+  "2_13": {
+   "id": "2_13",
+   "layer": 2,
+   "cluster": 13,
+   "size": 324,
+   "keywords": [
+    "bg",
+    "2050",
+    "people",
+    "needs",
+    "like"
+   ],
+   "parent": "3_4",
+   "samples3": [
+    "I would like to see BG's businesses & locals embrace, welcome, & accept new businesses, instead of having one major dynamo partner per industry.",
+    "By 2050 (maybe sooner?) BG will have an artisanal bakery serving sourdough and pastries.",
+    "BG will have a Trump Hotel by 2050"
+   ]
+  },
+  "3_0": {
+   "id": "3_0",
+   "layer": 3,
+   "cluster": 0,
+   "size": 387,
+   "keywords": [
+    "bowling",
+    "green",
+    "2050",
+    "area",
+    "hope"
+   ],
+   "parent": null,
+   "samples3": [
+    "Bring recycling back to Bowling Green!!!",
+    "We need more signs that tell us we are in Bowling Green.",
+    "I'd like Bowling Green to be quaint and charming, especially the Downtown area. I'd like to see revitalization rather than new growth."
+   ]
+  },
+  "3_1": {
+   "id": "3_1",
+   "layer": 3,
+   "cluster": 1,
+   "size": 316,
+   "keywords": [
+    "schools",
+    "school",
+    "public",
+    "businesses",
+    "local"
+   ],
+   "parent": null,
+   "samples3": [
+    "A city wide minimum wage increase to attract more skilled workers.",
+    "Higher wages for all employees",
+    "We need to recognize the importance of ALL workers. There are no “menial” jobs which deserve less pay. Living wages for ALL!"
+   ]
+  },
+  "3_2": {
+   "id": "3_2",
+   "layer": 3,
+   "cluster": 2,
+   "size": 284,
+   "keywords": [
+    "restaurants",
+    "food",
+    "need",
+    "grocery",
+    "stores"
+   ],
+   "parent": null,
+   "samples3": [
+    "We will have a place where people wanting to open a food truck can go & get all the requirements in one place & help getting started.",
+    "Allow food trucks to register and then park in city and county parks to service visitors. Two trucks per day, register online.",
+    "We need to allow more food trucks & possibly have a food truck park."
+   ]
+  },
+  "3_3": {
+   "id": "3_3",
+   "layer": 3,
+   "cluster": 3,
+   "size": 627,
+   "keywords": [
+    "road",
+    "need",
+    "roads",
+    "housing",
+    "like"
+   ],
+   "parent": null,
+   "samples3": [
+    "I would like to see all local parks be renovated and updated. All county parks have outdated and run-down equipment.",
+    "The current airport property should be preserved as a true park (not a sports complex) by legislation of the city and county governments.",
+    "We need a park that is focused on BEAUTY, not utility. Public art attracts visitors."
+   ]
+  },
+  "3_4": {
+   "id": "3_4",
+   "layer": 3,
+   "cluster": 4,
+   "size": 667,
+   "keywords": [
+    "bg",
+    "2050",
+    "like",
+    "community",
+    "people"
+   ],
+   "parent": null,
+   "samples3": [
+    "We need more meetings about making BG smaller.",
+    "We should make a time capsule for the BG of 2050. I would like it to include the Twilight Saga books",
+    "Every BG resident will know and believe in the shared values that bring our town together."
+   ]
+  }
+ }
+}

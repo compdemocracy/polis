@@ -32,7 +32,7 @@
 use super::{
     backfill::{self, Admitter, Backfill, Held},
     config::{Config, SCOPE, Share},
-    db::{Admission, Db, Live, Signals},
+    db::{Admission, Db, Live, NamingSource, Signals},
     plan::{self, Look, Pause, Set, rule_word},
     state::{InFlight, PendingTwin, State, TWIN_RESULTS_KEPT},
     storage::{MEASURE_PER_CYCLE, Pending},
@@ -184,6 +184,23 @@ pub struct Scheduler<'a> {
     /// (`plan::rule_look`). Memory only, never written: it saves reading a
     /// census again; the decision itself is the run history in Postgres.
     pub rules_checked: std::collections::BTreeMap<(i32, &'static str), (i64, String)>,
+    /// The named list's conversations, once its codes are resolved, in list
+    /// order, with the UTC day they were resolved on (as `rules`). In memory
+    /// only: what is named, in flight or spent is read from Postgres at every
+    /// decision (`admit_named`).
+    pub named: Option<(i64, Vec<i32>)>,
+    /// When resolving the named list last failed.
+    pub named_failed_at_ms: Option<i64>,
+    /// Source runs this process has said it will not name (already named, or
+    /// its admission refused), so the line is written once. Memory only: the
+    /// next decision reads Postgres again; it decides nothing.
+    pub named_passed: std::collections::BTreeSet<String>,
+    /// Source runs whose admission this process saw refused (by the plan or
+    /// by the queue): not asked again until a restart.
+    pub named_refused: std::collections::BTreeSet<String>,
+    /// The last `naming_held` or `naming_unread` line's content, so each is
+    /// written once per change.
+    pub naming_said: Option<Value>,
     /// The derived-map backfill (`backfill`): its admitter and its memory.
     pub derived: Backfill<'a>,
     /// The conversations of the three sets this cycle read, when it reached
@@ -210,6 +227,11 @@ impl<'a> Scheduler<'a> {
             rules: None,
             rules_failed_at_ms: None,
             rules_checked: Default::default(),
+            named: None,
+            named_failed_at_ms: None,
+            named_passed: Default::default(),
+            named_refused: Default::default(),
+            naming_said: None,
             derived: Backfill::new(None),
             sets_seen: None,
         };
@@ -244,6 +266,16 @@ impl<'a> Scheduler<'a> {
         // what it was.
         for list in self.cfg.rule_lists.iter().filter(|l| !l.codes.is_empty()) {
             started[rule_word(list.selection)] = list.codes.len().into();
+        }
+        // Named only when the named list is set, so without it the line is
+        // what it was.
+        if !self.cfg.named.is_empty() {
+            started["named"] = self.cfg.named.len().into();
+            started["naming_daily_max_micro_usd"] = self
+                .cfg
+                .naming_daily_max_micro_usd
+                .map_or(Value::Null, Value::from);
+            started["naming_run_max_micro_usd"] = self.cfg.naming_run_max_micro_usd.into();
         }
         // Named only when the backfill is on, so off the line is what it was.
         if self.cfg.derived.enabled {
@@ -712,6 +744,12 @@ impl<'a> Scheduler<'a> {
         {
             return Ok(held);
         }
+        // Then the named runs of the named list (nothing read without it).
+        if !self.cfg.named.is_empty()
+            && let Some(held) = self.admit_named(now, &mut reserve_held, &mut reserve_waiting)?
+        {
+            return Ok(held);
+        }
         self.state.totals.too_small = small;
         self.state.totals.too_large = too_large;
         self.state.totals.too_costly = costly;
@@ -801,6 +839,228 @@ impl<'a> Scheduler<'a> {
             line[format!("{word}_repeated")] = repeated.into();
         }
         Ok((rules, line))
+    }
+
+    /// The named list's conversations, in list order, each once; `None` until
+    /// resolved. Resolved on the read login at the first cycle and again each
+    /// UTC day; a failed read keeps the last resolution and is tried again
+    /// after `roster_retry`. The log names counts only.
+    fn named_zids(&mut self, now: i64) -> Option<Vec<i32>> {
+        let day = now.div_euclid(86_400_000);
+        let due = match (&self.named, self.named_failed_at_ms) {
+            (Some((read, _)), _) if *read == day => false,
+            (_, Some(at)) => now - at >= self.cfg.roster_retry.as_millis() as i64,
+            _ => true,
+        };
+        if due {
+            match self.db.listed(&self.cfg.named) {
+                Ok(found) => {
+                    let by_code: std::collections::BTreeMap<_, _> = found.into_iter().collect();
+                    let mut zids = Vec::new();
+                    for code in &self.cfg.named {
+                        if let Some(&zid) = by_code.get(code)
+                            && !zids.contains(&zid)
+                        {
+                            zids.push(zid);
+                        }
+                    }
+                    log(
+                        "named",
+                        json!({"named": self.cfg.named.len(), "named_found": zids.len()}),
+                    );
+                    self.named = Some((day, zids));
+                    self.named_failed_at_ms = None;
+                }
+                Err(_) => {
+                    // Errors can contain SQL input: a closed reason only.
+                    log("named_unread", json!({"reason": "read_error"}));
+                    self.named_failed_at_ms = Some(now);
+                }
+            }
+        }
+        self.named.as_ref().map(|(_, z)| z.clone())
+    }
+
+    /// Write `event` with `line` unless it is what was written last.
+    fn say_naming(&mut self, event: &str, line: Value) {
+        let said = json!({"event": event, "line": line});
+        if self.naming_said.as_ref() != Some(&said) {
+            log(event, line);
+            self.naming_said = Some(said);
+        }
+    }
+
+    /// Admit the next named run of the named list, or say why not, as
+    /// `admit_rules` answers. Every decision is read from Postgres in one
+    /// read-only transaction (`db::naming`), never from the state file or
+    /// memory: a named run of the env not yet ended is taken up and watched
+    /// (so at most one is in flight, whatever was lost); a conversation whose
+    /// newest finished keyword run is already named by this namer (the same
+    /// selection and comment-set digests) or already asked about (its key
+    /// taken, unless every earlier ask kept keyword names and was admitted
+    /// before today) is passed over; otherwise the day's spend so far plus
+    /// this run's bound once for each of the queue's attempts must be within
+    /// the daily limit (`plan::naming_room`).
+    /// The namer is fixed: `plan::shadow_naming`. No line names a code or a
+    /// conversation id.
+    fn admit_named(
+        &mut self,
+        now: i64,
+        reserve_held: &mut bool,
+        reserve_waiting: &mut bool,
+    ) -> Result<Option<Option<Pause>>> {
+        let Some(zids) = self.named_zids(now) else {
+            return Ok(None);
+        };
+        let naming = plan::shadow_naming();
+        let namer = plan::namer_word(&naming).map_err(anyhow::Error::msg)?;
+        let bound = self.cfg.naming_run_max_micro_usd;
+        let (state, sources) = match self.db.naming(&zids, &namer, bound) {
+            Ok(read) => read,
+            Err(_) => {
+                // Errors can contain SQL input: a closed reason only. Nothing
+                // is admitted without the tally.
+                self.say_naming("naming_unread", json!({"reason": "read_error"}));
+                return Ok(None);
+            }
+        };
+        if let Some((zid, run)) = state.in_flight {
+            log(
+                "taken_up",
+                json!({"job_id": run.job_id, "selection": plan::SELECTION, "set": Value::Null,
+                       "comments": run.comments, "namer": namer}),
+            );
+            self.state.in_flight = Some(InFlight {
+                zid,
+                job_id: run.job_id.clone(),
+                digest: run.selection_sha256.clone().unwrap_or_default(),
+                comment_set_sha256: run.comment_set_sha256.clone(),
+                comments: run.comments,
+                admitted_at_ms: now - run.age_ms,
+                twin_of: None,
+                set: Some(Set::Benchmark),
+            });
+            return Ok(Some(None));
+        }
+        for NamingSource {
+            zid,
+            source,
+            named,
+            asked,
+            asks,
+        } in sources
+        {
+            let Some((source_job, source_config)) = source else {
+                continue;
+            };
+            if named || asked || self.named_refused.contains(&source_job) {
+                if self.named_passed.insert(source_job.clone()) {
+                    log(
+                        "already_named",
+                        json!({"job_id": source_job, "namer": namer}),
+                    );
+                }
+                continue;
+            }
+            if self.graph_scope_held(zid)? {
+                continue;
+            }
+            // Every named conversation is of the benchmark set.
+            if *reserve_held {
+                *reserve_waiting = true;
+                continue;
+            }
+            let comments = source_config["shadow"]["comments"].as_i64().unwrap_or(0);
+            match plan::storage_room(self.cfg, &self.state.storage, comments, Share::Shared) {
+                Some(Pause::StorageReserve) => {
+                    (*reserve_held, *reserve_waiting) = (true, true);
+                    continue;
+                }
+                Some(reason) => return Ok(Some(Some(reason))),
+                None => {}
+            }
+            let limit = self.cfg.naming_daily_max_micro_usd;
+            let room = plan::naming_room(state.spent_micro_usd, bound, limit);
+            if room != plan::NamingRoom::Room {
+                self.say_naming(
+                    "naming_held",
+                    json!({"reason": room.word(), "spent_micro_usd": state.spent_micro_usd,
+                           "bound_micro_usd": bound,
+                           "reserve_micro_usd": plan::naming_reserve(bound),
+                           "limit_micro_usd": limit.map_or(Value::Null, Value::from)}),
+                );
+                return Ok(None);
+            }
+            let request = match plan::names_admission(zid, &source_job, &source_config, &naming) {
+                Ok(a) => plan::priced(plan::asked_again(a, asks), bound),
+                Err(reason) => {
+                    self.named_refused.insert(source_job.clone());
+                    if self.named_passed.insert(source_job.clone()) {
+                        log(
+                            "naming_refused",
+                            json!({"job_id": source_job, "reason": reason}),
+                        );
+                    }
+                    continue;
+                }
+            };
+            self.naming_said = None;
+            self.admit_named_run(request, comments, now, source_job)?;
+            return Ok(Some(None));
+        }
+        Ok(None)
+    }
+
+    /// Admit one named run. Nothing of it is written to the conversation's
+    /// state entry; its truth is its run record.
+    fn admit_named_run(
+        &mut self,
+        request: Admission,
+        comments: i64,
+        now: i64,
+        source_job: String,
+    ) -> Result<()> {
+        self.resume();
+        let reply = self.db.admit(&request)?;
+        let shadow = &request.config["shadow"];
+        let digest = shadow["selection_sha256"]
+            .as_str()
+            .unwrap_or_default()
+            .to_owned();
+        let Some((outcome, job_id)) = plan::admitted_job(&reply) else {
+            log(
+                "refused",
+                json!({"outcome": reply.get("outcome"), "comments": comments,
+                       "set": Set::Benchmark, "twin_of": Value::Null,
+                       "selection": plan::SELECTION, "names_of": source_job}),
+            );
+            // Not asked again in this process.
+            self.named_refused.insert(source_job);
+            return Ok(());
+        };
+        self.state.totals.admitted += 1;
+        self.state.totals.benchmark_admitted += 1;
+        self.state.day_runs += 1;
+        log(
+            "admitted",
+            json!({"job_id": job_id, "outcome": outcome, "comments": comments,
+                   "selection": plan::SELECTION, "selected": shadow["selected"].as_i64(),
+                   "size_class": plan::size_class(comments), "digest": digest,
+                   "twin_of": Value::Null, "set": Set::Benchmark, "names_of": source_job,
+                   "namer": shadow["namer"],
+                   "price_bound_micro_usd": shadow["price_bound_micro_usd"]}),
+        );
+        self.state.in_flight = Some(InFlight {
+            zid: request.zid,
+            job_id,
+            digest,
+            comment_set_sha256: shadow["comment_set_sha256"].as_str().map(str::to_owned),
+            comments,
+            admitted_at_ms: now,
+            twin_of: None,
+            set: Some(Set::Benchmark),
+        });
+        Ok(())
     }
 
     /// The codes of the list that adds `selection`.

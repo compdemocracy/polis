@@ -82,6 +82,9 @@ pub fn signature_v2(name: &str) -> Result<&'static [&'static str]> {
         "pd_embedding_served" => &["text", "integer", "text", "text"],
         "pd_writer_base" => &["text", "uuid"],
         "pd_result_artifact_wire" => &["text", "uuid", "text"],
+        // A named run's source (`jobs::names_of`): its record, read before
+        // the child starts.
+        "pd_run_record" => &["text", "uuid"],
         "pq_claim" => &["text", "smallint", "uuid", "uuid", "integer", "text"],
         "pq_class_depth" => &["text", "text"],
         "pq_heartbeat" => &["text", "uuid", "uuid", "uuid", "bigint", "integer"],

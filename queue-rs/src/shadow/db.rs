@@ -159,6 +159,25 @@ impl<'a> Db<'a> {
         self.read(|tx| rule_census(tx, zid, selection, codes))
     }
 
+    /// What the named list's step decides from (`naming_state`,
+    /// `naming_sources`): its two statements in one read-only transaction on
+    /// the scheduler's own read connection, opened for the call and closed
+    /// after it, with its statement and lock timeouts.
+    pub fn naming(
+        &self,
+        zids: &[i32],
+        namer: &str,
+        default_bound_micro_usd: i64,
+    ) -> Result<(NamingState, Vec<NamingSource>)> {
+        let env = self.cfg.env.clone();
+        self.read(|tx| {
+            Ok((
+                naming_state(tx, &env, default_bound_micro_usd)?,
+                naming_sources(tx, &env, zids, namer)?,
+            ))
+        })
+    }
+
     pub fn signals(&self) -> Result<Signals> {
         let mut client = self.connect_read()?;
         let mut samples = Vec::with_capacity(3);
@@ -397,6 +416,195 @@ pub fn rule_history(
         })
     })
     .transpose()
+}
+
+/// The named runs of the shadow env, as Postgres holds them: what today's
+/// requests can have cost at most, and the named run not yet ended, if any.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamingState {
+    /// Every attempt of a named run started since the start of the current
+    /// UTC day (by the database's clock), at its run's frozen price bound
+    /// (`shadow.price_bound_micro_usd`), plus one bound for each named run
+    /// not ended that has no attempt yet. In millionths of a US dollar. An
+    /// attempt sends at most one request and the naming program refuses a
+    /// run whose worst case is over its cap, so this never counts less than
+    /// was sent; it counts an attempt that never reached the model, and an
+    /// answer that cost less than its bound, at the full bound.
+    ///
+    /// An attempt is counted on the UTC day it started, not the day its
+    /// request left: an attempt started just before midnight whose request
+    /// leaves after it is counted on the day before, and the new day does
+    /// not see it. So by when the money left, one UTC day can carry one cap
+    /// more than its limit (that attempt); by this count no day passes its
+    /// limit, and nothing is ever left uncounted.
+    pub spent_micro_usd: i64,
+    /// The oldest named run of the env not yet ended, with its conversation.
+    pub in_flight: Option<(i32, RuleRun)>,
+}
+
+/// One conversation of the named list, in list order: its newest finished
+/// keyword run under what participants are shown, and whether it is named.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NamingSource {
+    pub zid: i32,
+    /// The run (`job_id`) and its `config_effective`, or `None` when it has
+    /// no finished keyword run yet.
+    pub source: Option<(String, Value)>,
+    /// A named run by the same namer of the same comments has succeeded with
+    /// the model's names: the same selection and comment-set digests as the
+    /// source, and its output manifest does not record the topic model as
+    /// `keywords` (the fallback), or it was admitted today (UTC, by the
+    /// database's clock): a fallback of these comments today holds every
+    /// keyword run of them, not only its own source, until the next day. A
+    /// run whose manifest cannot be found counts as named, so nothing is
+    /// asked again on a guess.
+    pub named: bool,
+    /// A named run of this very source by the same namer exists that is not
+    /// a fallback admitted before today (UTC, by the database's clock): one
+    /// in any state but succeeded on keyword names, or any admitted today.
+    /// Such a source is not asked again; one whose named runs all kept
+    /// keyword names on earlier days is asked once more, counted against
+    /// today's limit.
+    pub asked: bool,
+    /// How many named runs of this very source by the same namer exist: the
+    /// next ask's key (`plan::asked_again`).
+    pub asks: i64,
+}
+
+/// Statement one (`NamingState`). Bounds: one range of the shadow env's run
+/// records by the env prefix of `delphi_jobs_history` (env, zid, created_at,
+/// job_id), of which only the named runs are kept; for each named run, its
+/// own attempts by `polis_queue_attempts`'s unique (env, job_id,
+/// lease_epoch). Every named run of the env counts, listed or not, so a code
+/// taken off the list during the day still counts what its runs sent.
+/// `default_bound` prices a named run that froze no bound.
+pub fn naming_state(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    default_bound: i64,
+) -> Result<NamingState> {
+    let row = tx.query_one(
+        "WITH d AS (SELECT date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') \
+                           AT TIME ZONE 'UTC' AS start), \
+              n AS MATERIALIZED (SELECT job_id, zid, status, created_at, config_effective \
+                                 FROM public.delphi_jobs \
+                                 WHERE env = $1 AND config_effective ->> 'names_of' IS NOT NULL) \
+         SELECT (SELECT coalesce(sum( \
+                    coalesce((n.config_effective #>> '{shadow,price_bound_micro_usd}')::bigint, $2) * \
+                    greatest((SELECT count(*) FROM public.polis_queue_attempts a \
+                              WHERE a.env = $1 AND a.job_id = n.job_id AND a.started_at >= d.start), \
+                             CASE WHEN n.status NOT IN ('succeeded','dead','cancelled') \
+                                   AND NOT EXISTS (SELECT 1 FROM public.polis_queue_attempts a \
+                                                   WHERE a.env = $1 AND a.job_id = n.job_id) \
+                                  THEN 1 ELSE 0 END)), 0)::bigint FROM d, n), \
+                f.job_id::text, f.status, \
+                (extract(epoch FROM clock_timestamp() - f.created_at) * 1000)::bigint, \
+                f.config_effective #>> '{shadow,selection_sha256}', \
+                f.config_effective #>> '{shadow,comment_set_sha256}', \
+                coalesce((f.config_effective #>> '{shadow,comments}')::bigint, 0), f.zid \
+         FROM (SELECT 1) one LEFT JOIN LATERAL ( \
+                SELECT * FROM n WHERE n.status NOT IN ('succeeded','dead','cancelled') \
+                ORDER BY n.created_at, n.job_id LIMIT 1) f ON true",
+        &[&env, &default_bound],
+    )?;
+    let job_id: Option<String> = row.try_get(1)?;
+    let in_flight = match job_id {
+        None => None,
+        Some(job_id) => Some((
+            row.try_get::<_, Option<i32>>(7)?.unwrap_or_default(),
+            RuleRun {
+                job_id,
+                status: row.try_get(2)?,
+                age_ms: row.try_get(3)?,
+                selection_sha256: row.try_get(4)?,
+                comment_set_sha256: row.try_get(5)?,
+                comments: row.try_get(6)?,
+                set: None,
+            },
+        )),
+    };
+    Ok(NamingState {
+        spent_micro_usd: row.try_get(0)?,
+        in_flight,
+    })
+}
+
+/// Statement two (`NamingSource`), for the listed conversations `zids` in
+/// their order and the namer word `namer`. Bounds: per conversation, index
+/// ranges of `delphi_jobs_history` on (env, zid) only: the newest succeeded
+/// keyword run (newest first, one row), two existence checks and a count
+/// over the same range, and for each named run met there its own attempts
+/// and their manifest lines. At most `RULE_LIST_MAX` conversations, the
+/// list's own bound. It reads only `delphi_jobs`, `polis_queue_attempts` and
+/// `polis_queue_logs`, which the read login already reads.
+pub fn naming_sources(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    zids: &[i32],
+    namer: &str,
+) -> Result<Vec<NamingSource>> {
+    if zids.is_empty() {
+        return Ok(Vec::new());
+    }
+    // A named run "fell back" when it succeeded and its finalized output
+    // manifest (the `manifest` line of one of its attempts whose SHA-256 the
+    // run record holds) names the topic model `keywords`. Read by the run's
+    // own attempts (`polis_queue_attempts` (env, job_id, lease_epoch)) and
+    // their log lines (`polis_queue_logs` (env, attempt_id, seq)).
+    const FELL_BACK: &str = "n.status = 'succeeded' AND EXISTS (\
+        SELECT 1 FROM public.polis_queue_attempts a JOIN public.polis_queue_logs g \
+          ON g.env = a.env AND g.attempt_id = a.attempt_id AND g.stream = 'manifest' \
+        WHERE a.env = $1 AND a.job_id = n.job_id \
+          AND CASE WHEN sha256(convert_to(g.line, 'UTF8')) = n.output_manifest_digest \
+                   THEN g.line::jsonb #>> '{models,topic}' END = 'keywords')";
+    let sql = format!(
+        "WITH d AS (SELECT date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') \
+                           AT TIME ZONE 'UTC' AS start) \
+         SELECT l.zid, s.job_id::text, s.config_effective, \
+                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n, d \
+                   WHERE n.env = $1 AND n.zid = l.zid AND n.status = 'succeeded' \
+                     AND n.config_effective ->> 'names_of' IS NOT NULL \
+                     AND n.config_effective #>> '{{shadow,namer}}' = $3 \
+                     AND n.config_effective #>> '{{shadow,selection_sha256}}' \
+                         = s.config_effective #>> '{{shadow,selection_sha256}}' \
+                     AND n.config_effective #>> '{{shadow,comment_set_sha256}}' \
+                         = s.config_effective #>> '{{shadow,comment_set_sha256}}' \
+                     AND NOT (n.created_at < d.start AND {FELL_BACK})), \
+                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n, d \
+                   WHERE n.env = $1 AND n.zid = l.zid \
+                     AND n.config_effective ->> 'names_of' = s.job_id::text \
+                     AND n.config_effective #>> '{{shadow,namer}}' = $3 \
+                     AND NOT (n.created_at < d.start AND {FELL_BACK})), \
+                (SELECT count(*) FROM public.delphi_jobs n \
+                   WHERE s.job_id IS NOT NULL AND n.env = $1 AND n.zid = l.zid \
+                     AND n.config_effective ->> 'names_of' = s.job_id::text \
+                     AND n.config_effective #>> '{{shadow,namer}}' = $3) \
+         FROM unnest($2::int[]) WITH ORDINALITY AS l(zid, ord) \
+         LEFT JOIN LATERAL (SELECT j.job_id, j.config_effective FROM public.delphi_jobs j \
+                WHERE j.env = $1 AND j.zid = l.zid AND j.status = 'succeeded' \
+                  AND j.config_effective ->> 'selection' = $4 \
+                  AND j.config_effective ->> 'result_scope' = $5 \
+                  AND j.config_effective ->> 'names_of' IS NULL \
+                ORDER BY j.created_at DESC, j.job_id DESC LIMIT 1) s ON true \
+         ORDER BY l.ord"
+    );
+    let rows = tx.query(
+        sql.as_str(),
+        &[&env, &zids, &namer, &super::plan::SELECTION, &SCOPE],
+    )?;
+    rows.iter()
+        .map(|r| {
+            let job: Option<String> = r.try_get(1)?;
+            let config: Option<Value> = r.try_get(2)?;
+            Ok(NamingSource {
+                zid: r.try_get(0)?,
+                source: job.zip(config),
+                named: r.try_get(3)?,
+                asked: r.try_get(4)?,
+                asks: r.try_get(5)?,
+            })
+        })
+        .collect()
 }
 
 /// The census of one conversation under a comment rule a list adds, in the

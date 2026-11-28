@@ -376,6 +376,10 @@ check-polis-migrate: ## Run polis-migrate checks
 check-polis-topic-map: ## Run the topic map generator's checks
 	@bash ci/local/polis-topic-map.sh
 
+.PHONY: check-polis-topic-names
+check-polis-topic-names: ## Run the topic namer's checks (offline, no model call)
+	@bash ci/local/polis-topic-names.sh
+
 .PHONY: check-polis-routing-equation
 check-polis-routing-equation: ## Run the routing equation crate's checks
 	@bash ci/local/polis-routing-equation.sh

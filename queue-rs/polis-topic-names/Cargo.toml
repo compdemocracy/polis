@@ -1,0 +1,42 @@
+[package]
+name = "polis-topic-names"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.94.1"
+publish = false
+license = "AGPL-3.0-or-later"
+description = "Names a Delphi run's topic hierarchy with one model call, checks the reply, and records the outcome; any failure is an outcome, never a crash."
+
+[lib]
+name = "polis_topic_names"
+path = "src/lib.rs"
+
+[[bin]]
+name = "polis-topic-names"
+path = "src/main.rs"
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# The one HTTPS call, made the way polis-auth makes its own: rustls, no
+# default features. The same versions and features the workspace already has.
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["rt", "time"] }
+# The Amazon Bedrock provider: AWS's own Signature Version 4 signer, and the
+# default AWS credential chain (environment, profile files, container and
+# instance role). No single sign-on and no credential process: the box's
+# instance role is the one source production uses.
+aws-config = { version = "1.13.4", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] }
+aws-credential-types = "1.3.1"
+aws-sigv4 = { version = "1.6.6", default-features = false, features = ["sign-http"] }
+aws-smithy-runtime-api = { version = "1", default-features = false, features = ["client"] }
+
+[dev-dependencies]
+# An independent check of the request signature in the offline tests.
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+
+[lints.clippy]
+unwrap_used = "deny"
+expect_used = "deny"

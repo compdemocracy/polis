@@ -193,6 +193,35 @@ def test_the_comment_rule_lists_reach_the_scheduler_only_and_are_empty_by_defaul
         assert key not in daemon_env, key
 
 
+NAMING_PRICE = ("DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK", "DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK",
+                "DELPHI_NAMING_BEDROCK_PRICE_SOURCE")
+
+
+@requires_checkout
+def test_the_naming_settings_reach_only_the_services_that_read_them_and_are_empty_by_default():
+    services, _ = _services()
+    # The run cap reaches the executor, whose naming program enforces it, and
+    # the scheduler, which counts each named run at it; the Bedrock price
+    # reaches the executor only. None has a default value.
+    expected = {"DELPHI_NAMING_RUN_MAX_USD": ["delphi-shadow", "delphi-shadow-scheduler"]}
+    expected.update({key: ["delphi-shadow"] for key in NAMING_PRICE})
+    for key, names in expected.items():
+        assert [name for name, other in services.items()
+                if key in _environment(other, PRODUCTION_LIKE)] == names, key
+        for name in names:
+            assert _environment(services[name], PRODUCTION_LIKE)[key] == "", (name, key)
+    given = dict(PRODUCTION_LIKE, DELPHI_NAMING_RUN_MAX_USD="0.25", DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK="1.5",
+                 DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK="7", DELPHI_NAMING_BEDROCK_PRICE_SOURCE="made-up source",
+                 AWS_REGION="eu-west-1")
+    daemon = _environment(services["delphi-shadow"], given)
+    for key in ("DELPHI_NAMING_RUN_MAX_USD", *NAMING_PRICE, "AWS_REGION"):
+        assert daemon[key] == given[key], key
+    assert _environment(services["delphi-shadow-scheduler"], given)["DELPHI_NAMING_RUN_MAX_USD"] == "0.25"
+    # Bedrock's region is the one AWS_REGION line the executor already has.
+    assert _environment(services["delphi-shadow"], PRODUCTION_LIKE)["AWS_REGION"] == "us-east-1"
+    assert sum(entry.partition("=")[0] == "AWS_REGION" for entry in services["delphi-shadow"]["environment"]) == 1
+
+
 @requires_checkout
 def test_the_production_report_service_is_unchanged_by_the_shadow():
     # The shadow's run settings stay its own. (The baked model's directory and

@@ -386,6 +386,85 @@ of that list still names the conversation; when none does, nothing is queued
 and the codes are read again. The job-graph path is separate and follows none
 of these rules. No reader serves these runs.
 
+### Delphi Shadow Named Runs
+
+A named run gives the topics of a finished keyword run names written by a
+model: Claude Sonnet through Amazon Bedrock, naming prompt version 1, fixed in
+code (`bedrock.claude-sonnet-5-5.p1.default`). It is off by default. With the
+list empty nothing is read for it, no line is written about it, and every run
+is as it was.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DELPHI_SHADOW_NAMED` | empty: nothing is named | Conversation codes, read as `DELPHI_SHADOW_BENCHMARK` is. Each must also be on `DELPHI_SHADOW_BENCHMARK`, or the scheduler refuses to start, naming the entry's position, never the code. |
+| `DELPHI_NAMING_DAILY_MAX_USD` | empty or 0: no named run is admitted | The most the named runs of one UTC day may cost, in US dollars, 0 to 50. Read by the scheduler only when the list is set. |
+| `DELPHI_NAMING_RUN_MAX_USD` | empty: 0.50 | The most one attempt of a named run may cost, in US dollars, 0 to 2; three times it must be no more than the daily limit, or the scheduler refuses to start. The naming program in the executor refuses a run whose worst case is over it; the scheduler counts each named run at it. Read by the scheduler only when the list is set. Give both services the same value. |
+| `DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK` | empty: no price, no request | The naming model's Amazon Bedrock price for input, in US dollars per million tokens, above 0 and at most 100. Read by the naming program in the executor (`delphi-shadow`) only. |
+| `DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK` | empty: no price, no request | The same for output tokens. |
+| `DELPHI_NAMING_BEDROCK_PRICE_SOURCE` | empty: no price, no request | Where and when the two figures were read (free text, at most 500 characters), recorded with each named run. |
+
+There is no default price. If any of the three price settings is empty, the
+naming program refuses before reading a credential or sending anything (its
+outcome is `no_price`, naming the first setting that is missing), and the run
+keeps its keyword names. Bedrock is called in the executor's `AWS_REGION`,
+which Compose already gives it (`us-east-1` unless the environment document
+sets another).
+
+For each listed conversation, in list order, after the benchmark, featured
+and current sets' runs and the comment rules' runs, the scheduler reads the
+database and:
+- takes up a named run of its env that has not ended, and watches it, so at
+  most one named run is in flight, whatever the scheduler's own state file
+  holds;
+- passes over a conversation whose newest finished keyword run under
+  `participant_visible/1` is already named by the same namer for the same
+  comments (the same selection and comment-set digests) with the model's
+  names or by a run admitted today, or already has a named run of its own
+  that is not a keyword fallback admitted on an earlier UTC day;
+- admits a named run only when today's spend plus this run's bound, once for
+  each of the queue's three attempts, is at most the daily limit.
+
+A named run that ended on keyword names (its manifest records the topic
+model as `keywords`: the request was refused, timed out or its answer was
+rejected) does not count as named. Its conversation is asked again on a later
+UTC day, under a key of its own, counted against that day's limit; never
+again on the day that run was admitted, by any keyword run of the same
+comments. Nothing else bounds the asking: a conversation whose naming keeps
+falling back is asked once on each later UTC day while its comments are
+unchanged, each ask counted against that day's limit. A named run that failed
+or was cancelled is not asked again for the same keyword run.
+
+Today's spend is read from the run records at every decision, never from
+the box: every attempt of a named run of the env started since the start of
+the UTC day (by the database's clock), counted at the run cap frozen into
+that run's configuration, plus one cap for each named run not yet ended that
+has no attempt yet. An attempt sends at most one request, so this can count
+more than was spent and never less. The queue gives a run up to three
+attempts, and each attempt that reaches the naming step may send its one
+request, so a run repeated after a failure past the send (a box lost while
+its request was out, or a later step of the run failing) counts at its cap
+once per attempt: one named run can send up to three requests. The limit
+is checked when a run is admitted, with room for all three attempts, and no
+other named run is admitted until it has ended, so with one scheduler the
+day's count never passes the limit. An attempt is counted on the UTC day it
+started, not the day its request left: an attempt started just before
+midnight UTC whose request leaves after it is counted on the earlier day, so
+by when the money left one UTC day can carry one run cap more than its
+limit. A run already admitted keeps its remaining attempts when the limit is
+lowered; the lower limit only stops further admissions. The named run is its own job in its
+own publication scope (`delphi:names:<namer>`), so it never replaces the
+keyword run it names. The two reads run on the scheduler's own read login,
+which needs to read `delphi_jobs`, `polis_queue_attempts` and
+`polis_queue_logs`.
+
+Known limits:
+- The spend read scans every run record of the shadow's env at each
+  decision while the list is set, so its cost grows with the shadow's
+  history; a read that times out admits nothing.
+- Two schedulers running at once with different lists (an overlapping
+  deploy) can each admit a named run, so the day can pass its limit by up to
+  one more run's three attempts.
+
 ### Delphi Shadow Resources
 
 Read only where the Delphi shadow runs (its services start on the exact line `DELPHI_SHADOW_ENABLED=1`). Compose alone reads this key, for the `delphi-shadow` container's limit; no service sees it.

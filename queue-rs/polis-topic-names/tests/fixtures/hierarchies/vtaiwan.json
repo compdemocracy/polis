@@ -1,0 +1,185 @@
+{
+  "schema": "polis-topic-names.hierarchy/1",
+  "layers": [
+    0,
+    1
+  ],
+  "topics": {
+    "0_0": {
+      "id": "0_0",
+      "layer": 0,
+      "cluster": 0,
+      "size": 8,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_1": {
+      "id": "0_1",
+      "layer": 0,
+      "cluster": 1,
+      "size": 26,
+      "keywords": [],
+      "parent": "1_0",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_2": {
+      "id": "0_2",
+      "layer": 0,
+      "cluster": 2,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_1",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_3": {
+      "id": "0_3",
+      "layer": 0,
+      "cluster": 3,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_1",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_4": {
+      "id": "0_4",
+      "layer": 0,
+      "cluster": 4,
+      "size": 15,
+      "keywords": [],
+      "parent": "1_3",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_5": {
+      "id": "0_5",
+      "layer": 0,
+      "cluster": 5,
+      "size": 12,
+      "keywords": [],
+      "parent": "1_5",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_6": {
+      "id": "0_6",
+      "layer": 0,
+      "cluster": 6,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_7": {
+      "id": "0_7",
+      "layer": 0,
+      "cluster": 7,
+      "size": 6,
+      "keywords": [],
+      "parent": "1_2",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_8": {
+      "id": "0_8",
+      "layer": 0,
+      "cluster": 8,
+      "size": 9,
+      "keywords": [],
+      "parent": "1_4",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "0_9": {
+      "id": "0_9",
+      "layer": 0,
+      "cluster": 9,
+      "size": 5,
+      "keywords": [],
+      "parent": "1_4",
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_0": {
+      "id": "1_0",
+      "layer": 1,
+      "cluster": 0,
+      "size": 26,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_1": {
+      "id": "1_1",
+      "layer": 1,
+      "cluster": 1,
+      "size": 21,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_2": {
+      "id": "1_2",
+      "layer": 1,
+      "cluster": 2,
+      "size": 31,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_3": {
+      "id": "1_3",
+      "layer": 1,
+      "cluster": 3,
+      "size": 15,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_4": {
+      "id": "1_4",
+      "layer": 1,
+      "cluster": 4,
+      "size": 22,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    },
+    "1_5": {
+      "id": "1_5",
+      "layer": 1,
+      "cluster": 5,
+      "size": 12,
+      "keywords": [],
+      "parent": null,
+      "samples3": [
+        "我認為公共交通應該更加方便。"
+      ]
+    }
+  }
+}

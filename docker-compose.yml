@@ -483,6 +483,21 @@ services:
       # container; naming falls back to keyword labels under the model `none`.
       - LLM_PROVIDER=anthropic
       - ANTHROPIC_TOPIC_MODEL=none
+      # The most one named run may cost, in US dollars: the naming program
+      # refuses a run whose worst case is over it (empty is its own default,
+      # 0.50). The same key reaches the scheduler, which counts each named
+      # run at it, so its daily tally is the cap enforced here. No key and
+      # no model call follow from it: a named run is admitted only for a
+      # conversation on DELPHI_SHADOW_NAMED under a daily limit.
+      - DELPHI_NAMING_RUN_MAX_USD=${DELPHI_NAMING_RUN_MAX_USD:-}
+      # The Amazon Bedrock price of the naming model, given by the operator
+      # (dollars per million input and output tokens, and where and when the
+      # figures were read). There is no default price: empty, the default,
+      # the naming program refuses before sending (outcome no_price) and the
+      # run keeps its keyword names. Bedrock's region is AWS_REGION above.
+      - DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK=${DELPHI_NAMING_BEDROCK_INPUT_USD_PER_MTOK:-}
+      - DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK=${DELPHI_NAMING_BEDROCK_OUTPUT_USD_PER_MTOK:-}
+      - DELPHI_NAMING_BEDROCK_PRICE_SOURCE=${DELPHI_NAMING_BEDROCK_PRICE_SOURCE:-}
       - SENTENCE_TRANSFORMER_MODEL=ibm-granite/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_PATH=/opt/polis/embedding/granite-embedding-311m-multilingual-r2
       - DELPHI_EMBED_MODEL_BY_ENV
@@ -677,6 +692,20 @@ services:
       # Neither list makes a conversation a candidate.
       - DELPHI_SHADOW_ALL_COMMENTS=${DELPHI_SHADOW_ALL_COMMENTS:-}
       - DELPHI_SHADOW_ALL_BUT_MODERATED_OUT=${DELPHI_SHADOW_ALL_BUT_MODERATED_OUT:-}
+      # Topic names written by a model (docs/configuration.md, Delphi Shadow
+      # Named Runs), off by default. The conversation codes listed here
+      # (commas or spaces; each also on DELPHI_SHADOW_BENCHMARK, or the
+      # scheduler refuses to start) get a named run of their newest finished
+      # keyword run, by Claude Sonnet through Amazon Bedrock, prompt 1.
+      - DELPHI_SHADOW_NAMED=${DELPHI_SHADOW_NAMED:-}
+      # The most the day's named runs may cost, in US dollars per UTC day
+      # (0 to 50), counted from the run records at every decision. Empty or
+      # 0, the default, admits no named run.
+      - DELPHI_NAMING_DAILY_MAX_USD=${DELPHI_NAMING_DAILY_MAX_USD:-}
+      # The most one named run may cost (0 to 2 dollars; empty is 0.50), the
+      # bound each named run is counted at. Read only when the list is set;
+      # the executor (delphi-shadow) reads the same key as its cap.
+      - DELPHI_NAMING_RUN_MAX_USD=${DELPHI_NAMING_RUN_MAX_USD:-}
       # Sealed job graphs (docs/configuration.md, Delphi Shadow Job Graphs):
       # the conversation codes listed here (commas or spaces; empty by
       # default, and empty is off) run as four-node graphs under the granite

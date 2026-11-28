@@ -353,11 +353,35 @@ def topic_model_name() -> Optional[str]:
             or "claude-haiku-4-5-20251001")
 
 
-def full_pipeline_models() -> Dict[str, Any]:
+def named_topic_model(naming: Dict[str, Any]) -> str:
+    """The topic model of a run whose job named a namer, from how its naming
+    ended (umap_narrative/topic_namer.py's record): the model when it named
+    the topics, else ``keywords``: a run that kept its keyword labels is
+    never recorded under the model it asked for."""
+    namer = naming.get("namer") if isinstance(naming, dict) else None
+    if naming.get("outcome") == "named" and isinstance(namer, dict) and isinstance(namer.get("model"), str):
+        return namer["model"]
+    return "keywords"
+
+
+def naming_cost(naming: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """The manifest's cost of a full run. Without a namer it is today's
+    (unknown: the provider batches are not observed). With one, the tokens
+    the naming's one call used, when it was answered."""
+    def count(key):
+        value = naming.get(key) if isinstance(naming, dict) else None
+        return value if isinstance(value, int) and not isinstance(value, bool) and value >= 0 else None
+
+    return {"llm_tokens_in": count("tokens_in"), "llm_tokens_out": count("tokens_out"),
+            "provider_batches": None}
+
+
+def full_pipeline_models(naming: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """The models of a full pipeline run, as its output manifest names them:
     run_delphi.py writes this into the manifest, and the topic map step
     (polismath/delphi_storage/topic_map.py) into the map's provenance, so the
-    two never disagree."""
+    two never disagree. ``naming`` is how a run whose job named a namer ended
+    its naming (None for every other run, whose models are what they were)."""
     from polismath import embedding_model
     # The clustering run_pipeline.py runs: UMAP and EVoC from the default seed.
     from umap_narrative.numerical_stages import CLUSTER_MODEL, DEFAULT_SEED
@@ -366,7 +390,7 @@ def full_pipeline_models() -> Dict[str, Any]:
         # The model run_pipeline.py loads, named from the same environment and
         # lock: repo@revision:384.
         "embed": embedding_model.resolve().model,
-        "topic": topic_model_name(),
+        "topic": topic_model_name() if naming is None else named_topic_model(naming),
         "narrative": None,
         "cluster": CLUSTER_MODEL,
         "cluster_seed": DEFAULT_SEED,
