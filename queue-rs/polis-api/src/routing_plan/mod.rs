@@ -2,6 +2,7 @@
 //! Dormant: nothing in this crate calls anything here (no route, no
 //! handler, no startup step); the switch that would is not built yet.
 
+pub(crate) mod builder;
 pub(crate) mod cache;
 pub(crate) mod load;
 
