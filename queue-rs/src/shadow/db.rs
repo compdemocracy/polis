@@ -159,6 +159,25 @@ impl<'a> Db<'a> {
         self.read(|tx| rule_census(tx, zid, selection, codes))
     }
 
+    /// What the named list's step decides from (`naming_state`,
+    /// `naming_sources`): its two statements in one read-only transaction on
+    /// the scheduler's own read connection, opened for the call and closed
+    /// after it, with its statement and lock timeouts.
+    pub fn naming(
+        &self,
+        zids: &[i32],
+        namer: &str,
+        default_bound_micro_usd: i64,
+    ) -> Result<(NamingState, Vec<NamingSource>)> {
+        let env = self.cfg.env.clone();
+        self.read(|tx| {
+            Ok((
+                naming_state(tx, &env, default_bound_micro_usd)?,
+                naming_sources(tx, &env, zids, namer)?,
+            ))
+        })
+    }
+
     pub fn signals(&self) -> Result<Signals> {
         let mut client = self.connect_read()?;
         let mut samples = Vec::with_capacity(3);
@@ -397,6 +416,149 @@ pub fn rule_history(
         })
     })
     .transpose()
+}
+
+/// The named runs of the shadow env, as Postgres holds them: what today's
+/// requests can have cost at most, and the named run not yet ended, if any.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamingState {
+    /// Every attempt of a named run started since the start of the current
+    /// UTC day (by the database's clock), at its run's frozen price bound
+    /// (`shadow.price_bound_micro_usd`), plus one bound for each named run
+    /// not ended that has no attempt yet. In millionths of a US dollar. An
+    /// attempt sends at most one request and the naming program refuses a
+    /// run whose worst case is over its cap, so this never counts less than
+    /// was sent; it counts an attempt that never reached the model, and an
+    /// answer that cost less than its bound, at the full bound.
+    pub spent_micro_usd: i64,
+    /// The oldest named run of the env not yet ended, with its conversation.
+    pub in_flight: Option<(i32, RuleRun)>,
+}
+
+/// One conversation of the named list, in list order: its newest finished
+/// keyword run under what participants are shown, and whether it is named.
+#[derive(Debug, Clone, PartialEq)]
+pub struct NamingSource {
+    pub zid: i32,
+    /// The run (`job_id`) and its `config_effective`, or `None` when it has
+    /// no finished keyword run yet.
+    pub source: Option<(String, Value)>,
+    /// A named run by the same namer of the same comments has succeeded: the
+    /// same selection and comment-set digests as the source.
+    pub named: bool,
+    /// A named run of this very source by the same namer exists, in any
+    /// state: its key is taken.
+    pub asked: bool,
+}
+
+/// Statement one (`NamingState`). Bounds: one range of the shadow env's run
+/// records by the env prefix of `delphi_jobs_history` (env, zid, created_at,
+/// job_id), of which only the named runs are kept; for each named run, its
+/// own attempts by `polis_queue_attempts`'s unique (env, job_id,
+/// lease_epoch). Every named run of the env counts, listed or not, so a code
+/// taken off the list during the day still counts what its runs sent.
+/// `default_bound` prices a named run that froze no bound.
+pub fn naming_state(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    default_bound: i64,
+) -> Result<NamingState> {
+    let row = tx.query_one(
+        "WITH d AS (SELECT date_trunc('day', clock_timestamp() AT TIME ZONE 'UTC') \
+                           AT TIME ZONE 'UTC' AS start), \
+              n AS MATERIALIZED (SELECT job_id, zid, status, created_at, config_effective \
+                                 FROM public.delphi_jobs \
+                                 WHERE env = $1 AND config_effective ->> 'names_of' IS NOT NULL) \
+         SELECT (SELECT coalesce(sum( \
+                    coalesce((n.config_effective #>> '{shadow,price_bound_micro_usd}')::bigint, $2) * \
+                    greatest((SELECT count(*) FROM public.polis_queue_attempts a \
+                              WHERE a.env = $1 AND a.job_id = n.job_id AND a.started_at >= d.start), \
+                             CASE WHEN n.status NOT IN ('succeeded','dead','cancelled') \
+                                   AND NOT EXISTS (SELECT 1 FROM public.polis_queue_attempts a \
+                                                   WHERE a.env = $1 AND a.job_id = n.job_id) \
+                                  THEN 1 ELSE 0 END)), 0)::bigint FROM d, n), \
+                f.job_id::text, f.status, \
+                (extract(epoch FROM clock_timestamp() - f.created_at) * 1000)::bigint, \
+                f.config_effective #>> '{shadow,selection_sha256}', \
+                f.config_effective #>> '{shadow,comment_set_sha256}', \
+                coalesce((f.config_effective #>> '{shadow,comments}')::bigint, 0), f.zid \
+         FROM (SELECT 1) one LEFT JOIN LATERAL ( \
+                SELECT * FROM n WHERE n.status NOT IN ('succeeded','dead','cancelled') \
+                ORDER BY n.created_at, n.job_id LIMIT 1) f ON true",
+        &[&env, &default_bound],
+    )?;
+    let job_id: Option<String> = row.try_get(1)?;
+    let in_flight = match job_id {
+        None => None,
+        Some(job_id) => Some((
+            row.try_get::<_, Option<i32>>(7)?.unwrap_or_default(),
+            RuleRun {
+                job_id,
+                status: row.try_get(2)?,
+                age_ms: row.try_get(3)?,
+                selection_sha256: row.try_get(4)?,
+                comment_set_sha256: row.try_get(5)?,
+                comments: row.try_get(6)?,
+                set: None,
+            },
+        )),
+    };
+    Ok(NamingState {
+        spent_micro_usd: row.try_get(0)?,
+        in_flight,
+    })
+}
+
+/// Statement two (`NamingSource`), for the listed conversations `zids` in
+/// their order and the namer word `namer`. Bounds: per conversation, index
+/// ranges of `delphi_jobs_history` on (env, zid) only: the newest succeeded
+/// keyword run (newest first, one row), and two existence checks over the
+/// same range. At most `RULE_LIST_MAX` conversations, the list's own bound.
+pub fn naming_sources(
+    tx: &mut Transaction<'_>,
+    env: &str,
+    zids: &[i32],
+    namer: &str,
+) -> Result<Vec<NamingSource>> {
+    if zids.is_empty() {
+        return Ok(Vec::new());
+    }
+    let rows = tx.query(
+        "SELECT l.zid, s.job_id::text, s.config_effective, \
+                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n \
+                   WHERE n.env = $1 AND n.zid = l.zid AND n.status = 'succeeded' \
+                     AND n.config_effective ->> 'names_of' IS NOT NULL \
+                     AND n.config_effective #>> '{shadow,namer}' = $3 \
+                     AND n.config_effective #>> '{shadow,selection_sha256}' \
+                         = s.config_effective #>> '{shadow,selection_sha256}' \
+                     AND n.config_effective #>> '{shadow,comment_set_sha256}' \
+                         = s.config_effective #>> '{shadow,comment_set_sha256}'), \
+                s.job_id IS NOT NULL AND EXISTS (SELECT 1 FROM public.delphi_jobs n \
+                   WHERE n.env = $1 AND n.zid = l.zid \
+                     AND n.config_effective ->> 'names_of' = s.job_id::text \
+                     AND n.config_effective #>> '{shadow,namer}' = $3) \
+         FROM unnest($2::int[]) WITH ORDINALITY AS l(zid, ord) \
+         LEFT JOIN LATERAL (SELECT j.job_id, j.config_effective FROM public.delphi_jobs j \
+                WHERE j.env = $1 AND j.zid = l.zid AND j.status = 'succeeded' \
+                  AND j.config_effective ->> 'selection' = $4 \
+                  AND j.config_effective ->> 'result_scope' = $5 \
+                  AND j.config_effective ->> 'names_of' IS NULL \
+                ORDER BY j.created_at DESC, j.job_id DESC LIMIT 1) s ON true \
+         ORDER BY l.ord",
+        &[&env, &zids, &namer, &super::plan::SELECTION, &SCOPE],
+    )?;
+    rows.iter()
+        .map(|r| {
+            let job: Option<String> = r.try_get(1)?;
+            let config: Option<Value> = r.try_get(2)?;
+            Ok(NamingSource {
+                zid: r.try_get(0)?,
+                source: job.zip(config),
+                named: r.try_get(3)?,
+                asked: r.try_get(4)?,
+            })
+        })
+        .collect()
 }
 
 /// The census of one conversation under a comment rule a list adds, in the
