@@ -471,6 +471,53 @@ impl CorrectedWeights {
     pub fn excluded(&self) -> impl Iterator<Item = CommentId> + '_ {
         self.excluded.iter().copied()
     }
+    /// The scored comments, as the ordered map a draw looks each candidate up
+    /// in (one lookup of O(log n) per candidate).
+    pub(crate) fn scored_map(&self) -> &BTreeMap<CommentId, Scored> {
+        &self.scored
+    }
+    /// The unscored comments, as the ordered set a draw looks them up in.
+    pub(crate) fn unscored_set(&self) -> &BTreeSet<CommentId> {
+        &self.unscored
+    }
+    /// The excluded comments, as the ordered set a draw looks them up in.
+    pub(crate) fn excluded_set(&self) -> &BTreeSet<CommentId> {
+        &self.excluded
+    }
+    /// Weights made directly from their parts, for the crate's own tests of
+    /// the draw: a weight per scored comment, the unscored and the excluded
+    /// comments. Each scored comment's explanation is a single factor
+    /// holding its weight (the draw reads only the weight).
+    #[cfg(test)]
+    pub(crate) fn constructed(
+        params: ParamSet,
+        sources: [SourceId; 3],
+        scored: impl IntoIterator<Item = (CommentId, Weight)>,
+        unscored: impl IntoIterator<Item = CommentId>,
+        excluded: impl IntoIterator<Item = CommentId>,
+    ) -> Self {
+        let [previous_counts, current_extremity, current_groups] = sources;
+        Self {
+            params,
+            previous_counts,
+            current_extremity,
+            current_groups: Some(current_groups),
+            scored: scored
+                .into_iter()
+                .map(|(id, w)| {
+                    let factor = Factor::new(FactorName::AgreeShare, w.get());
+                    (
+                        id,
+                        Scored::new(w, Explanation::new(vec![factor], 1, vec![])),
+                    )
+                })
+                .collect(),
+            unscored: unscored.into_iter().collect(),
+            excluded: excluded.into_iter().collect(),
+            terms: vec![],
+            term_source: None,
+        }
+    }
 }
 
 /// Scored, unscored and excluded comments.

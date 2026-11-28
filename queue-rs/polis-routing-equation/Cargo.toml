@@ -27,3 +27,13 @@ indexing_slicing = "deny"
 unreachable = "deny"
 todo = "deny"
 unimplemented = "deny"
+
+# The precomputation benchmark: timed only by hand (`cargo bench -p
+# polis-routing-equation --bench routing_precompute`). The crate's check lints
+# it and runs it once in its smoke mode (`cargo test ... --bench
+# routing_precompute -- --smoke`), with no timing assertion. Not part of a
+# plain `cargo test`.
+[[bench]]
+name = "routing_precompute"
+harness = false
+test = false

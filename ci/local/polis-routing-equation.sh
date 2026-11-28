@@ -19,6 +19,11 @@ fail() { printf 'check-polis-routing-equation: %s\n' "$*" >&2; exit 1; }
   cargo clippy --locked -p polis-routing-equation --all-targets -- -D warnings
   # The grid and draw tests print their counts; --nocapture shows them.
   cargo test --locked -p polis-routing-equation -- --nocapture
+  # The precomputation benchmark, run once in its smoke mode: a few dozen
+  # constructed comments, one run per case, no timing assertion. It fails if
+  # a case no longer runs, a draw is not of an eligible candidate, a receipt
+  # does not read back, or an edge case ends differently.
+  cargo test --locked -p polis-routing-equation --bench routing_precompute -- --smoke
 )
 
 # The source scan.
