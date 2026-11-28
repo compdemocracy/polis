@@ -150,7 +150,7 @@ fn a_truncated_body_is_one_request() {
 fn a_malformed_answer_is_bad_json_after_one_request() {
     for via in BOTH {
         let whole = fixture(VT_SONNET);
-        let half = whole[..whole.len() / 2].to_string();
+        let half = whole.as_bytes()[..whole.len() / 2].to_vec();
         let file = sent_once(via, Reply::ok(half), None);
         assert_eq!(file.outcome, "bad_json", "{via:?}");
     }
