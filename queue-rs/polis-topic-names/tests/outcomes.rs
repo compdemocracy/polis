@@ -1,6 +1,6 @@
 //! Every way a naming can fail is an outcome, with the number of calls the
-//! plan allows: none before the call is affordable and keyed, one retry at
-//! most after a busy or unreachable provider.
+//! plan allows: none before the call is affordable and keyed, and at most one
+//! request: a second try only to connect, when the first wrote nothing.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
@@ -56,37 +56,29 @@ fn a_refusal_is_refused() {
 }
 
 #[test]
-fn a_429_then_200_is_one_retry() {
+fn a_429_is_http_429_and_not_sent_again() {
+    // A 429 answers a request that was sent; it is never sent again, even
+    // when the cap would afford a second.
     let h = hierarchy("vtaiwan");
     let ok = support::fixture(VT_SONNET);
     let (file, calls) = run_with_cap(&h, vec![Reply::status(429, Some("0")), Reply::ok(ok)], 1.0);
-    assert_eq!((file.outcome.as_str(), calls), ("named", 2));
-    assert_eq!(file.record.attempts, 2);
-}
-
-#[test]
-fn a_429_twice_is_http_429_after_one_retry() {
-    let h = hierarchy("vtaiwan");
-    let (file, calls) = run_with_cap(
-        &h,
-        vec![Reply::status(429, Some("0")), Reply::status(429, Some("0"))],
-        1.0,
-    );
-    assert_eq!((file.outcome.as_str(), calls), ("http_429", 2));
+    assert_eq!((file.outcome.as_str(), calls), ("http_429", 1));
+    assert_eq!(file.record.attempts, 1);
+    assert!(file.record.request_sent);
     assert_eq!(file.record.http_status, Some(429));
     assert_eq!(file.record.tokens_in, None);
     assert_eq!(file.record.dollars, None);
 }
 
 #[test]
-fn a_529_then_503_is_http_503() {
+fn a_529_is_http_529_and_not_sent_again() {
     let h = hierarchy("vtaiwan");
     let (file, calls) = run_with_cap(
         &h,
         vec![Reply::status(529, None), Reply::status(503, None)],
         1.0,
     );
-    assert_eq!((file.outcome.as_str(), calls), ("http_503", 2));
+    assert_eq!((file.outcome.as_str(), calls), ("http_529", 1));
 }
 
 #[test]
@@ -132,6 +124,7 @@ fn no_listener_is_connect_error_after_one_retry() {
     );
     assert_eq!(file.outcome, "connect_error");
     assert_eq!(file.record.attempts, 2);
+    assert!(!file.record.request_sent);
     assert_eq!(file.record.tokens_in, None);
 }
 

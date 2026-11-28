@@ -104,12 +104,12 @@ anything.
   `bedrock-mantle:CreateInference`, expired credentials or a clock out of step;
   the program does not guess which. 429, the timeout, a refusal and every reply
   check end as they do for the Claude API.
-- **Two attempts are possible.** When the first attempt fails with a retried
-  status or connection error and twice the worst case fits the cap, one more
-  attempt is made, and both may be billed. That is the program's whole retry:
-  it keeps no record between runs, so if its caller runs it again (after a
-  restart, say), that is a new run with its own attempts. Making sure a
-  conversation is named at most once across restarts is the caller's job.
+- **One request at most**, as for the Claude API (below, "At most one
+  request"). The program keeps no record between runs, so if its caller runs
+  it again (after a restart, say), that is a new run with its own request.
+  Making sure a conversation is named at most once across restarts is the
+  caller's job; `record.request_sent` says whether this run's request went
+  out, so the caller can count it even when no answer came.
 
 ## What it reads: `hierarchy.json`
 
@@ -124,7 +124,7 @@ topic one layer up. Other fields are ignored.
 
 ## What leaves the network
 
-One HTTPS request to the Messages API per run, plus at most one retry. Its body
+At most one HTTPS request to the Messages API per run. Its body
 holds, for every topic: its id, layer, parent's id, number of comments, at most
 five keywords and at most three sample comments (their text only), and the
 instruction. Nothing about authors or participants, no comment id, vote or
@@ -150,35 +150,50 @@ share a name.":
 `names.json` holds `schema` (`polis-topic-names.names/1`), `outcome`,
 `reason` (null when named), `names` (id to name, only when named) and
 `record` (model, prompt, thinking, tokens in and out, dollars, the namer word,
-attempts, HTTP status, stop reason, the worst-case estimate and the cap).
+attempts, whether the request was sent, HTTP status, stop reason, the
+worst-case estimate and the cap).
 
-| outcome | when | calls made |
+| outcome | when | requests sent |
 |---|---|---|
-| `named` | every check passed | 1 or 2 |
+| `named` | every check passed | 1 |
 | `too_large` | more than 400 topics, or more than 120,000 counted input tokens | 0 |
 | `over_run_cap` | the worst case passes the cap, or the cap setting is unreadable | 0 |
 | `no_key` | no key in the environment | 0 |
 | `no_region` | Bedrock: `AWS_REGION` unset or not a region name | 0 |
 | `no_credentials` | Bedrock: no credentials from the chain, or none that can sign | 0 |
-| `http_<status>` | any status but 200 (after the retry, for a retried status) | 1 or 2 |
+| `http_<status>` | any status but 200 | 1 |
 | `timeout` | no complete reply within 300 s | 1 |
-| `connect_error` | no connection after the permitted attempts | 1 or 2 |
-| `refused` | stop reason `refusal` | 1 or 2 |
-| `truncated` | stop reason `max_tokens` | 1 or 2 |
-| `bad_json` | the reply is not the schema's shape, has invalid usage counts, is over 4 MiB, or has another stop reason | 1 or 2 |
-| `bad_cover` | a topic missing, an unknown id, or an id twice | 1 or 2 |
-| `wrong_language` | the names are not in the comments' script or language, are mis-encoded, or hold control characters | 1 or 2 |
-| `bad_length` | a name empty or over 50 characters after cleaning | 1 or 2 |
-| `repeated_names` | two topics of one layer with the same name | 1 or 2 |
+| `connect_error` | no connection after two tries, nothing sent; or the connection failed after the request was sent (a reset, a close before the reply, a body cut short), which the reason says | 0 or 1 |
+| `refused` | stop reason `refusal` | 1 |
+| `truncated` | stop reason `max_tokens` | 1 |
+| `bad_json` | the reply is not the schema's shape, has invalid usage counts, is over 4 MiB, or has another stop reason | 1 |
+| `bad_cover` | a topic missing, an unknown id, or an id twice | 1 |
+| `wrong_language` | the names are not in the comments' script or language, are mis-encoded, or hold control characters | 1 |
+| `bad_length` | a name empty or over 50 characters after cleaning | 1 |
+| `repeated_names` | two topics of one layer with the same name | 1 |
+
+`record.request_sent` is `true` exactly when the request was sent, and
+`record.attempts` counts tries to reach the provider: 0 when no call was made,
+1, or 2 when the first try failed before anything was sent.
 
 The checks run in the order of the table's last seven rows; the first that fails
 is the outcome, and the whole reply falls back (a map never mixes model names
 with keyword names).
 
-**The one retry** follows HTTP 429, 500, 502, 503, 504 or 529, or a failed
-connection, after the reply's `retry-after` (at most 60 s), else 10 s.
-A second attempt is permitted only when twice the per-attempt estimate fits
-the run cap; otherwise the first failure is returned without retrying.
+**At most one request.** The request is written to the provider at most once.
+A try that fails before any byte of it could have been written (the name
+lookup, a refused connection, the TLS handshake, the connect timeout) is
+followed, after 10 s, by one more try to connect. Any failure once the request
+has been written, in whole or in part (the timeout waiting for the answer, a
+reset, any status but 200, a body cut short or not the schema's shape) is the
+outcome, and the request is never sent again: the provider may have done the
+work and charged for it. The line is reqwest's connect error, which it reports
+only for failures in the connector or in taking a connection, before the first
+byte is written. In the code (`src/client.rs`, module `one`) the request is a
+value that sending consumes; only a try that wrote nothing gives it back. No
+retry inside the HTTP library: reqwest's own retry policy is set to never, no
+idle connection is kept (so hyper never resends on a reused connection) and no
+redirect is followed.
 
 **The cost check.** Before any call, the worst case is the counted input
 tokens at the model's input price plus 32,000 output tokens at its output
@@ -208,12 +223,9 @@ is a conservative estimate under the following tokenizer and framing assumptions
 
 So Bowling Green's worst case is 70,540 x $0.10 / 1M + 32,000 x $0.50 / 1M
 = $0.0231 on Haiku and 70,540 x $2 / 1M + 32,000 x $10 / 1M = $0.4611 on
-Sonnet, both under the $0.50 default. This estimate is for one attempt.
-The run reserves another full estimate before allowing a retry, including
-when the first attempt has unknown usage. Sonnet does not retry under the
-default cap: its output allowance alone is $0.32 per attempt. A caller can
-explicitly raise the cap to allow two attempts. This bounds admitted attempts
-under the stated tokenization and price assumptions, not a provider invoice.
+Sonnet, both under the $0.50 default. With one request at most, this one
+estimate bounds the run, under the stated tokenization and price assumptions;
+it is not a provider invoice.
 
 **The language check.** The code names no language; the model decides from the
 comments. For the check only, the comments' majority script is counted over
@@ -246,6 +258,12 @@ fixtures are described in `tests/fixtures/README.md`.
   English) are `wrong_language`, the rest are `named`; a mis-encoded Urdu reply
   is `wrong_language`.
 - `outcomes`: every other outcome, with the number of calls each makes.
+- `at_most_once`: through both providers, a stub that keeps counting after its
+  reply sees exactly one request for a slow answer past the timeout, a reset
+  after the request, a close with no reply, HTTP 500, 503, 529 and 429, a body
+  cut short and a malformed answer; a refused connection is two tries and no
+  request; a failed name lookup is tried again and then sends one request; the
+  price check sends none.
 - `program`: argv, environment, exit status and `names.json`.
 - `reply_boundary`: replies a provider should never send (usage counts of the
   wrong type or overflowing, an unknown stop reason, control characters in a
@@ -262,7 +280,7 @@ fixtures are described in `tests/fixtures/README.md`.
   body with only the model id changed; the signature is recomputed in the test
   (credential scope `<date>/<region>/bedrock-mantle/aws4_request`, signed
   headers, the body's hash) and equals the one sent; no `x-api-key`; 403, 429
-  with and without the retry, the timeout, a refusal, a bad cover, no region,
+  sent once, the timeout, a refusal, a bad cover, no region,
   credentials that cannot sign, and the cap at the given price; the 403
   reason with and without an error type (the message never kept); no price
   or a bad one (absent, empty, not a number, zero, negative, over $100, no

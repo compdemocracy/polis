@@ -23,7 +23,9 @@ fn a_retry_must_fit_the_run_budget_too() {
 }
 
 #[test]
-fn exactly_two_estimates_allow_one_retry() {
+fn a_cap_of_two_estimates_still_sends_once() {
+    // A cap that would afford two attempts no longer buys a second request:
+    // the request is written at most once.
     let h = hierarchy("bg2050");
     let n = namer("sonnet", "default");
     let worst = n
@@ -40,7 +42,8 @@ fn exactly_two_estimates_allow_one_retry() {
         RunCap::Usd(2.0 * worst),
         &settings(&stub.url),
     );
-    assert_eq!(stub.finish().len(), 2);
-    assert_eq!(file.record.attempts, 2);
+    assert_eq!(stub.finish().len(), 1);
+    assert_eq!(file.record.attempts, 1);
+    assert!(file.record.request_sent);
     assert_eq!(file.outcome, "http_500");
 }

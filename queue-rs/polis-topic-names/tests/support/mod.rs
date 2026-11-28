@@ -32,14 +32,15 @@ pub fn namer(model: &str, thinking: &str) -> Namer {
     .unwrap()
 }
 
-/// Settings for the stub: short timeout, no wait before the retry.
+/// Settings for the stub: short timeout, no wait before a second try to
+/// connect.
 pub fn settings(url: &str) -> Settings {
     Settings {
         api_base: url.to_string(),
         timeout: Duration::from_secs(10),
         connect_timeout: Duration::from_secs(5),
-        retry_wait_default: Duration::from_millis(0),
-        retry_wait_cap: Duration::from_millis(50),
+        reconnect_wait: Duration::from_millis(0),
+        resolver: None,
     }
 }
 
@@ -53,6 +54,14 @@ pub enum Reply {
     },
     /// Read the request, then say nothing for this long.
     Hang(Duration),
+    /// Read the request's head, then close with the rest of it unread, which
+    /// resets the connection.
+    Reset,
+    /// Read the whole request, then close without a reply.
+    Close,
+    /// HTTP 200 whose `content-length` is the whole body's, with only its
+    /// first half written before the connection closes.
+    Truncated(Vec<u8>),
 }
 
 impl Reply {
@@ -86,6 +95,7 @@ pub struct Received {
 
 pub struct Stub {
     pub url: String,
+    pub port: u16,
     received: Arc<Mutex<Vec<Received>>>,
     handle: Option<JoinHandle<()>>,
 }
@@ -93,14 +103,37 @@ pub struct Stub {
 impl Stub {
     /// Serves the replies in order, one per connection, then closes.
     pub fn start(replies: Vec<Reply>) -> Self {
+        Self::start_counting(replies, Duration::ZERO)
+    }
+
+    /// Serves the replies in order, one per connection, then keeps listening
+    /// for `grace`, answering any further request with HTTP 500 and counting
+    /// it, so a request sent again is seen rather than refused.
+    pub fn start_counting(replies: Vec<Reply>, grace: Duration) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
-        let url = format!("http://{}/v1", listener.local_addr().unwrap());
+        let port = listener.local_addr().unwrap().port();
+        let url = format!("http://127.0.0.1:{port}/v1");
         let received = Arc::new(Mutex::new(Vec::new()));
         let rec = Arc::clone(&received);
         listener.set_nonblocking(true).unwrap();
         let handle = std::thread::spawn(move || {
             let deadline = std::time::Instant::now() + Duration::from_secs(20);
-            for reply in replies {
+            let mut replies = replies.into_iter();
+            let mut extra_until = None;
+            loop {
+                let reply = match replies.next() {
+                    Some(r) => r,
+                    None if grace.is_zero() => return,
+                    None => {
+                        let until =
+                            *extra_until.get_or_insert_with(|| std::time::Instant::now() + grace);
+                        if std::time::Instant::now() > until {
+                            return;
+                        }
+                        Reply::status(500, Some("0"))
+                    }
+                };
+                let deadline = extra_until.unwrap_or(deadline);
                 // Poll, so a client that makes fewer calls than expected ends
                 // the stub (and the test's assertion fails) instead of hanging.
                 let mut stream = loop {
@@ -117,6 +150,13 @@ impl Stub {
                 };
                 if stream.set_nonblocking(false).is_err() {
                     return;
+                }
+                if let Reply::Reset = reply {
+                    if let Some(req) = read_head(&mut stream) {
+                        rec.lock().unwrap().push(req);
+                    }
+                    drop(stream);
+                    continue;
                 }
                 let Some(req) = read_request(&mut stream) else {
                     return;
@@ -141,11 +181,26 @@ impl Stub {
                         let _ = stream.flush();
                     }
                     Reply::Hang(d) => std::thread::sleep(d),
+                    Reply::Reset => {}
+                    Reply::Close => {
+                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                    }
+                    Reply::Truncated(body) => {
+                        let head = format!(
+                            "HTTP/1.1 200 STUB\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n",
+                            body.len()
+                        );
+                        let _ = stream.write_all(head.as_bytes());
+                        let _ = stream.write_all(&body[..body.len() / 2]);
+                        let _ = stream.flush();
+                        let _ = stream.shutdown(std::net::Shutdown::Both);
+                    }
                 }
             }
         });
         Self {
             url,
+            port,
             received,
             handle: Some(handle),
         }
@@ -164,6 +219,30 @@ impl Stub {
             h.join().unwrap();
         }
         self.received()
+    }
+}
+
+/// Reads only the request's head (and whatever of the body came with it).
+fn read_head(stream: &mut TcpStream) -> Option<Received> {
+    stream
+        .set_read_timeout(Some(Duration::from_secs(10)))
+        .ok()?;
+    let mut buf = Vec::new();
+    let mut chunk = [0u8; 1024];
+    loop {
+        let n = stream.read(&mut chunk).ok()?;
+        if n == 0 {
+            return None;
+        }
+        buf.extend_from_slice(&chunk[..n]);
+        if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+            let head = String::from_utf8_lossy(&buf[..i]).to_string();
+            return Some(Received {
+                request_line: head.split("\r\n").next()?.to_string(),
+                headers: vec![],
+                body: vec![],
+            });
+        }
     }
 }
 

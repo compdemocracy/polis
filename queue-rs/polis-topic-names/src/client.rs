@@ -1,5 +1,8 @@
-//! The one HTTP call to the Messages API, with its timeout and at most one
-//! retry.
+//! The one HTTP call to the Messages API, with its timeout. The request is
+//! written at most once: a failure before any byte of it could have reached
+//! the provider may be followed by one more try to connect; any failure after
+//! that is the call's outcome and the request is never sent again (see
+//! [`one`]).
 //!
 //! Headers sent to the Claude API: `content-type`, `anthropic-version` and
 //! `x-api-key` (marked sensitive), and whatever the HTTP client itself adds
@@ -27,9 +30,6 @@ pub const DEFAULT_API_BASE: &str = "https://api.anthropic.com/v1";
 /// The most bytes of an HTTP 200 reply body that are read. A reply of 32,000
 /// output tokens is far smaller; a longer body is not read to its end.
 pub const MAX_REPLY_BYTES: usize = 4 * 1024 * 1024;
-
-/// Statuses after which the call is made once more.
-pub const RETRY_STATUSES: [u16; 6] = [429, 500, 502, 503, 504, 529];
 
 /// The Signature Version 4 signing name of Claude in Amazon Bedrock.
 pub const BEDROCK_SIGNING_NAME: &str = "bedrock-mantle";
@@ -99,17 +99,37 @@ impl std::fmt::Debug for Auth<'_> {
     }
 }
 
+/// The most times one naming call tries to reach the provider: the first try
+/// and, only when that try failed before any byte of the request could have
+/// been written (see [`Sent`]), one more. A request is written at most once.
+pub const MAX_CONNECT_ATTEMPTS: u32 = 2;
+
 /// How the call is made. [`Settings::default`] is production's.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Settings {
     pub api_base: String,
-    /// The bound on one attempt, from connecting to the last byte of the reply.
+    /// The bound on the request, from connecting to the last byte of the reply.
     pub timeout: Duration,
     pub connect_timeout: Duration,
-    /// The wait before the retry when the reply gives no `retry-after`.
-    pub retry_wait_default: Duration,
-    /// The longest wait before the retry, whatever `retry-after` says.
-    pub retry_wait_cap: Duration,
+    /// The wait before the second try to connect, after a first try that
+    /// failed before anything was sent.
+    pub reconnect_wait: Duration,
+    /// Resolves host names in place of the system resolver. `None` (the
+    /// default, and production's) is the system resolver; the offline tests
+    /// set one to fail a name lookup without any network.
+    pub resolver: Option<std::sync::Arc<dyn reqwest::dns::Resolve>>,
+}
+
+impl std::fmt::Debug for Settings {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Settings")
+            .field("api_base", &self.api_base)
+            .field("timeout", &self.timeout)
+            .field("connect_timeout", &self.connect_timeout)
+            .field("reconnect_wait", &self.reconnect_wait)
+            .field("resolver", &self.resolver.as_ref().map(|_| ".."))
+            .finish()
+    }
 }
 
 impl Default for Settings {
@@ -118,8 +138,8 @@ impl Default for Settings {
             api_base: DEFAULT_API_BASE.into(),
             timeout: Duration::from_secs(300),
             connect_timeout: Duration::from_secs(30),
-            retry_wait_default: Duration::from_secs(10),
-            retry_wait_cap: Duration::from_secs(60),
+            reconnect_wait: Duration::from_secs(10),
+            resolver: None,
         }
     }
 }
@@ -137,9 +157,14 @@ pub enum Ended {
     Forbidden(Option<String>),
     /// Any other HTTP status.
     Status(u16),
-    /// An attempt passed its timeout.
+    /// The request was sent and no complete reply came within the timeout.
     Timeout,
-    /// No connection, or the connection failed before a status came back.
+    /// The request was sent (in whole or in part) and the connection then
+    /// failed: a reset, a close before the reply, or a reply body cut short.
+    Dropped,
+    /// No connection after [`MAX_CONNECT_ATTEMPTS`] tries, each failing before
+    /// any byte of the request was written (name resolution, a refused
+    /// connection, the TLS handshake, the connect timeout).
     Connect,
     /// The key cannot be sent as a header value.
     BadKey,
@@ -150,68 +175,101 @@ pub enum Ended {
     CannotSign,
 }
 
-/// The call's result and how many attempts it took.
+/// Whether the call's request was written to the provider.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sent {
+    /// No byte of the request could have reached the provider: nothing was
+    /// done or charged for.
+    No,
+    /// The request was written, in whole or in part, exactly once. The
+    /// provider may have done the work and charged for it whether or not an
+    /// answer came back, so the request is never written again.
+    Once,
+}
+
+/// The call's result: how it ended, whether its request was sent, and how
+/// many tries to reach the provider it took.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Call {
     pub ended: Ended,
+    pub sent: Sent,
     pub attempts: u32,
     pub http_status: Option<u16>,
 }
 
-enum Attempt {
-    Done(Ended, Option<u16>),
-    Retry(Ended, Option<u16>, Option<Duration>),
+impl Call {
+    fn not_sent(why: NotSent, attempts: u32) -> Self {
+        Self {
+            ended: match why {
+                NotSent::Connect => Ended::Connect,
+                NotSent::BadKey => Ended::BadKey,
+                NotSent::NoCredentials => Ended::NoCredentials,
+                NotSent::CannotSign => Ended::CannotSign,
+            },
+            sent: Sent::No,
+            attempts,
+            http_status: None,
+        }
+    }
+
+    fn sent(answer: Answer, attempts: u32) -> Self {
+        let (ended, http_status) = match answer {
+            Answer::Answered(body) => (Ended::Answered(body), Some(200)),
+            Answer::Oversize => (Ended::Oversize, Some(200)),
+            Answer::Forbidden(t) => (Ended::Forbidden(t), Some(403)),
+            Answer::Status(s) => (Ended::Status(s), Some(s)),
+            Answer::Timeout(status) => (Ended::Timeout, status),
+            Answer::Dropped(status) => (Ended::Dropped, status),
+        };
+        Self {
+            ended,
+            sent: Sent::Once,
+            attempts,
+            http_status,
+        }
+    }
 }
 
-/// Makes the call: one attempt, and one more only after a status in
-/// [`RETRY_STATUSES`] or a failed connection.
+/// Why a call ended with nothing sent.
+enum NotSent {
+    Connect,
+    BadKey,
+    NoCredentials,
+    CannotSign,
+}
+
+/// What came back once the request had been written. The status, when one
+/// came, rides on the failures that can follow it.
+enum Answer {
+    Answered(Vec<u8>),
+    Oversize,
+    Forbidden(Option<String>),
+    Status(u16),
+    Timeout(Option<u16>),
+    Dropped(Option<u16>),
+}
+
+/// Makes the call: the request is written at most once; a try that failed
+/// before writing anything is made once more.
 pub fn call(settings: &Settings, key: &str, body: &str) -> Call {
-    call_with_retry(settings, key, body, true)
+    call_with_auth(settings, Auth::ApiKey(key), body)
 }
 
-/// Makes a second attempt only when the caller reserved its cost.
-pub(crate) fn call_with_retry(
-    settings: &Settings,
-    key: &str,
-    body: &str,
-    allow_retry: bool,
-) -> Call {
-    call_with_auth(settings, Auth::ApiKey(key), body, allow_retry)
-}
-
-/// Makes the call with either provider's authentication; a second attempt
-/// only when the caller reserved its cost.
-pub(crate) fn call_with_auth(
-    settings: &Settings,
-    auth: Auth<'_>,
-    body: &str,
-    allow_retry: bool,
-) -> Call {
+/// Makes the call with either provider's authentication.
+pub(crate) fn call_with_auth(settings: &Settings, auth: Auth<'_>, body: &str) -> Call {
     let Ok(rt) = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
     else {
-        return Call {
-            ended: Ended::Connect,
-            attempts: 0,
-            http_status: None,
-        };
+        return Call::not_sent(NotSent::Connect, 0);
     };
-    rt.block_on(call_async(settings, auth, body, allow_retry))
+    rt.block_on(call_async(settings, auth, body))
 }
 
 /// What signs each attempt.
 enum Signer {
     Key(reqwest::header::HeaderValue),
     Bedrock { region: String, creds: Credentials },
-}
-
-fn ended(ended: Ended) -> Call {
-    Call {
-        ended,
-        attempts: 0,
-        http_status: None,
-    }
 }
 
 /// Reads credentials from the default chain, bounded by `limit`.
@@ -227,10 +285,10 @@ async fn chain_credentials(region: &str, limit: Duration) -> Option<Credentials>
     tokio::time::timeout(limit, read).await.ok().flatten()
 }
 
-async fn signer(settings: &Settings, auth: Auth<'_>) -> Result<Signer, Ended> {
+async fn signer(settings: &Settings, auth: Auth<'_>) -> Result<Signer, NotSent> {
     match auth {
         Auth::ApiKey(key) => {
-            let mut v = reqwest::header::HeaderValue::from_str(key).map_err(|_| Ended::BadKey)?;
+            let mut v = reqwest::header::HeaderValue::from_str(key).map_err(|_| NotSent::BadKey)?;
             v.set_sensitive(true);
             Ok(Signer::Key(v))
         }
@@ -239,7 +297,7 @@ async fn signer(settings: &Settings, auth: Auth<'_>) -> Result<Signer, Ended> {
             credentials,
         } => {
             if !valid_region(region) {
-                return Err(Ended::CannotSign);
+                return Err(NotSent::CannotSign);
             }
             let creds = match credentials {
                 AwsCredentials::Given {
@@ -255,7 +313,7 @@ async fn signer(settings: &Settings, auth: Auth<'_>) -> Result<Signer, Ended> {
                 ),
                 AwsCredentials::DefaultChain => chain_credentials(region, settings.connect_timeout)
                     .await
-                    .ok_or(Ended::NoCredentials)?,
+                    .ok_or(NotSent::NoCredentials)?,
             };
             Ok(Signer::Bedrock {
                 region: region.to_string(),
@@ -334,130 +392,141 @@ impl Signer {
     }
 }
 
-async fn call_async(settings: &Settings, auth: Auth<'_>, body: &str, allow_retry: bool) -> Call {
+async fn call_async(settings: &Settings, auth: Auth<'_>, body: &str) -> Call {
     let signer = match signer(settings, auth).await {
         Ok(s) => s,
-        Err(e) => return ended(e),
+        Err(why) => return Call::not_sent(why, 0),
     };
-    let Ok(client) = reqwest::Client::builder()
+    // No retry inside the HTTP library: reqwest's own policy (by default it
+    // resends after some HTTP/2 refusals) is switched off, and with no idle
+    // connection kept, hyper never reuses one, so its resend of a request
+    // canceled on a reused connection cannot happen either. No redirect is
+    // followed (a redirect would be a second request).
+    let mut builder = reqwest::Client::builder()
         .timeout(settings.timeout)
         .connect_timeout(settings.connect_timeout)
         .redirect(reqwest::redirect::Policy::none())
-        .build()
-    else {
-        return Call {
-            ended: Ended::Connect,
-            attempts: 0,
-            http_status: None,
-        };
+        .retry(reqwest::retry::never())
+        .pool_max_idle_per_host(0);
+    if let Some(r) = &settings.resolver {
+        builder = builder.dns_resolver2(std::sync::Arc::clone(r));
+    }
+    let Ok(client) = builder.build() else {
+        return Call::not_sent(NotSent::Connect, 0);
     };
     let url = format!("{}/messages", settings.api_base.trim_end_matches('/'));
+    let Some(headers) = signer.headers(&url, body) else {
+        return Call::not_sent(NotSent::CannotSign, 0);
+    };
+    let inspect_forbidden = matches!(signer, Signer::Bedrock { .. });
+    // The call's one request. `send` consumes it; only a try that failed
+    // before writing anything hands it back.
+    let mut request = one::Request::new(url, headers, body.to_string());
     let mut attempts = 0;
     loop {
-        let Some(headers) = signer.headers(&url, body) else {
-            return Call {
-                ended: Ended::CannotSign,
-                attempts,
-                http_status: None,
-            };
-        };
         attempts += 1;
-        match attempt(
-            &client,
-            &url,
-            headers,
-            body,
-            matches!(signer, Signer::Bedrock { .. }),
-        )
-        .await
+        match request.send(&client, inspect_forbidden).await {
+            one::Delivery::Sent(answer) => return Call::sent(answer, attempts),
+            one::Delivery::NotSent(unsent) => {
+                if attempts >= MAX_CONNECT_ATTEMPTS {
+                    return Call::not_sent(NotSent::Connect, attempts);
+                }
+                tokio::time::sleep(settings.reconnect_wait).await;
+                request = unsent;
+            }
+        }
+    }
+}
+
+/// The one request of a naming call, and the line between "nothing sent" and
+/// "sent".
+///
+/// A [`Request`](one::Request) is not `Clone` and its fields are private to
+/// this module. [`send`](one::Request::send) takes it by value. A
+/// [`Delivery::Sent`](one::Delivery::Sent) holds no request, so once any byte
+/// may have been written the request is gone and cannot be sent again; only
+/// [`Delivery::NotSent`](one::Delivery::NotSent) gives it back.
+///
+/// The line: reqwest marks an error as a connect error (`is_connect`) only
+/// when it came from the connector (name resolution, the TCP connection, the
+/// TLS handshake, a proxy tunnel, the connect timeout) or from checking out a
+/// connection, all of which happen before hyper writes the first byte of the
+/// request on a connection. Every other failure (the overall timeout, a reset,
+/// a close before the reply, a status, a body cut short) is on the sent side,
+/// including the ones where the request may only have been written in part:
+/// the provider may have read it.
+mod one {
+    use super::{Answer, MAX_REPLY_BYTES, forbidden_type};
+
+    pub(super) struct Request {
+        url: String,
+        headers: reqwest::header::HeaderMap,
+        body: String,
+    }
+
+    pub(super) enum Delivery {
+        /// Nothing of the request was written; here it is, unsent.
+        NotSent(Request),
+        /// The request was written, in whole or in part.
+        Sent(Answer),
+    }
+
+    impl Request {
+        pub(super) fn new(url: String, headers: reqwest::header::HeaderMap, body: String) -> Self {
+            Self { url, headers, body }
+        }
+
+        pub(super) async fn send(
+            self,
+            client: &reqwest::Client,
+            inspect_forbidden: bool,
+        ) -> Delivery {
+            let sent = client
+                .post(&self.url)
+                .headers(self.headers.clone())
+                .body(self.body.clone())
+                .send()
+                .await;
+            let resp = match sent {
+                Ok(r) => r,
+                // Before the first byte: the request comes back.
+                Err(e) if e.is_connect() || e.is_builder() => return Delivery::NotSent(self),
+                Err(e) if e.is_timeout() => return Delivery::Sent(Answer::Timeout(None)),
+                Err(_) => return Delivery::Sent(Answer::Dropped(None)),
+            };
+            drop(self);
+            Delivery::Sent(read_answer(resp, inspect_forbidden).await)
+        }
+    }
+
+    async fn read_answer(mut resp: reqwest::Response, inspect_forbidden: bool) -> Answer {
+        let status = resp.status().as_u16();
+        if status == 403 && inspect_forbidden {
+            return Answer::Forbidden(forbidden_type(resp).await);
+        }
+        if status != 200 {
+            return Answer::Status(status);
+        }
+        if resp
+            .content_length()
+            .is_some_and(|n| n > MAX_REPLY_BYTES as u64)
         {
-            Attempt::Done(ended, http_status) => {
-                return Call {
-                    ended,
-                    attempts,
-                    http_status,
-                };
-            }
-            Attempt::Retry(ended, http_status, after) => {
-                if !allow_retry || attempts >= 2 {
-                    return Call {
-                        ended,
-                        attempts,
-                        http_status,
-                    };
+            return Answer::Oversize;
+        }
+        let mut body = Vec::new();
+        loop {
+            match resp.chunk().await {
+                Ok(Some(chunk)) => {
+                    if body.len() + chunk.len() > MAX_REPLY_BYTES {
+                        return Answer::Oversize;
+                    }
+                    body.extend_from_slice(&chunk);
                 }
-                let wait = after
-                    .unwrap_or(settings.retry_wait_default)
-                    .min(settings.retry_wait_cap);
-                tokio::time::sleep(wait).await;
+                Ok(None) => return Answer::Answered(body),
+                Err(e) if e.is_timeout() => return Answer::Timeout(Some(200)),
+                Err(_) => return Answer::Dropped(Some(200)),
             }
         }
-    }
-}
-
-async fn attempt(
-    client: &reqwest::Client,
-    url: &str,
-    headers: reqwest::header::HeaderMap,
-    body: &str,
-    inspect_forbidden: bool,
-) -> Attempt {
-    let sent = client
-        .post(url)
-        .headers(headers)
-        .body(body.to_string())
-        .send()
-        .await;
-    let resp = match sent {
-        Ok(r) => r,
-        Err(e) => return transport_failure(&e),
-    };
-    let status = resp.status().as_u16();
-    let after = resp
-        .headers()
-        .get("retry-after")
-        .and_then(|v| v.to_str().ok())
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .map(Duration::from_secs);
-    if status == 403 && inspect_forbidden {
-        return Attempt::Done(Ended::Forbidden(forbidden_type(resp).await), Some(403));
-    }
-    if status != 200 {
-        if RETRY_STATUSES.contains(&status) {
-            return Attempt::Retry(Ended::Status(status), Some(status), after);
-        }
-        return Attempt::Done(Ended::Status(status), Some(status));
-    }
-    if resp
-        .content_length()
-        .is_some_and(|n| n > MAX_REPLY_BYTES as u64)
-    {
-        return Attempt::Done(Ended::Oversize, Some(200));
-    }
-    let mut resp = resp;
-    let mut body = Vec::new();
-    loop {
-        match resp.chunk().await {
-            Ok(Some(chunk)) => {
-                if body.len() + chunk.len() > MAX_REPLY_BYTES {
-                    return Attempt::Done(Ended::Oversize, Some(200));
-                }
-                body.extend_from_slice(&chunk);
-            }
-            Ok(None) => return Attempt::Done(Ended::Answered(body), Some(200)),
-            Err(e) if e.is_timeout() => return Attempt::Done(Ended::Timeout, Some(200)),
-            Err(_) => return Attempt::Done(Ended::Connect, Some(200)),
-        }
-    }
-}
-
-fn transport_failure(e: &reqwest::Error) -> Attempt {
-    if e.is_connect() {
-        Attempt::Retry(Ended::Connect, None, None)
-    } else if e.is_timeout() {
-        Attempt::Done(Ended::Timeout, None)
-    } else {
-        Attempt::Done(Ended::Connect, None)
     }
 }
 

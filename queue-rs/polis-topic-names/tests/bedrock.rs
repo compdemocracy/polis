@@ -366,7 +366,7 @@ fn a_403_reason_names_the_response_error_type_and_nothing_else() {
 }
 
 #[test]
-fn a_429_then_200_is_one_retry_and_each_attempt_is_signed() {
+fn a_429_is_signed_once_and_not_sent_again() {
     let h = hierarchy("vtaiwan");
     let (file, got) = run(
         &h,
@@ -376,27 +376,12 @@ fn a_429_then_200_is_one_retry_and_each_attempt_is_signed() {
         vec![Reply::status(429, Some("0")), Reply::ok(fixture(VT_SONNET))],
         5.0,
     );
-    assert_eq!((file.outcome.as_str(), got.len()), ("named", 2));
-    assert_eq!(file.record.attempts, 2);
-    for r in &got {
-        assert_bedrock_headers(r);
-        assert_signed(r, REGION);
-    }
-}
-
-#[test]
-fn a_429_twice_is_http_429_after_one_retry() {
-    let h = hierarchy("vtaiwan");
-    let (file, got) = run(
-        &h,
-        &bedrock("sonnet", "default"),
-        Some(REGION),
-        &given(),
-        vec![Reply::status(429, Some("0")), Reply::status(429, Some("0"))],
-        5.0,
-    );
-    assert_eq!((file.outcome.as_str(), got.len()), ("http_429", 2));
+    assert_eq!((file.outcome.as_str(), got.len()), ("http_429", 1));
+    assert_eq!(file.record.attempts, 1);
+    assert!(file.record.request_sent);
     assert_eq!(file.record.dollars, None);
+    assert_bedrock_headers(&got[0]);
+    assert_signed(&got[0], REGION);
 }
 
 #[test]

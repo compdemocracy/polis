@@ -130,7 +130,12 @@ pub struct Record {
     pub namer: String,
     pub outcome: String,
     pub reason: Option<String>,
+    /// Tries to reach the provider: 0 when no call was made, 2 only when the
+    /// first try failed before anything was sent.
     pub attempts: u32,
+    /// Whether the request was written to the provider (at most once). When
+    /// true the provider may have charged for it, answer or not.
+    pub request_sent: bool,
     pub http_status: Option<u16>,
     pub stop_reason: Option<String>,
     /// Not a number (written as `null`) only when there was no price.
@@ -178,6 +183,7 @@ struct Run {
     attempts: u32,
     http_status: Option<u16>,
     stop_reason: Option<String>,
+    request_sent: bool,
 }
 
 impl Run {
@@ -190,6 +196,7 @@ impl Run {
             attempts: 0,
             http_status: None,
             stop_reason: None,
+            request_sent: false,
         }
     }
 }
@@ -273,6 +280,7 @@ pub fn name_topics_with(
             outcome,
             reason: run.reason,
             attempts: run.attempts,
+            request_sent: run.request_sent,
             http_status: run.http_status,
             stop_reason: run.stop_reason,
             worst_case_usd: worst.unwrap_or(f64::NAN),
@@ -406,10 +414,11 @@ fn decide_and_call(
             );
         }
     };
-    // An unsuccessful attempt may still have been billed. Reserve the same
-    // estimate for both attempts before permitting a second request.
-    let allow_retry = matches!(cap, RunCap::Usd(max) if worst <= max / 2.0);
-    let call = client::call_with_auth(settings, auth, body, allow_retry);
+    // The cost check above is the last thing before the one request. The
+    // request is written at most once (a failed try that wrote nothing may be
+    // followed by one more), so one estimate bounds what this run can be
+    // charged.
+    let call = client::call_with_auth(settings, auth, body);
     let mut run = match call.ended {
         client::Ended::Answered(bytes) => judge_reply(h, &bytes),
         client::Ended::Oversize => Run::failed(
@@ -441,9 +450,14 @@ fn decide_and_call(
         client::Ended::Timeout => {
             Run::failed(Outcome::Timeout, "no complete reply within the timeout")
         }
-        client::Ended::Connect => {
-            Run::failed(Outcome::ConnectError, "no connection to the provider")
-        }
+        client::Ended::Connect => Run::failed(
+            Outcome::ConnectError,
+            "no connection to the provider; nothing was sent",
+        ),
+        client::Ended::Dropped => Run::failed(
+            Outcome::ConnectError,
+            "the connection failed after the request was sent; it was not sent again",
+        ),
         client::Ended::BadKey => Run::failed(
             Outcome::NoKey,
             format!("{KEY_ENV} is not a valid header value"),
@@ -451,6 +465,7 @@ fn decide_and_call(
     };
     run.attempts = call.attempts;
     run.http_status = call.http_status;
+    run.request_sent = call.sent == client::Sent::Once;
     run
 }
 
@@ -561,6 +576,7 @@ fn judge_message(h: &Hierarchy, v: &serde_json::Value, stop: Option<&str>) -> Ru
         attempts: 0,
         http_status: None,
         stop_reason: None,
+        request_sent: false,
     }
 }
 
